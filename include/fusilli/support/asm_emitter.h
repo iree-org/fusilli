@@ -33,7 +33,6 @@
 #include "fusilli/external/torch_types.h"
 #include "fusilli/graph/graph.h"
 #include "fusilli/node/conv_node.h"
-#include "fusilli/node/matmul_node.h"
 #include "fusilli/node/pointwise_node.h"
 #include "fusilli/support/extras.h"
 

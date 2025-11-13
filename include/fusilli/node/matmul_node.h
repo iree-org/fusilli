@@ -51,6 +51,8 @@ getMatmulInferredOutputShape(const std::vector<int64_t> &aDim,
     int64_t aDimVal = (i < aRank - 2) ? aDim[i] : 1;
     int64_t bDimVal = (i < bRank - 2) ? bDim[i] : 1;
     // Use the maximum of the two dimensions (broadcasting rule)
+    assert((aDimVal % bDimVal == 0 || bDimVal % aDimVal == 0) &&
+           "Incompatible dimensions for broadcasting");
     cDim[i] = std::max(aDimVal, bDimVal);
   }
 
@@ -116,6 +118,21 @@ public:
         "A has K=" +
             std::to_string(aK) + ", B has K=" + std::to_string(bK));
 
+    // Check that batch dimensions are broadcastable.
+    size_t outRank = std::max(aRank, bRank);
+    size_t batchDims = outRank - 2;
+    for (size_t i = 0; i < batchDims; ++i) {
+      int64_t aDimVal = (i < aRank - 2) ? aDim[i] : 1;
+      int64_t bDimVal = (i < bRank - 2) ? bDim[i] : 1;
+      FUSILLI_RETURN_ERROR_IF(
+          !(aDimVal % bDimVal == 0 || bDimVal % aDimVal == 0),
+          ErrorCode::InvalidAttribute,
+          "Matmul input tensors A and B have incompatible batch dimensions for "
+          "broadcasting at index " +
+              std::to_string(i) + ": A has dim=" + std::to_string(aDimVal) +
+              ", B has dim=" + std::to_string(bDimVal));
+    }
+
     return ok();
   }
 
@@ -139,7 +156,7 @@ public:
     if (cDim.empty())
       cT->setDim(getMatmulInferredOutputShape(aDim, bDim));
 
-    // Infer stride of output tensor.
+    // Output stride is contiguous (row-major) when unspecified.
     if (cStride.empty()) {
       cT->setStride(
           generateStrideFromDim(cDim, getContiguousStrideOrder(cDim.size())));
@@ -169,10 +186,6 @@ public:
         ErrorCode::InvalidAttribute,
         "Matmul output tensor C dimensions do not match the expected shapes "
         "inferred based on the input dimensions");
-
-    // No layout restrictions - we support arbitrary strides through
-    // permutations.
-
     return ok();
   }
 };

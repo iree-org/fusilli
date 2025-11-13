@@ -432,6 +432,72 @@ TEST_CASE("MatmulNode dimension compatibility checks", "[matmul_node]") {
   }
 }
 
+TEST_CASE("MatmulNode broadcasting dimension compatibility checks",
+          "[matmul_node]") {
+  Context ctx;
+  MatmulAttr attr;
+
+  SECTION("Incompatible batch dimensions - non-broadcastable") {
+    int64_t batchA = 3, batchB = 5, m = 16, k = 32, n = 64;
+
+    auto aT = std::make_shared<TensorAttr>(
+        TensorAttr().setDim({batchA, m, k}).setStride({m * k, k, 1}));
+    auto bT = std::make_shared<TensorAttr>(
+        TensorAttr().setDim({batchB, k, n}).setStride({k * n, n, 1}));
+
+    auto cT = std::make_shared<TensorAttr>();
+    attr.setA(aT).setB(bT).setC(cT);
+
+    MatmulNode node(std::move(attr), ctx);
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "Matmul input tensors A and B have incompatible batch dimensions "
+            "for broadcasting at index 0: A has dim=3, B has dim=5");
+  }
+
+  SECTION("Compatible batch dimensions - one divides the other") {
+    int64_t batchA = 8, batchB = 4, m = 16, k = 32, n = 64;
+
+    auto aT = std::make_shared<TensorAttr>(
+        TensorAttr().setDim({batchA, m, k}).setStride({m * k, k, 1}));
+    auto bT = std::make_shared<TensorAttr>(
+        TensorAttr().setDim({batchB, k, n}).setStride({k * n, n, 1}));
+
+    auto cT = std::make_shared<TensorAttr>();
+    attr.setA(aT).setB(bT).setC(cT);
+    MatmulNode node(std::move(attr), ctx);
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+    FUSILLI_REQUIRE_OK(node.postValidateNode());
+  }
+
+  SECTION("Incompatible multi-dimensional batch") {
+    int64_t b1A = 2, b2A = 3, b1B = 2, b2B = 5;
+    int64_t m = 16, k = 32, n = 64;
+
+    auto aT = std::make_shared<TensorAttr>(
+        TensorAttr()
+            .setDim({b1A, b2A, m, k})
+            .setStride({b2A * m * k, m * k, k, 1}));
+    auto bT = std::make_shared<TensorAttr>(
+        TensorAttr()
+            .setDim({b1B, b2B, k, n})
+            .setStride({b2B * k * n, k * n, n, 1}));
+
+    auto cT = std::make_shared<TensorAttr>();
+    attr.setA(aT).setB(bT).setC(cT);
+    MatmulNode node(std::move(attr), ctx);
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "Matmul input tensors A and B have incompatible batch dimensions "
+            "for broadcasting at index 1: A has dim=3, B has dim=5");
+  }
+}
+
 TEST_CASE("MatmulNode postValidateNode dimension validation", "[matmul_node]") {
   Context ctx;
   MatmulAttr attr;
