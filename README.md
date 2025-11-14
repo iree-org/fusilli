@@ -2,9 +2,11 @@
 
 Fusilli is a C++ Graph API and Frontend to the IREE compiler & runtime for JIT compilation & execution of training and inference graphs. It exposes cuDNN-like primitives backed by IREE kernel code-generation.
 
-:construction: **This project is under active development and APIs may change** :construction:
+> [!WARNING]
+> :construction: **This project is under active development and APIs may change** :construction:
 
-A side note on naming: The name 'Fusilli' is inspired from the term 'Fusions' - a bread-and-butter compiler optimization to improve performance.
+> [!NOTE]
+> The name 'Fusilli' is inspired by the term 'fusion' - a bread-and-butter compiler optimization for improving performance.
 
 ![Fusilli](docs/fusilli.png)
 
