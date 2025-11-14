@@ -4,7 +4,7 @@ Fusilli is a C++ Graph API and Frontend to the IREE compiler & runtime for JIT c
 
 :construction: **This project is under active development and APIs may change** :construction:
 
-A side note on naming: 'SharkFuser' is the name of the project (may change as the project evolves), but the library itself is called 'Fusilli'. Both are inspired from the term 'Fusions' - a bread-and-butter compiler optimization to improve performance.
+A side note on naming: The name 'Fusilli' is inspired from the term 'Fusions' - a bread-and-butter compiler optimization to improve performance.
 
 ![Fusilli](docs/fusilli.png)
 
@@ -99,14 +99,16 @@ genhtml build/coverage.info --output-directory coverage_report
 
 ### Lint
 
-Run clang-format:
-```shell
-find . -path ./build -prune -o \( -type f \( -name "*.cpp" -o -name "*.h" \) -print \) | xargs clang-format -i
-```
+This project is set up to use pre-commit hooks for lint checks (including clang-format for C++ and black for python sources). To install it in your local repo, run `pre-commit install`. After this, when making commits locally, hooks will automatically run. See https://pre-commit.com/.
 
-Alternatively, run pre-commit which runs clang-format along with a few other lint checks:
+To manually run pre-commit on all files:
 ```shell
 pre-commit run --all-files
+```
+
+To run clang-format standalone:
+```shell
+find . -path ./build -prune -o \( -type f \( -name "*.cpp" -o -name "*.h" \) -print \) | xargs clang-format -i
 ```
 
 ### Logging
