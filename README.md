@@ -1,11 +1,13 @@
 # Fusilli
 
-Fusilli is a C++ Graph API and JIT Frontend for IREE that leverages just-in-time compiled and code-generated kernels to accelerate training and inference workloads. Inspired by cuDNN's graph API, it exposes cuDNN-like primitives but is backed by the full power of the IREE compiler and runtime stack.
+[![CI - fusilli](https://github.com/iree-org/fusilli/actions/workflows/build-and-test.yml/badge.svg?branch=main)](https://github.com/iree-org/fusilli/actions/workflows/build-and-test.yml)
+
+Fusilli is a C++ Graph API and JIT Frontend for IREE that leverages just-in-time compiled and code-generated kernels to accelerate training and inference workloads. Inspired by cuDNN's graph API, it exposes cuDNN-like primitives but is backed by the power of the IREE compiler and runtime stack.
 
 We believe hand-authored GPU kernel libraries are great for highly tuned performance but they are difficult to scale to different models or target architectures and painful to package and release efficiently. This project is founded on the overarching goal to complement the ecosystem of ML frameworks and libraries with a JIT solution, while being competitive to hand-authored kernel libraries. Apart from the core benefit of having a compiler-backed JIT engine that gets progressively and pervasively better, a systemic benefit of this is it helps reduce build times and binary sizes, making it easier to ship software effectively.
 
 > [!WARNING]
-> :construction: **This project is under active development and APIs may change** :construction:
+> :construction: Fusilli is in early stages of development. The operator coverage is limited but growing. APIs may change. :construction:
 
 > [!NOTE]
 > The name 'Fusilli' is inspired by the term 'fusion' - a bread-and-butter compiler optimization for improving performance.
@@ -103,7 +105,7 @@ genhtml build/coverage.info --output-directory coverage_report
 
 ### Lint
 
-This project is set up to use pre-commit hooks for lint checks (including clang-format for C++ and black for python sources). To install it in your local repo, run `pre-commit install`. After this, when making commits locally, hooks will automatically run. See https://pre-commit.com/.
+This project is set up to use [pre-commit](https://pre-commit.com/) hooks for lint checks (such as clang-format for C++ and black for python sources). To install it in your local clone, run `pre-commit install`. After this, hooks will automatically run when making commits locally.
 
 To manually run pre-commit on all files:
 ```shell
