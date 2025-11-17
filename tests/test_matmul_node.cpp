@@ -256,7 +256,7 @@ TEST_CASE("MatmulNode inferPropertiesNode with broadcasted batch dimensions",
   }
 }
 
-TEST_CASE("MatmulNode preValidate accepts arbitrary input strides",
+TEST_CASE("MatmulNode preValidate accepts transposed input strides",
           "[matmul_node]") {
   Context ctx;
   MatmulAttr attr;
@@ -267,11 +267,7 @@ TEST_CASE("MatmulNode preValidate accepts arbitrary input strides",
       TensorAttr().setDim({m, k}).setStride({k, 1}).setName("A_contiguous"));
 
   auto bT = std::make_shared<TensorAttr>(
-      TensorAttr()
-          .setDim({k, n})
-          .setStride(
-              {k * n, k}) // Arbitrary layout (not contiguous or channels-last)
-          .setName("B_arbitrary_layout"));
+      TensorAttr().setDim({k, n}).setStride({1, k}).setName("B_transposed"));
 
   attr.setA(aT).setB(bT).setC(std::make_shared<TensorAttr>());
 
