@@ -240,7 +240,7 @@ public:
 
   // ASM emitter driver method.
   //
-  // TODO(nod-ai/shark-ai#2152): Make this private. It is public for now to aid
+  // TODO(#13): Make this private. It is public for now to aid
   // testing and debuggability, however the intended user facing API is
   // `Graph::compile()`.
   ErrorOr<std::string> emitAsm() {
@@ -262,7 +262,7 @@ public:
   // `reCompiled` will be set to true if a value is passed and the cache was
   // (re)generated; this parameter is useful for testing.
   //
-  // TODO(nod-ai/shark-ai#2152): Make this private. It is public for now to aid
+  // TODO(#13): Make this private. It is public for now to aid
   // testing and debuggability, however the intended user facing API is
   // `Graph::compile()`.
   ErrorOr<std::filesystem::path>
@@ -314,7 +314,7 @@ private:
     std::vector<std::string> args = {IREE_COMPILE_PATH, input.path};
     auto &flags = kBackendFlags.at(handle.getBackend());
     args.insert(args.end(), flags.begin(), flags.end());
-    // TODO(nod-ai/shark-ai#2374): Make this conditional (enabled only for
+    // TODO(#12): Make this conditional (enabled only for
     // testing/debug).
     args.push_back("--iree-scheduling-dump-statistics-format=json");
     args.push_back("--iree-scheduling-dump-statistics-file=" +
@@ -373,7 +373,7 @@ private:
     FUSILLI_LOG_ENDL(cmd);
 
     // Run iree-compile.
-    // TODO(nod-ai/shark-ai#1934): in the error case, std::system will dump to
+    // TODO(#11): in the error case, std::system will dump to
     // stderr, it would be great to capture this for better logging + reproducer
     // production.
     int returnCode = std::system(cmd.c_str());

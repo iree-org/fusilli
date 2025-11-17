@@ -15,7 +15,7 @@ Checks: [
         -bugprone-macro-parentheses,
         # Disable since its needed for Catch2 macros.
         -bugprone-chained-comparison,
-        # TODO(nod-ai/shark-ai#2614): Determine if these should either be re-enabled (and fixed) or
+        # TODO(#16): Determine if these should either be re-enabled (and fixed) or
         # permanently moved above.
         -misc-const-correctness,
         -bugprone-easily-swappable-parameters,
