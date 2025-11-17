@@ -12,11 +12,11 @@
 
 // clang-format off
 //
-// Test batched matmul with broadcasting: A (4, 2, 64, 128) x B (128, 256) -> C (4, 2, 64, 256)
-// B is broadcast across the batch dimensions.
+// Test batched matmul with broadcasting: A (4, 2, 64, 128) x B (1, 1, 128, 256) -> C (4, 2, 64, 256)
+// B's batch dimensions (1, 1) are broadcast to (4, 2).
 //
 // TORCH-CHECK:   module @module {
-// TORCH-CHECK:     func.func @main(%result_: !torch.tensor<[4,2,64,256],f32>, %arg0_matrix_a: !torch.vtensor<[4,2,64,128],f32>, %arg1_matrix_b: !torch.vtensor<[128,256],f32>) attributes {torch.assume_strict_symbolic_shapes} {
+// TORCH-CHECK:     func.func @main(%result_: !torch.tensor<[4,2,64,256],f32>, %arg0_matrix_a: !torch.vtensor<[4,2,64,128],f32>, %arg1_matrix_b: !torch.vtensor<[1,1,128,256],f32>) attributes {torch.assume_strict_symbolic_shapes} {
 // TORCH-CHECK:       %permute_A_val_0_broadcast_matmul = torch.constant.int 0
 // TORCH-CHECK:       %permute_A_val_1_broadcast_matmul = torch.constant.int 1
 // TORCH-CHECK:       %permute_A_val_2_broadcast_matmul = torch.constant.int 2
@@ -25,9 +25,11 @@
 // TORCH-CHECK:       %arg0_matrix_a_perm = torch.aten.permute %arg0_matrix_a, %permute_A_broadcast_matmul : !torch.vtensor<[4,2,64,128],f32>, !torch.list<int> -> !torch.vtensor<[4,2,64,128],f32>
 // TORCH-CHECK:       %permute_B_val_0_broadcast_matmul = torch.constant.int 0
 // TORCH-CHECK:       %permute_B_val_1_broadcast_matmul = torch.constant.int 1
-// TORCH-CHECK:       %permute_B_broadcast_matmul = torch.prim.ListConstruct %permute_B_val_0_broadcast_matmul, %permute_B_val_1_broadcast_matmul : (!torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %arg1_matrix_b_perm = torch.aten.permute %arg1_matrix_b, %permute_B_broadcast_matmul : !torch.vtensor<[128,256],f32>, !torch.list<int> -> !torch.vtensor<[128,256],f32>
-// TORCH-CHECK:       %result_perm = torch.aten.matmul %arg0_matrix_a_perm, %arg1_matrix_b_perm : !torch.vtensor<[4,2,64,128],f32>, !torch.vtensor<[128,256],f32> -> !torch.vtensor<[4,2,64,256],f32>
+// TORCH-CHECK:       %permute_B_val_2_broadcast_matmul = torch.constant.int 2
+// TORCH-CHECK:       %permute_B_val_3_broadcast_matmul = torch.constant.int 3
+// TORCH-CHECK:       %permute_B_broadcast_matmul = torch.prim.ListConstruct %permute_B_val_0_broadcast_matmul, %permute_B_val_1_broadcast_matmul, %permute_B_val_2_broadcast_matmul, %permute_B_val_3_broadcast_matmul : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
+// TORCH-CHECK:       %arg1_matrix_b_perm = torch.aten.permute %arg1_matrix_b, %permute_B_broadcast_matmul : !torch.vtensor<[1,1,128,256],f32>, !torch.list<int> -> !torch.vtensor<[1,1,128,256],f32>
+// TORCH-CHECK:       %result_perm = torch.aten.matmul %arg0_matrix_a_perm, %arg1_matrix_b_perm : !torch.vtensor<[4,2,64,128],f32>, !torch.vtensor<[1,1,128,256],f32> -> !torch.vtensor<[4,2,64,256],f32>
 // TORCH-CHECK:       %permute_C_val_0_broadcast_matmul = torch.constant.int 0
 // TORCH-CHECK:       %permute_C_val_1_broadcast_matmul = torch.constant.int 1
 // TORCH-CHECK:       %permute_C_val_2_broadcast_matmul = torch.constant.int 2
@@ -41,16 +43,18 @@
 //
 // LINALG-CHECK:    util.func public @main$async(%[[ARG0:.+]]: !hal.buffer_view, %[[ARG1:.+]]: !hal.buffer_view, %[[ARG2:.+]]: !hal.buffer_view, {{.+}}
 // LINALG-CHECK:      %[[A:.+]] = hal.tensor.import wait(%{{.+}}) => %[[ARG1]] : !hal.buffer_view -> tensor<4x2x64x128xf32>
-// LINALG-CHECK:      %[[B:.+]] = hal.tensor.import wait(%{{.+}}) => %[[ARG2]] : !hal.buffer_view -> tensor<128x256xf32>
-// LINALG-CHECK:      %[[B_BROADCAST:.+]] = linalg.generic {{.*}} ins(%[[B]] : tensor<128x256xf32>) outs(%{{.+}} : tensor<4x2x128x256xf32>)
+// LINALG-CHECK:      %[[B:.+]] = hal.tensor.import wait(%{{.+}}) => %[[ARG2]] : !hal.buffer_view -> tensor<1x1x128x256xf32>
+// LINALG-CHECK:      %[[B_COLLAPSED:.+]] = tensor.collapse_shape %[[B]]
+// LINALG-CHECK:      %[[B_BROADCAST:.+]] = linalg.generic {{.*}} ins(%[[B_COLLAPSED]] : tensor<128x256xf32>) outs(%{{.+}} : tensor<4x2x128x256xf32>)
 // LINALG-CHECK:      %[[A_COLLAPSE:.+]] = tensor.collapse_shape %[[A]]
 // LINALG-CHECK:      %[[B_COLLAPSE:.+]] = tensor.collapse_shape %[[B_BROADCAST]]
 // LINALG-CHECK:      %[[OUT:.+]] = linalg.batch_matmul ins(%[[A_COLLAPSE]], %[[B_COLLAPSE]] : tensor<8x64x128xf32>, tensor<8x128x256xf32>) outs(%{{.+}} : tensor<8x64x256xf32>) -> tensor<8x64x256xf32>
 // LINALG-CHECK:      %[[OUT_EXPAND:.+]] = tensor.expand_shape %[[OUT]]
 // LINALG-CHECK:      %{{.+}} = hal.tensor.alias wait(%{{.+}}) => %[[OUT_EXPAND]] : tensor<4x2x64x256xf32> to %[[ARG0]] : !hal.buffer_view
 //
-// AMDGPU-STATS-CHECK: "dispatch-count": 1
-// CPU-STATS-CHECK: "dispatch-count": 1
+// TODO(#18): This should only require a single dispatch.
+// AMDGPU-STATS-CHECK: "dispatch-count": 2
+// CPU-STATS-CHECK: "dispatch-count": 2
 //
 // clang-format on
 
@@ -75,9 +79,11 @@ static ErrorObject testMatmulAsmEmitterBroadcast(const std::string &mode) {
                               .setDim({b1, b2, m, k})
                               .setStride({b2 * m * k, m * k, k, 1}));
 
-  // B has no batch dimensions - will be broadcast
-  auto bT = graph->tensor(
-      TensorAttr().setName("arg1_matrix_b").setDim({k, n}).setStride({n, 1}));
+  // B has batch dimensions [1, 1] - will be broadcast to [4, 2]
+  auto bT = graph->tensor(TensorAttr()
+                              .setName("arg1_matrix_b")
+                              .setDim({1, 1, k, n})
+                              .setStride({k * n, k * n, n, 1}));
 
   auto matmulAttr = MatmulAttr().setName("broadcast_matmul");
 
