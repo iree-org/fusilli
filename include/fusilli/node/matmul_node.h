@@ -39,14 +39,15 @@ namespace fusilli {
 inline std::vector<int64_t>
 getMatmulInferredOutputShape(const std::vector<int64_t> &aDim,
                              const std::vector<int64_t> &bDim) {
+  constexpr int64_t kNonBatchRank = 2;
   size_t rank = aDim.size();
   assert(rank == bDim.size() && "Input tensors must have the same rank");
-  assert(rank >= 2 && "Input tensors must have rank >= 2");
+  assert(rank >= kNonBatchRank && "Input tensors must have rank >= 2");
 
   std::vector<int64_t> cDim(rank);
 
   // Handle batch dimensions (broadcast if necessary)
-  size_t batchDims = rank - 2;
+  size_t batchDims = rank - kNonBatchRank;
   for (size_t i = 0; i < batchDims; ++i) {
     int64_t aDimVal = aDim[i];
     int64_t bDimVal = bDim[i];
@@ -99,11 +100,12 @@ public:
     size_t bRank = bT->getDim().size();
 
     // Rank checks on input tensors (must be at least rank 2).
+    constexpr int64_t kNonBatchRank = 2;
     FUSILLI_RETURN_ERROR_IF(
-        aRank < 2, ErrorCode::InvalidAttribute,
+        aRank < kNonBatchRank, ErrorCode::InvalidAttribute,
         "Matmul input tensor A must have a rank of at least 2");
     FUSILLI_RETURN_ERROR_IF(
-        bRank < 2, ErrorCode::InvalidAttribute,
+        bRank < kNonBatchRank, ErrorCode::InvalidAttribute,
         "Matmul input tensor B must have a rank of at least 2");
 
     // Check that input tensors have the same rank.
@@ -126,7 +128,7 @@ public:
 
     // Check that batch dimensions are broadcastable.
     // Since both inputs have the same rank, we can directly compare batch dims.
-    size_t batchDims = aRank - 2;
+    size_t batchDims = aRank - kNonBatchRank;
     for (size_t i = 0; i < batchDims; ++i) {
       int64_t aDimVal = aDim[i];
       int64_t bDimVal = bDim[i];
@@ -182,8 +184,9 @@ public:
     size_t cRank = cT->getDim().size();
 
     // Rank checks
+    constexpr int64_t kNonBatchRank = 2;
     FUSILLI_RETURN_ERROR_IF(
-        cRank < 2, ErrorCode::InvalidAttribute,
+        cRank < kNonBatchRank, ErrorCode::InvalidAttribute,
         "Matmul output tensor C must have a rank of at least 2");
 
     FUSILLI_RETURN_ERROR_IF(
