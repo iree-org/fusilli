@@ -65,8 +65,7 @@ TEST_CASE("Convolution wgrad; DY/X (NHWC), DW (KRSC); 1x1; no padding; "
 
   // Parameterize sample by backend and create device-specific handles.
   std::shared_ptr<Handle> handlePtr;
-  // TODO(#17): Uncomment the code below to add CPU backend for
-  // validation
+  // TODO(#17): Uncomment the code below to add CPU backend for validation
   //              when the SIGSEGV issue on CPU is fixed
   // SECTION("cpu backend") {
   //   handlePtr = std::make_shared<Handle>(

@@ -191,10 +191,10 @@ inline ErrorObject Graph::createPerGraphSession(const Handle &handle,
 // Executes the graph using IREE runtime. Requires a `variantPack` which is a
 // map from `TensorAttr` to `Buffer` wrapping the `iree_hal_buffer_view_t *`.
 //
-// TODO(#15): Memoize `iree_runtime_call_t` initialization and
-// populate buffer views at setup to avoid paying the penalty for every
-// `Graph::execute` invocation. Use `iree_runtime_call_reset` to reset the call
-// inputs/outputs if needed.
+// TODO(#15): Memoize `iree_runtime_call_t` initialization and populate buffer
+// views at setup to avoid paying the penalty for every `Graph::execute`
+// invocation. Use `iree_runtime_call_reset` to reset the call inputs/outputs
+// if needed.
 inline ErrorObject Graph::execute(
     const Handle &handle,
     const std::unordered_map<std::shared_ptr<TensorAttr>,
