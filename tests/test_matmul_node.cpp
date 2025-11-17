@@ -165,13 +165,13 @@ TEST_CASE("MatmulNode inferPropertiesNode with broadcasted batch dimensions",
 
   int64_t m = 16, k = 32, n = 64;
 
-  SECTION("A has batch dimension, B does not") {
+  SECTION("A has batch dimension of 1, B has larger batch dimension") {
     int64_t batch = 8;
 
     attr.setA(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({batch, m, k}).setStride({m * k, k, 1})));
+        TensorAttr().setDim({1, m, k}).setStride({m * k, k, 1})));
     attr.setB(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({k, n}).setStride({n, 1})));
+        TensorAttr().setDim({batch, k, n}).setStride({k * n, n, 1})));
     // C is under-specified (dim/stride missing).
     attr.setC(std::make_shared<TensorAttr>());
 
@@ -186,13 +186,13 @@ TEST_CASE("MatmulNode inferPropertiesNode with broadcasted batch dimensions",
     REQUIRE(cT->getStride() == std::vector<int64_t>{m * n, n, 1});
   }
 
-  SECTION("B has batch dimension, A does not") {
+  SECTION("B has batch dimension of 1, A has larger batch dimension") {
     int64_t batch = 8;
 
     attr.setA(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({m, k}).setStride({k, 1})));
+        TensorAttr().setDim({batch, m, k}).setStride({m * k, k, 1})));
     attr.setB(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({batch, k, n}).setStride({k * n, n, 1})));
+        TensorAttr().setDim({1, k, n}).setStride({k * n, n, 1})));
     // C is under-specified (dim/stride missing).
     attr.setC(std::make_shared<TensorAttr>());
 
@@ -351,6 +351,30 @@ TEST_CASE("MatmulNode rank checks", "[matmul_node]") {
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
             "Matmul input tensor B must have a rank of at least 2");
+  }
+
+  SECTION("Input tensors must have the same rank") {
+    auto aT = std::make_shared<TensorAttr>(
+        TensorAttr().setDim({16, 32}).setStride({32, 1}).setName("A_rank2"));
+
+    auto bT = std::make_shared<TensorAttr>(TensorAttr()
+                                               .setDim({8, 32, 64})
+                                               .setStride({32 * 64ll, 64, 1})
+                                               .setName("B_rank3"));
+
+    auto cT = std::make_shared<TensorAttr>(
+        TensorAttr().setDim({16, 64}).setStride({64, 1}).setName("C"));
+
+    attr.setA(aT).setB(bT).setC(cT);
+
+    MatmulNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "Matmul input tensors A and B must have the same rank: A has "
+            "rank=2, B has rank=3");
   }
 
   SECTION("Output C must be at least rank 2") {

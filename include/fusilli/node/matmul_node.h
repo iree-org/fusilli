@@ -39,17 +39,17 @@ namespace fusilli {
 inline std::vector<int64_t>
 getMatmulInferredOutputShape(const std::vector<int64_t> &aDim,
                              const std::vector<int64_t> &bDim) {
-  size_t aRank = aDim.size();
-  size_t bRank = bDim.size();
-  size_t outRank = std::max(aRank, bRank);
+  size_t rank = aDim.size();
+  assert(rank == bDim.size() && "Input tensors must have the same rank");
+  assert(rank >= 2 && "Input tensors must have rank >= 2");
 
-  std::vector<int64_t> cDim(outRank);
+  std::vector<int64_t> cDim(rank);
 
   // Handle batch dimensions (broadcast if necessary)
-  size_t batchDims = outRank - 2;
+  size_t batchDims = rank - 2;
   for (size_t i = 0; i < batchDims; ++i) {
-    int64_t aDimVal = (i < aRank - 2) ? aDim[i] : 1;
-    int64_t bDimVal = (i < bRank - 2) ? bDim[i] : 1;
+    int64_t aDimVal = aDim[i];
+    int64_t bDimVal = bDim[i];
     // Use the maximum of the two dimensions (broadcasting rule)
     assert((aDimVal % bDimVal == 0 || bDimVal % aDimVal == 0) &&
            "Incompatible dimensions for broadcasting");
@@ -57,8 +57,8 @@ getMatmulInferredOutputShape(const std::vector<int64_t> &aDim,
   }
 
   // Matrix dimensions: M from A, N from B
-  cDim[outRank - 2] = aDim[aRank - 2]; // M
-  cDim[outRank - 1] = bDim[bRank - 1]; // N
+  cDim[rank - 2] = aDim[rank - 2]; // M
+  cDim[rank - 1] = bDim[rank - 1]; // N
 
   return cDim;
 }
@@ -106,6 +106,12 @@ public:
         bRank < 2, ErrorCode::InvalidAttribute,
         "Matmul input tensor B must have a rank of at least 2");
 
+    // Check that input tensors have the same rank.
+    FUSILLI_RETURN_ERROR_IF(
+        aRank != bRank, ErrorCode::InvalidAttribute,
+        "Matmul input tensors A and B must have the same rank: A has rank=" +
+            std::to_string(aRank) + ", B has rank=" + std::to_string(bRank));
+
     // Check that inner dimensions match (K dimension).
     const std::vector<int64_t> &aDim = aT->getDim();
     const std::vector<int64_t> &bDim = bT->getDim();
@@ -119,11 +125,11 @@ public:
             std::to_string(aK) + ", B has K=" + std::to_string(bK));
 
     // Check that batch dimensions are broadcastable.
-    size_t outRank = std::max(aRank, bRank);
-    size_t batchDims = outRank - 2;
+    // Since both inputs have the same rank, we can directly compare batch dims.
+    size_t batchDims = aRank - 2;
     for (size_t i = 0; i < batchDims; ++i) {
-      int64_t aDimVal = (i < aRank - 2) ? aDim[i] : 1;
-      int64_t bDimVal = (i < bRank - 2) ? bDim[i] : 1;
+      int64_t aDimVal = aDim[i];
+      int64_t bDimVal = bDim[i];
       FUSILLI_RETURN_ERROR_IF(
           !(aDimVal % bDimVal == 0 || bDimVal % aDimVal == 0),
           ErrorCode::InvalidAttribute,
