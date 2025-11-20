@@ -38,7 +38,7 @@ benchmarkConvFprop(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
                    int64_t q, int64_t m, int64_t l, int64_t j,
                    std::string_view imageLayout, std::string_view outputLayout,
                    std::string_view filterLayout, int64_t s, bool bias,
-                   int64_t iter, DataType convIOType) {
+                   int64_t iter, bool dump, DataType convIOType) {
 #ifdef FUSILLI_ENABLE_AMDGPU
   Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU));
 #else
@@ -137,7 +137,7 @@ benchmarkConvFprop(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
   FUSILLI_CHECK_ERROR(graph.validate());
 
   // Compile
-  FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/true));
+  FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
 
   // Allocate input, weight and output buffers.
   auto xBuf = FUSILLI_TRY(allocateBufferOfType(handle, xT, convIOType, 1.0f));
@@ -171,7 +171,7 @@ benchmarkConvWGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
                    int64_t q, int64_t m, int64_t l, int64_t j,
                    std::string_view imageLayout, std::string_view outputLayout,
                    std::string_view filterLayout, int64_t s, int64_t iter,
-                   DataType convIOType) {
+                   bool dump, DataType convIOType) {
 #ifdef FUSILLI_ENABLE_AMDGPU
   Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU));
 #else
@@ -252,7 +252,7 @@ benchmarkConvWGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
   FUSILLI_CHECK_ERROR(graph.validate());
 
   // Compile
-  FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/true));
+  FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
 
   // Allocate buffers.
   auto dyBuf = FUSILLI_TRY(allocateBufferOfType(handle, dyT, convIOType, 1.0f));
@@ -281,7 +281,7 @@ benchmarkConvDGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
                    int64_t q, int64_t m, int64_t l, int64_t j,
                    std::string_view imageLayout, std::string_view outputLayout,
                    std::string_view filterLayout, int64_t s, int64_t iter,
-                   DataType convIOType) {
+                   bool dump, DataType convIOType) {
 #ifdef FUSILLI_ENABLE_AMDGPU
   Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU));
 #else
@@ -362,7 +362,7 @@ benchmarkConvDGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
   FUSILLI_CHECK_ERROR(graph.validate());
 
   // Compile
-  FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/true));
+  FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
 
   // Allocate buffers.
   auto dyBuf = FUSILLI_TRY(allocateBufferOfType(handle, dyT, convIOType, 1.0f));
@@ -392,6 +392,10 @@ static int benchmark(int argc, char **argv) {
   mainApp.add_option("--iter,-i", iter, "Benchmark iterations")
       ->required()
       ->check(kIsPositiveInteger);
+  bool dump{false};
+  mainApp.add_flag(
+      "--dump,-d", dump,
+      "Dump compilation artifacts to disk at ${HOME}/.cache/fusilli");
 
   // Conv flags are kept in sync with MIOpen's ConvDriver:
   // https://github.com/ROCm/rocm-libraries/blob/db0544fb61f2c7bd5a86dce98d4963420c1c741a/projects/miopen/driver/conv_driver.hpp#L878
@@ -547,19 +551,19 @@ static int benchmark(int argc, char **argv) {
     ErrorObject status = ok();
     if (mode == 1) {
       // Forward convolution
-      status = benchmarkConvFprop(n, c, d, h, w, g, k, z, y, x, t, u, v, o, p,
-                                  q, m, l, j, imageLayout, outputLayout,
-                                  filterLayout, s, bias, iter, convIOType);
+      status = benchmarkConvFprop(
+          n, c, d, h, w, g, k, z, y, x, t, u, v, o, p, q, m, l, j, imageLayout,
+          outputLayout, filterLayout, s, bias, iter, dump, convIOType);
     } else if (mode == 2) {
       // Data gradient
       status = benchmarkConvDGrad(n, c, d, h, w, g, k, z, y, x, t, u, v, o, p,
                                   q, m, l, j, imageLayout, outputLayout,
-                                  filterLayout, s, iter, convIOType);
+                                  filterLayout, s, iter, dump, convIOType);
     } else if (mode == 4) {
       // Weight gradient
       status = benchmarkConvWGrad(n, c, d, h, w, g, k, z, y, x, t, u, v, o, p,
                                   q, m, l, j, imageLayout, outputLayout,
-                                  filterLayout, s, iter, convIOType);
+                                  filterLayout, s, iter, dump, convIOType);
     }
 
     if (isError(status)) {

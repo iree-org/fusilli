@@ -69,7 +69,7 @@ rocprofv3 --output-format pftrace -r --  build/bin/benchmarks/fusilli_benchmark_
 
 For example:
 ```shell
-rocprofv3 --output-format pftrace -r --  build/bin/benchmarks/fusilli_benchmark_driver --iter 10 conv --bf16 -n 16 -c 288 --in_d 2 -H 48 -W 32 -k 288 --fil_d 2 -y 1 -x 1 --pad_d 0 -p 0 -q 0 --conv_stride_d 2 -u 1 -v 1 --dilation_d 1 -l 1 -j 1 --in_layout "NDHWC" --out_layout "NDHWC" --fil_layout "NDHWC" --spatial_dim 3
+rocprofv3 --output-format pftrace -r --  build/bin/benchmarks/fusilli_benchmark_driver --iter 10 conv -F 1 --bf16 -n 16 -c 288 --in_d 2 -H 48 -W 32 -k 288 --fil_d 2 -y 1 -x 1 --pad_d 0 -p 0 -q 0 --conv_stride_d 2 -u 1 -v 1 --dilation_d 1 -l 1 -j 1 --in_layout "NDHWC" --out_layout "NDHWC" --fil_layout "NDHWC" --spatial_dim 3
 ```
 
 To skip building benchmarks, specify the cmake flag `-DFUSILLI_BUILD_BENCHMARKS=OFF`.
