@@ -61,16 +61,22 @@ Tests and samples are also built as standalone binary targets (in the `build/bin
 
 ### Benchmarks
 
+The benchmark driver is a command line tool that takes a set of args and sub-command args to run operation specific benchmarks:
+```shell
+build/bin/benchmarks/fusilli_benchmark_driver <ARGS> <SUB-COMMAND> <SUB-ARGS>
+```
+
+To dump compilation artifacts to disk (at `${HOME}/.cache/fusilli`), specify the `--dump` flag on the main driver (not the subcommand).
+```shell
+build/bin/benchmarks/fusilli_benchmark_driver --dump <ARGS> <SUB-COMMAND> <SUB-ARGS>
+```
+
 The easiest way to benchmark on AMD GPU systems is using the `rocprofv3` tool (included in the docker image). Here's a sample command to dump a `*.pftrace` file that may be opened using [Perfetto](https://ui.perfetto.dev/) for further analysis.
-
 ```shell
-rocprofv3 --output-format pftrace -r --  build/bin/benchmarks/fusilli_benchmark_driver <ARGS>
+rocprofv3 --output-format pftrace -r -- build/bin/benchmarks/fusilli_benchmark_driver --iter 10 conv -F 1 --bf16 -n 16 -c 288 --in_d 2 -H 48 -W 32 -k 288 --fil_d 2 -y 1 -x 1 --pad_d 0 -p 0 -q 0 --conv_stride_d 2 -u 1 -v 1 --dilation_d 1 -l 1 -j 1 --in_layout "NDHWC" --out_layout "NDHWC" --fil_layout "NDHWC" --spatial_dim 3
 ```
 
-For example:
-```shell
-rocprofv3 --output-format pftrace -r --  build/bin/benchmarks/fusilli_benchmark_driver --iter 10 conv -F 1 --bf16 -n 16 -c 288 --in_d 2 -H 48 -W 32 -k 288 --fil_d 2 -y 1 -x 1 --pad_d 0 -p 0 -q 0 --conv_stride_d 2 -u 1 -v 1 --dilation_d 1 -l 1 -j 1 --in_layout "NDHWC" --out_layout "NDHWC" --fil_layout "NDHWC" --spatial_dim 3
-```
+To save the benchmark results as csv, specify `--output-format csv` instead.
 
 To skip building benchmarks, specify the cmake flag `-DFUSILLI_BUILD_BENCHMARKS=OFF`.
 
