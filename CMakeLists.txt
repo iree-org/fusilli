@@ -149,6 +149,19 @@ endif()
 
 # Both tests and benchmarks depend on libutils
 if(FUSILLI_BUILD_TESTS OR FUSILLI_BUILD_BENCHMARKS)
+  # Find prebuilt Catch2 library or fetch it if not found
+  find_package(Catch2 3 QUIET)
+  if(NOT Catch2_FOUND)
+    message(STATUS "Catch2 not found on system: Fetching from GitHub")
+    FetchContent_Declare(
+      Catch2
+      QUIET
+      GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+      GIT_TAG        v3.11.0
+    )
+    FetchContent_MakeAvailable(Catch2)
+  endif()
+
   # Add library for tests/utils.h
   add_library(libutils INTERFACE)
   target_include_directories(libutils INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
@@ -161,19 +174,6 @@ endif()
 # Build tests and samples
 if(FUSILLI_BUILD_TESTS)
   message(STATUS "Building Fusilli tests and samples")
-
-  # Find prebuilt Catch2 library
-  find_package(Catch2 3 QUIET)
-  if(NOT Catch2_FOUND)
-    message(STATUS "Catch2 not found on system: Fetching from GitHub")
-    FetchContent_Declare(
-      Catch2
-      QUIET
-      GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-      GIT_TAG        v3.11.0
-    )
-    FetchContent_MakeAvailable(Catch2)
-  endif()
 
   # Add tests and samples sub directories
   add_subdirectory(tests)
