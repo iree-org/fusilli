@@ -66,7 +66,7 @@ The benchmark driver is a command line tool that takes a set of args and sub-com
 build/bin/benchmarks/fusilli_benchmark_driver <ARGS> <SUB-COMMAND> <SUB-ARGS>
 ```
 
-To dump compilation artifacts to disk (at `${HOME}/.cache/fusilli`), specify the `--dump` flag on the main driver (not the subcommand).
+To dump compilation artifacts to disk (`${HOME}/.cache/fusilli` by default), specify the `--dump` flag on the main driver (not the subcommand). The location to dump to can be configured by setting the `FUSILLI_CACHE_DIR` environment variable.
 ```shell
 build/bin/benchmarks/fusilli_benchmark_driver --dump <ARGS> <SUB-COMMAND> <SUB-ARGS>
 ```
@@ -135,7 +135,7 @@ To configure logging behavior using environment variables:
 | `FUSILLI_LOG_FILE` set to `stdout` or `stderr`  | no logging             | logging to cout / cerr
 | `FUSILLI_LOG_FILE` set to `/path/to/file.txt`   | no logging             | logging to file.txt
 
-Tests and samples that are built with the cmake flag `-DFUSILLI_ENABLE_LOGGING=ON` have their env variables automatically configured for logging to cout.
+Tests and samples that are built with the cmake flag `-DFUSILLI_ENABLE_LOGGING=ON` have their environment variables automatically configured for logging to cout.
 
 Alternatively, one may call the logging API directly as needed:
 - Calling `fusilli::isLoggingEnabled() = <true|false>` has the same effect as setting `FUSILLI_LOG_INFO = 1|0`.

@@ -393,9 +393,10 @@ static int benchmark(int argc, char **argv) {
       ->required()
       ->check(kIsPositiveInteger);
   bool dump{false};
-  mainApp.add_flag(
-      "--dump,-d", dump,
-      "Dump compilation artifacts to disk at ${HOME}/.cache/fusilli");
+  mainApp.add_flag("--dump,-d", dump,
+                   "Dump compilation artifacts to disk at "
+                   "'${FUSILLI_CACHE_DIR}/.cache/fusilli'. "
+                   "When not set, it defaults to '${HOME}/.cache/fusilli'.");
 
   // Conv flags are kept in sync with MIOpen's ConvDriver:
   // https://github.com/ROCm/rocm-libraries/blob/db0544fb61f2c7bd5a86dce98d4963420c1c741a/projects/miopen/driver/conv_driver.hpp#L878
