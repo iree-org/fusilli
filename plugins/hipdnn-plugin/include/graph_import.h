@@ -94,12 +94,12 @@ private:
 
     // Import graph level properties.
     fusilliGraph.setName(hipDnnGraph.name()->str())
-        .setIODataType(
-            FUSILLI_TRY(hipDnnDataTypeToFusilliDataType(hipDnnGraph.io_type())))
-        .setIntermediateDataType(FUSILLI_TRY(
-            hipDnnDataTypeToFusilliDataType(hipDnnGraph.intermediate_type())))
+        .setIODataType(FUSILLI_TRY(
+            hipDnnDataTypeToFusilliDataType(hipDnnGraph.io_data_type())))
+        .setIntermediateDataType(FUSILLI_TRY(hipDnnDataTypeToFusilliDataType(
+            hipDnnGraph.intermediate_data_type())))
         .setComputeDataType(FUSILLI_TRY(
-            hipDnnDataTypeToFusilliDataType(hipDnnGraph.compute_type())));
+            hipDnnDataTypeToFusilliDataType(hipDnnGraph.compute_data_type())));
 
     return importNodes();
   }
@@ -109,7 +109,7 @@ private:
     if (opGraphWrapper.nodeCount() > 1)
       return fusilli::error(fusilli::ErrorCode::NotImplemented,
                             "Multi-node graphs not supported currently.");
-    for (size_t i = 0; i < opGraphWrapper.nodeCount(); ++i) {
+    for (uint32_t i = 0; i < opGraphWrapper.nodeCount(); ++i) {
       const hipdnn_sdk::data_objects::Node &node = opGraphWrapper.getNode(i);
       FUSILLI_CHECK_ERROR(importNode(node));
     }

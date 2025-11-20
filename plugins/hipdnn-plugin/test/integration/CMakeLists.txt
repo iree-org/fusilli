@@ -21,13 +21,14 @@ target_link_libraries(fusilli_plugin_integration_tests PRIVATE
     Threads::Threads
 )
 target_compile_definitions(fusilli_plugin_integration_tests PRIVATE
-    FUSILLI_PLUGIN_DIR="${HIPDNN_BUILD_PLUGIN_ENGINE_DIR}"
+    FUSILLI_PLUGIN_DIR="${FUSILLI_PLUGIN_DIR}"
     FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
     FUSILLI_PLUGIN_ENGINE_ID="${FUSILLI_PLUGIN_ENGINE_ID}"
 )
 # Register with CTest
 gtest_discover_tests(fusilli_plugin_integration_tests
-    # Ensure that tests pick up libhipdnn_backend.so in build directory, not
-    # from the global TheRock install.
-    PROPERTIES ENVIRONMENT "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/lib"
+    PROPERTIES
+      ENVIRONMENT "HIPDNN_LOG_LEVEL=info"
+      ENVIRONMENT "FUSILLI_LOG_INFO=1"
+      ENVIRONMENT "FUSILLI_LOG_FILE=stdout"
 )

@@ -26,7 +26,6 @@
 #include <unistd.h>
 #include <vector>
 
-#include "fusilli/attributes/tensor_attributes.h"
 #include "graph_import.h"
 #include "hipdnn_engine_plugin_execution_context.h"
 #include "utils.h"
@@ -211,7 +210,7 @@ createValidConvFwdGraph(int64_t xUID = 0, int64_t wUID = 1, int64_t yUID = 2,
 
   std::vector<::flatbuffers::Offset<hipdnn_sdk::data_objects::Node>> nodes;
   auto node = CreateNodeDirect(
-      builder, "conv_fwd",
+      builder, "conv_fwd", dataType,
       hipdnn_sdk::data_objects::NodeAttributes::ConvolutionFwdAttributes,
       convAttributes.Union());
   nodes.push_back(node);
@@ -231,7 +230,7 @@ TEST(TestFusilliPluginApi, GetApplicableEngineIds) {
   ASSERT_EQ(hipdnnEnginePluginCreate(&handle), HIPDNN_PLUGIN_STATUS_SUCCESS);
   ASSERT_NE(handle, nullptr);
 
-  // Create a serialized hipDNN bach norm graph.
+  // Create a serialized hipDNN batch norm graph.
   auto builder = hipdnn_sdk::test_utilities::createValidBatchnormBwdGraph();
   hipdnnPluginConstData_t opGraph;
   opGraph.ptr = builder.GetBufferPointer();
@@ -239,9 +238,11 @@ TEST(TestFusilliPluginApi, GetApplicableEngineIds) {
 
   // Fusilli plugin should not offer to compile and execute bach norm (yet).
   std::array<int64_t, 5> engineIDs;
-  uint32_t numEngines = -1;
+  uint32_t numEngines = 10;
   ASSERT_EQ(hipdnnEnginePluginGetApplicableEngineIds(
-                handle, &opGraph, engineIDs.data(), 5, &numEngines),
+                /*handle=*/handle, /*op_graph=*/&opGraph,
+                /*engine_ids=*/engineIDs.data(), /*max_engines=*/5,
+                /*num_engines=*/&numEngines),
             HIPDNN_PLUGIN_STATUS_SUCCESS);
   ASSERT_EQ(numEngines, 0);
 
@@ -252,7 +253,9 @@ TEST(TestFusilliPluginApi, GetApplicableEngineIds) {
 
   // Fusilli plugin should offer to compile and execute single node conv_fprop.
   ASSERT_EQ(hipdnnEnginePluginGetApplicableEngineIds(
-                handle, &opGraph, engineIDs.data(), 5, &numEngines),
+                /*handle=*/handle, /*op_graph=*/&opGraph,
+                /*engine_ids=*/engineIDs.data(), /*max_engines=*/5,
+                /*num_engines=*/&numEngines),
             HIPDNN_PLUGIN_STATUS_SUCCESS);
   ASSERT_EQ(numEngines, 1);
   ASSERT_EQ(engineIDs[0], FUSILLI_PLUGIN_ENGINE_ID);
@@ -273,7 +276,9 @@ TEST(TestFusilliPluginApi, GetApplicableEngineIds) {
   // Fusilli plugin should not offer to compile and execute single node
   // conv_fprop with asymmetric padding.
   ASSERT_EQ(hipdnnEnginePluginGetApplicableEngineIds(
-                handle, &opGraph, engineIDs.data(), 5, &numEngines),
+                /*handle=*/handle, /*op_graph=*/&opGraph,
+                /*engine_ids=*/engineIDs.data(), /*max_engines=*/5,
+                /*num_engines=*/&numEngines),
             HIPDNN_PLUGIN_STATUS_SUCCESS);
   ASSERT_EQ(numEngines, 0);
 }

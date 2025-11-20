@@ -441,6 +441,28 @@ hipdnnPluginStatus_t hipdnnEnginePluginDestroyExecutionContext(
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
+hipdnnPluginStatus_t hipdnnEnginePluginGetWorkspaceSizeFromExecutionContext(
+    hipdnnEnginePluginHandle_t handle,
+    hipdnnEnginePluginExecutionContext_t executionContext,
+    size_t *workspaceSize) {
+  LOG_API_ENTRY("handle={:p}, executionContext={:p}, workspaceSize={:p}",
+                static_cast<void *>(handle),
+                static_cast<void *>(executionContext),
+                static_cast<void *>(workspaceSize));
+  FUSILLI_PLUGIN_CHECK_NULL(handle);
+  FUSILLI_PLUGIN_CHECK_NULL(executionContext);
+  FUSILLI_PLUGIN_CHECK_NULL(workspaceSize);
+
+  // TODO(#2309): for now we're focusing on kernels that don't require scratch
+  // buffer space. Eventually we will need to teach IREE to report what scratch
+  // buffer space required, and how to use a passed in pre-allocated scratch
+  // space rather than a runtime allocated scratch space.
+  *workspaceSize = 0;
+
+  LOG_API_SUCCESS_AUTO("workspaceSize={}", *workspaceSize);
+  return HIPDNN_PLUGIN_STATUS_SUCCESS;
+}
+
 hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
     hipdnnEnginePluginHandle_t handle,
     hipdnnEnginePluginExecutionContext_t executionContext, void *workspace,
@@ -466,6 +488,10 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
       .usage = IREE_HAL_BUFFER_USAGE_DEFAULT,
       .access = IREE_HAL_MEMORY_ACCESS_READ | IREE_HAL_MEMORY_ACCESS_WRITE,
       .type = IREE_HAL_MEMORY_TYPE_DEVICE_LOCAL,
+      .queue_affinity = IREE_HAL_QUEUE_AFFINITY_ANY,
+      // As we are importing a buffer rather than allocating, this param should
+      // be ignored.
+      .min_alignment = 0,
   };
 
   // Fill variant pack for graph execution. Fusilli expects a variant pack to
@@ -495,13 +521,14 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
     iree_hal_external_buffer_t externalBuffer = {
         .type = IREE_HAL_EXTERNAL_BUFFER_TYPE_DEVICE_ALLOCATION,
         .flags = 0,
-        .size = static_cast<iree_device_size_t>(sizeof(float) *
-                                                tensorAttr->getVolume()),
+        .size = static_cast<iree_device_size_t>(
+            sizeof(float) * static_cast<size_t>(tensorAttr->getVolume())),
         .handle =
             {
                 .device_allocation =
                     {
-                        .ptr = (uint64_t)hipMallocedBuffer.ptr,
+                        .ptr =
+                            reinterpret_cast<uint64_t>(hipMallocedBuffer.ptr),
                     },
             },
     };
@@ -514,7 +541,8 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
     iree_hal_buffer_view_t *outBufferView = nullptr;
     FUSILLI_PLUGIN_CHECK_ERROR(iree_hal_buffer_view_create(
         /*buffer=*/importedBuffer, /*shape_rank=*/tensorAttr->getDim().size(),
-        /*shape=*/(const iree_hal_dim_t *)tensorAttr->getDim().data(),
+        /*shape=*/
+        reinterpret_cast<const iree_hal_dim_t *>(tensorAttr->getDim().data()),
         /*element_type=*/
         FUSILLI_PLUGIN_TRY(
             fusilliDataTypeToIreeHalDataType(tensorAttr->getDataType())),

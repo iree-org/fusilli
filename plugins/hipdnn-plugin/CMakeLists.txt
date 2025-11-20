@@ -17,26 +17,42 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
-# Local Includes
-list(APPEND CMAKE_MODULE_PATH
-  ${CMAKE_CURRENT_LIST_DIR}/build_tools/cmake/
-)
-include(FusilliPluginDependencyUtils)
-
 # Global constants
 set(FUSILLI_PLUGIN_NAME fusilli_plugin)
 set(FUSILLI_PLUGIN_ENGINE_ID 1001)
+set(FUSILLI_PLUGIN_DIR "${CMAKE_CURRENT_BINARY_DIR}/lib/${HIPDNN_PLUGIN_ENGINE_SUBDIR}")
 
-# Options
-option(FUSILLI_PLUGIN_USE_LOCAL_FUSILLI "Use local Fusilli build from ../fusilli" ON)
+# Useful compile warnings
+list(PREPEND FUSILLI_PLUGIN_WARNING_COMPILE_OPTIONS
+    -Werror                                  # Treat all warnings as errors
+    -Wall                                    # Enable most common warnings
+    -Wextra                                  # Enable additional warnings not covered by -Wall
+    -Wpedantic                               # Enforce strict ISO C++ compliance
+    -Wshadow                                 # Warn about variable shadowing
+    -Wnon-virtual-dtor                       # Warn if a class with virtual functions has a non-virtual destructor
+    -Wold-style-cast                         # Warn about C-style casts
+    -Wcast-align                             # Warn about potential performance issues with misaligned casts
+    -Woverloaded-virtual                     # Warn if a base class function is hidden by a derived class function with the same name
+    -Wconversion                             # Warn about implicit type conversions that may alter a value
+    -Wsign-conversion                        # Warn about implicit conversions between signed and unsigned types
+    -Wnull-dereference                       # Warn about dereferencing null pointers
+    -Wdouble-promotion                       # Warn when a float is implicitly promoted to a double
+    -Wformat=2                               # Enable stricter format string checks
+    -Winit-self                              # Warn about variables initialized with itself
+    -Wunreachable-code                       # Warn about unreachable code
+    -Wno-error=unused-command-line-argument  # Disable error for unused command line arguments
+    -Wno-gnu-statement-expression            # Disable gnu error for statement expression, this will need to change on Windows.
+    -Wswitch-default                         # Warn if a switch statement does not have a default case
+)
 
 # Dependencies
 set(HIP_PLATFORM "amd")
-find_package(hip REQUIRED)
-fusilli_plugin_dependency(GTest GTEST_VERSION 1.16.0)
-fusilli_plugin_dependency(IREERuntime)
-fusilli_plugin_dependency(hipdnn_frontend HIP_DNN_HASH 4e0a0452cfcb8fdb86e9c40a6e43debab4d4ecbc)
-fusilli_plugin_dependency(Fusilli USE_LOCAL ${FUSILLI_PLUGIN_USE_LOCAL_FUSILLI})
+find_package(hip CONFIG REQUIRED)
+find_package(IREERuntime CONFIG REQUIRED)
+find_package(hipdnn_sdk CONFIG REQUIRED)
+find_package(hipdnn_frontend CONFIG REQUIRED)
+find_package(Fusilli CONFIG REQUIRED)
+find_package(GTest CONFIG REQUIRED)
 
 # Includes
 include_directories(include)
@@ -45,7 +61,7 @@ include_directories(include)
 add_library(${FUSILLI_PLUGIN_NAME} SHARED
     src/fusilli_plugin.cpp
 )
-target_compile_options(${FUSILLI_PLUGIN_NAME} PRIVATE ${HIPDNN_WARNING_COMPILE_OPTIONS})
+target_compile_options(${FUSILLI_PLUGIN_NAME} PRIVATE ${FUSILLI_PLUGIN_WARNING_COMPILE_OPTIONS})
 target_link_libraries(${FUSILLI_PLUGIN_NAME} PRIVATE hipdnn_sdk hip::host fusilli::fusilli)
 target_compile_definitions(${FUSILLI_PLUGIN_NAME} PRIVATE
   FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
@@ -53,7 +69,7 @@ target_compile_definitions(${FUSILLI_PLUGIN_NAME} PRIVATE
 )
 set_target_properties(${FUSILLI_PLUGIN_NAME} PROPERTIES
     CXX_VISIBILITY_PRESET hidden
-    LIBRARY_OUTPUT_DIRECTORY "${HIPDNN_BUILD_PLUGIN_ENGINE_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY "${FUSILLI_PLUGIN_DIR}"
 )
 
 # Tests
