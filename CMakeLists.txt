@@ -35,6 +35,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Includes
 include(CTest)
+include(FetchContent)
 
 # Local Includes
 list(APPEND CMAKE_MODULE_PATH
@@ -151,6 +152,10 @@ if(FUSILLI_BUILD_TESTS OR FUSILLI_BUILD_BENCHMARKS)
   # Add library for tests/utils.h
   add_library(libutils INTERFACE)
   target_include_directories(libutils INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+  target_link_libraries(libutils INTERFACE
+    libfusilli
+    Catch2::Catch2WithMain
+  )
 endif()
 
 # Build tests and samples
@@ -158,7 +163,17 @@ if(FUSILLI_BUILD_TESTS)
   message(STATUS "Building Fusilli tests and samples")
 
   # Find prebuilt Catch2 library
-  find_package(Catch2 3 REQUIRED)
+  find_package(Catch2 3 QUIET)
+  if(NOT Catch2_FOUND)
+    message(STATUS "Catch2 not found on system: Fetching from GitHub")
+    FetchContent_Declare(
+      Catch2
+      QUIET
+      GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+      GIT_TAG        v3.11.0
+    )
+    FetchContent_MakeAvailable(Catch2)
+  endif()
 
   # Add tests and samples sub directories
   add_subdirectory(tests)
@@ -173,12 +188,11 @@ if(FUSILLI_BUILD_BENCHMARKS)
   message(STATUS "Building Fusilli benchmarks")
 
   # Get CLI11 (argparse library for C++)
-  include(FetchContent)
   FetchContent_Declare(
     cli11_proj
     QUIET
     GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
-    GIT_TAG v2.5.0
+    GIT_TAG v2.6.1
   )
   FetchContent_MakeAvailable(cli11_proj)
 
