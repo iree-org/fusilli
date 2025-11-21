@@ -31,16 +31,15 @@ const auto kIsPositiveInteger =
 const auto kIsValidConvLayout =
     CLI::IsMember({"NCHW", "NHWC", "NCDHW", "NDHWC"});
 
-static ErrorObject
-benchmarkConvFprop(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
-                   int64_t g, int64_t k, int64_t z, int64_t y, int64_t x,
-                   int64_t t, int64_t u, int64_t v, int64_t o, int64_t p,
-                   int64_t q, int64_t m, int64_t l, int64_t j,
-                   std::string_view imageLayout, std::string_view outputLayout,
-                   std::string_view filterLayout, int64_t s, bool bias,
-                   int64_t iter, bool dump, DataType convIOType) {
+static ErrorObject benchmarkConvFprop(
+    int64_t n, int64_t c, int64_t d, int64_t h, int64_t w, int64_t g, int64_t k,
+    int64_t z, int64_t y, int64_t x, int64_t t, int64_t u, int64_t v, int64_t o,
+    int64_t p, int64_t q, int64_t m, int64_t l, int64_t j,
+    std::string_view imageLayout, std::string_view outputLayout,
+    std::string_view filterLayout, int64_t s, bool bias, int64_t iter,
+    bool dump, DataType convIOType, int64_t deviceId) {
 #ifdef FUSILLI_ENABLE_AMDGPU
-  Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU));
+  Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
 #else
   Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
 #endif
@@ -171,9 +170,9 @@ benchmarkConvWGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
                    int64_t q, int64_t m, int64_t l, int64_t j,
                    std::string_view imageLayout, std::string_view outputLayout,
                    std::string_view filterLayout, int64_t s, int64_t iter,
-                   bool dump, DataType convIOType) {
+                   bool dump, DataType convIOType, int64_t deviceId) {
 #ifdef FUSILLI_ENABLE_AMDGPU
-  Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU));
+  Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
 #else
   Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
 #endif
@@ -281,9 +280,9 @@ benchmarkConvDGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
                    int64_t q, int64_t m, int64_t l, int64_t j,
                    std::string_view imageLayout, std::string_view outputLayout,
                    std::string_view filterLayout, int64_t s, int64_t iter,
-                   bool dump, DataType convIOType) {
+                   bool dump, DataType convIOType, int64_t deviceId) {
 #ifdef FUSILLI_ENABLE_AMDGPU
-  Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU));
+  Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
 #else
   Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
 #endif
@@ -388,10 +387,18 @@ static int benchmark(int argc, char **argv) {
   CLI::App mainApp{"Fusilli Benchmark Driver"};
   mainApp.require_subcommand(1);
 
-  int64_t iter;
+  // mainApp CLI Options:
+  int64_t iter, deviceId;
   mainApp.add_option("--iter,-i", iter, "Benchmark iterations")
       ->required()
       ->check(kIsPositiveInteger);
+  mainApp
+      .add_option("--device,-D", deviceId,
+                  "AMDGPU Device ID (ignored for CPU backend)")
+      ->default_val("0")
+      ->check(kIsNonNegativeInteger);
+
+  // mainApp CLI Flags:
   bool dump{false};
   mainApp.add_flag("--dump,-d", dump,
                    "Dump compilation artifacts to disk at "
@@ -403,7 +410,7 @@ static int benchmark(int argc, char **argv) {
   CLI::App *convApp =
       mainApp.add_subcommand("conv", "Fusilli Benchmark Convolution");
 
-  // CLI Options:
+  // convApp CLI Options:
   int64_t n, c, d, h, w, g, k, z, y, x, t, u, v, o, p, q, m, l, j, s;
   int64_t mode;
   std::string imageLayout, filterLayout, outputLayout;
@@ -484,7 +491,7 @@ static int benchmark(int argc, char **argv) {
       ->required()
       ->check(CLI::IsMember({2, 3}));
 
-  // CLI Flags:
+  // convApp CLI Flags:
   bool fp16{false}, bf16{false}, bias{false};
   auto *f1 = convApp->add_flag("--fp16", fp16, "Run fp16 convolution");
   auto *f2 = convApp->add_flag("--bf16", bf16, "Run bf16 convolution");
@@ -552,19 +559,20 @@ static int benchmark(int argc, char **argv) {
     ErrorObject status = ok();
     if (mode == 1) {
       // Forward convolution
-      status = benchmarkConvFprop(
-          n, c, d, h, w, g, k, z, y, x, t, u, v, o, p, q, m, l, j, imageLayout,
-          outputLayout, filterLayout, s, bias, iter, dump, convIOType);
+      status =
+          benchmarkConvFprop(n, c, d, h, w, g, k, z, y, x, t, u, v, o, p, q, m,
+                             l, j, imageLayout, outputLayout, filterLayout, s,
+                             bias, iter, dump, convIOType, deviceId);
     } else if (mode == 2) {
       // Data gradient
-      status = benchmarkConvDGrad(n, c, d, h, w, g, k, z, y, x, t, u, v, o, p,
-                                  q, m, l, j, imageLayout, outputLayout,
-                                  filterLayout, s, iter, dump, convIOType);
+      status = benchmarkConvDGrad(
+          n, c, d, h, w, g, k, z, y, x, t, u, v, o, p, q, m, l, j, imageLayout,
+          outputLayout, filterLayout, s, iter, dump, convIOType, deviceId);
     } else if (mode == 4) {
       // Weight gradient
-      status = benchmarkConvWGrad(n, c, d, h, w, g, k, z, y, x, t, u, v, o, p,
-                                  q, m, l, j, imageLayout, outputLayout,
-                                  filterLayout, s, iter, dump, convIOType);
+      status = benchmarkConvWGrad(
+          n, c, d, h, w, g, k, z, y, x, t, u, v, o, p, q, m, l, j, imageLayout,
+          outputLayout, filterLayout, s, iter, dump, convIOType, deviceId);
     }
 
     if (isError(status)) {

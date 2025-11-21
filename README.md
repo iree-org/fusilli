@@ -71,6 +71,16 @@ To dump compilation artifacts to disk (`${HOME}/.cache/fusilli` by default), spe
 build/bin/benchmarks/fusilli_benchmark_driver --dump <ARGS> <SUB-COMMAND> <SUB-ARGS>
 ```
 
+To benchmark on a specific GPU when multiple AMD GPUs are present, specify `--device <int>` flag corresponding to the device number from `rocm-smi`. For example, this will run the benchmark on device 7 (when there are 8 GPUs):
+```shell
+build/bin/benchmarks/fusilli_benchmark_driver --device 7 <ARGS> <SUB-COMMAND> <SUB-ARGS>
+```
+
+An invalid device number should result in a runtime error like so:
+```
+RUNTIME_FAILURE: iree/runtime/src/iree/hal/drivers/hip/hip_device.c:499: FAILED_PRECONDITION; HIP driver error 'hipErrorInvalidDevice' (101): invalid device ordinal
+```
+
 The easiest way to benchmark on AMD GPU systems is using the `rocprofv3` tool (included in the docker image). Here's a sample command to dump a `*.pftrace` file that may be opened using [Perfetto](https://ui.perfetto.dev/) for further analysis.
 ```shell
 rocprofv3 --output-format pftrace -r -- build/bin/benchmarks/fusilli_benchmark_driver --iter 10 conv -F 1 --bf16 -n 16 -c 288 --in_d 2 -H 48 -W 32 -k 288 --fil_d 2 -y 1 -x 1 --pad_d 0 -p 0 -q 0 --conv_stride_d 2 -u 1 -v 1 --dilation_d 1 -l 1 -j 1 --in_layout "NDHWC" --out_layout "NDHWC" --fil_layout "NDHWC" --spatial_dim 3
