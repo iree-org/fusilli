@@ -309,7 +309,7 @@ private:
   std::string buildCompileCommand(const Handle &handle, const CacheFile &input,
                                   const CacheFile &output,
                                   const CacheFile &statistics) {
-    std::vector<std::string> args = {IREE_COMPILE_PATH, input.path};
+    std::vector<std::string> args = {getIreeCompilePath(), input.path};
     auto &flags = kBackendFlags.at(handle.getBackend());
     args.insert(args.end(), flags.begin(), flags.end());
     // TODO(#12): Make this conditional (enabled only for testing/debug).

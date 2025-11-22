@@ -6,4 +6,5 @@
 
 // Auto-generated from external_tools.h.in - do not edit
 
-#define IREE_COMPILE_PATH "@FUSILLI_EXTERNAL_iree_compile@"
+#define IREE_COMPILE_PATH "@FUSILLI_EXTERNAL_IREE_COMPILE@"
+#define ROCM_AGENT_ENUMERATOR_PATH "@FUSILLI_EXTERNAL_ROCM_AGENT_ENUMERATOR@"

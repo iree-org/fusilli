@@ -57,7 +57,8 @@ include(FusilliTestUtils)
 #
 # The dependency on IREECompiler is through the CLI tool (`iree-compile`) which is easily
 # accessible from binary releases so a source build is not necessary here.
-fusilli_find_program(iree-compile "Please install IREE compiler binary (e.g., pip install iree-base-compiler).")
+fusilli_find_program(iree-compile)
+fusilli_find_program(rocm_agent_enumerator)
 find_package(IREERuntime REQUIRED)
 
 # Transitive deps for IREERuntime
@@ -119,7 +120,7 @@ endif()
 
 # Enable after test/samples to avoid catch2 errors.
 if(FUSILLI_ENABLE_CLANG_TIDY)
-  fusilli_find_program(clang-tidy "Please install clang-tidy (e.g., apt install clang-tidy).")
+  fusilli_find_program(clang-tidy REQUIRED ERROR_MESSAGE "Please install clang-tidy (e.g., apt install clang-tidy).")
   set(CMAKE_CXX_CLANG_TIDY
     clang-tidy;
     -warnings-as-errors=*;
