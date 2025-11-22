@@ -15,11 +15,14 @@
 #define FUSILLI_BACKEND_BACKEND_H
 
 #include "fusilli/attributes/types.h"
+#include "fusilli/support/external_tools.h"
+#include "fusilli/support/logging.h"
 
 #include <iree/hal/drivers/hip/api.h>
 #include <iree/runtime/api.h>
 
 #include <cstdint>
+#include <format>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -78,7 +81,7 @@ static const std::unordered_map<Backend, std::vector<std::string>>
             {
                 // clang-format off
                 "--iree-hal-target-backends=rocm",
-                "--iree-hip-target=$(rocm_agent_enumerator | sed -n '1 p')",
+                std::format("--iree-hip-target=$({} | sed -n '1 p')", getRocmAgentEnumeratorPath()),
                 "--iree-opt-level=O3",
                 "--iree-preprocessing-pass-pipeline=\"builtin.module(util.func(iree-preprocessing-sink-transpose-through-pad))\"",
                 "--iree-dispatch-creation-enable-fuse-padding-into-linalg-consumer-ops",
