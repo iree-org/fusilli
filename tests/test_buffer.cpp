@@ -24,7 +24,7 @@ TEST_CASE("Buffer allocation, move semantics and lifetime", "[buffer]") {
     handlePtr = std::make_shared<Handle>(
         FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
   }
-#ifdef FUSILLI_BUILD_AMDGPU_TESTS
+#ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
     handlePtr = std::make_shared<Handle>(
         FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));
@@ -66,7 +66,7 @@ TEST_CASE("Buffer import and lifetimes", "[buffer]") {
     handlePtr = std::make_shared<Handle>(
         FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
   }
-#ifdef FUSILLI_BUILD_AMDGPU_TESTS
+#ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
     handlePtr = std::make_shared<Handle>(
         FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));

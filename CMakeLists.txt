@@ -119,26 +119,23 @@ if(FUSILLI_ENABLE_CLANG_TIDY)
 endif()
 
 # Option for AMDGPU backend
-option(FUSILLI_BUILD_AMDGPU_TESTS "Builds for AMD GPU systems" ON)
-# FUSILLI_BUILD_AMDGPU_TESTS requires FUSILLI_BUILD_TESTS
-if(NOT FUSILLI_BUILD_TESTS AND FUSILLI_BUILD_AMDGPU_TESTS)
-  message(STATUS "FUSILLI_BUILD_TESTS is OFF: Forcing FUSILLI_BUILD_AMDGPU_TESTS to OFF")
-  set(FUSILLI_BUILD_AMDGPU_TESTS OFF CACHE BOOL "Builds for AMD GPU systems" FORCE)
-endif()
-message(STATUS "Fusilli supported systems:")
-if(FUSILLI_BUILD_AMDGPU_TESTS)
+option(FUSILLI_DEV_PLATFORM_AMDGPU  "Build developer artifacts (tests, benchmarks, samples) for AMD GPU systems" ON)
+
+# List build targets
+message(STATUS "Building Fusilli tests, samples, and benchmarks for:")
+if(FUSILLI_DEV_PLATFORM_AMDGPU)
   message(STATUS "  - AMD GPU")
 endif()
 message(STATUS "  - Host")
 
-# Enable AMD GPU samples and tests if GPU is detected
-if(FUSILLI_BUILD_AMDGPU_TESTS)
+# Enable AMD GPU samples, tests, and benchmarks if GPU is detected
+if(FUSILLI_DEV_PLATFORM_AMDGPU)
   # Check for Linux AMD GPU device node - `/dev/kfd`
   if(EXISTS "/dev/kfd")
     message(STATUS "AMD GPU detected: Enabling GPU samples and tests")
-    add_definitions(-DFUSILLI_BUILD_AMDGPU_TESTS)
+    add_definitions(-DFUSILLI_ENABLE_AMDGPU)
   else()
-    message(FATAL_ERROR "FUSILLI_BUILD_AMDGPU_TESTS is ON but `/dev/kfd` not found: No AMD GPU detected on this system.")
+    message(FATAL_ERROR "FUSILLI_DEV_PLATFORM_AMDGPU is ON but `/dev/kfd` not found: No AMD GPU detected on this system.")
   endif()
 endif()
 

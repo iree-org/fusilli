@@ -154,7 +154,7 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
     handlePtr = std::make_shared<Handle>(
         FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
   }
-#ifdef FUSILLI_BUILD_AMDGPU_TESTS
+#ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
     handlePtr = std::make_shared<Handle>(
         FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));

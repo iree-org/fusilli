@@ -38,7 +38,7 @@ static ErrorObject benchmarkConvFprop(
     std::string_view imageLayout, std::string_view outputLayout,
     std::string_view filterLayout, int64_t s, bool bias, int64_t iter,
     bool dump, DataType convIOType, int64_t deviceId) {
-#ifdef FUSILLI_BUILD_AMDGPU_TESTS
+#ifdef FUSILLI_ENABLE_AMDGPU
   Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
 #else
   Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
@@ -171,7 +171,7 @@ benchmarkConvWGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
                    std::string_view imageLayout, std::string_view outputLayout,
                    std::string_view filterLayout, int64_t s, int64_t iter,
                    bool dump, DataType convIOType, int64_t deviceId) {
-#ifdef FUSILLI_BUILD_AMDGPU_TESTS
+#ifdef FUSILLI_ENABLE_AMDGPU
   Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
 #else
   Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
@@ -281,7 +281,7 @@ benchmarkConvDGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
                    std::string_view imageLayout, std::string_view outputLayout,
                    std::string_view filterLayout, int64_t s, int64_t iter,
                    bool dump, DataType convIOType, int64_t deviceId) {
-#ifdef FUSILLI_BUILD_AMDGPU_TESTS
+#ifdef FUSILLI_ENABLE_AMDGPU
   Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
 #else
   Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));

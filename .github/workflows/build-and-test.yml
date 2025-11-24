@@ -50,7 +50,7 @@ jobs:
               -DCMAKE_CXX_COMPILER=clang++-22
               -DCMAKE_BUILD_TYPE=Release
               -DFUSILLI_ENABLE_LOGGING=ON
-              -DFUSILLI_BUILD_AMDGPU_TESTS=ON
+              -DFUSILLI_DEV_PLATFORM_AMDGPU=ON
               -DFUSILLI_ENABLE_CLANG_TIDY=ON
           - name: cpu_clang18_debug
             runs-on: azure-linux-scale
@@ -59,7 +59,7 @@ jobs:
               -DCMAKE_CXX_COMPILER=clang++-18
               -DCMAKE_BUILD_TYPE=Debug
               -DFUSILLI_ENABLE_LOGGING=ON
-              -DFUSILLI_BUILD_AMDGPU_TESTS=OFF
+              -DFUSILLI_DEV_PLATFORM_AMDGPU=OFF
               -DFUSILLI_ENABLE_CLANG_TIDY=ON
           - name: gfx942_clang22_debug
             runs-on: linux-mi325-1gpu-ossci-iree-org
@@ -68,7 +68,7 @@ jobs:
               -DCMAKE_CXX_COMPILER=clang++-22
               -DCMAKE_BUILD_TYPE=Debug
               -DFUSILLI_ENABLE_LOGGING=ON
-              -DFUSILLI_BUILD_AMDGPU_TESTS=ON
+              -DFUSILLI_DEV_PLATFORM_AMDGPU=ON
               -DFUSILLI_ENABLE_CLANG_TIDY=ON
           - name: cpu_gcc13_codecov
             runs-on: azure-linux-scale
@@ -76,7 +76,7 @@ jobs:
               -DCMAKE_C_COMPILER=gcc-13
               -DCMAKE_CXX_COMPILER=g++-13
               -DFUSILLI_CODE_COVERAGE=ON
-              -DFUSILLI_BUILD_AMDGPU_TESTS=OFF
+              -DFUSILLI_DEV_PLATFORM_AMDGPU=OFF
               -DFUSILLI_ENABLE_CLANG_TIDY=ON
 
     steps:

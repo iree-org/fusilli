@@ -106,7 +106,7 @@ static ErrorObject testConvAsmEmitterXNhwcWKcrs(const std::string &mode) {
   }
 
   if (mode == "stats") {
-#ifdef FUSILLI_BUILD_AMDGPU_TESTS
+#ifdef FUSILLI_ENABLE_AMDGPU
     Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU));
 #else
     Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));

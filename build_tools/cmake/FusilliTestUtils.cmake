@@ -221,7 +221,7 @@ function(add_fusilli_lit_test)
   endforeach()
 
   # Configure CHECK prefix for backend-specific lit tests
-  if(FUSILLI_BUILD_AMDGPU_TESTS)
+  if(FUSILLI_DEV_PLATFORM_AMDGPU)
     set(_BACKEND_VALUE "AMDGPU")
   else()
     set(_BACKEND_VALUE "CPU")

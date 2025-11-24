@@ -43,7 +43,9 @@ cmake --build build --target all
 ctest --test-dir build
 ```
 
-To skip building tests and samples, specify the cmake flag `-DFUSILLI_BUILD_TESTS=OFF`. When building on a CPU-only system, specify `-DFUSILLI_BUILD_AMDGPU_TESTS=OFF` to disable the AMDGPU build.
+To skip building tests and samples, specify the cmake flag `-DFUSILLI_BUILD_TESTS=OFF`.
+
+When building on a CPU-only system, specify `-DFUSILLI_DEV_PLATFORM_AMDGPU=OFF` to disable the AMDGPU tests, samples, and benchmarks.
 
 To run clang-tidy during compilation, specify the cmake flag `-DFUSILLI_ENABLE_CLANG_TIDY=ON`.
 

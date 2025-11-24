@@ -70,7 +70,7 @@ TEST_CASE("Convolution fprop; X (NHWC), W (KRSC); 1x1 conv; no padding; bias",
     handlePtr = std::make_shared<Handle>(
         FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
   }
-#ifdef FUSILLI_BUILD_AMDGPU_TESTS
+#ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
     handlePtr = std::make_shared<Handle>(
         FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));

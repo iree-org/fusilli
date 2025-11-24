@@ -18,7 +18,7 @@ set_target_properties(
 )
 
 # Test benchmark runner
-if(FUSILLI_BUILD_AMDGPU_TESTS)
+if(FUSILLI_DEV_PLATFORM_AMDGPU)
   add_test(
     NAME fusilli_benchmark_runner_tests
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test_benchmark_runner.sh
