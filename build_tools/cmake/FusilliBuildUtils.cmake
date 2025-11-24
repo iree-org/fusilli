@@ -41,7 +41,7 @@ macro(fusilli_find_program TOOL_NAME)
     find_program(${_FULL_VAR_NAME} NAMES ${TOOL_NAME})
     # find_program will only set ${_FULL_VAR_NAME} if the program was found.
     if(NOT ${_FULL_VAR_NAME})
-      message(FATAL_ERROR "Could not find '${TOOL_NAME}' in PATH. ${ARG_ERROR_MESSAGE}")
+      message(FATAL_ERROR "Could not find '${TOOL_NAME}' in PATH. ${ARG_INSTALL_INSTRUCTIONS}")
     endif()
   endif()
 
