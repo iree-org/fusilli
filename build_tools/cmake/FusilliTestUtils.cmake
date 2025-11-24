@@ -230,7 +230,7 @@ function(add_fusilli_lit_test)
   add_test(
     NAME ${_TEST_NAME}
     COMMAND
-      ${FUSILLI_EXTERNAL_LIT}
+      $<TARGET_FILE:lit>
       ${_LIT_PATH_ARGS}
       "--param" "TEST_EXE=$<TARGET_FILE:${_TEST_NAME}>"
       "--param" "BACKEND=${_BACKEND_VALUE}"

@@ -16,7 +16,6 @@
 
 #include "fusilli/attributes/types.h"
 #include "fusilli/support/external_tools.h"
-#include "fusilli/support/logging.h"
 
 #include <iree/hal/drivers/hip/api.h>
 #include <iree/runtime/api.h>
