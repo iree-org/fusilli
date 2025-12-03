@@ -38,16 +38,12 @@ cmake -GNinja -S. -Bbuild \
     -DCMAKE_C_COMPILER=clang \
     -DCMAKE_CXX_COMPILER=clang++ \
     -DCMAKE_BUILD_TYPE=<Debug|Release|RelWithDebInfo> \
-    -DIREERuntime_DIR=</path/to/iree/build/lib/cmake/IREE>
+    -DIREE_SOURCE_DIR=</path/to/iree/source>
 cmake --build build --target all
 ctest --test-dir build
 ```
 
-To skip building tests and samples, specify the cmake flag `-DFUSILLI_BUILD_TESTS=OFF`.
-
-When building on a CPU-only system, specify `-DFUSILLI_DEV_PLATFORM_AMDGPU=OFF` to disable the AMDGPU tests, samples, and benchmarks.
-
-To run clang-tidy during compilation, specify the cmake flag `-DFUSILLI_ENABLE_CLANG_TIDY=ON`.
+When building on a CPU-only system, specify `-DFUSILLI_SYSTEMS_AMDGPU=OFF` to disable the AMDGPU build.
 
 To re-run failed tests verbosely:
 ```shell
@@ -60,6 +56,8 @@ ctest --test-dir build --output-on-failure -j $(nproc)
 ```
 
 Tests and samples are also built as standalone binary targets (in the `build/bin` directory) to make debugging isolated failures easier.
+
+To skip building tests and samples, specify the cmake flag `-DFUSILLI_BUILD_TESTS=OFF`.
 
 ### Benchmarks
 
@@ -102,7 +100,7 @@ cmake -GNinja -S. -Bbuild \
     -DCMAKE_C_COMPILER=gcc \
     -DCMAKE_CXX_COMPILER=g++ \
     -DFUSILLI_CODE_COVERAGE=ON \
-    -DIREERuntime_DIR=</path/to/iree/build/lib/cmake/IREE>
+    -DIREE_SOURCE_DIR=</path/to/iree/source>
 cmake --build build --target all
 ctest --test-dir build -T test -T coverage
 ```
@@ -134,6 +132,8 @@ To run clang-format standalone:
 ```shell
 find . -path ./build -prune -o \( -type f \( -name "*.cpp" -o -name "*.h" \) -print \) | xargs clang-format -i
 ```
+
+We also use clang-tidy for static analysis. To run clang-tidy during compilation, specify the cmake flag `-DFUSILLI_ENABLE_CLANG_TIDY=ON` when building Fusilli.
 
 ### Logging
 
