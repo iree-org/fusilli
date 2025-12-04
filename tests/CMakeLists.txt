@@ -10,9 +10,6 @@ fusilli_find_program(lit INSTALL_INSTRUCTIONS "Please install lit (e.g., pip ins
 # Find iree-opt program
 fusilli_find_program(iree-opt INSTALL_INSTRUCTIONS "Please install iree-opt (e.g., pip install iree-base-compiler).")
 
-# Find iree-compile program
-fusilli_find_program(iree-compile INSTALL_INSTRUCTIONS "Please install iree-compile (e.g., pip install iree-base-compiler).")
-
 # Find FileCheck program
 fusilli_find_program(FileCheck INSTALL_INSTRUCTIONS "Please install FileCheck.")
 

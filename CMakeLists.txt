@@ -139,8 +139,11 @@ if(FUSILLI_DEV_PLATFORM_AMDGPU)
   endif()
 endif()
 
-# Both tests and benchmarks depend on libutils
+# Both tests and benchmarks depend on iree-compile, Catch2, and libutils
 if(FUSILLI_BUILD_TESTS OR FUSILLI_BUILD_BENCHMARKS)
+  # Side-load iree-compile program
+  fusilli_find_program(iree-compile INSTALL_INSTRUCTIONS "Please install iree-compile (e.g., pip install iree-base-compiler).")
+
   # Find prebuilt Catch2 library or fetch it if not found
   find_package(Catch2 3 QUIET)
   if(NOT Catch2_FOUND)
