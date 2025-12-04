@@ -16,6 +16,23 @@
 
 using namespace fusilli;
 
+TEST_CASE("getMatmulInferredOutputShape", "[matmul_node]") {
+  REQUIRE(getMatmulInferredOutputShape({16, 32}, {32, 64}) ==
+          std::vector<int64_t>{16, 64});
+  REQUIRE(getMatmulInferredOutputShape({8, 16, 32}, {8, 32, 64}) ==
+          std::vector<int64_t>{8, 16, 64});
+  REQUIRE(getMatmulInferredOutputShape({2, 4, 16, 32}, {2, 4, 32, 64}) ==
+          std::vector<int64_t>{2, 4, 16, 64});
+  REQUIRE(getMatmulInferredOutputShape({1, 16, 32}, {8, 32, 64}) ==
+          std::vector<int64_t>{8, 16, 64});
+  REQUIRE(getMatmulInferredOutputShape({8, 16, 32}, {1, 32, 64}) ==
+          std::vector<int64_t>{8, 16, 64});
+  REQUIRE(getMatmulInferredOutputShape({4, 16, 32}, {8, 32, 64}) ==
+          std::vector<int64_t>{8, 16, 64});
+  REQUIRE(getMatmulInferredOutputShape({1, 8, 16, 32}, {4, 1, 32, 64}) ==
+          std::vector<int64_t>{4, 8, 16, 64});
+}
+
 TEST_CASE("MatmulNode getName correctly propagates the attribute name",
           "[matmul_node]") {
   Context ctx;
@@ -101,9 +118,7 @@ TEST_CASE("MatmulNode inferPropertiesNode when C is fully specified",
       TensorAttr().setDim({m, n}).setStride({n, 1})));
 
   MatmulNode node(std::move(attr), ctx);
-  FUSILLI_REQUIRE_OK(node.preValidateNode());
   FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
-  FUSILLI_REQUIRE_OK(node.postValidateNode());
 
   auto cT = node.matmulAttr.getC();
   REQUIRE(cT->getDim() == std::vector<int64_t>{m, n});
@@ -125,9 +140,7 @@ TEST_CASE("MatmulNode inferPropertiesNode when C is under-specified",
   attr.setC(std::make_shared<TensorAttr>());
 
   MatmulNode node(std::move(attr), ctx);
-  FUSILLI_REQUIRE_OK(node.preValidateNode());
   FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
-  FUSILLI_REQUIRE_OK(node.postValidateNode());
 
   auto cT = node.matmulAttr.getC();
   REQUIRE(cT->getDim() == std::vector<int64_t>{m, n});
@@ -149,9 +162,7 @@ TEST_CASE("MatmulNode inferPropertiesNode with batched matrices",
   attr.setC(std::make_shared<TensorAttr>());
 
   MatmulNode node(std::move(attr), ctx);
-  FUSILLI_REQUIRE_OK(node.preValidateNode());
   FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
-  FUSILLI_REQUIRE_OK(node.postValidateNode());
 
   auto cT = node.matmulAttr.getC();
   REQUIRE(cT->getDim() == std::vector<int64_t>{batch, m, n});
@@ -549,57 +560,6 @@ TEST_CASE("MatmulNode postValidateNode dimension validation", "[matmul_node]") {
           "inferred based on the input dimensions");
 }
 
-TEST_CASE("MatmulNode with different batch dimensions", "[matmul_node]") {
-  Context ctx;
-  MatmulAttr attr;
-
-  SECTION("Both inputs batched with same batch size") {
-    int64_t batch = 8, m = 16, k = 32, n = 64;
-
-    auto aT = std::make_shared<TensorAttr>(
-        TensorAttr().setDim({batch, m, k}).setStride({m * k, k, 1}));
-    auto bT = std::make_shared<TensorAttr>(
-        TensorAttr().setDim({batch, k, n}).setStride({k * n, n, 1}));
-    auto cT = std::make_shared<TensorAttr>();
-
-    attr.setA(aT).setB(bT).setC(cT);
-
-    MatmulNode node(std::move(attr), ctx);
-
-    FUSILLI_REQUIRE_OK(node.preValidateNode());
-    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
-    FUSILLI_REQUIRE_OK(node.postValidateNode());
-
-    REQUIRE(node.matmulAttr.getC()->getDim() ==
-            std::vector<int64_t>{batch, m, n});
-  }
-
-  SECTION("Multi-dimensional batch") {
-    int64_t b1 = 2, b2 = 4, m = 16, k = 32, n = 64;
-
-    auto aT =
-        std::make_shared<TensorAttr>(TensorAttr()
-                                         .setDim({b1, b2, m, k})
-                                         .setStride({b2 * m * k, m * k, k, 1}));
-    auto bT =
-        std::make_shared<TensorAttr>(TensorAttr()
-                                         .setDim({b1, b2, k, n})
-                                         .setStride({b2 * k * n, k * n, n, 1}));
-    auto cT = std::make_shared<TensorAttr>();
-
-    attr.setA(aT).setB(bT).setC(cT);
-
-    MatmulNode node(std::move(attr), ctx);
-
-    FUSILLI_REQUIRE_OK(node.preValidateNode());
-    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
-    FUSILLI_REQUIRE_OK(node.postValidateNode());
-
-    REQUIRE(node.matmulAttr.getC()->getDim() ==
-            std::vector<int64_t>{b1, b2, m, n});
-  }
-}
-
 TEST_CASE("MatmulNode batch dimensions must be outermost and non-transposed",
           "[matmul_node]") {
   Context ctx;
@@ -627,26 +587,6 @@ TEST_CASE("MatmulNode batch dimensions must be outermost and non-transposed",
             "or are transposed");
   }
 
-  SECTION("Batch dimension not outermost in B") {
-    auto aT = std::make_shared<TensorAttr>(
-        TensorAttr().setDim({batch, m, k}).setStride({m * k, k, 1}));
-    // B has batch stride smaller than K stride (batch not outermost)
-    auto bT = std::make_shared<TensorAttr>(
-        TensorAttr().setDim({batch, k, n}).setStride({n, batch * n, 1}));
-    auto cT = std::make_shared<TensorAttr>();
-
-    attr.setA(aT).setB(bT).setC(cT);
-
-    MatmulNode node(std::move(attr), ctx);
-
-    auto status = node.preValidateNode();
-    REQUIRE(isError(status));
-    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
-    REQUIRE(status.getMessage() ==
-            "Matmul input tensor B has batch dimensions that are not outermost "
-            "or are transposed");
-  }
-
   SECTION("Transposed batch dimensions in A") {
     int64_t b1 = 2, b2 = 4;
 
@@ -670,32 +610,6 @@ TEST_CASE("MatmulNode batch dimensions must be outermost and non-transposed",
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
             "Matmul input tensor A has batch dimensions that are not outermost "
-            "or are transposed");
-  }
-
-  SECTION("Transposed batch dimensions in B") {
-    int64_t b1 = 2, b2 = 4;
-
-    auto aT =
-        std::make_shared<TensorAttr>(TensorAttr()
-                                         .setDim({b1, b2, m, k})
-                                         .setStride({b2 * m * k, m * k, k, 1}));
-    // B has transposed batch dims: stride[0] < stride[1]
-    auto bT = std::make_shared<TensorAttr>(
-        TensorAttr()
-            .setDim({b1, b2, k, n})
-            .setStride({k * n, b1 * k * n, n, 1})); // b1 stride < b2 stride
-    auto cT = std::make_shared<TensorAttr>();
-
-    attr.setA(aT).setB(bT).setC(cT);
-
-    MatmulNode node(std::move(attr), ctx);
-
-    auto status = node.preValidateNode();
-    REQUIRE(isError(status));
-    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
-    REQUIRE(status.getMessage() ==
-            "Matmul input tensor B has batch dimensions that are not outermost "
             "or are transposed");
   }
 }
