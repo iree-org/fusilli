@@ -50,7 +50,7 @@ option(FUSILLI_BUILD_BENCHMARKS "Builds C++ benchmarks" ON)
 option(FUSILLI_CODE_COVERAGE "Enable code coverage for tests" OFF)
 option(FUSILLI_ENABLE_LOGGING "Enable logging for tests and samples" OFF)
 option(FUSILLI_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
-option(FUSILLI_SYSTEMS_AMDGPU  "Builds for AMD GPU systems" ON)
+option(FUSILLI_SYSTEMS_AMDGPU  "Builds for AMD GPU systems" OFF)
 
 message(STATUS "Fusilli supported systems:")
 if(FUSILLI_SYSTEMS_AMDGPU)
