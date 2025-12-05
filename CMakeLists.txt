@@ -52,6 +52,12 @@ option(FUSILLI_ENABLE_LOGGING "Enable logging for tests and samples" OFF)
 option(FUSILLI_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
 option(FUSILLI_SYSTEMS_AMDGPU  "Builds for AMD GPU systems" ON)
 
+message(STATUS "Fusilli supported systems:")
+if(FUSILLI_SYSTEMS_AMDGPU)
+  message(STATUS "  - AMD GPU")
+endif()
+message(STATUS "  - Host")
+
 ################################################################################
 # IREE Dependency
 #
@@ -169,22 +175,15 @@ if(FUSILLI_ENABLE_CLANG_TIDY)
   )
 endif()
 
-# List build targets
-message(STATUS "Building Fusilli tests, samples, and benchmarks for:")
-if(FUSILLI_SYSTEMS_AMDGPU)
-  message(STATUS "  - AMD GPU")
-endif()
-message(STATUS "  - Host")
-
-# Enable AMD GPU build if GPU is detected
+# Enable AMD GPU build if requested
 if(FUSILLI_SYSTEMS_AMDGPU)
   # Check for Linux AMD GPU device node - `/dev/kfd`
   if(EXISTS "/dev/kfd")
-    message(STATUS "AMD GPU detected: Enabling GPU samples and tests")
-    add_definitions(-DFUSILLI_ENABLE_AMDGPU)
+    message(STATUS "AMD GPU detected: Enabling AMD GPU build")
   else()
-    message(FATAL_ERROR "FUSILLI_SYSTEMS_AMDGPU is ON but `/dev/kfd` not found: No AMD GPU detected on this system.")
+    message(WARNING "No AMD GPU detected (`/dev/kfd` not found) but FUSILLI_SYSTEMS_AMDGPU is set; Only proceed if cross-compiling for AMD GPU systems.")
   endif()
+  add_definitions(-DFUSILLI_ENABLE_AMDGPU)
 endif()
 
 # Both tests and benchmarks depend on iree-compile, Catch2, and libutils
