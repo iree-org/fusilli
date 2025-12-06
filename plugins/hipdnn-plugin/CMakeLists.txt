@@ -17,6 +17,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
+include(FetchContent)
+
 # Global constants
 set(FUSILLI_PLUGIN_NAME fusilli_plugin)
 set(FUSILLI_PLUGIN_ENGINE_ID 1001)
@@ -52,7 +54,18 @@ find_package(IREERuntime CONFIG REQUIRED)
 find_package(hipdnn_sdk CONFIG REQUIRED)
 find_package(hipdnn_frontend CONFIG REQUIRED)
 find_package(Fusilli CONFIG REQUIRED)
-find_package(GTest CONFIG REQUIRED)
+# Fetch GTest if system install isn't available
+find_package(GTest CONFIG QUIET)
+if(NOT GTest_FOUND)
+  message(STATUS "GTest not found on system: Fetching from GitHub")
+  FetchContent_Declare(
+    googletest
+    QUIET
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.16.0
+  )
+  FetchContent_MakeAvailable(googletest)
+endif()
 
 # Includes
 include_directories(include)
