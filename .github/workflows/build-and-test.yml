@@ -240,7 +240,6 @@ jobs:
       run: |
         build_tools/docker/exec_docker_ci.sh \
         bash -c "cmake -GNinja -S. -Bbuild \
-                   -DIREE_SOURCE_DIR=/workspace/.cache/docker/iree \
                    ${{ matrix.cmake-options }} && \
                  cmake --build build --target all"
 
