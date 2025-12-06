@@ -41,27 +41,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: ["gfx942_clang22_release", "cpu_clang18_debug", "gfx942_clang22_debug", "cpu_gcc13_codecov"]
+        name: ["gfx942_clang22_debug1", "gfx942_clang22_debug2", "gfx942_clang22_debug3", "gfx942_clang22_debug4", "gfx942_clang22_debug5", "gfx942_clang22_debug6", "gfx942_clang22_debug7", "gfx942_clang22_debug8", "gfx942_clang22_debug9", "gfx942_clang22_debug10", "gfx942_clang22_debug11", "gfx942_clang22_debug12", "gfx942_clang22_debug13", "gfx942_clang22_debug14", "gfx942_clang22_debug15", "gfx942_clang22_debug16", "gfx942_clang22_debug17", "gfx942_clang22_debug18", "gfx942_clang22_debug19", "gfx942_clang22_debug20"]
         include:
-          - name: gfx942_clang22_release
-            runs-on: linux-mi325-1gpu-ossci-iree-org
-            cmake-options:
-              -DCMAKE_C_COMPILER=clang-22
-              -DCMAKE_CXX_COMPILER=clang++-22
-              -DCMAKE_BUILD_TYPE=Release
-              -DFUSILLI_ENABLE_LOGGING=ON
-              -DFUSILLI_SYSTEMS_AMDGPU=ON
-              -DFUSILLI_ENABLE_CLANG_TIDY=ON
-          - name: cpu_clang18_debug
-            runs-on: azure-linux-scale
-            cmake-options:
-              -DCMAKE_C_COMPILER=clang-18
-              -DCMAKE_CXX_COMPILER=clang++-18
-              -DCMAKE_BUILD_TYPE=Debug
-              -DFUSILLI_ENABLE_LOGGING=ON
-              -DFUSILLI_SYSTEMS_AMDGPU=OFF
-              -DFUSILLI_ENABLE_CLANG_TIDY=ON
-          - name: gfx942_clang22_debug
+          - name: gfx942_clang22_debug1
             runs-on: linux-mi325-1gpu-ossci-iree-org
             cmake-options:
               -DCMAKE_C_COMPILER=clang-22
@@ -70,18 +52,189 @@ jobs:
               -DFUSILLI_ENABLE_LOGGING=ON
               -DFUSILLI_SYSTEMS_AMDGPU=ON
               -DFUSILLI_ENABLE_CLANG_TIDY=ON
-          - name: cpu_gcc13_codecov
-            runs-on: azure-linux-scale
+          - name: gfx942_clang22_debug2
+            runs-on: linux-mi325-1gpu-ossci-iree-org
             cmake-options:
-              -DCMAKE_C_COMPILER=gcc-13
-              -DCMAKE_CXX_COMPILER=g++-13
-              -DFUSILLI_CODE_COVERAGE=ON
-              -DFUSILLI_SYSTEMS_AMDGPU=OFF
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug3
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug4
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug5
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug6
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug7
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug8
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug9
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug10
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug11
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug12
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug13
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug14
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug15
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug16
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug17
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug18
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug19
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug20
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
               -DFUSILLI_ENABLE_CLANG_TIDY=ON
 
     steps:
     - name: Checkout fusilli
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+    - name: Get IREE nightly
+      run: |
+        build_tools/docker/exec_docker_ci.sh \
+        bash -c "/workspace/.cache/docker/venv/bin/pip uninstall --yes iree-base-compiler && \
+                 /workspace/.cache/docker/venv/bin/pip install \
+                 --find-links https://iree.dev/pip-release-links.html \
+                 iree-base-compiler==3.9.0rc20251120"
 
     - name: Build fusilli
       run: |
