@@ -126,7 +126,10 @@ inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
   FUSILLI_LOG_LABEL_ENDL("INFO: Creating per-handle IREE HAL device on device: "
                          << deviceId
                          << " stream: " << reinterpret_cast<void *>(stream));
-
+// Hide some of the IREE HAL HIP driver symbols to avoid linking errors
+// when building Fusilli without AMDGPU support (which disables IREE HAL
+// HIP driver from being built).
+#ifdef FUSILLI_ENABLE_AMDGPU
   // Device parms.
   iree_hal_hip_device_params_t params;
   setDefaultIreeHalHipDeviceParams(&params);
@@ -149,8 +152,11 @@ inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
   // Wrap the raw device ptr with a unique_ptr and custom deleter
   // for lifetime management.
   device_ = IreeHalDeviceUniquePtrType(rawDevice);
-
   return ok();
+#else
+  return ErrorObject(ErrorCode::InternalError,
+                     "AMDGPU backend not supported on this platform.");
+#endif
 }
 
 #undef HIP_DEVICE_ID_TO_IREE_DEVICE_ID

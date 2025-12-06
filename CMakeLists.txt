@@ -44,23 +44,87 @@ list(APPEND CMAKE_MODULE_PATH
 include(FusilliBuildUtils)
 include(FusilliTestUtils)
 
-# Find IREE packages + tools
-# It is up to the consumer of Fusilli to determine how to bring the IREE dependencies in,
-# but here's our recommendation:
-# - Get CLI tools (iree-compile, iree-opt) from python packages
-# - For C-API interfacing with IREERuntime, have it built from source and statically linked
-#
-# Once IREERuntime is built, just point to the build location with -DIREERuntime_DIR or
-# -DCMAKE_PREFIX_PATH, like so:
-#
-#     -DIREERuntime_DIR=</path/to/iree/build/lib/cmake/IREE>
-#
-# The dependency on IREECompiler is through the CLI tool (`iree-compile`) which is easily
-# accessible from binary releases so a source build is not necessary here.
-find_package(IREERuntime REQUIRED)
+# Build options
+option(FUSILLI_BUILD_TESTS "Builds C++ tests and samples" ON)
+option(FUSILLI_BUILD_BENCHMARKS "Builds C++ benchmarks" ON)
+option(FUSILLI_CODE_COVERAGE "Enable code coverage for tests" OFF)
+option(FUSILLI_ENABLE_LOGGING "Enable logging for tests and samples" OFF)
+option(FUSILLI_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
+option(FUSILLI_SYSTEMS_AMDGPU  "Builds for AMD GPU systems" OFF)
 
-# Transitive deps for IREERuntime
-find_package(Threads REQUIRED)
+message(STATUS "Fusilli supported systems:")
+if(FUSILLI_SYSTEMS_AMDGPU)
+  message(STATUS "  - AMD GPU")
+endif()
+message(STATUS "  - Host")
+
+################################################################################
+# IREE Dependency
+#
+# Fusilli takes a source dependency on the IREE runtime for interfacing with its
+# C-API. The runtime is structured as a modular set of library components designed
+# to be (statically) linked into applications directly and compiled with LTO style
+# optimizations.
+#
+# To point to a local IREE source directory, simply specify:
+#
+#     -DIREE_SOURCE_DIR=</path/to/iree/source>
+#
+# When not specified, Fusilli will FetchContent the IREE sources from GitHub
+# at the tag specified by `IREE_GIT_TAG`.
+#
+# Fusilli shall not take a source dependency on the IREE compiler, which is quite
+# heavy and can be slow to build. It is left to the consumer of Fusilli to either
+# bring a prebuilt `libIREECompile.so` via `find_package` for C-API interfacing,
+# or side-load a python-installed `iree-compile` binary via `find_program` for
+# CLI integration.
+#
+################################################################################
+
+# Version pins for dependencies.
+# Prefer to keep the IREE_GIT_TAG synced with the python-installed IREE version.
+# At a minimum, the compiler from those packages must be compatible with the
+# runtime at this source ref.
+set(IREE_GIT_TAG "iree-3.10.0rc20251201")
+set(IREE_SOURCE_DIR "" CACHE FILEPATH "Path to IREE source")
+
+# Set IREE build flags.
+set(IREE_VISIBILITY_HIDDEN OFF)
+set(IREE_BUILD_COMPILER OFF)
+set(IREE_BUILD_TESTS OFF)
+set(IREE_BUILD_SAMPLES OFF)
+# Disable missing submodules error because we are only building the runtime.
+set(IREE_ERROR_ON_MISSING_SUBMODULES OFF)
+# Only enable local_sync/local_task/hip drivers for now.
+set(IREE_HAL_DRIVER_DEFAULTS OFF)
+set(IREE_HAL_DRIVER_LOCAL_SYNC ON)
+set(IREE_HAL_DRIVER_LOCAL_TASK ON)
+# Enable HAL HIP driver for AMD GPU systems.
+if(FUSILLI_SYSTEMS_AMDGPU)
+  set(IREE_HAL_DRIVER_HIP ON)
+  set(IREE_HIP_TEST_TARGET_CHIP "" CACHE STRING "Enable ROCm testing on specific architecture (e.g. gfx942)")
+endif()
+
+if(IREE_SOURCE_DIR)
+  message(STATUS "Using existing IREE sources: ${IREE_SOURCE_DIR}")
+  add_subdirectory(${IREE_SOURCE_DIR} fusilli_iree SYSTEM EXCLUDE_FROM_ALL)
+else()
+  message(STATUS "Fetching IREE sources from tag ${IREE_GIT_TAG}")
+  set(IREE_SUBMODULES "third_party/benchmark third_party/flatcc third_party/hip-build-deps")
+  FetchContent_Declare(
+    fusilli_iree
+    GIT_REPOSITORY https://github.com/iree-org/iree.git
+    GIT_TAG "${IREE_GIT_TAG}"
+    GIT_SUBMODULES ${IREE_SUBMODULES}
+    GIT_SHALLOW TRUE
+    SYSTEM
+    EXCLUDE_FROM_ALL
+  )
+  FetchContent_GetProperties(fusilli_iree)
+  if(NOT fusilli_iree_POPULATED)
+    FetchContent_MakeAvailable(fusilli_iree)
+  endif()
+endif()
 
 # Defines variables CMAKE_INSTALL_<dir> for common install locations.
 include(GNUInstallDirs)
@@ -91,13 +155,6 @@ target_sources(libfusilli INTERFACE
 # Statically link IREERuntime
 target_link_libraries(libfusilli INTERFACE iree_runtime_unified)
 
-# Build options
-option(FUSILLI_BUILD_TESTS "Builds C++ tests and samples" ON)
-option(FUSILLI_BUILD_BENCHMARKS "Builds C++ benchmarks" ON)
-option(FUSILLI_CODE_COVERAGE "Enable code coverage for tests" OFF)
-option(FUSILLI_ENABLE_LOGGING "Enable logging for tests and samples" OFF)
-option(FUSILLI_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
-
 # Build Type - Release/Debug
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Setting CMAKE_BUILD_TYPE to Release")
@@ -118,25 +175,15 @@ if(FUSILLI_ENABLE_CLANG_TIDY)
   )
 endif()
 
-# Option for AMDGPU backend
-option(FUSILLI_DEV_PLATFORM_AMDGPU  "Build developer artifacts (tests, benchmarks, samples) for AMD GPU systems" ON)
-
-# List build targets
-message(STATUS "Building Fusilli tests, samples, and benchmarks for:")
-if(FUSILLI_DEV_PLATFORM_AMDGPU)
-  message(STATUS "  - AMD GPU")
-endif()
-message(STATUS "  - Host")
-
-# Enable AMD GPU samples, tests, and benchmarks if GPU is detected
-if(FUSILLI_DEV_PLATFORM_AMDGPU)
+# Enable AMD GPU build if requested
+if(FUSILLI_SYSTEMS_AMDGPU)
   # Check for Linux AMD GPU device node - `/dev/kfd`
   if(EXISTS "/dev/kfd")
-    message(STATUS "AMD GPU detected: Enabling GPU samples and tests")
-    add_definitions(-DFUSILLI_ENABLE_AMDGPU)
+    message(STATUS "AMD GPU detected: Enabling AMD GPU build")
   else()
-    message(FATAL_ERROR "FUSILLI_DEV_PLATFORM_AMDGPU is ON but `/dev/kfd` not found: No AMD GPU detected on this system.")
+    message(WARNING "No AMD GPU detected (`/dev/kfd` not found) but FUSILLI_SYSTEMS_AMDGPU is set; Only proceed if cross-compiling for AMD GPU systems.")
   endif()
+  add_definitions(-DFUSILLI_ENABLE_AMDGPU)
 endif()
 
 # Both tests and benchmarks depend on iree-compile, Catch2, and libutils

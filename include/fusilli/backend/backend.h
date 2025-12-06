@@ -84,7 +84,8 @@ static const std::unordered_map<Backend, std::vector<std::string>>
                 "--iree-opt-level=O3",
                 "--iree-preprocessing-pass-pipeline=\"builtin.module(util.func(iree-preprocessing-sink-transpose-through-pad))\"",
                 "--iree-dispatch-creation-enable-fuse-padding-into-linalg-consumer-ops",
-                "--iree-dispatch-creation-enable-aggressive-reshape-movement",
+                // TODO(#32): Enable this once GPU stall/segfault issue is resolved and IREE can be safely bumped
+                //"--iree-dispatch-creation-enable-aggressive-reshape-movement",
                 // clang-format on
             },
         },

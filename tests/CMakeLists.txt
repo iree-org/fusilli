@@ -14,7 +14,7 @@ fusilli_find_program(iree-opt INSTALL_INSTRUCTIONS "Please install iree-opt (e.g
 fusilli_find_program(FileCheck INSTALL_INSTRUCTIONS "Please install FileCheck.")
 
 # Enable HIP tests if AMD GPU is enabled (ensures GPU detected) and HIP is found
-if(FUSILLI_DEV_PLATFORM_AMDGPU)
+if(FUSILLI_SYSTEMS_AMDGPU)
   set(HIP_PLATFORM "amd")
   find_package(HIP QUIET)
   if(HIP_FOUND)
