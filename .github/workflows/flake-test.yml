@@ -43,7 +43,7 @@ jobs:
           echo "Generated iterations: ${ITERATIONS}"
 
   flake-test:
-    name: "Flake Test :: ${{ matrix.name }} (iteration ${{ matrix.iteration }})"
+    name: "${{ matrix.name }} - iteration ${{ matrix.iteration }}"
     needs: setup
     runs-on: ${{ matrix.runs-on }}
     defaults:
