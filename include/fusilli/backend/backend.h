@@ -83,6 +83,7 @@ static const std::unordered_map<Backend, std::vector<std::string>>
                 std::format("--iree-hip-target=$({} | sed -n '1 p')", getRocmAgentEnumeratorPath()),
                 "--iree-opt-level=O3",
                 "--iree-preprocessing-pass-pipeline=\"builtin.module(util.func(iree-preprocessing-sink-transpose-through-pad))\"",
+                "--iree-flow-enable-pad-handling",
                 "--iree-dispatch-creation-enable-fuse-padding-into-linalg-consumer-ops",
                 "--iree-dispatch-creation-enable-aggressive-reshape-movement",
                 // clang-format on
