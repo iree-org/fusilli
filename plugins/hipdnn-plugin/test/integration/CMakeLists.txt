@@ -4,31 +4,22 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-include(GoogleTest)
 find_package(Threads REQUIRED)
 
 # Integration tests
-add_executable(fusilli_plugin_integration_tests
+add_fusilli_plugin_test(
+  NAME fusilli_plugin_integration_test
+  SRCS
     test_convfprop.cpp
     test_basic.cpp
-)
-target_compile_options(fusilli_plugin_integration_tests PRIVATE ${HIPDNN_WARNING_COMPILE_OPTIONS})
-target_link_libraries(fusilli_plugin_integration_tests PRIVATE
+  DEPS
     GTest::gtest_main
     hip::host
     hipdnn_frontend
     hipdnn_sdk
     Threads::Threads
-)
-target_compile_definitions(fusilli_plugin_integration_tests PRIVATE
-    FUSILLI_PLUGIN_DIR="${FUSILLI_PLUGIN_DIR}"
+  COMPILE_DEFS
+    FUSILLI_PLUGIN_PATH="../${FUSILLI_PLUGIN_RELATIVE_PATH}"
     FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
     FUSILLI_PLUGIN_ENGINE_ID="${FUSILLI_PLUGIN_ENGINE_ID}"
-)
-# Register with CTest
-gtest_discover_tests(fusilli_plugin_integration_tests
-    PROPERTIES
-      ENVIRONMENT "HIPDNN_LOG_LEVEL=info"
-      ENVIRONMENT "FUSILLI_LOG_INFO=1"
-      ENVIRONMENT "FUSILLI_LOG_FILE=stdout"
 )

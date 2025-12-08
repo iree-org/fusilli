@@ -4,52 +4,39 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-include(GoogleTest)
 find_package(Threads REQUIRED)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../build_tools")
+include(FusilliPluginTestUtils)
+
 # Plugin API tests
-add_executable(test_fusilli_plugin_api
+add_fusilli_plugin_test(
+  NAME fusilli_plugin_api_test
+  SRCS
     test_fusilli_plugin_api.cpp
     utils.h
-)
-target_compile_options(test_fusilli_plugin_api PRIVATE ${FUSILLI_PLUGIN_WARNING_COMPILE_OPTIONS})
-target_link_libraries(test_fusilli_plugin_api PRIVATE
-    fusilli_plugin  # Link plugin directly
+  DEPS
+    fusilli_plugin # Link plugin .so directly
     fusilli::fusilli
     GTest::gtest_main
     hip::host
     hipdnn_sdk
     Threads::Threads
-)
-target_compile_definitions(test_fusilli_plugin_api PRIVATE
-  FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
-  FUSILLI_PLUGIN_ENGINE_ID=${FUSILLI_PLUGIN_ENGINE_ID}
-)
-# Register with CTest
-gtest_discover_tests(test_fusilli_plugin_api
-    PROPERTIES
-      ENVIRONMENT "HIPDNN_LOG_LEVEL=info"
-      ENVIRONMENT "FUSILLI_LOG_INFO=1"
-      ENVIRONMENT "FUSILLI_LOG_FILE=stdout"
+  COMPILE_DEFS
+    FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
+    FUSILLI_PLUGIN_ENGINE_ID=${FUSILLI_PLUGIN_ENGINE_ID}
 )
 
 # Graph import tests
-add_executable(test_graph_import
+add_fusilli_plugin_test(
+  NAME fusilli_plugin_graph_import_test
+  SRCS
     test_graph_import.cpp
     utils.h
-)
-target_compile_options(test_graph_import PRIVATE ${FUSILLI_PLUGIN_WARNING_COMPILE_OPTIONS})
-target_link_libraries(test_graph_import PRIVATE
+  DEPS
     fusilli::fusilli
     GTest::gtest_main
     hipdnn_sdk
-)
-# Register with CTest
-gtest_discover_tests(test_graph_import
-    PROPERTIES
-      ENVIRONMENT "HIPDNN_LOG_LEVEL=info"
-      ENVIRONMENT "FUSILLI_LOG_INFO=1"
-      ENVIRONMENT "FUSILLI_LOG_FILE=stdout"
 )
 
 # Integration tests

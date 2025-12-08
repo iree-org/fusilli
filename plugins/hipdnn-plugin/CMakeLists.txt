@@ -18,12 +18,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 # CMake includes
+include(GNUInstallDirs)
 include(FetchContent)
 
 # Global constants
 set(FUSILLI_PLUGIN_NAME fusilli_plugin)
 set(FUSILLI_PLUGIN_ENGINE_ID 1001)
-set(FUSILLI_PLUGIN_DIR "${CMAKE_CURRENT_BINARY_DIR}/lib/${HIPDNN_PLUGIN_ENGINE_SUBDIR}")
+# Relative path from build/install prefix to plugin location.
+# HIPDNN_PLUGIN_ENGINE_SUBDIR is provided by hipdnn_sdk.
+set(FUSILLI_PLUGIN_RELATIVE_PATH "${CMAKE_INSTALL_LIBDIR}/${HIPDNN_PLUGIN_ENGINE_SUBDIR}")
 # Global flag required for hip package, indicates that hip should target AMD
 # platform.
 set(HIP_PLATFORM "amd")
@@ -91,7 +94,7 @@ include_directories(include)
 
 # Plugin definition
 add_library(${FUSILLI_PLUGIN_NAME} SHARED
-    src/fusilli_plugin.cpp
+  src/fusilli_plugin.cpp
 )
 target_compile_options(${FUSILLI_PLUGIN_NAME} PRIVATE ${FUSILLI_PLUGIN_WARNING_COMPILE_OPTIONS})
 target_link_libraries(${FUSILLI_PLUGIN_NAME} PRIVATE hipdnn_sdk hip::host fusilli::fusilli)
@@ -100,8 +103,15 @@ target_compile_definitions(${FUSILLI_PLUGIN_NAME} PRIVATE
   FUSILLI_PLUGIN_ENGINE_ID=${FUSILLI_PLUGIN_ENGINE_ID}
 )
 set_target_properties(${FUSILLI_PLUGIN_NAME} PROPERTIES
-    CXX_VISIBILITY_PRESET hidden
-    LIBRARY_OUTPUT_DIRECTORY "${FUSILLI_PLUGIN_DIR}"
+  C_VISIBILITY_PRESET hidden
+  CXX_VISIBILITY_PRESET hidden
+  VISIBILITY_INLINES_HIDDEN ON
+  LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${FUSILLI_PLUGIN_RELATIVE_PATH}"
+)
+
+# Installation
+install(TARGETS ${FUSILLI_PLUGIN_NAME}
+  LIBRARY DESTINATION "${FUSILLI_PLUGIN_RELATIVE_PATH}"
 )
 
 # Tests
