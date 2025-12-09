@@ -46,8 +46,11 @@ set(IREE_HIP_TEST_TARGET_CHIP "" CACHE STRING "")
 FetchContent_Declare(
   IREERuntime
   SOURCE_DIR ${IREE_SOURCE_DIR}
-  # Fusilli Config file includes find_dependency(IREERuntime), ensure that
-  # find_package(IREERuntime) redirects to this version.
+  # Fusilli's config file requires IREE runtime via
+  # find_dependency(IREERuntime), which triggers find_package(IREERuntime). The
+  # dependency can only be fulfilled via source build: FetchContent_Declare or
+  # add_subdirectory. Of those options, only FetchContent_Declare provides a way
+  # of intercepting the find_package call and redirecting to the source build.
   OVERRIDE_FIND_PACKAGE
   SYSTEM
 )
