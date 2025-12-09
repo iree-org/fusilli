@@ -53,7 +53,7 @@
 // LINALG-CHECK:      %{{.+}} = hal.tensor.alias wait(%{{.+}}) => %[[OUT_EXPAND]] : tensor<4x2x64x256xf32> to %[[ARG0]] : !hal.buffer_view
 //
 // TODO(#18): This should only require a single dispatch.
-// AMDGPU-STATS-CHECK: "dispatch-count": 2
+// AMDGPU-STATS-CHECK: "dispatch-count": 1
 // CPU-STATS-CHECK: "dispatch-count": 2
 //
 // clang-format on
