@@ -583,7 +583,7 @@ TEST_CASE("MatmulNode batch dimensions must be outermost and non-transposed",
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "Matmul input tensor A has batch dimensions that are not outermost "
+            "Matmul tensor A has batch dimensions that are not outermost "
             "or are transposed");
   }
 
@@ -609,7 +609,73 @@ TEST_CASE("MatmulNode batch dimensions must be outermost and non-transposed",
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "Matmul input tensor A has batch dimensions that are not outermost "
+            "Matmul tensor A has batch dimensions that are not outermost "
+            "or are transposed");
+  }
+}
+
+TEST_CASE("MatmulNode postValidateNode checks batch dimensions in output C",
+          "[matmul_node]") {
+  Context ctx;
+  MatmulAttr attr;
+
+  int64_t batch = 8, m = 16, k = 32, n = 64;
+
+  SECTION("Batch dimension not outermost in C") {
+    // A and B are valid
+    auto aT = std::make_shared<TensorAttr>(
+        TensorAttr().setDim({batch, m, k}).setStride({m * k, k, 1}));
+    auto bT = std::make_shared<TensorAttr>(
+        TensorAttr().setDim({batch, k, n}).setStride({k * n, n, 1}));
+    // C has batch stride smaller than M stride (batch not outermost)
+    auto cT = std::make_shared<TensorAttr>(
+        TensorAttr().setDim({batch, m, n}).setStride({n, batch * n, 1}));
+
+    attr.setA(aT).setB(bT).setC(cT);
+
+    MatmulNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+    auto status = node.postValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "Matmul tensor C has batch dimensions that are not outermost "
+            "or are transposed");
+  }
+
+  SECTION("Transposed batch dimensions in C") {
+    int64_t b1 = 2, b2 = 4;
+
+    // A and B are valid
+    auto aT =
+        std::make_shared<TensorAttr>(TensorAttr()
+                                         .setDim({b1, b2, m, k})
+                                         .setStride({b2 * m * k, m * k, k, 1}));
+    auto bT =
+        std::make_shared<TensorAttr>(TensorAttr()
+                                         .setDim({b1, b2, k, n})
+                                         .setStride({b2 * k * n, k * n, n, 1}));
+    // C has transposed batch dims: stride[0] < stride[1]
+    auto cT = std::make_shared<TensorAttr>(
+        TensorAttr()
+            .setDim({b1, b2, m, n})
+            .setStride({m * n, b1 * m * n, n, 1})); // b1 stride < b2 stride
+
+    attr.setA(aT).setB(bT).setC(cT);
+
+    MatmulNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+    auto status = node.postValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "Matmul tensor C has batch dimensions that are not outermost "
             "or are transposed");
   }
 }

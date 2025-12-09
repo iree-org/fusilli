@@ -141,21 +141,6 @@ public:
               ", B has dim=" + std::to_string(bDimVal));
     }
 
-    // Check that batch dimensions are outermost and non-transposed.
-    // This is equivalent to checking that perm[i] == i for all batch dims.
-    auto checkBatchDims = [&](const std::shared_ptr<TensorAttr> &tensor,
-                              const std::string &name) {
-      std::vector<int64_t> perm = tensor->getLogicalToPhysicalPermuteOrder();
-      for (size_t i = 0; i < batchDims; ++i) {
-        FUSILLI_RETURN_ERROR_IF(
-            perm[i] != static_cast<int64_t>(i), ErrorCode::InvalidAttribute,
-            "Matmul input tensor " + name +
-                " has batch dimensions that are not outermost or are "
-                "transposed");
-      }
-      return ok();
-    };
-
     FUSILLI_CHECK_ERROR(checkBatchDims(aT, "A"));
     FUSILLI_CHECK_ERROR(checkBatchDims(bT, "B"));
 
@@ -213,8 +198,27 @@ public:
         ErrorCode::InvalidAttribute,
         "Matmul output tensor C dimensions do not match the expected shapes "
         "inferred based on the input dimensions");
+    FUSILLI_CHECK_ERROR(checkBatchDims(cT, "C"));
     return ok();
   }
+
+private:
+  // Check that batch dimensions are outermost and non-transposed.
+  // This is equivalent to checking that perm[i] == i for all batch dims.
+  ErrorObject checkBatchDims(const std::shared_ptr<TensorAttr> &tensor,
+                             const std::string &name) const {
+    constexpr int64_t kNonBatchRank = 2;
+    size_t batchDims = tensor->getDim().size() - kNonBatchRank;
+    std::vector<int64_t> perm = tensor->getLogicalToPhysicalPermuteOrder();
+    for (size_t i = 0; i < batchDims; ++i) {
+      FUSILLI_RETURN_ERROR_IF(
+          perm[i] != static_cast<int64_t>(i), ErrorCode::InvalidAttribute,
+          "Matmul tensor " + name +
+              " has batch dimensions that are not outermost or are "
+              "transposed");
+    }
+    return ok();
+  };
 };
 
 } // namespace fusilli
