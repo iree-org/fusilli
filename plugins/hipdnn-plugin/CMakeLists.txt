@@ -99,14 +99,15 @@ target_compile_definitions(${FUSILLI_PLUGIN_NAME} PRIVATE
   FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
   FUSILLI_PLUGIN_ENGINE_ID=${FUSILLI_PLUGIN_ENGINE_ID}
 )
-target_link_libraries(
-    ${FUSILLI_PLUGIN_NAME} PRIVATE "-Xlinker --exclude-libs=ALL"
-) # Hide symbols from linked static libs
 set_target_properties(${FUSILLI_PLUGIN_NAME} PROPERTIES
   C_VISIBILITY_PRESET hidden
   CXX_VISIBILITY_PRESET hidden
   VISIBILITY_INLINES_HIDDEN ON
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${FUSILLI_PLUGIN_RELATIVE_PATH}"
+)
+# Version script hides all symbol definitions not staring with "hipdnn"
+target_link_options(
+  ${FUSILLI_PLUGIN_NAME} PRIVATE "LINKER:--version-script=${CMAKE_SOURCE_DIR}/exports.map"
 )
 
 # Installation
