@@ -17,6 +17,7 @@ add_fusilli_plugin_test(
     hip::host
     hipdnn_frontend
     hipdnn_sdk
+    hipdnn_test_sdk
     Threads::Threads
   COMPILE_DEFS
     FUSILLI_PLUGIN_PATH="../${FUSILLI_PLUGIN_RELATIVE_PATH}"
