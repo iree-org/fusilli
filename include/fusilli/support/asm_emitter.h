@@ -1074,7 +1074,7 @@ inline std::string MatmulNode::getPermuteAOpsAsm() const {
   std::shared_ptr<TensorAttr> aT = matmulAttr.getA();
 
   // Emit permute dimensions based on stride (works for any layout).
-  oss << getListOfIntOpsAsm(aT->getLogicalToPhysicalPermuteOrder(), prefix,
+  oss << getListOfIntOpsAsm(aT->getPhysicalToLogicalPermuteOrder(), prefix,
                             suffix);
 
   // Emit the permute op itself.
@@ -1104,7 +1104,7 @@ inline std::string MatmulNode::getPermuteBOpsAsm() const {
   std::shared_ptr<TensorAttr> bT = matmulAttr.getB();
 
   // Emit permute dimensions based on stride (works for any layout).
-  oss << getListOfIntOpsAsm(bT->getLogicalToPhysicalPermuteOrder(), prefix,
+  oss << getListOfIntOpsAsm(bT->getPhysicalToLogicalPermuteOrder(), prefix,
                             suffix);
 
   // Emit the permute op itself.
@@ -1134,7 +1134,7 @@ inline std::string MatmulNode::getPermuteCOpsAsm() const {
   std::shared_ptr<TensorAttr> cT = matmulAttr.getC();
 
   // For output, we need the inverse permutation (physical to logical).
-  oss << getListOfIntOpsAsm(cT->getPhysicalToLogicalPermuteOrder(), prefix,
+  oss << getListOfIntOpsAsm(cT->getLogicalToPhysicalPermuteOrder(), prefix,
                             suffix);
 
   // Emit the permute op itself.
