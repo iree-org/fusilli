@@ -357,7 +357,18 @@ add_fusilli_lit_test(
 
 add_fusilli_lit_test(
   SRC
-    lit/test_matmul_asm_emitter_broadcast.cpp
+    lit/test_matmul_asm_emitter_broadcast_3D.cpp
+  DEPS
+    libfusilli
+  TOOLS
+    FileCheck
+    iree-opt
+    iree-compile
+)
+
+add_fusilli_lit_test(
+  SRC
+    lit/test_matmul_asm_emitter_broadcast_4D.cpp
   DEPS
     libfusilli
   TOOLS
