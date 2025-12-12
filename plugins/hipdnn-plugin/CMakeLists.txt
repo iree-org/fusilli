@@ -53,6 +53,7 @@ FetchContent_MakeAvailable(IREERuntime)
 find_package(hip CONFIG REQUIRED)
 find_package(hipdnn_sdk CONFIG REQUIRED)
 find_package(hipdnn_frontend CONFIG REQUIRED)
+find_package(hipdnn_test_sdk CONFIG REQUIRED)
 find_package(Fusilli CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
 

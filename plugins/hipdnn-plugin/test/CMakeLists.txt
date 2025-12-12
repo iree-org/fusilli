@@ -21,6 +21,7 @@ add_fusilli_plugin_test(
     GTest::gtest_main
     hip::host
     hipdnn_sdk
+    hipdnn_test_sdk
     Threads::Threads
   COMPILE_DEFS
     FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"

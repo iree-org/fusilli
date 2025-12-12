@@ -10,9 +10,9 @@
 #include <hipdnn_frontend/Graph.hpp>
 #include <hipdnn_frontend/attributes/ConvolutionFpropAttributes.hpp>
 #include <hipdnn_frontend/attributes/TensorAttributes.hpp>
-#include <hipdnn_sdk/test_utilities/CpuFpReferenceValidation.hpp>
-#include <hipdnn_sdk/test_utilities/TestUtilities.hpp>
 #include <hipdnn_sdk/utilities/Tensor.hpp>
+#include <hipdnn_test_sdk/utilities/CpuFpReferenceValidation.hpp>
+#include <hipdnn_test_sdk/utilities/TestUtilities.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -20,7 +20,7 @@
 
 using namespace hipdnn_frontend;
 using namespace hipdnn_sdk::utilities;
-using namespace hipdnn_sdk::test_utilities;
+using namespace hipdnn_test_sdk::utilities;
 
 struct TestParams {
   bool shouldSetStream;

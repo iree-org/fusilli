@@ -14,7 +14,7 @@
 #include <hipdnn_sdk/data_objects/tensor_attributes_generated.h>
 #include <hipdnn_sdk/plugin/EnginePluginApi.h>
 #include <hipdnn_sdk/plugin/PluginApi.h>
-#include <hipdnn_sdk/test_utilities/FlatbufferGraphTestUtils.hpp>
+#include <hipdnn_test_sdk/utilities/FlatbufferGraphTestUtils.hpp>
 #include <spdlog/spdlog.h>
 
 #include <chrono>
@@ -231,7 +231,7 @@ TEST(TestFusilliPluginApi, GetApplicableEngineIds) {
   ASSERT_NE(handle, nullptr);
 
   // Create a serialized hipDNN batch norm graph.
-  auto builder = hipdnn_sdk::test_utilities::createValidBatchnormBwdGraph();
+  auto builder = hipdnn_test_sdk::utilities::createValidBatchnormBwdGraph();
   hipdnnPluginConstData_t opGraph;
   opGraph.ptr = builder.GetBufferPointer();
   opGraph.size = builder.GetSize();
