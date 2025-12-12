@@ -31,6 +31,7 @@ add_fusilli_tests(
     test_attributes.cpp
     test_tensor_attributes.cpp
     test_conv_attributes.cpp
+    test_layernorm_attributes.cpp
     test_matmul_attributes.cpp
     test_pointwise_attributes.cpp
   DEPS
@@ -42,6 +43,7 @@ add_fusilli_tests(
   PREFIX fusilli_node_tests
   SRCS
     test_conv_node.cpp
+    test_layernorm_node.cpp
     test_matmul_node.cpp
     test_pointwise_node.cpp
   DEPS
