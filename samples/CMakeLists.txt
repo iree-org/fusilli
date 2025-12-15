@@ -15,13 +15,9 @@ set(FUSILLI_CONV_SAMPLE_FILES
   convolution/conv_fprop_grouped_with_relu_and_bias.cpp
   convolution/conv_wgrad_nhwc_krsc.cpp
   convolution/conv_wgrad_nhwc_krsc_grouped.cpp
+  convolution/conv_wgrad_nhwc_krsc_grouped_strided.cpp
   convolution/conv_dgrad_nhwc_krsc.cpp
   convolution/conv_dgrad_nhwc_krsc_grouped.cpp)
-
-# TODO(#17): Currently the test with grouped not unit-stride ConvWGrad has SIGSEGV on CPU backend
-if(FUSILLI_SYSTEMS_AMDGPU)
-  list(APPEND FUSILLI_CONV_SAMPLE_FILES convolution/conv_wgrad_nhwc_krsc_grouped_strided.cpp)
-endif()
 
 add_fusilli_samples(
   PREFIX fusilli_conv_samples
