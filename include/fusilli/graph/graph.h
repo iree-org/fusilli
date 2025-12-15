@@ -649,9 +649,9 @@ Graph::matmul(const std::shared_ptr<TensorAttr> &a,
   // Populate names when not set.
   if (matmulAttr.getName().empty())
     matmulAttr.setName("matmul_" + std::to_string(subNodes_.size()));
-  if (a->getName().empty())
+  if (a && a->getName().empty())
     a->setName(matmulAttr.getName() + "_A");
-  if (b->getName().empty())
+  if (b && b->getName().empty())
     b->setName(matmulAttr.getName() + "_B");
 
   FUSILLI_LOG_LABEL_ENDL("INFO: Adding MatmulNode '" << matmulAttr.getName()
