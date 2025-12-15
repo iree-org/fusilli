@@ -25,6 +25,7 @@
 
 // Attributes / Types:
 #include "fusilli/attributes/attributes.h"           // IWYU pragma: export
+#include "fusilli/attributes/common.h"               // IWYU pragma: export
 #include "fusilli/attributes/conv_attributes.h"      // IWYU pragma: export
 #include "fusilli/attributes/layernorm_attributes.h" // IWYU pragma: export
 #include "fusilli/attributes/matmul_attributes.h"    // IWYU pragma: export

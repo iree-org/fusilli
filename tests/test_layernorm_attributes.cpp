@@ -15,7 +15,7 @@ using namespace fusilli;
 
 TEST_CASE("LayernormAttr default constructor", "[layernorm_attr]") {
   LayernormAttr attr;
-  REQUIRE(attr.getForwardPhase() == LayernormAttr::FwdPhase::NOT_SET);
+  REQUIRE(attr.getForwardPhase() == NormFwdPhase::NOT_SET);
   REQUIRE(attr.inputs.empty());
   REQUIRE(attr.outputs.empty());
 }
@@ -23,7 +23,7 @@ TEST_CASE("LayernormAttr default constructor", "[layernorm_attr]") {
 TEST_CASE("LayernormAttr setters and getters", "[layernorm_attr]") {
   LayernormAttr attr;
 
-  LayernormAttr::FwdPhase phase = LayernormAttr::FwdPhase::INFERENCE;
+  NormFwdPhase phase = NormFwdPhase::INFERENCE;
 
   attr.setForwardPhase(phase);
 

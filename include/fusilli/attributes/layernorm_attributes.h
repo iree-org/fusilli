@@ -15,6 +15,7 @@
 #define FUSILLI_ATTRIBUTES_LAYERNORM_ATTRIBUTES_H
 
 #include "fusilli/attributes/attributes.h"
+#include "fusilli/attributes/common.h"
 #include "fusilli/attributes/tensor_attributes.h"
 
 #include <cstdint>
@@ -29,8 +30,6 @@ public:
   enum class InputNames : uint8_t { X, SCALE, BIAS, EPSILON };
   enum class OutputNames : uint8_t { Y, MEAN, INV_VARIANCE };
 
-  enum class FwdPhase : uint8_t { NOT_SET, TRAINING, INFERENCE };
-
   std::unordered_map<InputNames, std::shared_ptr<TensorAttr>> inputs;
   std::unordered_map<OutputNames, std::shared_ptr<TensorAttr>> outputs;
 
@@ -43,7 +42,7 @@ public:
   FUSILLI_GENERIC_OUTPUT_TENSOR_SETTER(LayernormAttr, OutputNames, MEAN)
   FUSILLI_GENERIC_OUTPUT_TENSOR_SETTER(LayernormAttr, OutputNames, INV_VARIANCE)
 
-  LayernormAttr &setForwardPhase(FwdPhase forwardPhase) {
+  LayernormAttr &setForwardPhase(NormFwdPhase forwardPhase) {
     forwardPhase_ = forwardPhase;
     return *this;
   }
@@ -57,20 +56,10 @@ public:
   FUSILLI_GENERIC_OUTPUT_TENSOR_GETTER(OutputNames, MEAN)
   FUSILLI_GENERIC_OUTPUT_TENSOR_GETTER(OutputNames, INV_VARIANCE)
 
-  FwdPhase getForwardPhase() const { return forwardPhase_; }
-
-  // Utility for forward phases.
-  static const std::unordered_map<FwdPhase, std::string> kFwdPhaseToStr;
+  NormFwdPhase getForwardPhase() const { return forwardPhase_; }
 
 private:
-  FwdPhase forwardPhase_ = FwdPhase::NOT_SET;
-};
-
-inline const std::unordered_map<LayernormAttr::FwdPhase, std::string>
-    LayernormAttr::kFwdPhaseToStr = {
-        {LayernormAttr::FwdPhase::NOT_SET, "NOT_SET"},
-        {LayernormAttr::FwdPhase::TRAINING, "TRAINING"},
-        {LayernormAttr::FwdPhase::INFERENCE, "INFERENCE"},
+  NormFwdPhase forwardPhase_ = NormFwdPhase::NOT_SET;
 };
 
 } // namespace fusilli
