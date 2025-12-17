@@ -43,7 +43,7 @@ cmake --build build --target all
 ctest --test-dir build
 ```
 
-When building on a CPU-only system, specify `-DFUSILLI_SYSTEMS_AMDGPU=OFF` to disable the AMDGPU build.
+When building on an AMD GPU system, specify `-DFUSILLI_SYSTEMS_AMDGPU=ON` to enable the AMDGPU build.
 
 To re-run failed tests verbosely:
 ```shell
