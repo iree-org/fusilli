@@ -13,7 +13,7 @@
 #ifndef FUSILLI_ATTRIBUTES_COMMON_H
 #define FUSILLI_ATTRIBUTES_COMMON_H
 
-#include "fusilli/external/torch_types.h"
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 

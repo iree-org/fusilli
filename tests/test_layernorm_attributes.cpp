@@ -48,51 +48,21 @@ TEST_CASE("LayernormAttr setters and getters", "[layernorm_attr]") {
   REQUIRE(attr.inputs.size() == 4);
   REQUIRE(attr.outputs.size() == 3);
 
-  REQUIRE(attr.getX() == x);
-  REQUIRE(attr.getSCALE() == s);
-  REQUIRE(attr.getBIAS() == b);
-  REQUIRE(attr.getEPSILON() == e);
-  REQUIRE(attr.getY() == y);
-  REQUIRE(attr.getMEAN() == m);
-  REQUIRE(attr.getINV_VARIANCE() == v);
+#define CHECK_TENSOR_PROPERTIES(NAME, TENSOR)                                  \
+  REQUIRE(attr.get##NAME() == TENSOR);                                         \
+  REQUIRE(attr.get##NAME()->getDataType() == DataType::Float);                 \
+  REQUIRE(attr.get##NAME()->getDim() == std::vector<int64_t>{1});              \
+  REQUIRE(attr.get##NAME()->getStride() == std::vector<int64_t>{1});           \
+  REQUIRE(attr.get##NAME()->isScalar() == true);                               \
+  REQUIRE(attr.get##NAME()->isVirtual() == false)
 
-  REQUIRE(attr.getX()->getDataType() == DataType::Float);
-  REQUIRE(attr.getSCALE()->getDataType() == DataType::Float);
-  REQUIRE(attr.getBIAS()->getDataType() == DataType::Float);
-  REQUIRE(attr.getEPSILON()->getDataType() == DataType::Float);
-  REQUIRE(attr.getY()->getDataType() == DataType::Float);
-  REQUIRE(attr.getMEAN()->getDataType() == DataType::Float);
-  REQUIRE(attr.getINV_VARIANCE()->getDataType() == DataType::Float);
+  CHECK_TENSOR_PROPERTIES(X, x);
+  CHECK_TENSOR_PROPERTIES(SCALE, s);
+  CHECK_TENSOR_PROPERTIES(BIAS, b);
+  CHECK_TENSOR_PROPERTIES(EPSILON, e);
+  CHECK_TENSOR_PROPERTIES(Y, y);
+  CHECK_TENSOR_PROPERTIES(MEAN, m);
+  CHECK_TENSOR_PROPERTIES(INV_VARIANCE, v);
 
-  REQUIRE(attr.getX()->getDim() == std::vector<int64_t>{1});
-  REQUIRE(attr.getSCALE()->getDim() == std::vector<int64_t>{1});
-  REQUIRE(attr.getBIAS()->getDim() == std::vector<int64_t>{1});
-  REQUIRE(attr.getEPSILON()->getDim() == std::vector<int64_t>{1});
-  REQUIRE(attr.getY()->getDim() == std::vector<int64_t>{1});
-  REQUIRE(attr.getMEAN()->getDim() == std::vector<int64_t>{1});
-  REQUIRE(attr.getINV_VARIANCE()->getDim() == std::vector<int64_t>{1});
-
-  REQUIRE(attr.getX()->getStride() == std::vector<int64_t>{1});
-  REQUIRE(attr.getSCALE()->getStride() == std::vector<int64_t>{1});
-  REQUIRE(attr.getBIAS()->getStride() == std::vector<int64_t>{1});
-  REQUIRE(attr.getEPSILON()->getStride() == std::vector<int64_t>{1});
-  REQUIRE(attr.getY()->getStride() == std::vector<int64_t>{1});
-  REQUIRE(attr.getMEAN()->getStride() == std::vector<int64_t>{1});
-  REQUIRE(attr.getINV_VARIANCE()->getStride() == std::vector<int64_t>{1});
-
-  REQUIRE(attr.getX()->isScalar() == true);
-  REQUIRE(attr.getSCALE()->isScalar() == true);
-  REQUIRE(attr.getBIAS()->isScalar() == true);
-  REQUIRE(attr.getEPSILON()->isScalar() == true);
-  REQUIRE(attr.getY()->isScalar() == true);
-  REQUIRE(attr.getMEAN()->isScalar() == true);
-  REQUIRE(attr.getINV_VARIANCE()->isScalar() == true);
-
-  REQUIRE(attr.getX()->isVirtual() == false);
-  REQUIRE(attr.getSCALE()->isVirtual() == false);
-  REQUIRE(attr.getBIAS()->isVirtual() == false);
-  REQUIRE(attr.getEPSILON()->isVirtual() == false);
-  REQUIRE(attr.getY()->isVirtual() == false);
-  REQUIRE(attr.getMEAN()->isVirtual() == false);
-  REQUIRE(attr.getINV_VARIANCE()->isVirtual() == false);
+#undef CHECK_TENSOR_PROPERTIES
 }
