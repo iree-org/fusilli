@@ -31,10 +31,13 @@ const auto kIsPositiveInteger =
 const auto kIsValidConvLayout =
     CLI::IsMember({"NCHW", "NHWC", "NCDHW", "NDHWC"});
 
+//===---------------------------------------------------------------------===//
 // Option classes for organizing benchmark parameters
+//===---------------------------------------------------------------------===//
+
 struct ConvOptions {
-  int64_t n, c, d{-1}, h, w, g{1}, k, z{-1}, y, x;
-  int64_t t{-1}, u, v, o{-1}, p, q, m{-1}, l, j, s;
+  int64_t n, c, d, h, w, g, k, z, y, x;
+  int64_t t, u, v, o, p, q, m, l, j, s;
   int64_t mode;
   std::string imageLayout, filterLayout, outputLayout;
   bool fp16{false};
@@ -49,6 +52,10 @@ struct MatmulOptions {
   bool transA{false};
   bool transB{false};
 };
+
+//===---------------------------------------------------------------------===//
+// Benchmark functions
+//===---------------------------------------------------------------------===//
 
 static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
                                       DataType convIOType, int64_t iter,
@@ -485,7 +492,10 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
   return ok();
 }
 
-// Register convolution options to CLI app
+//===---------------------------------------------------------------------===//
+// CLI registration functions
+//===---------------------------------------------------------------------===//
+
 static CLI::App *registerConvOptions(CLI::App &mainApp, ConvOptions &convOpts) {
   // Conv flags are kept in sync with MIOpen's ConvDriver:
   // https://github.com/ROCm/rocm-libraries/blob/db0544fb61f2c7bd5a86dce98d4963420c1c741a/projects/miopen/driver/conv_driver.hpp#L878
@@ -707,6 +717,10 @@ static int runMatmulBenchmark(const MatmulOptions &matmulOpts, int64_t iter,
 
   return 0;
 }
+
+//===---------------------------------------------------------------------===//
+// Main function
+//===---------------------------------------------------------------------===//
 
 static int benchmark(int argc, char **argv) {
   CLI::App mainApp{"Fusilli Benchmark Driver"};
