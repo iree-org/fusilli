@@ -181,8 +181,9 @@ static ErrorObject benchmarkMatmul(int64_t m, int64_t n, int64_t k, bool transA,
       transB ? std::vector<int64_t>{1, k} : std::vector<int64_t>{n, 1};
 
   Graph graph;
-  auto graphName = std::format("benchmark_matmul_m{}_n{}_k{}_transA{}_transB{}",
-                               m, n, k, transA, transB);
+  auto graphName = std::format(
+      "benchmark_matmul_m{}_n{}_k{}_transA{}_transB{}_dtype{}", m, n, k, transA,
+      transB, kDataTypeToMlirTypeAsm.at(matmulIOType));
   graph.setName(graphName);
 
   // Types on the graph are kept at fp32 but we explicitly set
@@ -565,9 +566,9 @@ static int benchmark(int argc, char **argv) {
       ->check(CLI::IsMember({2, 3}));
 
   // convApp CLI Flags:
-  bool fp16{false}, bf16{false}, bias{false};
-  auto *f1 = convApp->add_flag("--fp16", fp16, "Run fp16 convolution");
-  auto *f2 = convApp->add_flag("--bf16", bf16, "Run bf16 convolution");
+  bool convFp16{false}, convBf16{false}, bias{false};
+  auto *f1 = convApp->add_flag("--fp16", convFp16, "Run fp16 convolution");
+  auto *f2 = convApp->add_flag("--bf16", convBf16, "Run bf16 convolution");
   // Can't specify both flags.
   f1->excludes(f2);
   convApp->add_flag("--bias,-b", bias, "Run with bias (only for mode=1)");
@@ -646,9 +647,9 @@ static int benchmark(int argc, char **argv) {
     }
 
     DataType convIOType;
-    if (fp16)
+    if (convFp16)
       convIOType = DataType::Half;
-    else if (bf16)
+    else if (convBf16)
       convIOType = DataType::BFloat16;
     else
       // When unspecified, default to fp32 conv.
