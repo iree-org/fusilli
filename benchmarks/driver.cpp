@@ -485,34 +485,8 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
   return ok();
 }
 
-static int benchmark(int argc, char **argv) {
-  CLI::App mainApp{"Fusilli Benchmark Driver"};
-  mainApp.require_subcommand(1);
-
-  // Create option objects
-  ConvOptions convOpts;
-  MatmulOptions matmulOpts;
-
-  // Shared options between subcommands
-  int64_t iter, deviceId;
-  bool dump{false};
-
-  // mainApp CLI Options - shared between subcommands
-  mainApp.add_option("--iter,-i", iter, "Benchmark iterations")
-      ->required()
-      ->check(kIsPositiveInteger);
-  mainApp
-      .add_option("--device,-D", deviceId,
-                  "AMDGPU Device ID (ignored for CPU backend)")
-      ->default_val("0")
-      ->check(kIsNonNegativeInteger);
-
-  // mainApp CLI Flags:
-  mainApp.add_flag("--dump,-d", dump,
-                   "Dump compilation artifacts to disk at "
-                   "'${FUSILLI_CACHE_DIR}/.cache/fusilli'. "
-                   "When not set, it defaults to '${HOME}/.cache/fusilli'.");
-
+// Register convolution options to CLI app
+static CLI::App *registerConvOptions(CLI::App &mainApp, ConvOptions &convOpts) {
   // Conv flags are kept in sync with MIOpen's ConvDriver:
   // https://github.com/ROCm/rocm-libraries/blob/db0544fb61f2c7bd5a86dce98d4963420c1c741a/projects/miopen/driver/conv_driver.hpp#L878
   CLI::App *convApp =
@@ -604,7 +578,12 @@ static int benchmark(int argc, char **argv) {
   convApp->add_flag("--bias,-b", convOpts.bias,
                     "Run with bias (only for mode=1)");
 
-  // Matmul subcommand
+  return convApp;
+}
+
+// Register matmul options to CLI app
+static CLI::App *registerMatmulOptions(CLI::App &mainApp,
+                                       MatmulOptions &matmulOpts) {
   CLI::App *matmulApp = mainApp.add_subcommand(
       "matmul", "Fusilli Benchmark Matrix Multiplication");
 
@@ -627,101 +606,154 @@ static int benchmark(int argc, char **argv) {
   matmulApp->add_flag("--transA", matmulOpts.transA, "Transpose matrix A");
   matmulApp->add_flag("--transB", matmulOpts.transB, "Transpose matrix B");
 
+  return matmulApp;
+}
+
+// Validate and run convolution benchmark
+static int runConvBenchmark(const ConvOptions &convOpts, int64_t iter,
+                            int64_t deviceId, bool dump) {
+  // Additional validation of convApp options (apart from default CLI checks)
+  if (convOpts.s == 2) {
+    // Reject 3D layouts for 2D conv
+    if (convOpts.imageLayout.size() != 4 || convOpts.filterLayout.size() != 4 ||
+        convOpts.outputLayout.size() != 4) {
+      std::cerr << "Detected at least one invalid {input, filter, output} "
+                   "layout for 2D convolution."
+                << std::endl;
+      return 1;
+    }
+  }
+  if (convOpts.s == 3) {
+    // Reject 2D layouts for 3D conv
+    if (convOpts.imageLayout.size() != 5 || convOpts.filterLayout.size() != 5 ||
+        convOpts.outputLayout.size() != 5) {
+      std::cerr << "Detected at least one invalid {input, filter, output} "
+                   "layout for 3D convolution."
+                << std::endl;
+      return 1;
+    }
+    // Reject default (sentinel) values for optional args in 3D conv
+    if (convOpts.d == -1 || convOpts.z == -1 || convOpts.t == -1 ||
+        convOpts.o == -1 || convOpts.m == -1) {
+      std::cerr << "Detected at least one of {in_d, fil_d, conv_stride_d, "
+                   "pad_d, dilation_d} that was not set for 3D convolution."
+                << std::endl;
+      return 1;
+    }
+  }
+
+  // Validation of group count
+  if (convOpts.c % convOpts.g != 0 || convOpts.k % convOpts.g != 0) {
+    std::cerr << "Detected invalid group count." << std::endl;
+    return 1;
+  }
+
+  // Validate bias flag only works with forward mode
+  if (convOpts.bias && convOpts.mode != 1) {
+    std::cerr << "Bias flag (--bias) is only supported for forward "
+                 "convolution (mode=1)."
+              << std::endl;
+    return 1;
+  }
+
+  DataType convIOType;
+  if (convOpts.fp16)
+    convIOType = DataType::Half;
+  else if (convOpts.bf16)
+    convIOType = DataType::BFloat16;
+  else
+    // When unspecified, default to fp32 conv.
+    convIOType = DataType::Float;
+
+  ErrorObject status = ok();
+  if (convOpts.mode == 1) {
+    // Forward convolution
+    status = benchmarkConvFprop(convOpts, convIOType, iter, deviceId, dump);
+  } else if (convOpts.mode == 2) {
+    // Data gradient
+    status = benchmarkConvDGrad(convOpts, convIOType, iter, deviceId, dump);
+  } else if (convOpts.mode == 4) {
+    // Weight gradient
+    status = benchmarkConvWGrad(convOpts, convIOType, iter, deviceId, dump);
+  }
+
+  if (isError(status)) {
+    std::cerr << "Fusilli Benchmark failed: " << status << std::endl;
+    return 1;
+  }
+
+  return 0;
+}
+
+// Validate and run matmul benchmark
+static int runMatmulBenchmark(const MatmulOptions &matmulOpts, int64_t iter,
+                              int64_t deviceId, bool dump) {
+  DataType matmulIOType;
+  if (matmulOpts.fp16)
+    matmulIOType = DataType::Half;
+  else if (matmulOpts.bf16)
+    matmulIOType = DataType::BFloat16;
+  else
+    // When unspecified, default to fp32 matmul.
+    matmulIOType = DataType::Float;
+
+  ErrorObject status =
+      benchmarkMatmul(matmulOpts, matmulIOType, iter, deviceId, dump);
+
+  if (isError(status)) {
+    std::cerr << "Fusilli Benchmark failed: " << status << std::endl;
+    return 1;
+  }
+
+  return 0;
+}
+
+static int benchmark(int argc, char **argv) {
+  CLI::App mainApp{"Fusilli Benchmark Driver"};
+  mainApp.require_subcommand(1);
+
+  // Create option objects
+  ConvOptions convOpts;
+  MatmulOptions matmulOpts;
+
+  // Shared options between subcommands
+  int64_t iter, deviceId;
+  bool dump{false};
+
+  // mainApp CLI Options - shared between subcommands
+  mainApp.add_option("--iter,-i", iter, "Benchmark iterations")
+      ->required()
+      ->check(kIsPositiveInteger);
+  mainApp
+      .add_option("--device,-D", deviceId,
+                  "AMDGPU Device ID (ignored for CPU backend)")
+      ->default_val("0")
+      ->check(kIsNonNegativeInteger);
+
+  // mainApp CLI Flags:
+  mainApp.add_flag("--dump,-d", dump,
+                   "Dump compilation artifacts to disk at "
+                   "'${FUSILLI_CACHE_DIR}/.cache/fusilli'. "
+                   "When not set, it defaults to '${HOME}/.cache/fusilli'.");
+
+  // Register subcommands
+  CLI::App *convApp = registerConvOptions(mainApp, convOpts);
+  CLI::App *matmulApp = registerMatmulOptions(mainApp, matmulOpts);
+
   CLI11_PARSE(mainApp, argc, argv);
 
   std::cout << "Fusilli Benchmark started..." << std::endl;
 
   if (convApp->parsed()) {
-    // Additional validation of convApp options (apart from default CLI checks)
-    if (convOpts.s == 2) {
-      // Reject 3D layouts for 2D conv
-      if (convOpts.imageLayout.size() != 4 ||
-          convOpts.filterLayout.size() != 4 ||
-          convOpts.outputLayout.size() != 4) {
-        std::cerr << "Detected at least one invalid {input, filter, output} "
-                     "layout for 2D convolution."
-                  << std::endl;
-        return 1;
-      }
-    }
-    if (convOpts.s == 3) {
-      // Reject 2D layouts for 3D conv
-      if (convOpts.imageLayout.size() != 5 ||
-          convOpts.filterLayout.size() != 5 ||
-          convOpts.outputLayout.size() != 5) {
-        std::cerr << "Detected at least one invalid {input, filter, output} "
-                     "layout for 3D convolution."
-                  << std::endl;
-        return 1;
-      }
-      // Reject default (sentinel) values for optional args in 3D conv
-      if (convOpts.d == -1 || convOpts.z == -1 || convOpts.t == -1 ||
-          convOpts.o == -1 || convOpts.m == -1) {
-        std::cerr << "Detected at least one of {in_d, fil_d, conv_stride_d, "
-                     "pad_d, dilation_d} that was not set for 3D convolution."
-                  << std::endl;
-        return 1;
-      }
-    }
-
-    // Validation of group count
-    if (convOpts.c % convOpts.g != 0 || convOpts.k % convOpts.g != 0) {
-      std::cerr << "Detected invalid group count." << std::endl;
-      return 1;
-    }
-
-    // Validate bias flag only works with forward mode
-    if (convOpts.bias && convOpts.mode != 1) {
-      std::cerr << "Bias flag (--bias) is only supported for forward "
-                   "convolution (mode=1)."
-                << std::endl;
-      return 1;
-    }
-
-    DataType convIOType;
-    if (convOpts.fp16)
-      convIOType = DataType::Half;
-    else if (convOpts.bf16)
-      convIOType = DataType::BFloat16;
-    else
-      // When unspecified, default to fp32 conv.
-      convIOType = DataType::Float;
-
-    ErrorObject status = ok();
-    if (convOpts.mode == 1) {
-      // Forward convolution
-      status = benchmarkConvFprop(convOpts, convIOType, iter, deviceId, dump);
-    } else if (convOpts.mode == 2) {
-      // Data gradient
-      status = benchmarkConvDGrad(convOpts, convIOType, iter, deviceId, dump);
-    } else if (convOpts.mode == 4) {
-      // Weight gradient
-      status = benchmarkConvWGrad(convOpts, convIOType, iter, deviceId, dump);
-    }
-
-    if (isError(status)) {
-      std::cerr << "Fusilli Benchmark failed: " << status << std::endl;
-      return 1;
-    }
+    int result = runConvBenchmark(convOpts, iter, deviceId, dump);
+    if (result != 0)
+      return result;
   }
 
   if (matmulApp->parsed()) {
-    DataType matmulIOType;
-    if (matmulOpts.fp16)
-      matmulIOType = DataType::Half;
-    else if (matmulOpts.bf16)
-      matmulIOType = DataType::BFloat16;
-    else
-      // When unspecified, default to fp32 matmul.
-      matmulIOType = DataType::Float;
-
-    ErrorObject status =
-        benchmarkMatmul(matmulOpts, matmulIOType, iter, deviceId, dump);
-
-    if (isError(status)) {
-      std::cerr << "Fusilli Benchmark failed: " << status << std::endl;
-      return 1;
-    }
+    int result = runMatmulBenchmark(matmulOpts, iter, deviceId, dump);
+    if (result != 0)
+      return result;
   }
 
   std::cout << "Fusilli Benchmark complete!" << std::endl;
