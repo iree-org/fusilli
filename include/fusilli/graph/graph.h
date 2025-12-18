@@ -557,9 +557,9 @@ Graph::convFProp(const std::shared_ptr<TensorAttr> &x,
   // Populate names when not set.
   if (convAttr.getName().empty())
     convAttr.setName("conv_fprop_" + std::to_string(subNodes_.size()));
-  if (x->getName().empty())
+  if (x && x->getName().empty())
     x->setName(convAttr.getName() + "_X");
-  if (w->getName().empty())
+  if (w && w->getName().empty())
     w->setName(convAttr.getName() + "_W");
 
   FUSILLI_LOG_LABEL_ENDL("INFO: Adding ConvFPropNode '" << convAttr.getName()
@@ -588,9 +588,9 @@ Graph::convWGrad(const std::shared_ptr<TensorAttr> &dy,
   // Populate names when not set.
   if (convWGradAttr.getName().empty())
     convWGradAttr.setName("conv_wgrad_" + std::to_string(subNodes_.size()));
-  if (dy->getName().empty())
+  if (dy && dy->getName().empty())
     dy->setName(convWGradAttr.getName() + "_DY");
-  if (x->getName().empty())
+  if (x && x->getName().empty())
     x->setName(convWGradAttr.getName() + "_X");
 
   FUSILLI_LOG_LABEL_ENDL("INFO: Adding ConvWGradNode '"
@@ -619,9 +619,9 @@ Graph::convDGrad(const std::shared_ptr<TensorAttr> &dy,
   // Populate names when not set.
   if (convDGradAttr.getName().empty())
     convDGradAttr.setName("conv_dgrad_" + std::to_string(subNodes_.size()));
-  if (dy->getName().empty())
+  if (dy && dy->getName().empty())
     dy->setName(convDGradAttr.getName() + "_DY");
-  if (w->getName().empty())
+  if (w && w->getName().empty())
     w->setName(convDGradAttr.getName() + "_W");
 
   FUSILLI_LOG_LABEL_ENDL("INFO: Adding ConvDGradNode '"
@@ -649,9 +649,9 @@ Graph::matmul(const std::shared_ptr<TensorAttr> &a,
   // Populate names when not set.
   if (matmulAttr.getName().empty())
     matmulAttr.setName("matmul_" + std::to_string(subNodes_.size()));
-  if (a->getName().empty())
+  if (a && a->getName().empty())
     a->setName(matmulAttr.getName() + "_A");
-  if (b->getName().empty())
+  if (b && b->getName().empty())
     b->setName(matmulAttr.getName() + "_B");
 
   FUSILLI_LOG_LABEL_ENDL("INFO: Adding MatmulNode '" << matmulAttr.getName()
@@ -680,7 +680,7 @@ Graph::pointwise(const std::shared_ptr<TensorAttr> &in,
   // Populate names when not set.
   if (pointwiseAttr.getName().empty())
     pointwiseAttr.setName("pointwise_" + std::to_string(subNodes_.size()));
-  if (in->getName().empty())
+  if (in && in->getName().empty())
     in->setName(pointwiseAttr.getName() + "_IN_0");
 
   FUSILLI_LOG_LABEL_ENDL("INFO: Adding PointwiseNode '"
@@ -710,9 +710,9 @@ Graph::pointwise(const std::shared_ptr<TensorAttr> &in0,
   // Populate names when not set.
   if (pointwiseAttr.getName().empty())
     pointwiseAttr.setName("pointwise_" + std::to_string(subNodes_.size()));
-  if (in0->getName().empty())
+  if (in0 && in0->getName().empty())
     in0->setName(pointwiseAttr.getName() + "_IN_0");
-  if (in1->getName().empty())
+  if (in1 && in1->getName().empty())
     in1->setName(pointwiseAttr.getName() + "_IN_1");
 
   FUSILLI_LOG_LABEL_ENDL("INFO: Adding PointwiseNode '"
