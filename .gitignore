@@ -4,3 +4,5 @@ build/
 .cache/
 .rocprofv3/
 benchmark_results.csv
+__pycache__/
+*.pyc

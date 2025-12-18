@@ -5,4 +5,4 @@ build/
 .cache/
 
 # CMake presets
-CMakePresets.json
+CMakeUserPresets.json
