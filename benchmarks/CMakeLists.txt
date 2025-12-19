@@ -122,3 +122,46 @@ add_fusilli_benchmark(
   ARGS
     --iter 10 conv -F 2 --bf16 -n 64 -c 3 -H 32 -W 32 -k 32 -y 3 -x 3 -u 1 -v 1 -p 0 -q 0 -l 1 -j 1 --in_layout "NCHW" --fil_layout "NCHW" --out_layout "NCHW" --spatial_dim 2
 )
+
+# Matrix multiplication benchmarks
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_matmul_fp32
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --iter 10 matmul -M 128 -N 128 -K 128
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_matmul_fp16
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --iter 10 matmul --fp16 -M 256 -N 256 -K 256
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_matmul_bf16
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --iter 10 matmul --bf16 -M 256 -N 128 -K 64
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_matmul_fp16_transA
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --iter 10 matmul --fp16 -M 128 -N 128 -K 128 --transA
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_matmul_bf16_transB
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --iter 10 matmul --bf16 -M 128 -N 64 -K 128 --transB
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_matmul_fp32_transAB
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --iter 10 matmul -M 64 -N 128 -K 64 --transA --transB
+)

@@ -163,6 +163,80 @@ static ErrorObject benchmarkConvFprop(
   return ok();
 }
 
+static ErrorObject benchmarkMatmul(int64_t m, int64_t n, int64_t k, bool transA,
+                                   bool transB, int64_t iter, bool dump,
+                                   DataType matmulIOType, int64_t deviceId) {
+#ifdef FUSILLI_ENABLE_AMDGPU
+  Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
+#else
+  Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
+#endif
+
+  // Build attributes based on transpose flags.
+  auto aDims = std::vector<int64_t>{m, k};
+  auto bDims = std::vector<int64_t>{k, n};
+  auto aStride =
+      transA ? std::vector<int64_t>{1, m} : std::vector<int64_t>{k, 1};
+  auto bStride =
+      transB ? std::vector<int64_t>{1, k} : std::vector<int64_t>{n, 1};
+
+  Graph graph;
+  auto graphName = std::format(
+      "benchmark_matmul_m{}_n{}_k{}_transA{}_transB{}_dtype{}", m, n, k, transA,
+      transB, kDataTypeToMlirTypeAsm.at(matmulIOType));
+  graph.setName(graphName);
+
+  // Types on the graph are kept at fp32 but we explicitly set
+  // individual tensor types below based on configuration. These
+  // types hence don't matter much and are used only to infer
+  // missing type annotations on tensors.
+  graph.setIODataType(DataType::Float)
+      .setComputeDataType(DataType::Float)
+      .setIntermediateDataType(DataType::Float);
+
+  auto aT = graph.tensor(TensorAttr()
+                             .setName("matrix_a")
+                             .setDim(aDims)
+                             .setStride(aStride)
+                             .setDataType(matmulIOType));
+
+  auto bT = graph.tensor(TensorAttr()
+                             .setName("matrix_b")
+                             .setDim(bDims)
+                             .setStride(bStride)
+                             .setDataType(matmulIOType));
+
+  auto matmulAttr = MatmulAttr().setName("matmul");
+
+  auto cT = graph.matmul(aT, bT, matmulAttr);
+  cT->setOutput(true).setDataType(matmulIOType);
+
+  // Validate, infer missing properties
+  FUSILLI_CHECK_ERROR(graph.validate());
+
+  // Compile
+  FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
+
+  // Allocate input, weight and output buffers.
+  auto aBuf = FUSILLI_TRY(allocateBufferOfType(handle, aT, matmulIOType, 1.0f));
+  auto bBuf = FUSILLI_TRY(allocateBufferOfType(handle, bT, matmulIOType, 1.0f));
+  auto cBuf = FUSILLI_TRY(allocateBufferOfType(handle, cT, matmulIOType, 0.0f));
+
+  // Create variant pack.
+  std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
+      variantPack = {
+          {aT, aBuf},
+          {bT, bBuf},
+          {cT, cBuf},
+      };
+
+  // Execute graph `iter` times.
+  for (size_t i = 0; i < iter; i++)
+    FUSILLI_CHECK_ERROR(graph.execute(handle, variantPack));
+
+  return ok();
+}
+
 static ErrorObject
 benchmarkConvWGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
                    int64_t g, int64_t k, int64_t z, int64_t y, int64_t x,
@@ -492,12 +566,37 @@ static int benchmark(int argc, char **argv) {
       ->check(CLI::IsMember({2, 3}));
 
   // convApp CLI Flags:
-  bool fp16{false}, bf16{false}, bias{false};
-  auto *f1 = convApp->add_flag("--fp16", fp16, "Run fp16 convolution");
-  auto *f2 = convApp->add_flag("--bf16", bf16, "Run bf16 convolution");
+  bool convFp16{false}, convBf16{false}, bias{false};
+  auto *f1 = convApp->add_flag("--fp16", convFp16, "Run fp16 convolution");
+  auto *f2 = convApp->add_flag("--bf16", convBf16, "Run bf16 convolution");
   // Can't specify both flags.
   f1->excludes(f2);
   convApp->add_flag("--bias,-b", bias, "Run with bias (only for mode=1)");
+
+  // Matmul subcommand
+  CLI::App *matmulApp = mainApp.add_subcommand(
+      "matmul", "Fusilli Benchmark Matrix Multiplication");
+
+  // matmulApp CLI Options:
+  int64_t matmulM, matmulN, matmulK;
+  matmulApp->add_option("--m,-M", matmulM, "Matrix M dimension")
+      ->required()
+      ->check(kIsPositiveInteger);
+  matmulApp->add_option("--n,-N", matmulN, "Matrix N dimension")
+      ->required()
+      ->check(kIsPositiveInteger);
+  matmulApp->add_option("--k,-K", matmulK, "Matrix K dimension")
+      ->required()
+      ->check(kIsPositiveInteger);
+
+  // matmulApp CLI Flags:
+  bool matmulFp16{false}, matmulBf16{false}, transA{false}, transB{false};
+  auto *mf1 = matmulApp->add_flag("--fp16", matmulFp16, "Run fp16 matmul");
+  auto *mf2 = matmulApp->add_flag("--bf16", matmulBf16, "Run bf16 matmul");
+  // Can't specify both flags.
+  mf1->excludes(mf2);
+  matmulApp->add_flag("--transA", transA, "Transpose matrix A");
+  matmulApp->add_flag("--transB", transB, "Transpose matrix B");
 
   CLI11_PARSE(mainApp, argc, argv);
 
@@ -548,9 +647,9 @@ static int benchmark(int argc, char **argv) {
     }
 
     DataType convIOType;
-    if (fp16)
+    if (convFp16)
       convIOType = DataType::Half;
-    else if (bf16)
+    else if (convBf16)
       convIOType = DataType::BFloat16;
     else
       // When unspecified, default to fp32 conv.
@@ -574,6 +673,26 @@ static int benchmark(int argc, char **argv) {
           n, c, d, h, w, g, k, z, y, x, t, u, v, o, p, q, m, l, j, imageLayout,
           outputLayout, filterLayout, s, iter, dump, convIOType, deviceId);
     }
+
+    if (isError(status)) {
+      std::cerr << "Fusilli Benchmark failed: " << status << std::endl;
+      return 1;
+    }
+  }
+
+  if (matmulApp->parsed()) {
+    DataType matmulIOType;
+    if (matmulFp16)
+      matmulIOType = DataType::Half;
+    else if (matmulBf16)
+      matmulIOType = DataType::BFloat16;
+    else
+      // When unspecified, default to fp32 matmul.
+      matmulIOType = DataType::Float;
+
+    ErrorObject status =
+        benchmarkMatmul(matmulM, matmulN, matmulK, transA, transB, iter, dump,
+                        matmulIOType, deviceId);
 
     if (isError(status)) {
       std::cerr << "Fusilli Benchmark failed: " << status << std::endl;
