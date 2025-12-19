@@ -45,6 +45,10 @@ install(
 
 # Creates a fusilli plugin test.
 #
+# To support build configurations (such as TheRock) that require tests to run on
+# a different machine from where they were built, add_fusilli_plugin_test builds
+# and _installs_ tests + CTest runner scripts
+#
 #  add_fusilli_plugin_test(
 #    NAME <test-name>
 #    SRCS <file> [<file> ...]
@@ -82,6 +86,12 @@ function(add_fusilli_plugin_test)
 
   # Create executable
   add_executable(${ARG_NAME} ${ARG_SRCS})
+
+  # When installed all tests are at the same level in the file hierarchy, ensure
+  # tests are at the same level in the build directory as well
+  set_target_properties(${ARG_NAME} PROPERTIES
+      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test"
+  )
 
   # Set compile options
   target_compile_options(${ARG_NAME} PRIVATE ${FUSILLI_PLUGIN_WARNING_COMPILE_OPTIONS})
