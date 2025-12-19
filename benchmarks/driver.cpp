@@ -620,51 +620,45 @@ static CLI::App *registerMatmulOptions(CLI::App &mainApp,
 }
 
 // Validate and run convolution benchmark
-static int runConvBenchmark(const ConvOptions &convOpts, int64_t iter,
-                            int64_t deviceId, bool dump) {
+static ErrorObject runConvBenchmark(const ConvOptions &convOpts, int64_t iter,
+                                    int64_t deviceId, bool dump) {
   // Additional validation of convApp options (apart from default CLI checks)
   if (convOpts.s == 2) {
     // Reject 3D layouts for 2D conv
-    if (convOpts.imageLayout.size() != 4 || convOpts.filterLayout.size() != 4 ||
-        convOpts.outputLayout.size() != 4) {
-      std::cerr << "Detected at least one invalid {input, filter, output} "
-                   "layout for 2D convolution."
-                << std::endl;
-      return 1;
-    }
+    FUSILLI_RETURN_ERROR_IF(
+        convOpts.imageLayout.size() != 4 || convOpts.filterLayout.size() != 4 ||
+            convOpts.outputLayout.size() != 4,
+        ErrorCode::InvalidArgument,
+        "Detected at least one invalid {input, filter, output} "
+        "layout for 2D convolution.");
   }
   if (convOpts.s == 3) {
     // Reject 2D layouts for 3D conv
-    if (convOpts.imageLayout.size() != 5 || convOpts.filterLayout.size() != 5 ||
-        convOpts.outputLayout.size() != 5) {
-      std::cerr << "Detected at least one invalid {input, filter, output} "
-                   "layout for 3D convolution."
-                << std::endl;
-      return 1;
-    }
+    FUSILLI_RETURN_ERROR_IF(
+        convOpts.imageLayout.size() != 5 || convOpts.filterLayout.size() != 5 ||
+            convOpts.outputLayout.size() != 5,
+        ErrorCode::InvalidArgument,
+        "Detected at least one invalid {input, filter, output} "
+        "layout for 3D convolution.");
     // Reject default (sentinel) values for optional args in 3D conv
-    if (convOpts.d == -1 || convOpts.z == -1 || convOpts.t == -1 ||
-        convOpts.o == -1 || convOpts.m == -1) {
-      std::cerr << "Detected at least one of {in_d, fil_d, conv_stride_d, "
-                   "pad_d, dilation_d} that was not set for 3D convolution."
-                << std::endl;
-      return 1;
-    }
+    FUSILLI_RETURN_ERROR_IF(
+        convOpts.d == -1 || convOpts.z == -1 || convOpts.t == -1 ||
+            convOpts.o == -1 || convOpts.m == -1,
+        ErrorCode::InvalidArgument,
+        "Detected at least one of {in_d, fil_d, conv_stride_d, "
+        "pad_d, dilation_d} that was not set for 3D convolution.");
   }
 
   // Validation of group count
-  if (convOpts.c % convOpts.g != 0 || convOpts.k % convOpts.g != 0) {
-    std::cerr << "Detected invalid group count." << std::endl;
-    return 1;
-  }
+  FUSILLI_RETURN_ERROR_IF(
+      convOpts.c % convOpts.g != 0 || convOpts.k % convOpts.g != 0,
+      ErrorCode::InvalidArgument, "Detected invalid group count.");
 
   // Validate bias flag only works with forward mode
-  if (convOpts.bias && convOpts.mode != 1) {
-    std::cerr << "Bias flag (--bias) is only supported for forward "
-                 "convolution (mode=1)."
-              << std::endl;
-    return 1;
-  }
+  FUSILLI_RETURN_ERROR_IF(convOpts.bias && convOpts.mode != 1,
+                          ErrorCode::InvalidArgument,
+                          "Bias flag (--bias) is only supported for forward "
+                          "convolution (mode=1).");
 
   DataType convIOType;
   if (convOpts.fp16)
@@ -687,17 +681,15 @@ static int runConvBenchmark(const ConvOptions &convOpts, int64_t iter,
     status = benchmarkConvWGrad(convOpts, convIOType, iter, deviceId, dump);
   }
 
-  if (isError(status)) {
-    std::cerr << "Fusilli Benchmark failed: " << status << std::endl;
-    return 1;
-  }
+  FUSILLI_CHECK_ERROR(status);
 
-  return 0;
+  return ok();
 }
 
 // Validate and run matmul benchmark
-static int runMatmulBenchmark(const MatmulOptions &matmulOpts, int64_t iter,
-                              int64_t deviceId, bool dump) {
+static ErrorObject runMatmulBenchmark(const MatmulOptions &matmulOpts,
+                                      int64_t iter, int64_t deviceId,
+                                      bool dump) {
   DataType matmulIOType;
   if (matmulOpts.fp16)
     matmulIOType = DataType::Half;
@@ -710,12 +702,9 @@ static int runMatmulBenchmark(const MatmulOptions &matmulOpts, int64_t iter,
   ErrorObject status =
       benchmarkMatmul(matmulOpts, matmulIOType, iter, deviceId, dump);
 
-  if (isError(status)) {
-    std::cerr << "Fusilli Benchmark failed: " << status << std::endl;
-    return 1;
-  }
+  FUSILLI_CHECK_ERROR(status);
 
-  return 0;
+  return ok();
 }
 
 //===---------------------------------------------------------------------===//
@@ -759,15 +748,19 @@ static int benchmark(int argc, char **argv) {
   std::cout << "Fusilli Benchmark started..." << std::endl;
 
   if (convApp->parsed()) {
-    int result = runConvBenchmark(convOpts, iter, deviceId, dump);
-    if (result != 0)
-      return result;
+    ErrorObject status = runConvBenchmark(convOpts, iter, deviceId, dump);
+    if (isError(status)) {
+      std::cerr << "Fusilli Benchmark failed: " << status << std::endl;
+      return 1;
+    }
   }
 
   if (matmulApp->parsed()) {
-    int result = runMatmulBenchmark(matmulOpts, iter, deviceId, dump);
-    if (result != 0)
-      return result;
+    ErrorObject status = runMatmulBenchmark(matmulOpts, iter, deviceId, dump);
+    if (isError(status)) {
+      std::cerr << "Fusilli Benchmark failed: " << status << std::endl;
+      return 1;
+    }
   }
 
   std::cout << "Fusilli Benchmark complete!" << std::endl;
