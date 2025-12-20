@@ -15,9 +15,9 @@
 #define FUSILLI_PLUGIN_SRC_GRAPH_IMPORT_H
 
 #include <fusilli.h>
+#include <hipdnn_plugin_sdk/PluginApiDataTypes.h>
 #include <hipdnn_sdk/data_objects/data_types_generated.h>
 #include <hipdnn_sdk/data_objects/tensor_attributes_generated.h>
-#include <hipdnn_sdk/plugin/PluginApiDataTypes.h>
 #include <hipdnn_sdk/plugin/flatbuffer_utilities/GraphWrapper.hpp>
 
 #include <format>
@@ -83,7 +83,7 @@ private:
       uidToIOTensor;
 
   // Helper class for reading from flatbuffer.
-  hipdnn_plugin::GraphWrapper opGraphWrapper;
+  hipdnn_plugin_sdk::GraphWrapper opGraphWrapper;
 
   GraphImport(const hipdnnPluginConstData_t *opGraph)
       : opGraphWrapper(opGraph->ptr, opGraph->size) {}
