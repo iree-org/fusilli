@@ -76,6 +76,7 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+import venv
 from pathlib import Path
 
 PEBBLE_DIR = Path.home() / ".cache" / "ThePebble"
@@ -347,6 +348,59 @@ def generate_cmake_user_presets():
         f.write("\n")
 
 
+def generate_local_environment_setup(iree_git_tag: str):
+    """Installs a local copy of the correct `iree-compile` binary and generates
+    an "activate" script to setup local machine with correct $PATH etc. to use
+    ThePebble installed programs."""
+    # Create venv with ThePebble prompt
+    venv_dir = PEBBLE_DIR / ".venv"
+    print(f"Creating venv at {venv_dir}...")
+    venv.EnvBuilder(with_pip=True, prompt="ThePebble").create(venv_dir)
+
+    # Install iree-base-compiler
+    pip_version = iree_git_tag.replace("iree-", "")
+    pip = venv_dir / "bin" / "pip"
+    print(f"Installing iree-base-compiler=={pip_version}...")
+    subprocess.run(
+        [
+            str(pip),
+            "install",
+            "--find-links",
+            "https://iree.dev/pip-release-links.html",
+            f"iree-base-compiler=={pip_version}",
+        ],
+        check=True,
+    )
+
+    # Generate activate script
+    bin_dir = INSTALL_DIR / "bin"
+    lib_dir = INSTALL_DIR / "lib"
+    venv_activate = venv_dir / "bin" / "activate"
+
+    script_content = f"""#!/bin/bash
+# ThePebble environment activation script
+# Usage: source {PEBBLE_DIR}/activate
+
+if [[ "${{BASH_SOURCE[0]}}" == "${{0}}" ]]; then
+    echo "Error: This script must be sourced, not executed."
+    echo "Usage: source {PEBBLE_DIR}/activate"
+    exit 1
+fi
+
+source {venv_activate}
+
+export PATH="{bin_dir}:$PATH"
+export LD_LIBRARY_PATH="{lib_dir}:$LD_LIBRARY_PATH"
+
+echo "ThePebble environment activated."
+"""
+
+    activate_path = PEBBLE_DIR / "activate"
+    print(f"Writing {activate_path}...")
+    with open(activate_path, "w") as f:
+        f.write(script_content)
+
+
 # ==============================================================================
 # CI install and test fusilli-plugin
 # ==============================================================================
@@ -466,12 +520,15 @@ def main():
         setup_iree(versions["iree_git_tag"])
         build_fusilli()
         generate_cmake_user_presets()
+        generate_local_environment_setup(versions["iree_git_tag"])
 
         # Copy config to cache for validation checks
         config_src = Path(__file__).parent / "thepebble_config.toml"
         shutil.copy(config_src, CACHED_CONFIG)
 
         print(f"\nSetup complete.")
+        print(f"To activate the ThePebble local dev environment, run:")
+        print(f"  source {PEBBLE_DIR}/activate")
 
     if args.ci_install_and_test_fusilli_plugin:
         validate_config()
