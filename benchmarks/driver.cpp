@@ -750,7 +750,7 @@ static int benchmark(int argc, char **argv) {
   if (convApp->parsed()) {
     ErrorObject status = runConvBenchmark(convOpts, iter, deviceId, dump);
     if (isError(status)) {
-      std::cerr << "Fusilli Benchmark failed: " << status << std::endl;
+      std::cerr << "Fusilli Conv Benchmark failed: " << status << std::endl;
       return 1;
     }
   }
@@ -758,7 +758,7 @@ static int benchmark(int argc, char **argv) {
   if (matmulApp->parsed()) {
     ErrorObject status = runMatmulBenchmark(matmulOpts, iter, deviceId, dump);
     if (isError(status)) {
-      std::cerr << "Fusilli Benchmark failed: " << status << std::endl;
+      std::cerr << "Fusilli Matmul Benchmark failed: " << status << std::endl;
       return 1;
     }
   }
