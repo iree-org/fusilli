@@ -46,7 +46,7 @@ struct ConvOptions {
 };
 
 struct MatmulOptions {
-  int64_t m, n, k;
+  int64_t m, n, k, b;
   bool fp16{false};
   bool bf16{false};
   bool transA{false};
@@ -202,18 +202,31 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts,
   Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
 #endif
 
-  // Build attributes based on transpose flags.
-  auto aDims = std::vector<int64_t>{opts.m, opts.k};
-  auto bDims = std::vector<int64_t>{opts.k, opts.n};
-  auto aStride = opts.transA ? std::vector<int64_t>{1, opts.m}
-                             : std::vector<int64_t>{opts.k, 1};
-  auto bStride = opts.transB ? std::vector<int64_t>{1, opts.k}
-                             : std::vector<int64_t>{opts.n, 1};
+  // Build attributes based on transpose flags and batch count.
+  auto aDims = (opts.b > 1) ? std::vector<int64_t>{opts.b, opts.m, opts.k}
+                            : std::vector<int64_t>{opts.m, opts.k};
+  auto bDims = (opts.b > 1) ? std::vector<int64_t>{opts.b, opts.k, opts.n}
+                            : std::vector<int64_t>{opts.k, opts.n};
+
+  std::vector<int64_t> aStride, bStride;
+  if (opts.b > 1) {
+    // Batched matmul strides
+    aStride = opts.transA ? std::vector<int64_t>{opts.m * opts.k, 1, opts.m}
+                          : std::vector<int64_t>{opts.m * opts.k, opts.k, 1};
+    bStride = opts.transB ? std::vector<int64_t>{opts.k * opts.n, 1, opts.k}
+                          : std::vector<int64_t>{opts.k * opts.n, opts.n, 1};
+  } else {
+    // Non-batched matmul strides
+    aStride = opts.transA ? std::vector<int64_t>{1, opts.m}
+                          : std::vector<int64_t>{opts.k, 1};
+    bStride = opts.transB ? std::vector<int64_t>{1, opts.k}
+                          : std::vector<int64_t>{opts.n, 1};
+  }
 
   Graph graph;
   auto graphName =
-      std::format("benchmark_matmul_m{}_n{}_k{}_transA{}_transB{}_dtype{}",
-                  opts.m, opts.n, opts.k, opts.transA, opts.transB,
+      std::format("benchmark_matmul_b{}_m{}_n{}_k{}_transA{}_transB{}_dtype{}",
+                  opts.b, opts.m, opts.n, opts.k, opts.transA, opts.transB,
                   kDataTypeToMlirTypeAsm.at(matmulIOType));
   graph.setName(graphName);
 
@@ -606,6 +619,10 @@ static CLI::App *registerMatmulOptions(CLI::App &mainApp,
       ->check(kIsPositiveInteger);
   matmulApp->add_option("--k,-K", matmulOpts.k, "Matrix K dimension")
       ->required()
+      ->check(kIsPositiveInteger);
+  matmulApp
+      ->add_option("--b,-B", matmulOpts.b, "Batch dimension for batched matmul")
+      ->default_val("1")
       ->check(kIsPositiveInteger);
 
   // matmulApp CLI Flags:
