@@ -4,18 +4,16 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-// TODO(iree-org/iree#22405): This test is disabled due to incorrect lowering
-// of unit-stride Grouped ConvWGrad in IREE. Please enable the test and
-// add LINALG-CHECK section when IREE supports this case.
-// XFAIL: {{.*}}
 // RUN: %{TEST_EXE} | iree-opt --verify-roundtrip
 // RUN: %{TEST_EXE} | FileCheck %s --check-prefix=TORCH-CHECK
+// RUN: %{TEST_EXE} | iree-compile - --compile-to=input | \
+// RUN:             FileCheck %s --check-prefix=LINALG-CHECK
 // RUN: %{TEST_EXE} stats | FileCheck %s --check-prefix=CPU-STATS-CHECK
 
 // clang-format off
 //
 // TORCH-CHECK:   module @module {
-// TORCH-CHECK:     func.func @main(%result_: !torch.tensor<[256,1,1,16],f32>, %arg0_dy: !torch.vtensor<[16,64,32,256],f32>, %arg1_x: !torch.vtensor<[16,64,32,128],f32>) attributes {torch.assume_strict_symbolic_shapes} {
+// TORCH-CHECK:     func.func @main(%result_: !torch.tensor<[256,16,1,1],f32>, %arg0_dy: !torch.vtensor<[16,64,32,256],f32>, %arg1_x: !torch.vtensor<[16,64,32,128],f32>) attributes {torch.assume_strict_symbolic_shapes} {
 // TORCH-CHECK:       %bias_conv_wgrad = torch.constant.none
 // TORCH-CHECK:       %transposed_conv_wgrad = torch.constant.bool false
 // TORCH-CHECK:       %output_padding_conv_wgrad = torch.prim.ListConstruct  : () -> !torch.list<int>
@@ -54,15 +52,34 @@
 // TORCH-CHECK:       %output_mask_conv_wgrad = torch.prim.ListConstruct %false_conv_wgrad, %true_conv_wgrad, %false_conv_wgrad : (!torch.bool, !torch.bool, !torch.bool) -> !torch.list<bool>
 // TORCH-CHECK:       %grad_input_conv_wgrad, %result_perm, %grad_bias_conv_wgrad = torch.aten.convolution_backward %arg0_dy_perm, %arg1_x_perm, %empty_w_conv_wgrad, %bias_conv_wgrad, %stride_conv_wgrad, %padding_conv_wgrad, %dilation_conv_wgrad, %transposed_conv_wgrad, %output_padding_conv_wgrad, %groups_conv_wgrad, %output_mask_conv_wgrad : !torch.vtensor<[16,256,64,32],f32>, !torch.vtensor<[16,128,64,32],f32>, !torch.vtensor<[256,16,1,1],f32>, !torch.none, !torch.list<int>, !torch.list<int>, !torch.list<int>, !torch.bool, !torch.list<int>, !torch.int, !torch.list<bool> -> !torch.none, !torch.vtensor<[256,16,1,1],f32>, !torch.none
 // TORCH-CHECK:       %permute_DW_val_0_conv_wgrad = torch.constant.int 0
-// TORCH-CHECK:       %permute_DW_val_1_conv_wgrad = torch.constant.int 2
-// TORCH-CHECK:       %permute_DW_val_2_conv_wgrad = torch.constant.int 3
-// TORCH-CHECK:       %permute_DW_val_3_conv_wgrad = torch.constant.int 1
+// TORCH-CHECK:       %permute_DW_val_1_conv_wgrad = torch.constant.int 1
+// TORCH-CHECK:       %permute_DW_val_2_conv_wgrad = torch.constant.int 2
+// TORCH-CHECK:       %permute_DW_val_3_conv_wgrad = torch.constant.int 3
 // TORCH-CHECK:       %permute_DW_conv_wgrad = torch.prim.ListConstruct %permute_DW_val_0_conv_wgrad, %permute_DW_val_1_conv_wgrad, %permute_DW_val_2_conv_wgrad, %permute_DW_val_3_conv_wgrad : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %result = torch.aten.permute %result_perm, %permute_DW_conv_wgrad : !torch.vtensor<[256,16,1,1],f32>, !torch.list<int> -> !torch.vtensor<[256,1,1,16],f32>
-// TORCH-CHECK:       torch.overwrite.tensor.contents %result overwrites %result_ : !torch.vtensor<[256,1,1,16],f32>, !torch.tensor<[256,1,1,16],f32>
+// TORCH-CHECK:       %result = torch.aten.permute %result_perm, %permute_DW_conv_wgrad : !torch.vtensor<[256,16,1,1],f32>, !torch.list<int> -> !torch.vtensor<[256,16,1,1],f32>
+// TORCH-CHECK:       torch.overwrite.tensor.contents %result overwrites %result_ : !torch.vtensor<[256,16,1,1],f32>, !torch.tensor<[256,16,1,1],f32>
 // TORCH-CHECK:       return
 // TORCH-CHECK:     }
 // TORCH-CHECK:   }
+//
+// LINALG-CHECK:     util.func public @main$async(%[[ARG0:.+]]: !hal.buffer_view, %[[ARG1:.+]]: !hal.buffer_view, %[[ARG2:.+]]: !hal.buffer_view, %[[ARG3:.+]]: !hal.fence, %[[ARG4:.+]]: !hal.fence)
+// LINALG-CHECK:       %[[CST:.+]] = arith.constant 0.000000e+00 : f32
+// LINALG-CHECK:       %[[BUF1:.+]] = hal.tensor.import wait(%[[ARG3]]) => %[[ARG1]] : !hal.buffer_view -> tensor<16x64x32x256xf32>
+// LINALG-CHECK:       %[[BUF2:.+]] = hal.tensor.import wait(%[[ARG3]]) => %[[ARG2]] : !hal.buffer_view -> tensor<16x64x32x128xf32>
+// LINALG-CHECK:       %[[E1:.+]] = tensor.empty() : tensor<16x256x64x32xf32>
+// LINALG-CHECK:       %[[BUF1_T:.+]] = linalg.transpose ins(%[[BUF1]] : tensor<16x64x32x256xf32>) outs(%[[E1]] : tensor<16x256x64x32xf32>) permutation = [0, 3, 1, 2]
+// LINALG-CHECK:       %[[E2:.+]] = tensor.empty() : tensor<16x128x64x32xf32>
+// LINALG-CHECK:       %[[BUF2_T:.+]] = linalg.transpose ins(%[[BUF2]] : tensor<16x64x32x128xf32>) outs(%[[E2]] : tensor<16x128x64x32xf32>) permutation = [0, 3, 1, 2]
+// LINALG-CHECK:       %[[EXP_1:.+]] = tensor.expand_shape %[[BUF1_T]] {{\[\[0\], \[1, 2\], \[3\], \[4\]\]}} output_shape [16, 8, 32, 64, 32] : tensor<16x256x64x32xf32> into tensor<16x8x32x64x32xf32>
+// LINALG-CHECK:       %[[EXP_2:.+]] = tensor.expand_shape %[[BUF2_T]] {{\[\[0\], \[1, 2\], \[3\], \[4\]\]}} output_shape [16, 8, 16, 64, 32] : tensor<16x128x64x32xf32> into tensor<16x8x16x64x32xf32>
+// LINALG-CHECK:       %[[EOUT:.+]] = tensor.empty() : tensor<8x32x16x1x1xf32>
+// LINALG-CHECK:       %[[FOUT:.+]] = linalg.fill ins(%[[CST]] : f32) outs(%[[EOUT]] : tensor<8x32x16x1x1xf32>) -> tensor<8x32x16x1x1xf32>
+// LINALG-CHECK:       %[[GEN:.+]] = linalg.generic
+// LINALG-CHECK-SAME:      ins(%[[EXP_2]], %[[EXP_1]] : tensor<16x8x16x64x32xf32>, tensor<16x8x32x64x32xf32>)
+// LINALG-CHECK-SAME:      outs(%[[FOUT]] : tensor<8x32x16x1x1xf32>)
+// LINALG-CHECK:       %[[COUT:.+]] = tensor.collapse_shape %[[GEN]] {{\[\[0, 1\], \[2\], \[3\], \[4\]\]}} : tensor<8x32x16x1x1xf32> into tensor<256x16x1x1xf32>
+// LINALG-CHECK:       %[[ALIAS:.+]] = hal.tensor.alias wait(%[[ARG3]]) => %[[COUT]] : tensor<256x16x1x1xf32> to %[[ARG0]] : !hal.buffer_view
+// LINALG-CHECK:       %{{.+}} = hal.tensor.barrier join(%[[ALIAS]] : tensor<256x16x1x1xf32>) => %[[ARG4]] : !hal.fence
 //
 // AMDGPU-STATS-CHECK: "dispatch-count": 1
 // CPU-STATS-CHECK: "dispatch-count": 1

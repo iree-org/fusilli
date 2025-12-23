@@ -62,20 +62,21 @@
 // TORCH-CHECK:     }
 // TORCH-CHECK:   }
 //
-// LINALG-CHECK:    util.func public @main$async(%[[ARG0:.+]]: !hal.buffer_view, %[[ARG1:.+]]: !hal.buffer_view, %[[ARG2:.+]]: !hal.buffer_view, {{.+}}
-// LINALG-CHECK:      %[[BUF1:.+]] = hal.tensor.import wait(%{{.+}}) => %[[ARG1]] : !hal.buffer_view -> tensor<16x64x32x256xf32>
-// LINALG-CHECK:      %[[BUF2:.+]] = hal.tensor.import wait(%{{.+}}) => %[[ARG2]] : !hal.buffer_view -> tensor<256x128x1x1xf32>
+// LINALG-CHECK:    util.func public @main$async(%[[ARG0:.+]]: !hal.buffer_view, %[[ARG1:.+]]: !hal.buffer_view, %[[ARG2:.+]]: !hal.buffer_view, %[[ARG3:.+]]: !hal.fence, %[[ARG4:.+]]: !hal.fence)
+// LINALG-CHECK:      %[[CST:.+]] = arith.constant 0.000000e+00 : f32
+// LINALG-CHECK:      %[[BUF1:.+]] = hal.tensor.import wait(%[[ARG3]]) => %[[ARG1]] : !hal.buffer_view -> tensor<16x64x32x256xf32>
+// LINALG-CHECK:      %[[BUF2:.+]] = hal.tensor.import wait(%[[ARG3]]) => %[[ARG2]] : !hal.buffer_view -> tensor<256x128x1x1xf32>
 // LINALG-CHECK:      %[[E1:.+]] = tensor.empty() : tensor<16x256x64x32xf32>
-// LINALG-CHECK:      %[[DY_T:.+]] = linalg.transpose ins(%[[BUF1]] : tensor<16x64x32x256xf32>) outs(%[[E1]] : tensor<16x256x64x32xf32>) permutation = [0, 3, 1, 2]
-// LINALG-CHECK:      %[[E2:.+]] = tensor.empty() : tensor<128x256x1x1xf32>
-// LINALG-CHECK:      %[[FILL:.+]] = linalg.fill {{.*}} outs(%[[E2]]
-// LINALG-CHECK:      %[[W_T:.+]] = linalg.generic {{.+}} outs(%[[FILL]] : tensor<128x256x1x1xf32>) {{.+}}
-// LINALG-CHECK:      %[[E3:.+]] = tensor.empty() : tensor<16x128x64x32xf32>
-// LINALG-CHECK:      %[[FILL1:.+]] = linalg.fill {{.*}} outs(%[[E3]]
-// LINALG-CHECK:      %[[OUT:.+]] = linalg.conv_2d_nchw_fchw {dilations = dense<1> : vector<2xi64>, strides = dense<1> : vector<2xi64>} ins(%[[DY_T]], %[[W_T]] : tensor<16x256x64x32xf32>, tensor<128x256x1x1xf32>) outs(%[[FILL1]] : tensor<16x128x64x32xf32>) -> tensor<16x128x64x32xf32>
-// LINALG-CHECK:      %[[OUTBUF:.+]] = tensor.empty() : tensor<16x64x32x128xf32>
-// LINALG-CHECK:      %[[OUTT:.+]] = linalg.transpose ins(%[[OUT]] : tensor<16x128x64x32xf32>) outs(%[[OUTBUF]] : tensor<16x64x32x128xf32>) permutation = [0, 2, 3, 1]
-// LINALG-CHECK:      %{{.+}} = hal.tensor.alias wait(%{{.+}}) => %[[OUTT]] : tensor<16x64x32x128xf32> to %[[ARG0]] : !hal.buffer_view
+// LINALG-CHECK:      %[[BUF1_T:.+]] = linalg.transpose ins(%[[BUF1]] : tensor<16x64x32x256xf32>) outs(%[[E1]] : tensor<16x256x64x32xf32>) permutation = [0, 3, 1, 2]
+// LINALG-CHECK:      %[[EMPTY:.+]] = tensor.empty() : tensor<16x128x64x32xf32>
+// LINALG-CHECK:      %[[FILLED:.+]] = linalg.fill ins(%[[CST]] : f32) outs(%[[EMPTY]] : tensor<16x128x64x32xf32>) -> tensor<16x128x64x32xf32>
+// LINALG-CHECK:      %[[GEN:.+]] = linalg.generic
+// LINALG-CHECK-SAME:   ins(%[[BUF1_T]], %[[BUF2]] : tensor<16x256x64x32xf32>, tensor<256x128x1x1xf32>)
+// LINALG-CHECK-SAME:   outs(%[[FILLED]] : tensor<16x128x64x32xf32>)
+// LINALG-CHECK:      %[[EOUT:.+]] = tensor.empty() : tensor<16x64x32x128xf32>
+// LINALG-CHECK:      %[[OUT_T:.+]] = linalg.transpose ins(%[[GEN]] : tensor<16x128x64x32xf32>) outs(%[[EOUT]] : tensor<16x64x32x128xf32>) permutation = [0, 2, 3, 1]
+// LINALG-CHECK:      %[[OUTT:.+]] = hal.tensor.alias wait(%[[ARG3]]) => %[[OUT_T]] : tensor<16x64x32x128xf32> to %[[ARG0]] : !hal.buffer_view
+// LINALG-CHECK:      %{{.+}} = hal.tensor.barrier join(%[[OUTT]] : tensor<16x64x32x128xf32>) => %[[ARG4]] : !hal.fence
 //
 // AMDGPU-STATS-CHECK: "dispatch-count": 1
 // CPU-STATS-CHECK: "dispatch-count": 1

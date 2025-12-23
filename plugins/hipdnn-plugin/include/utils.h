@@ -15,9 +15,9 @@
 
 #include <fusilli.h>
 #include <hip/hip_runtime.h>
-#include <hipdnn_sdk/plugin/PluginApiDataTypes.h>
-#include <hipdnn_sdk/plugin/PluginException.hpp>
-#include <hipdnn_sdk/plugin/PluginLastErrorManager.hpp>
+#include <hipdnn_plugin_sdk/PluginApiDataTypes.h>
+#include <hipdnn_plugin_sdk/PluginException.hpp>
+#include <hipdnn_plugin_sdk/PluginLastErrorManager.hpp>
 #include <iree/hal/buffer_view.h>
 
 #include <type_traits>
@@ -33,7 +33,7 @@ namespace fusilli_plugin {
 // path.
 template <typename T> hipdnnPluginStatus_t isNull(T *value) {
   if (value == nullptr) {
-    return hipdnn_plugin::PluginLastErrorManager::setLastError(
+    return hipdnn_plugin_sdk::PluginLastErrorManager::setLastError(
         HIPDNN_PLUGIN_STATUS_BAD_PARAM,
         std::string(typeid(T).name()) + " is nullptr");
   }
@@ -89,7 +89,7 @@ findDeviceBuffer(int64_t uid, const hipdnnPluginDeviceBuffer_t *deviceBuffers,
   ({                                                                           \
     auto errorOr = (expr);                                                     \
     if (fusilli::isError(errorOr)) {                                           \
-      return hipdnn_plugin::PluginLastErrorManager::setLastError(              \
+      return hipdnn_plugin_sdk::PluginLastErrorManager::setLastError(          \
           HIPDNN_PLUGIN_STATUS_INTERNAL_ERROR,                                 \
           fusilli::ErrorObject(errorOr).getMessage());                         \
     }                                                                          \
@@ -135,7 +135,7 @@ template <typename T> fusilli::ErrorObject convertToErrorObject(T &&error) {
   do {                                                                         \
     fusilli::ErrorObject err = convertToErrorObject(expr);                     \
     if (isError(err)) {                                                        \
-      return hipdnn_plugin::PluginLastErrorManager::setLastError(              \
+      return hipdnn_plugin_sdk::PluginLastErrorManager::setLastError(          \
           HIPDNN_PLUGIN_STATUS_INTERNAL_ERROR, err.getMessage());              \
     }                                                                          \
   } while (false)

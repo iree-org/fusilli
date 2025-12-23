@@ -16,6 +16,7 @@ add_fusilli_plugin_test(
     GTest::gtest_main
     hip::host
     hipdnn_frontend
+    hipdnn_plugin_sdk
     hipdnn_sdk
     hipdnn_test_sdk
     Threads::Threads

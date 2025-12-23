@@ -52,6 +52,7 @@ FetchContent_MakeAvailable(IREERuntime)
 # Other dependencies
 find_package(hip CONFIG REQUIRED)
 find_package(hipdnn_sdk CONFIG REQUIRED)
+find_package(hipdnn_plugin_sdk CONFIG REQUIRED)
 find_package(hipdnn_frontend CONFIG REQUIRED)
 find_package(hipdnn_test_sdk CONFIG REQUIRED)
 find_package(Fusilli CONFIG REQUIRED)
@@ -95,7 +96,7 @@ add_library(${FUSILLI_PLUGIN_NAME} SHARED
   src/fusilli_plugin.cpp
 )
 target_compile_options(${FUSILLI_PLUGIN_NAME} PRIVATE ${FUSILLI_PLUGIN_WARNING_COMPILE_OPTIONS})
-target_link_libraries(${FUSILLI_PLUGIN_NAME} PRIVATE hipdnn_sdk hip::host fusilli::fusilli)
+target_link_libraries(${FUSILLI_PLUGIN_NAME} PRIVATE hipdnn_plugin_sdk hipdnn_sdk hip::host fusilli::fusilli)
 target_compile_definitions(${FUSILLI_PLUGIN_NAME} PRIVATE
   FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
   FUSILLI_PLUGIN_ENGINE_ID=${FUSILLI_PLUGIN_ENGINE_ID}
