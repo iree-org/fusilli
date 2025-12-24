@@ -337,6 +337,50 @@ add_fusilli_lit_test(
 
 add_fusilli_lit_test(
   SRC
+    lit/test_layernorm_infer_asm_emitter_nchw.cpp
+  DEPS
+    libfusilli
+  TOOLS
+    FileCheck
+    iree-opt
+    iree-compile
+)
+
+add_fusilli_lit_test(
+  SRC
+    lit/test_layernorm_infer_asm_emitter_scale_bias_nhwc.cpp
+  DEPS
+    libfusilli
+  TOOLS
+    FileCheck
+    iree-opt
+    iree-compile
+)
+
+add_fusilli_lit_test(
+  SRC
+    lit/test_layernorm_train_asm_emitter_nchw.cpp
+  DEPS
+    libfusilli
+  TOOLS
+    FileCheck
+    iree-opt
+    iree-compile
+)
+
+add_fusilli_lit_test(
+  SRC
+    lit/test_layernorm_train_asm_emitter_scale_bias_nhwc.cpp
+  DEPS
+    libfusilli
+  TOOLS
+    FileCheck
+    iree-opt
+    iree-compile
+)
+
+add_fusilli_lit_test(
+  SRC
     lit/test_matmul_asm_emitter_basic.cpp
   DEPS
     libfusilli
