@@ -41,6 +41,21 @@ public:
   LayerNormNode(LayernormAttr &&attr, const Context &ctx)
       : NodeCRTP(ctx), layernormAttr(std::move(attr)) {}
 
+  // ASM emitter methods.
+  std::string emitNodePreAsm() const override final;
+  std::string getOperandNamesAsm() const;
+  std::string getOperandTypesAsm() const;
+  std::string getResultNamesAsm() const;
+  std::string getResultTypesAsm() const;
+  std::string getPermuteXOpsAsm() const;
+  std::string getNormalizedShapeOpsAsm() const;
+  std::string getPermuteScaleOpsAsm() const;
+  std::string getPermuteBiasOpsAsm() const;
+  std::string getEpsilonOpsAsm() const;
+  std::string getPermuteYOpsAsm() const;
+  std::string getPermuteMeanOpsAsm() const;
+  std::string getPermuteInvVarianceOpsAsm() const;
+
   const std::string &getName() const override final {
     return layernormAttr.getName();
   }
@@ -255,6 +270,12 @@ public:
 private:
   inline bool isTrainingForwardPhase() const {
     return layernormAttr.getForwardPhase() == NormFwdPhase::TRAINING;
+  }
+
+  std::vector<int64_t> getNormalizedShape() const {
+    const std::vector<int64_t> &xDim = layernormAttr.getX()->getDim();
+    std::vector<int64_t> normalizedShape(xDim.cbegin() + 1, xDim.cend());
+    return normalizedShape;
   }
 
   std::pair<std::vector<int64_t>, std::vector<int64_t>>

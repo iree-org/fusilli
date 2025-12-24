@@ -647,6 +647,8 @@ private:
 
   // To represent scalar constants either obtained through
   // constant folding, or passed in as scalars during execution.
+  // These constants are inlined in the ASM emitters,
+  // so they should not be in the variant pack.
   bool isScalar_ = false;
   std::optional<scalar_t> scalarValue_ = std::nullopt;
 };

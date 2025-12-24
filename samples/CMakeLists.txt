@@ -54,3 +54,63 @@ add_fusilli_samples(
     libutils
     Catch2::Catch2WithMain
 )
+
+add_fusilli_samples(
+  PREFIX fusilli_layernorm_samples
+  SRCS
+    layernorm/layernorm_infer_nchw.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)
+
+add_fusilli_samples(
+  PREFIX fusilli_layernorm_samples
+  SRCS
+    layernorm/layernorm_infer_nchw_scale_bias.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)
+
+add_fusilli_samples(
+  PREFIX fusilli_layernorm_samples
+  SRCS
+    layernorm/layernorm_infer_nhwc_scale_bias.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)
+
+add_fusilli_samples(
+  PREFIX fusilli_layernorm_samples
+  SRCS
+    layernorm/layernorm_train_nchw.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)
+
+add_fusilli_samples(
+  PREFIX fusilli_layernorm_samples
+  SRCS
+    layernorm/layernorm_train_nchw_scale_bias.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)
+
+add_fusilli_samples(
+  PREFIX fusilli_layernorm_samples
+  SRCS
+    layernorm/layernorm_train_nhwc_scale_bias.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)

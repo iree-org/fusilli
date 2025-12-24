@@ -136,6 +136,10 @@ add_fusilli_lit_tests(
     lit/test_conv_wgrad_asm_emitter_nhwc_krsc_grouped_strided.cpp
     lit/test_conv_dgrad_asm_emitter_nhwc_kcrs.cpp
     lit/test_conv_dgrad_asm_emitter_nhwc_kcrs_grouped.cpp
+    lit/test_layernorm_infer_asm_emitter_nchw.cpp
+    lit/test_layernorm_infer_asm_emitter_scale_bias_nhwc.cpp
+    lit/test_layernorm_train_asm_emitter_nchw.cpp
+    lit/test_layernorm_train_asm_emitter_scale_bias_nhwc.cpp
     lit/test_matmul_asm_emitter_basic.cpp
     lit/test_matmul_asm_emitter_batched.cpp
     lit/test_matmul_asm_emitter_broadcast_3D.cpp
