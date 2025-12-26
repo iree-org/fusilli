@@ -242,6 +242,15 @@ inline ErrorObject Graph::execute(
 
   // Populate input buffers.
   for (const auto &input : fullGraphInputsSorted_) {
+    // Scalar constants are inlined in the IR and not passed as function
+    // arguments, so they should not be in the variantPack.
+    if (input->isScalar()) {
+      FUSILLI_RETURN_ERROR_IF(variantPack.contains(input),
+                              ErrorCode::VariantPackError,
+                              "Scalar constant tensor found in variantPack");
+      continue;
+    }
+
     FUSILLI_RETURN_ERROR_IF(!variantPack.contains(input), // C++20
                             ErrorCode::VariantPackError,
                             "Input tensor missing from variantPack");
