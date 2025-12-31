@@ -20,7 +20,8 @@ add_fusilli_plugin_test(
     fusilli::fusilli
     GTest::gtest_main
     hip::host
-    hipdnn_sdk
+    hipdnn_plugin_sdk
+    hipdnn_data_sdk
     hipdnn_test_sdk
     Threads::Threads
   COMPILE_DEFS
@@ -37,7 +38,8 @@ add_fusilli_plugin_test(
   DEPS
     fusilli::fusilli
     GTest::gtest_main
-    hipdnn_sdk
+    hipdnn_plugin_sdk
+    hipdnn_data_sdk
 )
 
 # Integration tests

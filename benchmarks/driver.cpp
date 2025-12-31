@@ -17,7 +17,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
-#include <string_view>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -31,13 +31,35 @@ const auto kIsPositiveInteger =
 const auto kIsValidConvLayout =
     CLI::IsMember({"NCHW", "NHWC", "NCDHW", "NDHWC"});
 
-static ErrorObject benchmarkConvFprop(
-    int64_t n, int64_t c, int64_t d, int64_t h, int64_t w, int64_t g, int64_t k,
-    int64_t z, int64_t y, int64_t x, int64_t t, int64_t u, int64_t v, int64_t o,
-    int64_t p, int64_t q, int64_t m, int64_t l, int64_t j,
-    std::string_view imageLayout, std::string_view outputLayout,
-    std::string_view filterLayout, int64_t s, bool bias, int64_t iter,
-    bool dump, DataType convIOType, int64_t deviceId) {
+//===---------------------------------------------------------------------===//
+// Option classes for organizing benchmark parameters
+//===---------------------------------------------------------------------===//
+
+struct ConvOptions {
+  int64_t n, c, d, h, w, g, k, z, y, x;
+  int64_t t, u, v, o, p, q, m, l, j, s;
+  int64_t mode;
+  std::string imageLayout, filterLayout, outputLayout;
+  bool fp16{false};
+  bool bf16{false};
+  bool bias{false};
+};
+
+struct MatmulOptions {
+  int64_t m, n, k, b;
+  bool fp16{false};
+  bool bf16{false};
+  bool transA{false};
+  bool transB{false};
+};
+
+//===---------------------------------------------------------------------===//
+// Benchmark functions
+//===---------------------------------------------------------------------===//
+
+static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
+                                      DataType convIOType, int64_t iter,
+                                      int64_t deviceId, bool dump) {
 #ifdef FUSILLI_ENABLE_AMDGPU
   Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
 #else
@@ -45,33 +67,39 @@ static ErrorObject benchmarkConvFprop(
 #endif
 
   // Calculate filter channels
-  auto fc = c / g;
+  auto fc = opts.c / opts.g;
 
   // Build attributes based on 2D/3D conv and layouts.
-  auto xDims = (s == 2) ? std::vector<int64_t>{n, c, h, w}
-                        : std::vector<int64_t>{n, c, d, h, w};
-  auto wDims = (s == 2) ? std::vector<int64_t>{k, fc, y, x}
-                        : std::vector<int64_t>{k, fc, z, y, x};
+  auto xDims =
+      (opts.s == 2)
+          ? std::vector<int64_t>{opts.n, opts.c, opts.h, opts.w}
+          : std::vector<int64_t>{opts.n, opts.c, opts.d, opts.h, opts.w};
+  auto wDims = (opts.s == 2)
+                   ? std::vector<int64_t>{opts.k, fc, opts.y, opts.x}
+                   : std::vector<int64_t>{opts.k, fc, opts.z, opts.y, opts.x};
   auto xStride =
-      (imageLayout == "NCHW" || imageLayout == "NCDHW")
+      (opts.imageLayout == "NCHW" || opts.imageLayout == "NCDHW")
           ? generateStrideFromDim(xDims, getContiguousStrideOrder(xDims.size()))
           : generateStrideFromDim(xDims,
                                   getChannelsLastStrideOrder(xDims.size()));
   auto wStride =
-      (filterLayout == "NCHW" || filterLayout == "NCDHW")
+      (opts.filterLayout == "NCHW" || opts.filterLayout == "NCDHW")
           ? generateStrideFromDim(wDims, getContiguousStrideOrder(wDims.size()))
           : generateStrideFromDim(wDims,
                                   getChannelsLastStrideOrder(wDims.size()));
-  auto convStride =
-      (s == 2) ? std::vector<int64_t>{u, v} : std::vector<int64_t>{t, u, v};
-  auto convPadding =
-      (s == 2) ? std::vector<int64_t>{p, q} : std::vector<int64_t>{o, p, q};
-  auto convDilation =
-      (s == 2) ? std::vector<int64_t>{l, j} : std::vector<int64_t>{m, l, j};
-  auto biasDims = (s == 2) ? std::vector<int64_t>{1, k, 1, 1}
-                           : std::vector<int64_t>{1, k, 1, 1, 1};
+  auto convStride = (opts.s == 2)
+                        ? std::vector<int64_t>{opts.u, opts.v}
+                        : std::vector<int64_t>{opts.t, opts.u, opts.v};
+  auto convPadding = (opts.s == 2)
+                         ? std::vector<int64_t>{opts.p, opts.q}
+                         : std::vector<int64_t>{opts.o, opts.p, opts.q};
+  auto convDilation = (opts.s == 2)
+                          ? std::vector<int64_t>{opts.l, opts.j}
+                          : std::vector<int64_t>{opts.m, opts.l, opts.j};
+  auto biasDims = (opts.s == 2) ? std::vector<int64_t>{1, opts.k, 1, 1}
+                                : std::vector<int64_t>{1, opts.k, 1, 1, 1};
   auto biasStride =
-      (imageLayout == "NCHW" || imageLayout == "NCDHW")
+      (opts.imageLayout == "NCHW" || opts.imageLayout == "NCDHW")
           ? generateStrideFromDim(biasDims,
                                   getContiguousStrideOrder(biasDims.size()))
           : generateStrideFromDim(biasDims,
@@ -82,12 +110,14 @@ static ErrorObject benchmarkConvFprop(
 
   // Set unique name to prevent concurrent invocations of the benchmark driver
   // from polluting the same cache files leading to race conditions.
-  auto graphName =
-      std::format("benchmark_conv_fprop_n{}_c{}_d{}_h{}_w{}_g{}_k{"
-                  "}_z{}_y{}_x{}_t{}_u{}_v{}_o{}"
-                  "_p{}_q{}_m{}_l{}_j{}_S{}_I{}_O{}_F{}_bias{}",
-                  n, c, d, h, w, g, k, z, y, x, t, u, v, o, p, q, m, l, j, s,
-                  imageLayout, outputLayout, filterLayout, bias);
+  auto graphName = std::format("benchmark_conv_fprop_n{}_c{}_d{}_h{}_w{}_g{}_k{"
+                               "}_z{}_y{}_x{}_t{}_u{}_v{}_o{}"
+                               "_p{}_q{}_m{}_l{}_j{}_S{}_I{}_O{}_F{}_bias{}",
+                               opts.n, opts.c, opts.d, opts.h, opts.w, opts.g,
+                               opts.k, opts.z, opts.y, opts.x, opts.t, opts.u,
+                               opts.v, opts.o, opts.p, opts.q, opts.m, opts.l,
+                               opts.j, opts.s, opts.imageLayout,
+                               opts.outputLayout, opts.filterLayout, opts.bias);
   graph.setName(graphName);
 
   // Types on the graph are kept at fp32 but we explicitly set
@@ -120,7 +150,7 @@ static ErrorObject benchmarkConvFprop(
   yT->setDataType(convIOType);
 
   std::shared_ptr<TensorAttr> bT;
-  if (bias) {
+  if (opts.bias) {
     bT = graph.tensor(TensorAttr()
                           .setName("bias")
                           .setDim(biasDims)
@@ -151,7 +181,7 @@ static ErrorObject benchmarkConvFprop(
           {yT, yBuf},
       };
 
-  if (bias) {
+  if (opts.bias) {
     auto bBuf = FUSILLI_TRY(allocateBufferOfType(handle, bT, convIOType, 1.0f));
     variantPack.insert({bT, bBuf});
   }
@@ -163,27 +193,41 @@ static ErrorObject benchmarkConvFprop(
   return ok();
 }
 
-static ErrorObject benchmarkMatmul(int64_t m, int64_t n, int64_t k, bool transA,
-                                   bool transB, int64_t iter, bool dump,
-                                   DataType matmulIOType, int64_t deviceId) {
+static ErrorObject benchmarkMatmul(const MatmulOptions &opts,
+                                   DataType matmulIOType, int64_t iter,
+                                   int64_t deviceId, bool dump) {
 #ifdef FUSILLI_ENABLE_AMDGPU
   Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
 #else
   Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
 #endif
 
-  // Build attributes based on transpose flags.
-  auto aDims = std::vector<int64_t>{m, k};
-  auto bDims = std::vector<int64_t>{k, n};
-  auto aStride =
-      transA ? std::vector<int64_t>{1, m} : std::vector<int64_t>{k, 1};
-  auto bStride =
-      transB ? std::vector<int64_t>{1, k} : std::vector<int64_t>{n, 1};
+  // Build attributes based on transpose flags and batch count.
+  auto aDims = (opts.b > 1) ? std::vector<int64_t>{opts.b, opts.m, opts.k}
+                            : std::vector<int64_t>{opts.m, opts.k};
+  auto bDims = (opts.b > 1) ? std::vector<int64_t>{opts.b, opts.k, opts.n}
+                            : std::vector<int64_t>{opts.k, opts.n};
+
+  std::vector<int64_t> aStride, bStride;
+  if (opts.b > 1) {
+    // Batched matmul strides
+    aStride = opts.transA ? std::vector<int64_t>{opts.m * opts.k, 1, opts.m}
+                          : std::vector<int64_t>{opts.m * opts.k, opts.k, 1};
+    bStride = opts.transB ? std::vector<int64_t>{opts.k * opts.n, 1, opts.k}
+                          : std::vector<int64_t>{opts.k * opts.n, opts.n, 1};
+  } else {
+    // Non-batched matmul strides
+    aStride = opts.transA ? std::vector<int64_t>{1, opts.m}
+                          : std::vector<int64_t>{opts.k, 1};
+    bStride = opts.transB ? std::vector<int64_t>{1, opts.k}
+                          : std::vector<int64_t>{opts.n, 1};
+  }
 
   Graph graph;
-  auto graphName = std::format(
-      "benchmark_matmul_m{}_n{}_k{}_transA{}_transB{}_dtype{}", m, n, k, transA,
-      transB, kDataTypeToMlirTypeAsm.at(matmulIOType));
+  auto graphName =
+      std::format("benchmark_matmul_b{}_m{}_n{}_k{}_transA{}_transB{}_dtype{}",
+                  opts.b, opts.m, opts.n, opts.k, opts.transA, opts.transB,
+                  kDataTypeToMlirTypeAsm.at(matmulIOType));
   graph.setName(graphName);
 
   // Types on the graph are kept at fp32 but we explicitly set
@@ -237,14 +281,9 @@ static ErrorObject benchmarkMatmul(int64_t m, int64_t n, int64_t k, bool transA,
   return ok();
 }
 
-static ErrorObject
-benchmarkConvWGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
-                   int64_t g, int64_t k, int64_t z, int64_t y, int64_t x,
-                   int64_t t, int64_t u, int64_t v, int64_t o, int64_t p,
-                   int64_t q, int64_t m, int64_t l, int64_t j,
-                   std::string_view imageLayout, std::string_view outputLayout,
-                   std::string_view filterLayout, int64_t s, int64_t iter,
-                   bool dump, DataType convIOType, int64_t deviceId) {
+static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
+                                      DataType convIOType, int64_t iter,
+                                      int64_t deviceId, bool dump) {
 #ifdef FUSILLI_ENABLE_AMDGPU
   Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
 #else
@@ -252,36 +291,42 @@ benchmarkConvWGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
 #endif
 
   // Calculate filter channels
-  auto fc = c / g;
+  auto fc = opts.c / opts.g;
 
   // Build attributes based on 2D/3D conv and layouts.
-  auto xDims = (s == 2) ? std::vector<int64_t>{n, c, h, w}
-                        : std::vector<int64_t>{n, c, d, h, w};
-  auto wDims = (s == 2) ? std::vector<int64_t>{k, fc, y, x}
-                        : std::vector<int64_t>{k, fc, z, y, x};
-  auto convStride =
-      (s == 2) ? std::vector<int64_t>{u, v} : std::vector<int64_t>{t, u, v};
-  auto convPadding =
-      (s == 2) ? std::vector<int64_t>{p, q} : std::vector<int64_t>{o, p, q};
-  auto convDilation =
-      (s == 2) ? std::vector<int64_t>{l, j} : std::vector<int64_t>{m, l, j};
+  auto xDims =
+      (opts.s == 2)
+          ? std::vector<int64_t>{opts.n, opts.c, opts.h, opts.w}
+          : std::vector<int64_t>{opts.n, opts.c, opts.d, opts.h, opts.w};
+  auto wDims = (opts.s == 2)
+                   ? std::vector<int64_t>{opts.k, fc, opts.y, opts.x}
+                   : std::vector<int64_t>{opts.k, fc, opts.z, opts.y, opts.x};
+  auto convStride = (opts.s == 2)
+                        ? std::vector<int64_t>{opts.u, opts.v}
+                        : std::vector<int64_t>{opts.t, opts.u, opts.v};
+  auto convPadding = (opts.s == 2)
+                         ? std::vector<int64_t>{opts.p, opts.q}
+                         : std::vector<int64_t>{opts.o, opts.p, opts.q};
+  auto convDilation = (opts.s == 2)
+                          ? std::vector<int64_t>{opts.l, opts.j}
+                          : std::vector<int64_t>{opts.m, opts.l, opts.j};
 
   // Calculate output dimensions (DY shape) using the same inference as forward
   auto dyDims = getConvInferredOutputShape(xDims, wDims, convDilation,
                                            convPadding, convStride);
 
   auto xStride =
-      (imageLayout == "NCHW" || imageLayout == "NCDHW")
+      (opts.imageLayout == "NCHW" || opts.imageLayout == "NCDHW")
           ? generateStrideFromDim(xDims, getContiguousStrideOrder(xDims.size()))
           : generateStrideFromDim(xDims,
                                   getChannelsLastStrideOrder(xDims.size()));
-  auto dyStride = (outputLayout == "NCHW" || outputLayout == "NCDHW")
+  auto dyStride = (opts.outputLayout == "NCHW" || opts.outputLayout == "NCDHW")
                       ? generateStrideFromDim(
                             dyDims, getContiguousStrideOrder(dyDims.size()))
                       : generateStrideFromDim(
                             dyDims, getChannelsLastStrideOrder(dyDims.size()));
   auto wStride =
-      (filterLayout == "NCHW" || filterLayout == "NCDHW")
+      (opts.filterLayout == "NCHW" || opts.filterLayout == "NCDHW")
           ? generateStrideFromDim(wDims, getContiguousStrideOrder(wDims.size()))
           : generateStrideFromDim(wDims,
                                   getChannelsLastStrideOrder(wDims.size()));
@@ -290,12 +335,13 @@ benchmarkConvWGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
   Graph graph;
 
   // Set unique name to prevent concurrent invocations from polluting cache.
-  auto graphName =
-      std::format("benchmark_conv_wgrad_n{}_c{}_d{}_h{}_w{}_g{}_k{"
-                  "}_z{}_y{}_x{}_t{}_u{}_v{}_o{}"
-                  "_p{}_q{}_m{}_l{}_j{}_S{}_I{}_O{}_F{}",
-                  n, c, d, h, w, g, k, z, y, x, t, u, v, o, p, q, m, l, j, s,
-                  imageLayout, outputLayout, filterLayout);
+  auto graphName = std::format(
+      "benchmark_conv_wgrad_n{}_c{}_d{}_h{}_w{}_g{}_k{"
+      "}_z{}_y{}_x{}_t{}_u{}_v{}_o{}"
+      "_p{}_q{}_m{}_l{}_j{}_S{}_I{}_O{}_F{}",
+      opts.n, opts.c, opts.d, opts.h, opts.w, opts.g, opts.k, opts.z, opts.y,
+      opts.x, opts.t, opts.u, opts.v, opts.o, opts.p, opts.q, opts.m, opts.l,
+      opts.j, opts.s, opts.imageLayout, opts.outputLayout, opts.filterLayout);
   graph.setName(graphName);
 
   graph.setIODataType(DataType::Float)
@@ -347,14 +393,9 @@ benchmarkConvWGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
   return ok();
 }
 
-static ErrorObject
-benchmarkConvDGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
-                   int64_t g, int64_t k, int64_t z, int64_t y, int64_t x,
-                   int64_t t, int64_t u, int64_t v, int64_t o, int64_t p,
-                   int64_t q, int64_t m, int64_t l, int64_t j,
-                   std::string_view imageLayout, std::string_view outputLayout,
-                   std::string_view filterLayout, int64_t s, int64_t iter,
-                   bool dump, DataType convIOType, int64_t deviceId) {
+static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
+                                      DataType convIOType, int64_t iter,
+                                      int64_t deviceId, bool dump) {
 #ifdef FUSILLI_ENABLE_AMDGPU
   Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
 #else
@@ -362,36 +403,42 @@ benchmarkConvDGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
 #endif
 
   // Calculate filter channels
-  auto fc = c / g;
+  auto fc = opts.c / opts.g;
 
   // Build attributes based on 2D/3D conv and layouts.
-  auto xDims = (s == 2) ? std::vector<int64_t>{n, c, h, w}
-                        : std::vector<int64_t>{n, c, d, h, w};
-  auto wDims = (s == 2) ? std::vector<int64_t>{k, fc, y, x}
-                        : std::vector<int64_t>{k, fc, z, y, x};
-  auto convStride =
-      (s == 2) ? std::vector<int64_t>{u, v} : std::vector<int64_t>{t, u, v};
-  auto convPadding =
-      (s == 2) ? std::vector<int64_t>{p, q} : std::vector<int64_t>{o, p, q};
-  auto convDilation =
-      (s == 2) ? std::vector<int64_t>{l, j} : std::vector<int64_t>{m, l, j};
+  auto xDims =
+      (opts.s == 2)
+          ? std::vector<int64_t>{opts.n, opts.c, opts.h, opts.w}
+          : std::vector<int64_t>{opts.n, opts.c, opts.d, opts.h, opts.w};
+  auto wDims = (opts.s == 2)
+                   ? std::vector<int64_t>{opts.k, fc, opts.y, opts.x}
+                   : std::vector<int64_t>{opts.k, fc, opts.z, opts.y, opts.x};
+  auto convStride = (opts.s == 2)
+                        ? std::vector<int64_t>{opts.u, opts.v}
+                        : std::vector<int64_t>{opts.t, opts.u, opts.v};
+  auto convPadding = (opts.s == 2)
+                         ? std::vector<int64_t>{opts.p, opts.q}
+                         : std::vector<int64_t>{opts.o, opts.p, opts.q};
+  auto convDilation = (opts.s == 2)
+                          ? std::vector<int64_t>{opts.l, opts.j}
+                          : std::vector<int64_t>{opts.m, opts.l, opts.j};
 
   // Calculate output dimensions (DY shape) using the same inference as forward
   auto dyDims = getConvInferredOutputShape(xDims, wDims, convDilation,
                                            convPadding, convStride);
 
   auto xStride =
-      (imageLayout == "NCHW" || imageLayout == "NCDHW")
+      (opts.imageLayout == "NCHW" || opts.imageLayout == "NCDHW")
           ? generateStrideFromDim(xDims, getContiguousStrideOrder(xDims.size()))
           : generateStrideFromDim(xDims,
                                   getChannelsLastStrideOrder(xDims.size()));
-  auto dyStride = (outputLayout == "NCHW" || outputLayout == "NCDHW")
+  auto dyStride = (opts.outputLayout == "NCHW" || opts.outputLayout == "NCDHW")
                       ? generateStrideFromDim(
                             dyDims, getContiguousStrideOrder(dyDims.size()))
                       : generateStrideFromDim(
                             dyDims, getChannelsLastStrideOrder(dyDims.size()));
   auto wStride =
-      (filterLayout == "NCHW" || filterLayout == "NCDHW")
+      (opts.filterLayout == "NCHW" || opts.filterLayout == "NCDHW")
           ? generateStrideFromDim(wDims, getContiguousStrideOrder(wDims.size()))
           : generateStrideFromDim(wDims,
                                   getChannelsLastStrideOrder(wDims.size()));
@@ -400,12 +447,13 @@ benchmarkConvDGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
   Graph graph;
 
   // Set unique name to prevent concurrent invocations from polluting cache.
-  auto graphName =
-      std::format("benchmark_conv_dgrad_n{}_c{}_d{}_h{}_w{}_g{}_k{"
-                  "}_z{}_y{}_x{}_t{}_u{}_v{}_o{}"
-                  "_p{}_q{}_m{}_l{}_j{}_S{}_I{}_O{}_F{}",
-                  n, c, d, h, w, g, k, z, y, x, t, u, v, o, p, q, m, l, j, s,
-                  imageLayout, outputLayout, filterLayout);
+  auto graphName = std::format(
+      "benchmark_conv_dgrad_n{}_c{}_d{}_h{}_w{}_g{}_k{"
+      "}_z{}_y{}_x{}_t{}_u{}_v{}_o{}"
+      "_p{}_q{}_m{}_l{}_j{}_S{}_I{}_O{}_F{}",
+      opts.n, opts.c, opts.d, opts.h, opts.w, opts.g, opts.k, opts.z, opts.y,
+      opts.x, opts.t, opts.u, opts.v, opts.o, opts.p, opts.q, opts.m, opts.l,
+      opts.j, opts.s, opts.imageLayout, opts.outputLayout, opts.filterLayout);
   graph.setName(graphName);
 
   graph.setIODataType(DataType::Float)
@@ -457,12 +505,242 @@ benchmarkConvDGrad(int64_t n, int64_t c, int64_t d, int64_t h, int64_t w,
   return ok();
 }
 
+//===---------------------------------------------------------------------===//
+// CLI registration functions
+//===---------------------------------------------------------------------===//
+
+static CLI::App *registerConvOptions(CLI::App &mainApp, ConvOptions &convOpts) {
+  // Conv flags are kept in sync with MIOpen's ConvDriver:
+  // https://github.com/ROCm/rocm-libraries/blob/db0544fb61f2c7bd5a86dce98d4963420c1c741a/projects/miopen/driver/conv_driver.hpp#L878
+  CLI::App *convApp =
+      mainApp.add_subcommand("conv", "Fusilli Benchmark Convolution");
+
+  // convApp CLI Options - bind to ConvOptions members
+  convApp
+      ->add_option("--mode,-F", convOpts.mode,
+                   "Conv mode: 1=forward, 2=data_grad, 4=weight_grad")
+      ->required()
+      ->check(CLI::IsMember({1, 2, 4}));
+  convApp->add_option("--batchsize,-n", convOpts.n, "Input batch size")
+      ->required()
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--in_channels,-c", convOpts.c, "Input channels")
+      ->required()
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--in_d", convOpts.d, "Input depth")
+      ->default_val("-1")
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--in_h,-H", convOpts.h, "Input height")
+      ->required()
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--in_w,-W", convOpts.w, "Input width")
+      ->required()
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--group_count,-g", convOpts.g, "Number of groups")
+      ->default_val("1")
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--out_channels,-k", convOpts.k, "Output channels")
+      ->required()
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--fil_d", convOpts.z, "Filter depth")
+      ->default_val("-1")
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--fil_h,-y", convOpts.y, "Filter height")
+      ->required()
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--fil_w,-x", convOpts.x, "Filter width")
+      ->required()
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--conv_stride_d", convOpts.t, "Conv stride depth")
+      ->default_val("-1")
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--conv_stride_h,-u", convOpts.u, "Conv stride height")
+      ->required()
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--conv_stride_w,-v", convOpts.v, "Conv stride width")
+      ->required()
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--pad_d", convOpts.o, "Conv padding depth")
+      ->default_val("-1")
+      ->check(kIsNonNegativeInteger);
+  convApp->add_option("--pad_h,-p", convOpts.p, "Conv padding height")
+      ->required()
+      ->check(kIsNonNegativeInteger);
+  convApp->add_option("--pad_w,-q", convOpts.q, "Conv padding width")
+      ->required()
+      ->check(kIsNonNegativeInteger);
+  convApp->add_option("--dilation_d", convOpts.m, "Conv dilation depth")
+      ->default_val("-1")
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--dilation_h,-l", convOpts.l, "Conv dilation height")
+      ->required()
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--dilation_w,-j", convOpts.j, "Conv dilation width")
+      ->required()
+      ->check(kIsPositiveInteger);
+  convApp->add_option("--in_layout", convOpts.imageLayout, "Input layout")
+      ->required()
+      ->check(kIsValidConvLayout);
+  convApp->add_option("--fil_layout", convOpts.filterLayout, "Filter layout")
+      ->required()
+      ->check(kIsValidConvLayout);
+  convApp->add_option("--out_layout", convOpts.outputLayout, "Output layout")
+      ->required()
+      ->check(kIsValidConvLayout);
+  convApp
+      ->add_option("--spatial_dim", convOpts.s,
+                   "Number of spatial dimensions (2 for conv2d, 3 for conv3d)")
+      ->required()
+      ->check(CLI::IsMember({2, 3}));
+
+  // convApp CLI Flags:
+  auto *f1 = convApp->add_flag("--fp16", convOpts.fp16, "Run fp16 convolution");
+  auto *f2 = convApp->add_flag("--bf16", convOpts.bf16, "Run bf16 convolution");
+  // Can't specify both flags.
+  f1->excludes(f2);
+  convApp->add_flag("--bias,-b", convOpts.bias,
+                    "Run with bias (only for mode=1)");
+
+  return convApp;
+}
+
+// Register matmul options to CLI app
+static CLI::App *registerMatmulOptions(CLI::App &mainApp,
+                                       MatmulOptions &matmulOpts) {
+  CLI::App *matmulApp = mainApp.add_subcommand(
+      "matmul", "Fusilli Benchmark Matrix Multiplication");
+
+  // matmulApp CLI Options - bind to MatmulOptions members
+  matmulApp->add_option("--m,-M", matmulOpts.m, "Matrix M dimension")
+      ->required()
+      ->check(kIsPositiveInteger);
+  matmulApp->add_option("--n,-N", matmulOpts.n, "Matrix N dimension")
+      ->required()
+      ->check(kIsPositiveInteger);
+  matmulApp->add_option("--k,-K", matmulOpts.k, "Matrix K dimension")
+      ->required()
+      ->check(kIsPositiveInteger);
+  matmulApp
+      ->add_option("--b,-B", matmulOpts.b, "Batch dimension for batched matmul")
+      ->default_val("1")
+      ->check(kIsPositiveInteger);
+
+  // matmulApp CLI Flags:
+  auto *mf1 = matmulApp->add_flag("--fp16", matmulOpts.fp16, "Run fp16 matmul");
+  auto *mf2 = matmulApp->add_flag("--bf16", matmulOpts.bf16, "Run bf16 matmul");
+  // Can't specify both flags.
+  mf1->excludes(mf2);
+  matmulApp->add_flag("--transA", matmulOpts.transA, "Transpose matrix A");
+  matmulApp->add_flag("--transB", matmulOpts.transB, "Transpose matrix B");
+
+  return matmulApp;
+}
+
+// Validate and run convolution benchmark
+static ErrorObject runConvBenchmark(const ConvOptions &convOpts, int64_t iter,
+                                    int64_t deviceId, bool dump) {
+  // Additional validation of convApp options (apart from default CLI checks)
+  if (convOpts.s == 2) {
+    // Reject 3D layouts for 2D conv
+    FUSILLI_RETURN_ERROR_IF(
+        convOpts.imageLayout.size() != 4 || convOpts.filterLayout.size() != 4 ||
+            convOpts.outputLayout.size() != 4,
+        ErrorCode::InvalidArgument,
+        "Detected at least one invalid {input, filter, output} "
+        "layout for 2D convolution.");
+  }
+  if (convOpts.s == 3) {
+    // Reject 2D layouts for 3D conv
+    FUSILLI_RETURN_ERROR_IF(
+        convOpts.imageLayout.size() != 5 || convOpts.filterLayout.size() != 5 ||
+            convOpts.outputLayout.size() != 5,
+        ErrorCode::InvalidArgument,
+        "Detected at least one invalid {input, filter, output} "
+        "layout for 3D convolution.");
+    // Reject default (sentinel) values for optional args in 3D conv
+    FUSILLI_RETURN_ERROR_IF(
+        convOpts.d == -1 || convOpts.z == -1 || convOpts.t == -1 ||
+            convOpts.o == -1 || convOpts.m == -1,
+        ErrorCode::InvalidArgument,
+        "Detected at least one of {in_d, fil_d, conv_stride_d, "
+        "pad_d, dilation_d} that was not set for 3D convolution.");
+  }
+
+  // Validation of group count
+  FUSILLI_RETURN_ERROR_IF(
+      convOpts.c % convOpts.g != 0 || convOpts.k % convOpts.g != 0,
+      ErrorCode::InvalidArgument, "Detected invalid group count.");
+
+  // Validate bias flag only works with forward mode
+  FUSILLI_RETURN_ERROR_IF(convOpts.bias && convOpts.mode != 1,
+                          ErrorCode::InvalidArgument,
+                          "Bias flag (--bias) is only supported for forward "
+                          "convolution (mode=1).");
+
+  DataType convIOType;
+  if (convOpts.fp16)
+    convIOType = DataType::Half;
+  else if (convOpts.bf16)
+    convIOType = DataType::BFloat16;
+  else
+    // When unspecified, default to fp32 conv.
+    convIOType = DataType::Float;
+
+  ErrorObject status = ok();
+  if (convOpts.mode == 1) {
+    // Forward convolution
+    status = benchmarkConvFprop(convOpts, convIOType, iter, deviceId, dump);
+  } else if (convOpts.mode == 2) {
+    // Data gradient
+    status = benchmarkConvDGrad(convOpts, convIOType, iter, deviceId, dump);
+  } else if (convOpts.mode == 4) {
+    // Weight gradient
+    status = benchmarkConvWGrad(convOpts, convIOType, iter, deviceId, dump);
+  }
+
+  FUSILLI_CHECK_ERROR(status);
+
+  return ok();
+}
+
+// Validate and run matmul benchmark
+static ErrorObject runMatmulBenchmark(const MatmulOptions &matmulOpts,
+                                      int64_t iter, int64_t deviceId,
+                                      bool dump) {
+  DataType matmulIOType;
+  if (matmulOpts.fp16)
+    matmulIOType = DataType::Half;
+  else if (matmulOpts.bf16)
+    matmulIOType = DataType::BFloat16;
+  else
+    // When unspecified, default to fp32 matmul.
+    matmulIOType = DataType::Float;
+
+  ErrorObject status =
+      benchmarkMatmul(matmulOpts, matmulIOType, iter, deviceId, dump);
+
+  FUSILLI_CHECK_ERROR(status);
+
+  return ok();
+}
+
+//===---------------------------------------------------------------------===//
+// Main function
+//===---------------------------------------------------------------------===//
+
 static int benchmark(int argc, char **argv) {
   CLI::App mainApp{"Fusilli Benchmark Driver"};
   mainApp.require_subcommand(1);
 
-  // mainApp CLI Options:
+  // Create option objects
+  ConvOptions convOpts;
+  MatmulOptions matmulOpts;
+
+  // Shared options between subcommands
   int64_t iter, deviceId;
+  bool dump{false};
+
+  // mainApp CLI Options - shared between subcommands
   mainApp.add_option("--iter,-i", iter, "Benchmark iterations")
       ->required()
       ->check(kIsPositiveInteger);
@@ -473,229 +751,31 @@ static int benchmark(int argc, char **argv) {
       ->check(kIsNonNegativeInteger);
 
   // mainApp CLI Flags:
-  bool dump{false};
   mainApp.add_flag("--dump,-d", dump,
                    "Dump compilation artifacts to disk at "
                    "'${FUSILLI_CACHE_DIR}/.cache/fusilli'. "
                    "When not set, it defaults to '${HOME}/.cache/fusilli'.");
 
-  // Conv flags are kept in sync with MIOpen's ConvDriver:
-  // https://github.com/ROCm/rocm-libraries/blob/db0544fb61f2c7bd5a86dce98d4963420c1c741a/projects/miopen/driver/conv_driver.hpp#L878
-  CLI::App *convApp =
-      mainApp.add_subcommand("conv", "Fusilli Benchmark Convolution");
-
-  // convApp CLI Options:
-  int64_t n, c, d, h, w, g, k, z, y, x, t, u, v, o, p, q, m, l, j, s;
-  int64_t mode;
-  std::string imageLayout, filterLayout, outputLayout;
-  convApp
-      ->add_option("--mode,-F", mode,
-                   "Conv mode: 1=forward, 2=data_grad, 4=weight_grad")
-      ->required()
-      ->check(CLI::IsMember({1, 2, 4}));
-  convApp->add_option("--batchsize,-n", n, "Input batch size")
-      ->required()
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--in_channels,-c", c, "Input channels")
-      ->required()
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--in_d", d, "Input depth")
-      ->default_val("-1")
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--in_h,-H", h, "Input height")
-      ->required()
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--in_w,-W", w, "Input width")
-      ->required()
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--group_count,-g", g, "Number of groups")
-      ->default_val("1")
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--out_channels,-k", k, "Output channels")
-      ->required()
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--fil_d", z, "Filter depth")
-      ->default_val("-1")
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--fil_h,-y", y, "Filter height")
-      ->required()
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--fil_w,-x", x, "Filter width")
-      ->required()
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--conv_stride_d", t, "Conv stride depth")
-      ->default_val("-1")
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--conv_stride_h,-u", u, "Conv stride height")
-      ->required()
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--conv_stride_w,-v", v, "Conv stride width")
-      ->required()
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--pad_d", o, "Conv padding depth")
-      ->default_val("-1")
-      ->check(kIsNonNegativeInteger);
-  convApp->add_option("--pad_h,-p", p, "Conv padding height")
-      ->required()
-      ->check(kIsNonNegativeInteger);
-  convApp->add_option("--pad_w,-q", q, "Conv padding width")
-      ->required()
-      ->check(kIsNonNegativeInteger);
-  convApp->add_option("--dilation_d", m, "Conv dilation depth")
-      ->default_val("-1")
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--dilation_h,-l", l, "Conv dilation height")
-      ->required()
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--dilation_w,-j", j, "Conv dilation width")
-      ->required()
-      ->check(kIsPositiveInteger);
-  convApp->add_option("--in_layout", imageLayout, "Input layout")
-      ->required()
-      ->check(kIsValidConvLayout);
-  convApp->add_option("--fil_layout", filterLayout, "Filter layout")
-      ->required()
-      ->check(kIsValidConvLayout);
-  convApp->add_option("--out_layout", outputLayout, "Output layout")
-      ->required()
-      ->check(kIsValidConvLayout);
-  convApp
-      ->add_option("--spatial_dim", s,
-                   "Number of spatial dimensions (2 for conv2d, 3 for conv3d)")
-      ->required()
-      ->check(CLI::IsMember({2, 3}));
-
-  // convApp CLI Flags:
-  bool convFp16{false}, convBf16{false}, bias{false};
-  auto *f1 = convApp->add_flag("--fp16", convFp16, "Run fp16 convolution");
-  auto *f2 = convApp->add_flag("--bf16", convBf16, "Run bf16 convolution");
-  // Can't specify both flags.
-  f1->excludes(f2);
-  convApp->add_flag("--bias,-b", bias, "Run with bias (only for mode=1)");
-
-  // Matmul subcommand
-  CLI::App *matmulApp = mainApp.add_subcommand(
-      "matmul", "Fusilli Benchmark Matrix Multiplication");
-
-  // matmulApp CLI Options:
-  int64_t matmulM, matmulN, matmulK;
-  matmulApp->add_option("--m,-M", matmulM, "Matrix M dimension")
-      ->required()
-      ->check(kIsPositiveInteger);
-  matmulApp->add_option("--n,-N", matmulN, "Matrix N dimension")
-      ->required()
-      ->check(kIsPositiveInteger);
-  matmulApp->add_option("--k,-K", matmulK, "Matrix K dimension")
-      ->required()
-      ->check(kIsPositiveInteger);
-
-  // matmulApp CLI Flags:
-  bool matmulFp16{false}, matmulBf16{false}, transA{false}, transB{false};
-  auto *mf1 = matmulApp->add_flag("--fp16", matmulFp16, "Run fp16 matmul");
-  auto *mf2 = matmulApp->add_flag("--bf16", matmulBf16, "Run bf16 matmul");
-  // Can't specify both flags.
-  mf1->excludes(mf2);
-  matmulApp->add_flag("--transA", transA, "Transpose matrix A");
-  matmulApp->add_flag("--transB", transB, "Transpose matrix B");
+  // Register subcommands
+  CLI::App *convApp = registerConvOptions(mainApp, convOpts);
+  CLI::App *matmulApp = registerMatmulOptions(mainApp, matmulOpts);
 
   CLI11_PARSE(mainApp, argc, argv);
 
   std::cout << "Fusilli Benchmark started..." << std::endl;
 
   if (convApp->parsed()) {
-    // Additional validation of convApp options (apart from default CLI checks)
-    if (s == 2) {
-      // Reject 3D layouts for 2D conv
-      if (imageLayout.size() != 4 || filterLayout.size() != 4 ||
-          outputLayout.size() != 4) {
-        std::cerr << "Detected at least one invalid {input, filter, output} "
-                     "layout for 2D convolution."
-                  << std::endl;
-        return 1;
-      }
-    }
-    if (s == 3) {
-      // Reject 2D layouts for 3D conv
-      if (imageLayout.size() != 5 || filterLayout.size() != 5 ||
-          outputLayout.size() != 5) {
-        std::cerr << "Detected at least one invalid {input, filter, output} "
-                     "layout for 3D convolution."
-                  << std::endl;
-        return 1;
-      }
-      // Reject default (sentinel) values for optional args in 3D conv
-      if (d == -1 || z == -1 || t == -1 || o == -1 || m == -1) {
-        std::cerr << "Detected at least one of {in_d, fil_d, conv_stride_d, "
-                     "pad_d, dilation_d} that was not set for 3D convolution."
-                  << std::endl;
-        return 1;
-      }
-    }
-
-    // Validation of group count
-    if (c % g != 0 || k % g != 0) {
-      std::cerr << "Detected invalid group count." << std::endl;
-      return 1;
-    }
-
-    // Validate bias flag only works with forward mode
-    if (bias && mode != 1) {
-      std::cerr << "Bias flag (--bias) is only supported for forward "
-                   "convolution (mode=1)."
-                << std::endl;
-      return 1;
-    }
-
-    DataType convIOType;
-    if (convFp16)
-      convIOType = DataType::Half;
-    else if (convBf16)
-      convIOType = DataType::BFloat16;
-    else
-      // When unspecified, default to fp32 conv.
-      convIOType = DataType::Float;
-
-    ErrorObject status = ok();
-    if (mode == 1) {
-      // Forward convolution
-      status =
-          benchmarkConvFprop(n, c, d, h, w, g, k, z, y, x, t, u, v, o, p, q, m,
-                             l, j, imageLayout, outputLayout, filterLayout, s,
-                             bias, iter, dump, convIOType, deviceId);
-    } else if (mode == 2) {
-      // Data gradient
-      status = benchmarkConvDGrad(
-          n, c, d, h, w, g, k, z, y, x, t, u, v, o, p, q, m, l, j, imageLayout,
-          outputLayout, filterLayout, s, iter, dump, convIOType, deviceId);
-    } else if (mode == 4) {
-      // Weight gradient
-      status = benchmarkConvWGrad(
-          n, c, d, h, w, g, k, z, y, x, t, u, v, o, p, q, m, l, j, imageLayout,
-          outputLayout, filterLayout, s, iter, dump, convIOType, deviceId);
-    }
-
+    ErrorObject status = runConvBenchmark(convOpts, iter, deviceId, dump);
     if (isError(status)) {
-      std::cerr << "Fusilli Benchmark failed: " << status << std::endl;
+      std::cerr << "Fusilli Conv Benchmark failed: " << status << std::endl;
       return 1;
     }
   }
 
   if (matmulApp->parsed()) {
-    DataType matmulIOType;
-    if (matmulFp16)
-      matmulIOType = DataType::Half;
-    else if (matmulBf16)
-      matmulIOType = DataType::BFloat16;
-    else
-      // When unspecified, default to fp32 matmul.
-      matmulIOType = DataType::Float;
-
-    ErrorObject status =
-        benchmarkMatmul(matmulM, matmulN, matmulK, transA, transB, iter, dump,
-                        matmulIOType, deviceId);
-
+    ErrorObject status = runMatmulBenchmark(matmulOpts, iter, deviceId, dump);
     if (isError(status)) {
-      std::cerr << "Fusilli Benchmark failed: " << status << std::endl;
+      std::cerr << "Fusilli Matmul Benchmark failed: " << status << std::endl;
       return 1;
     }
   }

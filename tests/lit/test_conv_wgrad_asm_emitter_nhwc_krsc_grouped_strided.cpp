@@ -6,6 +6,8 @@
 
 // RUN: %{TEST_EXE} | iree-opt --verify-roundtrip
 // RUN: %{TEST_EXE} | FileCheck %s --check-prefix=TORCH-CHECK
+// RUN: %{TEST_EXE} | iree-compile - --compile-to=input | \
+// RUN:             FileCheck %s --check-prefix=LINALG-CHECK
 // RUN: %{TEST_EXE} stats | FileCheck %s --check-prefix=CPU-STATS-CHECK
 
 // clang-format off
@@ -60,8 +62,27 @@
 // TORCH-CHECK:     }
 // TORCH-CHECK:   }
 //
-// AMDGPU-STATS-CHECK: "dispatch-count": 2
-// CPU-STATS-CHECK: "dispatch-count": 2
+// LINALG-CHECK:     util.func public @main$async(%[[ARG0:.+]]: !hal.buffer_view, %[[ARG1:.+]]: !hal.buffer_view, %[[ARG2:.+]]: !hal.buffer_view, %[[ARG3:.+]]: !hal.fence, %[[ARG4:.+]]: !hal.fence)
+// LINALG-CHECK:       %[[CST:.+]] = arith.constant 0.000000e+00 : f32
+// LINALG-CHECK:       %[[BUF1:.+]] = hal.tensor.import wait(%[[ARG3]]) => %[[ARG1]] : !hal.buffer_view -> tensor<16x32x16x256xf32>
+// LINALG-CHECK:       %[[BUF2:.+]] = hal.tensor.import wait(%[[ARG3]]) => %[[ARG2]] : !hal.buffer_view -> tensor<16x64x32x128xf32>
+// LINALG-CHECK:       %[[E1:.+]] = tensor.empty() : tensor<16x256x32x16xf32>
+// LINALG-CHECK:       %[[BUF1_T:.+]] = linalg.transpose ins(%[[BUF1]] : tensor<16x32x16x256xf32>) outs(%[[E1]] : tensor<16x256x32x16xf32>) permutation = [0, 3, 1, 2]
+// LINALG-CHECK:       %[[E2:.+]] = tensor.empty() : tensor<16x128x64x32xf32>
+// LINALG-CHECK:       %[[BUF2_T:.+]] = linalg.transpose ins(%[[BUF2]] : tensor<16x64x32x128xf32>) outs(%[[E2]] : tensor<16x128x64x32xf32>) permutation = [0, 3, 1, 2]
+// LINALG-CHECK:       %[[EXP_1:.+]] = tensor.expand_shape %[[BUF1_T]] {{\[\[0\], \[1, 2\], \[3\], \[4\]\]}} output_shape [16, 8, 32, 32, 16] : tensor<16x256x32x16xf32> into tensor<16x8x32x32x16xf32>
+// LINALG-CHECK:       %[[EXP_2:.+]] = tensor.expand_shape %[[BUF2_T]] {{\[\[0\], \[1, 2\], \[3\], \[4\]\]}} output_shape [16, 8, 16, 64, 32] : tensor<16x128x64x32xf32> into tensor<16x8x16x64x32xf32>
+// LINALG-CHECK:       %[[EOUT:.+]] = tensor.empty() : tensor<8x32x16x1x1xf32>
+// LINALG-CHECK:       %[[FOUT:.+]] = linalg.fill ins(%[[CST]] : f32) outs(%[[EOUT]] : tensor<8x32x16x1x1xf32>) -> tensor<8x32x16x1x1xf32>
+// LINALG-CHECK:       %[[GEN:.+]] = linalg.generic
+// LINALG-CHECK-SAME:      ins(%[[EXP_2]], %[[EXP_1]] : tensor<16x8x16x64x32xf32>, tensor<16x8x32x32x16xf32>)
+// LINALG-CHECK-SAME:      outs(%[[FOUT]] : tensor<8x32x16x1x1xf32>)
+// LINALG-CHECK:       %[[COUT:.+]] = tensor.collapse_shape %[[GEN]] {{\[\[0, 1\], \[2\], \[3\], \[4\]\]}} : tensor<8x32x16x1x1xf32> into tensor<256x16x1x1xf32>
+// LINALG-CHECK:       %[[ALIAS:.+]] = hal.tensor.alias wait(%[[ARG3]]) => %[[COUT]] : tensor<256x16x1x1xf32> to %[[ARG0]] : !hal.buffer_view
+// LINALG-CHECK:       %{{.+}} = hal.tensor.barrier join(%[[ALIAS]] : tensor<256x16x1x1xf32>) => %[[ARG4]] : !hal.fence
+//
+// AMDGPU-STATS-CHECK: "dispatch-count": 1
+// CPU-STATS-CHECK: "dispatch-count": 1
 //
 // clang-format on
 

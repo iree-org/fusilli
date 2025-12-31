@@ -5,14 +5,14 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include <gtest/gtest.h>
+#include <hipdnn_data_sdk/utilities/PlatformUtils.hpp>
 #include <hipdnn_frontend/Graph.hpp>
-#include <hipdnn_sdk/utilities/PlatformUtils.hpp>
 
 #include <algorithm>
 #include <filesystem>
 #include <string>
 
-using hipdnn_sdk::utilities::getCurrentExecutableDirectory;
+using hipdnn_data_sdk::utilities::getCurrentExecutableDirectory;
 
 static std::vector<std::string> getLoadedPlugins(hipdnnHandle_t handle) {
   size_t numPlugins = 0;

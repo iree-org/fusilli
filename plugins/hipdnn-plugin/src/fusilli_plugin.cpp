@@ -18,18 +18,18 @@
 #include <flatbuffers/vector.h>
 #include <fusilli.h>
 #include <hip/hip_runtime.h>
-#include <hipdnn_sdk/data_objects/data_types_generated.h>
-#include <hipdnn_sdk/data_objects/engine_details_generated.h>
-#include <hipdnn_sdk/data_objects/graph_generated.h>
-#include <hipdnn_sdk/data_objects/tensor_attributes_generated.h>
-#include <hipdnn_sdk/logging/Logger.hpp>
-#include <hipdnn_sdk/plugin/EnginePluginApi.h>
-#include <hipdnn_sdk/plugin/PluginApi.h>
-#include <hipdnn_sdk/plugin/PluginApiDataTypes.h>
-#include <hipdnn_sdk/plugin/PluginFlatbufferTypeHelpers.hpp>
-#include <hipdnn_sdk/plugin/PluginHelpers.hpp>
-#include <hipdnn_sdk/plugin/flatbuffer_utilities/EngineConfigWrapper.hpp>
-#include <hipdnn_sdk/plugin/flatbuffer_utilities/GraphWrapper.hpp>
+#include <hipdnn_data_sdk/data_objects/data_types_generated.h>
+#include <hipdnn_data_sdk/data_objects/engine_details_generated.h>
+#include <hipdnn_data_sdk/data_objects/graph_generated.h>
+#include <hipdnn_data_sdk/data_objects/tensor_attributes_generated.h>
+#include <hipdnn_data_sdk/flatbuffer_utilities/EngineConfigWrapper.hpp>
+#include <hipdnn_data_sdk/flatbuffer_utilities/FlatbufferTypeHelpers.hpp>
+#include <hipdnn_data_sdk/flatbuffer_utilities/GraphWrapper.hpp>
+#include <hipdnn_data_sdk/logging/Logger.hpp>
+#include <hipdnn_plugin_sdk/EnginePluginApi.h>
+#include <hipdnn_plugin_sdk/PluginApi.h>
+#include <hipdnn_plugin_sdk/PluginApiDataTypes.h>
+#include <hipdnn_plugin_sdk/PluginHelpers.hpp>
 #include <iree/hal/buffer.h>
 #include <iree/hal/buffer_view.h>
 
@@ -45,7 +45,7 @@
 #include "hipdnn_engine_plugin_handle.h"
 #include "utils.h"
 
-using namespace hipdnn_plugin;
+using namespace hipdnn_plugin_sdk;
 using namespace fusilli_plugin;
 
 // TODO(#2317): ensure single source of truth for plugin version
@@ -96,7 +96,7 @@ hipdnnPluginStatus_t hipdnnPluginGetType(hipdnnPluginType_t *type) {
 
 void hipdnnPluginGetLastErrorString(const char **error_str) {
   if (error_str) {
-    *error_str = hipdnn_plugin::PluginLastErrorManager::getLastError();
+    *error_str = hipdnn_plugin_sdk::PluginLastErrorManager::getLastError();
   }
 }
 
@@ -182,7 +182,7 @@ hipdnnEnginePluginSetStream(hipdnnEnginePluginHandle_t handle,
   // This should never happen, check so that when it does we get a nice error
   // message.
   if (deviceId != handle->deviceId) {
-    return hipdnn_plugin::PluginLastErrorManager::setLastError(
+    return hipdnn_plugin_sdk::PluginLastErrorManager::setLastError(
         HIPDNN_PLUGIN_STATUS_BAD_PARAM,
         "Stream is associated with different device. Device reported "
         "through `hipStreamGetDevice` does not match active "
@@ -221,26 +221,27 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetApplicableEngineIds(
     return HIPDNN_PLUGIN_STATUS_SUCCESS;
   }
 
-  // Check for single conv_fprop node graph
+  // Check for conv_fprop graph (optionally with pointwise ops)
   GraphWrapper opGraphWrapper(opGraph->ptr, opGraph->size);
-  if (opGraphWrapper.nodeCount() != 1) {
-    HIPDNN_LOG_INFO("Fusilli plan builder is (currently) only applicable only "
-                    "for single node conv_fprop graphs.",
-                    opGraphWrapper.nodeCount());
+  if (!opGraphWrapper.hasOnlySupportedAttributes(
+          std::set<hipdnn_data_sdk::data_objects::NodeAttributes>{
+              hipdnn_data_sdk::data_objects::NodeAttributes::
+                  ConvolutionFwdAttributes,
+              hipdnn_data_sdk::data_objects::NodeAttributes::
+                  PointwiseAttributes})) {
+    HIPDNN_LOG_INFO("Fusilli only supports conv_fprop and pointwise nodes");
     return HIPDNN_PLUGIN_STATUS_SUCCESS;
   }
-  if (!opGraphWrapper.hasOnlySupportedAttributes(
-          std::set<hipdnn_sdk::data_objects::NodeAttributes>{
-              hipdnn_sdk::data_objects::NodeAttributes::
-                  ConvolutionFwdAttributes})) {
-    HIPDNN_LOG_INFO("Fusilli plan builder is (currently) only applicable only "
-                    "for single node conv_fprop graphs.",
-                    opGraphWrapper.nodeCount());
+  // Verify node 0 is conv (remaining nodes verified as pointwise by above
+  // check)
+  if (opGraphWrapper.getNode(0).attributes_type() !=
+      hipdnn_data_sdk::data_objects::NodeAttributes::ConvolutionFwdAttributes) {
+    HIPDNN_LOG_INFO("Fusilli requires first node to be conv_fprop");
     return HIPDNN_PLUGIN_STATUS_SUCCESS;
   }
 
   // Check single conv_fprop node for symmetric padding
-  const hipdnn_sdk::data_objects::ConvolutionFwdAttributes *convFwdAttrs =
+  const hipdnn_data_sdk::data_objects::ConvolutionFwdAttributes *convFwdAttrs =
       opGraphWrapper.getNode(0).attributes_as_ConvolutionFwdAttributes();
   // pre/post_padding are flatbuffer::vectors (not std::vectors) and don't
   // override ==, so we use std::ranges::equal for structural vs referential
@@ -306,7 +307,7 @@ hipdnnEnginePluginGetEngineDetails(hipdnnEnginePluginHandle_t handle,
   FUSILLI_PLUGIN_CHECK_NULL(engineDetails);
 
   if (engineId != FUSILLI_PLUGIN_ENGINE_ID) {
-    return hipdnn_plugin::PluginLastErrorManager::setLastError(
+    return hipdnn_plugin_sdk::PluginLastErrorManager::setLastError(
         HIPDNN_PLUGIN_STATUS_BAD_PARAM, "unexpected engine id");
   }
 
@@ -314,7 +315,7 @@ hipdnnEnginePluginGetEngineDetails(hipdnnEnginePluginHandle_t handle,
   // being.
   flatbuffers::FlatBufferBuilder builder;
   auto engineDetailsObj =
-      hipdnn_sdk::data_objects::CreateEngineDetails(builder, engineId);
+      hipdnn_data_sdk::data_objects::CreateEngineDetails(builder, engineId);
   builder.Finish(engineDetailsObj);
 
   // Populate out parameter.
@@ -396,10 +397,10 @@ hipdnnPluginStatus_t hipdnnEnginePluginCreateExecutionContext(
   FUSILLI_PLUGIN_CHECK_NULL(executionContext);
 
   // Ensure that config contains expected engine id.
-  hipdnn_plugin::EngineConfigWrapper engineConfigWrapper(engineConfig->ptr,
-                                                         engineConfig->size);
+  hipdnn_plugin_sdk::EngineConfigWrapper engineConfigWrapper(
+      engineConfig->ptr, engineConfig->size);
   if (engineConfigWrapper.engineId() != FUSILLI_PLUGIN_ENGINE_ID) {
-    return hipdnn_plugin::PluginLastErrorManager::setLastError(
+    return hipdnn_plugin_sdk::PluginLastErrorManager::setLastError(
         HIPDNN_PLUGIN_STATUS_BAD_PARAM, "unexpected engine id");
   }
 

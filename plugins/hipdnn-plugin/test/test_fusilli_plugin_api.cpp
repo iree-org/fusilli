@@ -7,13 +7,13 @@
 #include <flatbuffers/flatbuffer_builder.h>
 #include <fusilli.h>
 #include <gtest/gtest.h>
-#include <hipdnn_sdk/data_objects/convolution_fwd_attributes_generated.h>
-#include <hipdnn_sdk/data_objects/data_types_generated.h>
-#include <hipdnn_sdk/data_objects/engine_config_generated.h>
-#include <hipdnn_sdk/data_objects/graph_generated.h>
-#include <hipdnn_sdk/data_objects/tensor_attributes_generated.h>
-#include <hipdnn_sdk/plugin/EnginePluginApi.h>
-#include <hipdnn_sdk/plugin/PluginApi.h>
+#include <hipdnn_data_sdk/data_objects/convolution_fwd_attributes_generated.h>
+#include <hipdnn_data_sdk/data_objects/data_types_generated.h>
+#include <hipdnn_data_sdk/data_objects/engine_config_generated.h>
+#include <hipdnn_data_sdk/data_objects/graph_generated.h>
+#include <hipdnn_data_sdk/data_objects/tensor_attributes_generated.h>
+#include <hipdnn_plugin_sdk/EnginePluginApi.h>
+#include <hipdnn_plugin_sdk/PluginApi.h>
 #include <hipdnn_test_sdk/utilities/FlatbufferGraphTestUtils.hpp>
 #include <spdlog/spdlog.h>
 
@@ -176,8 +176,8 @@ TEST(TestFusilliPluginApi, GetAllEngineIdsNullNumEngines) {
 // TODO(#2363): investigate using createValidConvFwdGraph from upstream hipDNN
 flatbuffers::FlatBufferBuilder
 createValidConvFwdGraph(int64_t xUID = 0, int64_t wUID = 1, int64_t yUID = 2,
-                        hipdnn_sdk::data_objects::DataType dataType =
-                            hipdnn_sdk::data_objects::DataType::FLOAT,
+                        hipdnn_data_sdk::data_objects::DataType dataType =
+                            hipdnn_data_sdk::data_objects::DataType::FLOAT,
                         const std::vector<int64_t> &xDims = {4, 4, 4, 4},
                         const std::vector<int64_t> &xStrides = {64, 16, 4, 1},
                         const std::vector<int64_t> &wDims = {4, 4, 1, 1},
@@ -189,7 +189,8 @@ createValidConvFwdGraph(int64_t xUID = 0, int64_t wUID = 1, int64_t yUID = 2,
                         const std::vector<int64_t> &convStrides = {1, 1},
                         const std::vector<int64_t> &convDilation = {1, 1}) {
   flatbuffers::FlatBufferBuilder builder;
-  std::vector<::flatbuffers::Offset<hipdnn_sdk::data_objects::TensorAttributes>>
+  std::vector<
+      ::flatbuffers::Offset<hipdnn_data_sdk::data_objects::TensorAttributes>>
       tensorAttributes;
 
   tensorAttributes.push_back(CreateTensorAttributesDirect(
@@ -206,12 +207,13 @@ createValidConvFwdGraph(int64_t xUID = 0, int64_t wUID = 1, int64_t yUID = 2,
       /*x_tensor_uid*/ xUID,
       /*w_tensor_uid*/ wUID,
       /*y_tensor_uid*/ yUID, &convPrePadding, &convPostPadding, &convStrides,
-      &convDilation, hipdnn_sdk::data_objects::ConvMode::CROSS_CORRELATION);
+      &convDilation,
+      hipdnn_data_sdk::data_objects::ConvMode::CROSS_CORRELATION);
 
-  std::vector<::flatbuffers::Offset<hipdnn_sdk::data_objects::Node>> nodes;
+  std::vector<::flatbuffers::Offset<hipdnn_data_sdk::data_objects::Node>> nodes;
   auto node = CreateNodeDirect(
       builder, "conv_fwd", dataType,
-      hipdnn_sdk::data_objects::NodeAttributes::ConvolutionFwdAttributes,
+      hipdnn_data_sdk::data_objects::NodeAttributes::ConvolutionFwdAttributes,
       convAttributes.Union());
   nodes.push_back(node);
 
@@ -263,7 +265,7 @@ TEST(TestFusilliPluginApi, GetApplicableEngineIds) {
   // Create a serialized hipDNN conv_fprop graph with asymmetric padding.
   builder = createValidConvFwdGraph(
       /*xUID=*/0, /*wUID=*/1, /*yUID=*/2,
-      /*dataType=*/hipdnn_sdk::data_objects::DataType::FLOAT,
+      /*dataType=*/hipdnn_data_sdk::data_objects::DataType::FLOAT,
       /*xDims=*/{4, 4, 4, 4}, /*xStrides=*/{64, 16, 4, 1},
       /*wDims=*/{4, 4, 1, 1}, /*wStrides=*/{4, 1, 1, 1},
       /*yDims=*/{4, 4, 4, 4}, /*yStrides=*/{64, 16, 4, 1},
@@ -301,8 +303,8 @@ TEST(TestFusilliPluginApi, CreateExecutionContext) {
   const std::vector<int64_t> expectedWStrides = {4, 1, 1, 1};
   const std::vector<int64_t> expectedYDims = {4, 4, 4, 4};
   const std::vector<int64_t> expectedYStrides = {64, 16, 4, 1};
-  const hipdnn_sdk::data_objects::DataType dataType =
-      hipdnn_sdk::data_objects::DataType::FLOAT;
+  const hipdnn_data_sdk::data_objects::DataType dataType =
+      hipdnn_data_sdk::data_objects::DataType::FLOAT;
   fusilli::DataType expectedDataType =
       FUSILLI_PLUGIN_EXPECT_UNWRAP(hipDnnDataTypeToFusilliDataType(dataType));
 
@@ -316,7 +318,7 @@ TEST(TestFusilliPluginApi, CreateExecutionContext) {
 
   // Create engine config.
   flatbuffers::FlatBufferBuilder configBuilder;
-  auto engineConfig = hipdnn_sdk::data_objects::CreateEngineConfig(
+  auto engineConfig = hipdnn_data_sdk::data_objects::CreateEngineConfig(
       configBuilder, FUSILLI_PLUGIN_ENGINE_ID);
   configBuilder.Finish(engineConfig);
   hipdnnPluginConstData_t engineConfigData;

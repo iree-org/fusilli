@@ -19,11 +19,8 @@
 
 using namespace fusilli;
 
-// TODO(iree-org/iree#22405): This test is mark as "shouldfail" due to incorrect
-// lowering of unit-stride Grouped ConvWGrad in IREE. Please remove this tag
-// when IREE supports this case.
 TEST_CASE("Convolution wgrad; DY/X (NHWC), DW (KRSC); 1x1; no padding; grouped",
-          "[conv][graph][!shouldfail]") {
+          "[conv][graph]") {
   constexpr int64_t n = 4, c = 16, h = 8, w = 8, k = 32, fc = 4, r = 1, s = 1;
 
   auto buildNewGraph = [=](const Handle &handle) {
