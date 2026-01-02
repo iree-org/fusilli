@@ -30,6 +30,7 @@ const auto kIsPositiveInteger =
     CLI::Range(int64_t{1}, std::numeric_limits<int64_t>::max());
 const auto kIsValidConvLayout =
     CLI::IsMember({"NCHW", "NHWC", "NCDHW", "NDHWC"});
+const auto kIsValidDataType = CLI::IsMember({"fp32", "fp16", "bf16"});
 
 //===---------------------------------------------------------------------===//
 // Option classes for organizing benchmark parameters
@@ -47,8 +48,10 @@ struct ConvOptions {
 
 struct MatmulOptions {
   int64_t m, n, k, b;
-  bool fp16{false};
-  bool bf16{false};
+  std::string a_type;
+  std::string b_type;
+  std::string out_type;
+  std::string bias_type;
   bool transA{false};
   bool transB{false};
   bool bias{false};
@@ -194,8 +197,9 @@ static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
   return ok();
 }
 
-static ErrorObject benchmarkMatmul(const MatmulOptions &opts,
-                                   DataType matmulIOType, int64_t iter,
+static ErrorObject benchmarkMatmul(const MatmulOptions &opts, DataType aType,
+                                   DataType bType, DataType outType,
+                                   DataType biasType, int64_t iter,
                                    int64_t deviceId, bool dump) {
 #ifdef FUSILLI_ENABLE_AMDGPU
   Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
@@ -226,9 +230,15 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts,
 
   Graph graph;
   auto graphName = std::format(
-      "benchmark_matmul_b{}_m{}_n{}_k{}_transA{}_transB{}_bias{}_dtype{}",
+      "benchmark_matmul_b{}_m{}_n{}_k{}_transA{}_transB{}_bias{}_atype{}_"
+      "btype{}_outtype{}",
       opts.b, opts.m, opts.n, opts.k, opts.transA, opts.transB, opts.bias,
-      kDataTypeToMlirTypeAsm.at(matmulIOType));
+      kDataTypeToMlirTypeAsm.at(aType), kDataTypeToMlirTypeAsm.at(bType),
+      kDataTypeToMlirTypeAsm.at(outType));
+  if (opts.bias) {
+    graphName +=
+        std::format("_biastype{}", kDataTypeToMlirTypeAsm.at(biasType));
+  }
   graph.setName(graphName);
 
   // Types on the graph are kept at fp32 but we explicitly set
@@ -243,18 +253,18 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts,
                              .setName("matrix_a")
                              .setDim(aDims)
                              .setStride(aStride)
-                             .setDataType(matmulIOType));
+                             .setDataType(aType));
 
   auto bT = graph.tensor(TensorAttr()
                              .setName("matrix_b")
                              .setDim(bDims)
                              .setStride(bStride)
-                             .setDataType(matmulIOType));
+                             .setDataType(bType));
 
   auto matmulAttr = MatmulAttr().setName("matmul");
 
-  auto cT = graph.matmul(aT, bT, matmulAttr);
-  cT->setDataType(matmulIOType);
+  auto outT = graph.matmul(aT, bT, matmulAttr);
+  outT->setDataType(outType);
 
   std::shared_ptr<TensorAttr> biasT;
   if (opts.bias) {
@@ -267,12 +277,12 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts,
                              .setName("bias")
                              .setDim(biasDims)
                              .setStride(biasStride)
-                             .setDataType(matmulIOType));
+                             .setDataType(biasType));
     auto biasAttr = PointwiseAttr().setMode(PointwiseAttr::Mode::ADD);
-    cT = graph.pointwise(cT, biasT, biasAttr);
-    cT->setDataType(matmulIOType);
+    outT = graph.pointwise(outT, biasT, biasAttr);
+    outT->setDataType(outType);
   }
-  cT->setOutput(true).setDataType(matmulIOType);
+  outT->setOutput(true).setDataType(outType);
 
   // Validate, infer missing properties
   FUSILLI_CHECK_ERROR(graph.validate());
@@ -281,21 +291,21 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts,
   FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
 
   // Allocate input, weight and output buffers.
-  auto aBuf = FUSILLI_TRY(allocateBufferOfType(handle, aT, matmulIOType, 1.0f));
-  auto bBuf = FUSILLI_TRY(allocateBufferOfType(handle, bT, matmulIOType, 1.0f));
-  auto cBuf = FUSILLI_TRY(allocateBufferOfType(handle, cT, matmulIOType, 0.0f));
+  auto aBuf = FUSILLI_TRY(allocateBufferOfType(handle, aT, aType, 1.0f));
+  auto bBuf = FUSILLI_TRY(allocateBufferOfType(handle, bT, bType, 1.0f));
+  auto outBuf = FUSILLI_TRY(allocateBufferOfType(handle, outT, outType, 0.0f));
 
   // Create variant pack.
   std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
       variantPack = {
           {aT, aBuf},
           {bT, bBuf},
-          {cT, cBuf},
+          {outT, outBuf},
       };
 
   if (opts.bias) {
     auto biasBuf =
-        FUSILLI_TRY(allocateBufferOfType(handle, biasT, matmulIOType, 1.0f));
+        FUSILLI_TRY(allocateBufferOfType(handle, biasT, biasType, 1.0f));
     variantPack.insert({biasT, biasBuf});
   }
 
@@ -649,12 +659,27 @@ static CLI::App *registerMatmulOptions(CLI::App &mainApp,
       ->add_option("--b,-B", matmulOpts.b, "Batch dimension for batched matmul")
       ->default_val("1")
       ->check(kIsPositiveInteger);
+  matmulApp
+      ->add_option("--a_type", matmulOpts.a_type,
+                   "Matrix A data type (fp32, fp16, bf16)")
+      ->required()
+      ->check(kIsValidDataType);
+  matmulApp
+      ->add_option("--b_type", matmulOpts.b_type,
+                   "Matrix B data type (fp32, fp16, bf16)")
+      ->required()
+      ->check(kIsValidDataType);
+  matmulApp
+      ->add_option("--out_type", matmulOpts.out_type,
+                   "Result data type (fp32, fp16, bf16)")
+      ->required()
+      ->check(kIsValidDataType);
+  matmulApp
+      ->add_option("--bias_type", matmulOpts.bias_type,
+                   "Bias data type (fp32, fp16, bf16)")
+      ->check(kIsValidDataType);
 
   // matmulApp CLI Flags:
-  auto *mf1 = matmulApp->add_flag("--fp16", matmulOpts.fp16, "Run fp16 matmul");
-  auto *mf2 = matmulApp->add_flag("--bf16", matmulOpts.bf16, "Run bf16 matmul");
-  // Can't specify both flags.
-  mf1->excludes(mf2);
   matmulApp->add_flag("--transA", matmulOpts.transA, "Transpose matrix A");
   matmulApp->add_flag("--transB", matmulOpts.transB, "Transpose matrix B");
   matmulApp->add_flag(
@@ -735,17 +760,23 @@ static ErrorObject runConvBenchmark(const ConvOptions &convOpts, int64_t iter,
 static ErrorObject runMatmulBenchmark(const MatmulOptions &matmulOpts,
                                       int64_t iter, int64_t deviceId,
                                       bool dump) {
-  DataType matmulIOType;
-  if (matmulOpts.fp16)
-    matmulIOType = DataType::Half;
-  else if (matmulOpts.bf16)
-    matmulIOType = DataType::BFloat16;
-  else
-    // When unspecified, default to fp32 matmul.
-    matmulIOType = DataType::Float;
+  // Validate that bias_type is set when --bias is used
+  FUSILLI_RETURN_ERROR_IF(
+      matmulOpts.bias && matmulOpts.bias_type.empty(),
+      ErrorCode::InvalidArgument,
+      "bias_type must be specified when --bias flag is set");
 
-  ErrorObject status =
-      benchmarkMatmul(matmulOpts, matmulIOType, iter, deviceId, dump);
+  // Parse data type strings
+  DataType aType = FUSILLI_TRY(parseDataTypeString(matmulOpts.a_type));
+  DataType bType = FUSILLI_TRY(parseDataTypeString(matmulOpts.b_type));
+  DataType outType = FUSILLI_TRY(parseDataTypeString(matmulOpts.out_type));
+  DataType biasType = DataType::NotSet;
+  if (matmulOpts.bias) {
+    biasType = FUSILLI_TRY(parseDataTypeString(matmulOpts.bias_type));
+  }
+
+  ErrorObject status = benchmarkMatmul(matmulOpts, aType, bType, outType,
+                                       biasType, iter, deviceId, dump);
 
   FUSILLI_CHECK_ERROR(status);
 
