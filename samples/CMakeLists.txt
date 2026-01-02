@@ -45,7 +45,9 @@ add_fusilli_samples(
   PREFIX fusilli_matmul_samples
   SRCS
     matmul/matmul_basic.cpp
+    matmul/matmul_basic_with_bias.cpp
     matmul/matmul_batched.cpp
+    matmul/matmul_batched_with_bias.cpp
   DEPS
     libfusilli
     libutils
