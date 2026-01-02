@@ -128,49 +128,49 @@ add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp32
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 matmul -M 16 -N 32 -K 64
+    --device 0 --iter 10 matmul -M 16 -N 32 -K 64 --a_type fp32 --b_type fp32 --out_type fp32
 )
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp16
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 matmul --fp16 -M 16 -N 32 -K 64
+    --device 0 --iter 10 matmul -M 16 -N 32 -K 64 --a_type fp16 --b_type fp16 --out_type fp16
 )
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_bf16
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 matmul --bf16 -M 16 -N 32 -K 64
+    --device 0 --iter 10 matmul -M 16 -N 32 -K 64 --a_type bf16 --b_type bf16 --out_type bf16
 )
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp16_transA
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 matmul --fp16 -M 16 -N 32 -K 64 --transA
+    --device 0 --iter 10 matmul -M 16 -N 32 -K 64 --a_type fp16 --b_type fp16 --out_type fp16 --transA
 )
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_bf16_transB
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 matmul --bf16 -M 16 -N 32 -K 64 --transB
+    --device 0 --iter 10 matmul -M 16 -N 32 -K 64 --a_type bf16 --b_type bf16 --out_type bf16 --transB
 )
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp32_transAB
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 matmul -M 16 -N 32 -K 64 --transA --transB
+    --device 0 --iter 10 matmul -M 16 -N 32 -K 64 --a_type fp32 --b_type fp32 --out_type fp32 --transA --transB
 )
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp32_transAB_bias
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 matmul -M 16 -N 32 -K 64 --transA --transB --bias
+    --device 0 --iter 10 matmul -M 16 -N 32 -K 64 --a_type fp32 --b_type fp32 --out_type fp32 --bias_type fp32 --transA --transB --bias
 )
 
 # Batched matrix multiplication benchmarks
@@ -178,47 +178,47 @@ add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp32_batched
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 matmul -M 64 -N 32 -K 16 -B 10
+    --device 0 --iter 10 matmul -M 64 -N 32 -K 16 -B 10 --a_type fp32 --b_type fp32 --out_type fp32
 )
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp16_batched
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 matmul --fp16 -M 64 -N 32 -K 16 -B 10
+    --device 0 --iter 10 matmul -M 64 -N 32 -K 16 -B 10 --a_type fp16 --b_type fp16 --out_type fp16
 )
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_bf16_batched
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 matmul --bf16 -M 64 -N 32 -K 16 -B 10
+    --device 0 --iter 10 matmul -M 64 -N 32 -K 16 -B 10 --a_type bf16 --b_type bf16 --out_type bf16
 )
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp16_transA_batched
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 matmul --fp16 -M 64 -N 32 -K 16 -B 10 --transA
+    --device 0 --iter 10 matmul -M 64 -N 32 -K 16 -B 10 --a_type fp16 --b_type fp16 --out_type fp16 --transA
 )
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_bf16_transB_batched
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 matmul --bf16 -M 64 -N 32 -K 16 -B 10 --transB
+    --device 0 --iter 10 matmul -M 64 -N 32 -K 16 -B 10 --a_type bf16 --b_type bf16 --out_type bf16 --transB
 )
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp32_transAB_batched
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 matmul -M 64 -N 32 -K 16 -B 10 --transA --transB
+    --device 0 --iter 10 matmul -M 64 -N 32 -K 16 -B 10 --a_type fp32 --b_type fp32 --out_type fp32 --transA --transB
 )
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp32_transAB_batched_bias
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 matmul -M 64 -N 32 -K 16 -B 10 --transA --transB --bias
+    --device 0 --iter 10 matmul -M 64 -N 32 -K 16 -B 10 --a_type fp32 --b_type fp32 --out_type fp32 --bias_type fp32 --transA --transB --bias
 )
