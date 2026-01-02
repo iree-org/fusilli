@@ -6,9 +6,13 @@
 
 # Test matmul benchmarks
 --device 0 --iter 10 matmul -M 16 -N 32 -K 64
+--device 0 --iter 10 matmul -M 16 -N 32 -K 64 --bias
 --device 0 --iter 10 matmul -M 16 -N 32 -K 64 -B 10
+--device 0 --iter 10 matmul -M 16 -N 32 -K 64 -B 10 --bias
 --device 0 --iter 10 matmul --bf16 -M 16 -N 32 -K 64 --transA
+--device 0 --iter 10 matmul --bf16 -M 16 -N 32 -K 64 --transA --bias
 --device 0 --iter 10 matmul --fp16 -M 16 -N 32 -K 64 -B 10 --transB
+--device 0 --iter 10 matmul --fp16 -M 16 -N 32 -K 64 -B 10 --transB --bias
 
 # Test skipping benchmarks
 [SKIP] --device 0 --iter 10 conv --bf16 -F 1 -n 16 -c 384 -H 48 -W 32 -k 384 -y 3 -x 3 -p 1 -q 1 -u 1 -v 1 -l 1 -j 1 -g 6 --in_layout NHWC --out_layout NHWC --fil_layout NHWC --spatial_dim 2
