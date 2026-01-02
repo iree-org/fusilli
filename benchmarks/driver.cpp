@@ -51,6 +51,7 @@ struct MatmulOptions {
   bool bf16{false};
   bool transA{false};
   bool transB{false};
+  bool bias{false};
 };
 
 //===---------------------------------------------------------------------===//
@@ -224,10 +225,10 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts,
   }
 
   Graph graph;
-  auto graphName =
-      std::format("benchmark_matmul_b{}_m{}_n{}_k{}_transA{}_transB{}_dtype{}",
-                  opts.b, opts.m, opts.n, opts.k, opts.transA, opts.transB,
-                  kDataTypeToMlirTypeAsm.at(matmulIOType));
+  auto graphName = std::format(
+      "benchmark_matmul_b{}_m{}_n{}_k{}_transA{}_transB{}_bias{}_dtype{}",
+      opts.b, opts.m, opts.n, opts.k, opts.transA, opts.transB, opts.bias,
+      kDataTypeToMlirTypeAsm.at(matmulIOType));
   graph.setName(graphName);
 
   // Types on the graph are kept at fp32 but we explicitly set
@@ -253,6 +254,24 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts,
   auto matmulAttr = MatmulAttr().setName("matmul");
 
   auto cT = graph.matmul(aT, bT, matmulAttr);
+  cT->setDataType(matmulIOType);
+
+  std::shared_ptr<TensorAttr> biasT;
+  if (opts.bias) {
+    auto biasDims = (opts.b > 1) ? std::vector<int64_t>{1, 1, opts.n}
+                                 : std::vector<int64_t>{1, opts.n};
+    auto biasStride = generateStrideFromDim(
+        biasDims, getContiguousStrideOrder(biasDims.size()));
+
+    biasT = graph.tensor(TensorAttr()
+                             .setName("bias")
+                             .setDim(biasDims)
+                             .setStride(biasStride)
+                             .setDataType(matmulIOType));
+    auto biasAttr = PointwiseAttr().setMode(PointwiseAttr::Mode::ADD);
+    cT = graph.pointwise(cT, biasT, biasAttr);
+    cT->setDataType(matmulIOType);
+  }
   cT->setOutput(true).setDataType(matmulIOType);
 
   // Validate, infer missing properties
@@ -273,6 +292,12 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts,
           {bT, bBuf},
           {cT, cBuf},
       };
+
+  if (opts.bias) {
+    auto biasBuf =
+        FUSILLI_TRY(allocateBufferOfType(handle, biasT, matmulIOType, 1.0f));
+    variantPack.insert({biasT, biasBuf});
+  }
 
   // Execute graph `iter` times.
   for (size_t i = 0; i < iter; i++)
@@ -632,6 +657,9 @@ static CLI::App *registerMatmulOptions(CLI::App &mainApp,
   mf1->excludes(mf2);
   matmulApp->add_flag("--transA", matmulOpts.transA, "Transpose matrix A");
   matmulApp->add_flag("--transB", matmulOpts.transB, "Transpose matrix B");
+  matmulApp->add_flag(
+      "--bias", matmulOpts.bias,
+      "Add bias vector to result (after broadcasting to result shape)");
 
   return matmulApp;
 }

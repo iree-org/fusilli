@@ -166,6 +166,13 @@ add_fusilli_benchmark(
     --device 0 --iter 10 matmul -M 16 -N 32 -K 64 --transA --transB
 )
 
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_matmul_fp32_transAB_bias
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 matmul -M 16 -N 32 -K 64 --transA --transB --bias
+)
+
 # Batched matrix multiplication benchmarks
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp32_batched
@@ -207,4 +214,11 @@ add_fusilli_benchmark(
   DRIVER fusilli_benchmark_driver
   ARGS
     --device 0 --iter 10 matmul -M 64 -N 32 -K 16 -B 10 --transA --transB
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_matmul_fp32_transAB_batched_bias
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 matmul -M 64 -N 32 -K 16 -B 10 --transA --transB --bias
 )
