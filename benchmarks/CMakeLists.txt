@@ -196,6 +196,13 @@ add_fusilli_benchmark(
 )
 
 add_fusilli_benchmark(
+  NAME fusilli_benchmark_matmul_mixed_batched
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 matmul -M 64 -N 32 -K 16 -B 10 --a_type fp32 --b_type bf16 --out_type fp32
+)
+
+add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp16_transA_batched
   DRIVER fusilli_benchmark_driver
   ARGS
