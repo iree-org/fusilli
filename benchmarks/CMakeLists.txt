@@ -145,6 +145,14 @@ add_fusilli_benchmark(
     --device 0 --iter 10 matmul -M 16 -N 32 -K 64 --a_type bf16 --b_type bf16 --out_type bf16
 )
 
+# TODO(llvm/torch-mlir#4422): Uncomment after torch-mlir issue is fixed.
+# add_fusilli_benchmark(
+#   NAME fusilli_benchmark_matmul_mixed
+#   DRIVER fusilli_benchmark_driver
+#   ARGS
+#     --device 0 --iter 10 matmul -M 16 -N 32 -K 64 --a_type fp32 --b_type bf16 --out_type fp32
+# )
+
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp16_transA
   DRIVER fusilli_benchmark_driver
