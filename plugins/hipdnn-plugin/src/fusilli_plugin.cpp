@@ -541,9 +541,11 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
     // 2.2. Create a buffer view for external buffer.
     iree_hal_buffer_view_t *outBufferView = nullptr;
     FUSILLI_PLUGIN_CHECK_ERROR(iree_hal_buffer_view_create(
-        /*buffer=*/importedBuffer, /*shape_rank=*/tensorAttr->getDim().size(),
+        /*buffer=*/importedBuffer,
+        /*shape_rank=*/tensorAttr->getPhysicalDim().size(),
         /*shape=*/
-        reinterpret_cast<const iree_hal_dim_t *>(tensorAttr->getDim().data()),
+        reinterpret_cast<const iree_hal_dim_t *>(
+            tensorAttr->getPhysicalDim().data()),
         /*element_type=*/
         FUSILLI_PLUGIN_TRY(
             fusilliDataTypeToIreeHalDataType(tensorAttr->getDataType())),

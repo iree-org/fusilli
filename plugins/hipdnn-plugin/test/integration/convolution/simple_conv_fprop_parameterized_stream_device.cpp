@@ -4,6 +4,20 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+// ----------------------------------------------------------------------
+//  Test for simple NCHW KCRS convfprop with parameterization for
+//  implicit/explicitly set stream, and device.
+//
+//  | Device | Stream | Test Name                 |
+//  |--------|--------|---------------------------|
+//  | 0      | No     | Device0_WithoutStream     |
+//  | 0      | Yes    | Device0_WithStream        |
+//  | N-1*   | No     | Device{N-1}_WithoutStream |
+//  | N-1*   | Yes    | Device{N-1}_WithStream    |
+//
+//  *Device N-1 tests only run if deviceCount > 1
+// ----------------------------------------------------------------------
+
 #include <gtest/gtest.h>
 #include <hip/hip_runtime.h>
 #include <hipdnn_backend.h>
