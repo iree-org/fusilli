@@ -6,7 +6,7 @@ therock_git_ref = "main"
 hip_run_id = "19089392286"
 
 # Git ref (commit/tag/branch) for rocm-libraries hipDNN
-hipdnn_git_ref = "e4b56200faf0f4a6f9cdceb05dfc74271a77317c"
+hipdnn_git_ref = "develop"
 
 # IREE git tag
 iree_git_tag = "iree-3.10.0rc20251219"
