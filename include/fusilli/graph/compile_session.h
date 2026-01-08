@@ -28,6 +28,7 @@
 #include "fusilli/support/logging.h"
 
 #include <dlfcn.h>
+#include <iree/compiler/api_support.h>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -256,7 +257,7 @@ private:
 // ============================================================================
 
 // Pipeline enumeration matching IREE's iree_compiler_pipeline_t.
-enum IREECompilerPipeline {
+enum IREECompilerPipeline : int {
   IREE_COMPILER_PIPELINE_STD = 0,
 };
 
