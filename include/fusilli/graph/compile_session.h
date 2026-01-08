@@ -28,7 +28,6 @@
 #include "fusilli/support/logging.h"
 
 #include <dlfcn.h>
-#include <iree/compiler/api_support.h>
 #include <memory>
 #include <sstream>
 #include <string>
