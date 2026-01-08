@@ -50,6 +50,7 @@ public:
     // Validate input X exists
     FUSILLI_RETURN_ERROR_IF(!reductionAttr.getX(), ErrorCode::AttributeNotSet,
                             "Reduction operation requires X input");
+
     // Validate output Y exists
     FUSILLI_RETURN_ERROR_IF(!reductionAttr.getY(), ErrorCode::AttributeNotSet,
                             "Reduction operation requires Y output");
