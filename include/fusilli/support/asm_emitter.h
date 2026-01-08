@@ -33,6 +33,7 @@
 #include "fusilli/external/torch_types.h"
 #include "fusilli/graph/graph.h"
 #include "fusilli/node/conv_node.h"
+#include "fusilli/node/matmul_node.h"
 #include "fusilli/node/pointwise_node.h"
 #include "fusilli/support/extras.h"
 
@@ -1040,18 +1041,41 @@ inline std::string ConvDGradNode::emitNodePreAsm() const {
 //===----------------------------------------------------------------------===//
 
 // Emits MatmulNode's operand names in MLIR assembly format.
+// Uses "_perm_cast" if cast is needed, "_perm" otherwise.
 inline std::string MatmulNode::getOperandNamesAsm() const {
-  return matmulAttr.getA()->getValueNameAsm() + "_perm" + ", " +
-         matmulAttr.getB()->getValueNameAsm() + "_perm";
+  std::shared_ptr<TensorAttr> aT = matmulAttr.getA();
+  std::shared_ptr<TensorAttr> bT = matmulAttr.getB();
+  DataType computeType = context.getComputeDataType();
+
+  std::string aSuffix =
+      (aT->getDataType() != computeType) ? "_perm_cast" : "_perm";
+  std::string bSuffix =
+      (bT->getDataType() != computeType) ? "_perm_cast" : "_perm";
+
+  return aT->getValueNameAsm() + aSuffix + ", " + bT->getValueNameAsm() +
+         bSuffix;
 }
 
 // Emits MatmulNode's operand types in MLIR assembly format.
+// Uses compute data type for both operands.
 inline std::string MatmulNode::getOperandTypesAsm() const {
-  return matmulAttr.getA()->getTensorTypeAsm(/*isValueTensor=*/true,
-                                             /*useLogicalDims=*/true) +
+  std::shared_ptr<TensorAttr> aT = matmulAttr.getA();
+  std::shared_ptr<TensorAttr> bT = matmulAttr.getB();
+  DataType computeType = context.getComputeDataType();
+
+  // Create temporary tensor attrs with compute type for type string generation
+  // TODO: This is a hack to get the tensor type asm for the compute type.
+  // We should not need to create these temporary tensor attrs.
+  TensorAttr aCompute = *aT;
+  aCompute.setDataType(computeType);
+  TensorAttr bCompute = *bT;
+  bCompute.setDataType(computeType);
+
+  return aCompute.getTensorTypeAsm(/*isValueTensor=*/true,
+                                   /*useLogicalDims=*/true) +
          ", " +
-         matmulAttr.getB()->getTensorTypeAsm(/*isValueTensor=*/true,
-                                             /*useLogicalDims=*/true);
+         bCompute.getTensorTypeAsm(/*isValueTensor=*/true,
+                                   /*useLogicalDims=*/true);
 }
 
 // Emits MatmulNode's result names in MLIR assembly format.
@@ -1065,64 +1089,118 @@ inline std::string MatmulNode::getResultTypesAsm() const {
                                              /*useLogicalDims=*/true);
 }
 
-// Get permute ops for input A in MLIR assembly format.
-inline std::string MatmulNode::getPermuteAOpsAsm() const {
+// Get permute and cast ops for LHS (input A) in MLIR assembly format.
+// Always emits permute, conditionally emits cast if type differs from compute
+// type.
+inline std::string MatmulNode::getPermuteAndCastAOpsAsm() const {
   std::ostringstream oss;
 
   std::string prefix = "permute_A";
   std::string suffix = matmulAttr.getName();
   std::shared_ptr<TensorAttr> aT = matmulAttr.getA();
+  DataType computeType = context.getComputeDataType();
 
   // Emit permute dimensions based on stride (works for any layout).
   oss << getListOfIntOpsAsm(aT->getPhysicalToLogicalPermuteOrder(), prefix,
                             suffix);
 
   // Emit the permute op itself.
-  constexpr std::string_view schema = R"(
+  constexpr std::string_view permuteSchema = R"(
     {0}_perm = torch.aten.permute {0}, {1} : {2}, !torch.list<int> -> {3}
   )";
 
-  std::string output =
-      std::format(schema,
-                  aT->getValueNameAsm(),       // {0}
-                  "%" + prefix + "_" + suffix, // {1}
-                  aT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/false), // {2}
-                  aT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/true) // {3}
-      );
+  oss << std::format(permuteSchema,
+                     aT->getValueNameAsm(),       // {0}
+                     "%" + prefix + "_" + suffix, // {1}
+                     aT->getTensorTypeAsm(/*isValueTensor=*/true,
+                                          /*useLogicalDims=*/false), // {2}
+                     aT->getTensorTypeAsm(/*isValueTensor=*/true,
+                                          /*useLogicalDims=*/true) // {3}
+  );
 
-  return oss.str() + output;
+  // Conditionally emit cast if type differs from compute type
+  if (aT->getDataType() != computeType) {
+    torch_upstream::ScalarType targetDtype =
+        kDataTypeToTorchType.at(computeType);
+    TensorAttr aCompute = *aT;
+    aCompute.setDataType(computeType);
+
+    constexpr std::string_view castSchema = R"(
+    %dtype_A_cast_{0} = torch.constant.int {1}
+    %false_A_{0} = torch.constant.bool false
+    %none_A_{0} = torch.constant.none
+    {2}_perm_cast = torch.aten.to.dtype {2}_perm, %dtype_A_cast_{0}, %false_A_{0}, %false_A_{0}, %none_A_{0} : {3}, !torch.int, !torch.bool, !torch.bool, !torch.none -> {4}
+  )";
+
+    oss << std::format(castSchema,
+                       suffix,                        // {0}
+                       static_cast<int>(targetDtype), // {1}
+                       aT->getValueNameAsm(),         // {2}
+                       aT->getTensorTypeAsm(/*isValueTensor=*/true,
+                                            /*useLogicalDims=*/true), // {3}
+                       aCompute.getTensorTypeAsm(/*isValueTensor=*/true,
+                                                 /*useLogicalDims=*/true) // {4}
+    );
+  }
+
+  return oss.str();
 }
 
-// Get permute ops for input B in MLIR assembly format.
-inline std::string MatmulNode::getPermuteBOpsAsm() const {
+// Get permute and cast ops for RHS (input B) in MLIR assembly format.
+// Always emits permute, conditionally emits cast if type differs from compute
+// type.
+inline std::string MatmulNode::getPermuteAndCastBOpsAsm() const {
   std::ostringstream oss;
 
   std::string prefix = "permute_B";
   std::string suffix = matmulAttr.getName();
   std::shared_ptr<TensorAttr> bT = matmulAttr.getB();
+  DataType computeType = context.getComputeDataType();
 
   // Emit permute dimensions based on stride (works for any layout).
   oss << getListOfIntOpsAsm(bT->getPhysicalToLogicalPermuteOrder(), prefix,
                             suffix);
 
   // Emit the permute op itself.
-  constexpr std::string_view schema = R"(
+  constexpr std::string_view permuteSchema = R"(
     {0}_perm = torch.aten.permute {0}, {1} : {2}, !torch.list<int> -> {3}
   )";
 
-  std::string output =
-      std::format(schema,
-                  bT->getValueNameAsm(),       // {0}
-                  "%" + prefix + "_" + suffix, // {1}
-                  bT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/false), // {2}
-                  bT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/true) // {3}
-      );
+  oss << std::format(permuteSchema,
+                     bT->getValueNameAsm(),       // {0}
+                     "%" + prefix + "_" + suffix, // {1}
+                     bT->getTensorTypeAsm(/*isValueTensor=*/true,
+                                          /*useLogicalDims=*/false), // {2}
+                     bT->getTensorTypeAsm(/*isValueTensor=*/true,
+                                          /*useLogicalDims=*/true) // {3}
+  );
 
-  return oss.str() + output;
+  // Conditionally emit cast if type differs from compute type
+  if (bT->getDataType() != computeType) {
+    torch_upstream::ScalarType targetDtype =
+        kDataTypeToTorchType.at(computeType);
+    TensorAttr bCompute = *bT;
+    bCompute.setDataType(computeType);
+
+    constexpr std::string_view castSchema = R"(
+    %dtype_B_cast_{0} = torch.constant.int {1}
+    %false_B_{0} = torch.constant.bool false
+    %none_B_{0} = torch.constant.none
+    {2}_perm_cast = torch.aten.to.dtype {2}_perm, %dtype_B_cast_{0}, %false_B_{0}, %false_B_{0}, %none_B_{0} : {3}, !torch.int, !torch.bool, !torch.bool, !torch.none -> {4}
+  )";
+
+    oss << std::format(castSchema,
+                       suffix,                        // {0}
+                       static_cast<int>(targetDtype), // {1}
+                       bT->getValueNameAsm(),         // {2}
+                       bT->getTensorTypeAsm(/*isValueTensor=*/true,
+                                            /*useLogicalDims=*/true), // {3}
+                       bCompute.getTensorTypeAsm(/*isValueTensor=*/true,
+                                                 /*useLogicalDims=*/true) // {4}
+    );
+  }
+
+  return oss.str();
 }
 
 // Get permute ops for output C in MLIR assembly format.
@@ -1164,13 +1242,13 @@ inline std::string MatmulNode::emitNodePreAsm() const {
   )";
 
   std::string output = std::format(schema,
-                                   getPermuteAOpsAsm(),  // {0}
-                                   getPermuteBOpsAsm(),  // {1}
-                                   getResultNamesAsm(),  // {2}
-                                   getOperandNamesAsm(), // {3}
-                                   getOperandTypesAsm(), // {4}
-                                   getResultTypesAsm(),  // {5}
-                                   getPermuteCOpsAsm()   // {6}
+                                   getPermuteAndCastAOpsAsm(), // {0}
+                                   getPermuteAndCastBOpsAsm(), // {1}
+                                   getResultNamesAsm(),        // {2}
+                                   getOperandNamesAsm(),       // {3}
+                                   getOperandTypesAsm(),       // {4}
+                                   getResultTypesAsm(),        // {5}
+                                   getPermuteCOpsAsm()         // {6}
   );
 
   return output;
