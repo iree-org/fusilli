@@ -399,3 +399,14 @@ add_fusilli_lit_test(
     iree-opt
     iree-compile
 )
+
+add_fusilli_lit_test(
+  SRC
+    lit/test_matmul_asm_emitter_compute_output_dtype_mismatch.cpp
+  DEPS
+    libfusilli
+  TOOLS
+    FileCheck
+    iree-opt
+    iree-compile
+)

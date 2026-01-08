@@ -83,7 +83,7 @@ public:
   std::string getResultTypesAsm() const;
   std::string getPermuteAndCastAOpsAsm() const;
   std::string getPermuteAndCastBOpsAsm() const;
-  std::string getPermuteCOpsAsm() const;
+  std::string getPermuteAndCastCOpsAsm() const;
 
   const std::string &getName() const override final {
     return matmulAttr.getName();

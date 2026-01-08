@@ -1084,9 +1084,17 @@ inline std::string MatmulNode::getResultNamesAsm() const {
 }
 
 // Emits MatmulNode's result types in MLIR assembly format.
+// Returns the matmul result type (compute dtype), not the output tensor dtype.
 inline std::string MatmulNode::getResultTypesAsm() const {
-  return matmulAttr.getC()->getTensorTypeAsm(/*isValueTensor=*/true,
-                                             /*useLogicalDims=*/true);
+  std::shared_ptr<TensorAttr> cT = matmulAttr.getC();
+  DataType computeType = context.getComputeDataType();
+
+  // Matmul produces result in compute dtype (same as operands after casting)
+  TensorAttr cCompute = *cT;
+  cCompute.setDataType(computeType);
+
+  return cCompute.getTensorTypeAsm(/*isValueTensor=*/true,
+                                   /*useLogicalDims=*/true);
 }
 
 // Get permute and cast ops for LHS (input A) in MLIR assembly format.
@@ -1203,31 +1211,64 @@ inline std::string MatmulNode::getPermuteAndCastBOpsAsm() const {
   return oss.str();
 }
 
-// Get permute ops for output C in MLIR assembly format.
-inline std::string MatmulNode::getPermuteCOpsAsm() const {
+// Get cast and permute ops for output C in MLIR assembly format.
+// Conditionally casts result from compute dtype to output dtype if they differ,
+// then permutes to match output tensor layout.
+inline std::string MatmulNode::getPermuteAndCastCOpsAsm() const {
   std::ostringstream oss;
 
   std::string prefix = "permute_C";
   std::string suffix = matmulAttr.getName();
   std::shared_ptr<TensorAttr> cT = matmulAttr.getC();
+  DataType computeType = context.getComputeDataType();
+  DataType outputType = cT->getDataType();
 
   // For output, we need the inverse permutation (physical to logical).
   oss << getListOfIntOpsAsm(cT->getLogicalToPhysicalPermuteOrder(), prefix,
                             suffix);
 
+  // Conditionally cast result from compute dtype to output dtype
+  std::string resultName = cT->getValueNameAsm() + "_perm";
+  if (computeType != outputType) {
+    torch_upstream::ScalarType targetDtype =
+        kDataTypeToTorchType.at(outputType);
+    TensorAttr cCompute = *cT;
+    cCompute.setDataType(computeType);
+
+    constexpr std::string_view castSchema = R"(
+    %dtype_C_cast_{0} = torch.constant.int {1}
+    %false_C_{0} = torch.constant.bool false
+    %none_C_{0} = torch.constant.none
+    {2}_perm_cast = torch.aten.to.dtype {2}_perm, %dtype_C_cast_{0}, %false_C_{0}, %false_C_{0}, %none_C_{0} : {3}, !torch.int, !torch.bool, !torch.bool, !torch.none -> {4}
+  )";
+
+    oss << std::format(
+        castSchema,
+        suffix,                        // {0}
+        static_cast<int>(targetDtype), // {1}
+        cT->getValueNameAsm(),         // {2}
+        cCompute.getTensorTypeAsm(/*isValueTensor=*/true,
+                                  /*useLogicalDims=*/true), // {3}
+        cT->getTensorTypeAsm(/*isValueTensor=*/true,
+                             /*useLogicalDims=*/true) // {4}
+    );
+    resultName = cT->getValueNameAsm() + "_perm_cast";
+  }
+
   // Emit the permute op itself.
-  constexpr std::string_view schema = R"(
-    {0} = torch.aten.permute {0}_perm, {1} : {2}, !torch.list<int> -> {3}
+  constexpr std::string_view permuteSchema = R"(
+    {0} = torch.aten.permute {1}, {2} : {3}, !torch.list<int> -> {4}
   )";
 
   std::string output =
-      std::format(schema,
+      std::format(permuteSchema,
                   cT->getValueNameAsm(),       // {0}
-                  "%" + prefix + "_" + suffix, // {1}
+                  resultName,                  // {1}
+                  "%" + prefix + "_" + suffix, // {2}
                   cT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/true), // {2}
+                                       /*useLogicalDims=*/true), // {3}
                   cT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/false) // {3}
+                                       /*useLogicalDims=*/false) // {4}
       );
 
   return oss.str() + output;
@@ -1248,7 +1289,7 @@ inline std::string MatmulNode::emitNodePreAsm() const {
                                    getOperandNamesAsm(),       // {3}
                                    getOperandTypesAsm(),       // {4}
                                    getResultTypesAsm(),        // {5}
-                                   getPermuteCOpsAsm()         // {6}
+                                   getPermuteAndCastCOpsAsm()  // {6}
   );
 
   return output;
