@@ -17,8 +17,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef FUSILLI_GRAPH_COMPILER_SESSION_H
-#define FUSILLI_GRAPH_COMPILER_SESSION_H
+#ifndef FUSILLI_GRAPH_COMPILE_SESSION_H
+#define FUSILLI_GRAPH_COMPILE_SESSION_H
 
 #include "fusilli/backend/backend.h"
 #include "fusilli/backend/handle.h"
@@ -627,4 +627,4 @@ inline const std::vector<std::string> &CompileSession::getArgs() const {
 
 } // namespace fusilli
 
-#endif // FUSILLI_GRAPH_COMPILER_SESSION_H
+#endif // FUSILLI_GRAPH_COMPILE_SESSION_H

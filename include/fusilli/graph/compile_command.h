@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef FUSILLI_GRAPH_COMPILE_H
-#define FUSILLI_GRAPH_COMPILE_H
+#ifndef FUSILLI_GRAPH_COMPILE_COMMAND_H
+#define FUSILLI_GRAPH_COMPILE_COMMAND_H
 
 #include "fusilli/backend/backend.h"
 #include "fusilli/backend/handle.h"
@@ -146,4 +146,4 @@ private:
 
 } // namespace fusilli
 
-#endif // FUSILLI_GRAPH_COMPILE_H
+#endif // FUSILLI_GRAPH_COMPILE_COMMAND_H
