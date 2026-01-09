@@ -239,9 +239,7 @@ public:
   std::array<std::shared_ptr<TensorAttr>, 3>
   layernorm(const std::shared_ptr<TensorAttr> &x,
             const std::shared_ptr<TensorAttr> &scale,
-            const std::shared_ptr<TensorAttr> &bias,
-            const std::shared_ptr<TensorAttr> &epsilon,
-            LayernormAttr &attributes);
+            const std::shared_ptr<TensorAttr> &bias, LayernormAttr &attributes);
   std::shared_ptr<TensorAttr> matmul(const std::shared_ptr<TensorAttr> &a,
                                      const std::shared_ptr<TensorAttr> &b,
                                      MatmulAttr &attributes);
@@ -656,7 +654,6 @@ inline std::array<std::shared_ptr<TensorAttr>, 3>
 Graph::layernorm(const std::shared_ptr<TensorAttr> &x,
                  const std::shared_ptr<TensorAttr> &scale,
                  const std::shared_ptr<TensorAttr> &bias,
-                 const std::shared_ptr<TensorAttr> &epsilon,
                  LayernormAttr &layernormAttr) {
   // Populate names when not set.
   if (layernormAttr.getName().empty())
@@ -667,8 +664,6 @@ Graph::layernorm(const std::shared_ptr<TensorAttr> &x,
     scale->setName(layernormAttr.getName() + "_SCALE");
   if (bias && bias->getName().empty())
     bias->setName(layernormAttr.getName() + "_BIAS");
-  if (epsilon && epsilon->getName().empty())
-    epsilon->setName(layernormAttr.getName() + "_EPSILON");
 
   FUSILLI_LOG_LABEL_ENDL("INFO: Adding Layernorm '" << layernormAttr.getName()
                                                     << "' to Graph");
@@ -677,7 +672,6 @@ Graph::layernorm(const std::shared_ptr<TensorAttr> &x,
   layernormAttr.setX(x);
   layernormAttr.setSCALE(scale);
   layernormAttr.setBIAS(bias);
-  layernormAttr.setEPSILON(epsilon);
 
   // Set outputs.
   std::shared_ptr<TensorAttr> y = outputTensor(layernormAttr.getName() + "_Y");
