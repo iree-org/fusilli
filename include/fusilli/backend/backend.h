@@ -24,6 +24,7 @@
 #include <format>
 #include <memory>
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -61,35 +62,69 @@ static const std::unordered_map<Backend, const char *> kHalDriver = {
     {Backend::AMDGPU, "hip"},
 };
 
+static std::string getIreeHipTargetForAmdgpu() {
+  auto cmd = getRocmAgentEnumeratorPath();
+
+  FILE *lsofFile_p = popen(cmd.c_str(), "r");
+  if (!lsofFile_p) {
+    return "";
+  }
+
+  char buffer[1024];
+  std::string target;
+  while (true) {
+    char *line_p = fgets(buffer, sizeof(buffer), lsofFile_p);
+    if (line_p == nullptr) {
+      target = "";
+      break;
+    }
+
+    target = std::string(line_p);
+    if (target == "gfx000\n")
+      continue;
+    target.erase(target.find_last_not_of(" \n\r\t") + 1);
+    break;
+  }
+
+  pclose(lsofFile_p);
+  return target;
+}
+
 // Map from backend to IREE compile flags.
-static const std::unordered_map<Backend, std::vector<std::string>>
-    kBackendFlags = {
-        {
-            Backend::CPU,
-            {
-                "--iree-hal-target-backends=llvm-cpu",
-                "--iree-llvmcpu-target-cpu=host",
-            },
-        },
-        {
-            // Specify a HIP target for AMD GPU by extracting the architecture
-            // name for the first device using `rocm_agent_enumerator`.
-            // See this page for a full list of supported architectures:
-            // https://iree.dev/guides/deployment-configurations/gpu-rocm/#choosing-hip-targets
-            Backend::AMDGPU,
-            {
-                // clang-format off
+static std::span<std::string> getBackendFlags(Backend backend) {
+  static std::mutex mutex;
+  static std::unordered_map<Backend, std::vector<std::string>> kBackendFlags;
+  std::lock_guard<std::mutex> lock(mutex);
+  // Initialize backend flags on first use.
+  if (kBackendFlags.empty()) {
+    std::vector<std::string> cpuFlags = {
+        "--iree-hal-target-backends=llvm-cpu",
+        "--iree-llvmcpu-target-cpu=host",
+    };
+
+    // Specify a HIP target for AMD GPU by extracting the architecture
+    // name for the first device using `rocm_agent_enumerator`.
+    // See this page for a full list of supported architectures:
+    // https://iree.dev/guides/deployment-configurations/gpu-rocm/#choosing-hip-targets
+    auto hipTarget = getIreeHipTargetForAmdgpu();
+    std::vector<std::string> amdGpuFlags = {
+        // clang-format off
                 "--iree-hal-target-backends=rocm",
-                std::format("--iree-hip-target=$({} | sed -n '1 p')", getRocmAgentEnumeratorPath()),
+                std::format("--iree-hip-target={}", hipTarget),
                 "--iree-opt-level=O3",
                 "--iree-preprocessing-pass-pipeline=\"builtin.module(util.func(iree-preprocessing-sink-transpose-through-pad))\"",
                 "--iree-flow-enable-pad-handling",
                 "--iree-dispatch-creation-enable-fuse-padding-into-linalg-consumer-ops",
                 "--iree-dispatch-creation-enable-aggressive-reshape-movement",
-                // clang-format on
-            },
-        },
-};
+        // clang-format on
+    };
+
+    kBackendFlags[Backend::CPU] = std::move(cpuFlags);
+    kBackendFlags[Backend::AMDGPU] = std::move(amdGpuFlags);
+  }
+
+  return kBackendFlags.at(backend);
+}
 
 // Set appropriate values on `iree_hal_hip_device_params_t` for fusilli hal
 // hip driver creation.

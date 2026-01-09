@@ -60,7 +60,7 @@ public:
     std::vector<std::string> args = {getIreeCompilePath(), input.path};
 
     // Get backend-specific flags.
-    auto &flags = kBackendFlags.at(handle.getBackend());
+    auto flags = getBackendFlags(handle.getBackend());
     args.insert(args.end(), flags.begin(), flags.end());
 
     // TODO(#12): Make this conditional (enabled only for testing/debug).

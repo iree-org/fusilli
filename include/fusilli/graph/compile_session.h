@@ -29,6 +29,7 @@
 
 #include <dlfcn.h>
 #include <memory>
+#include <span>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -197,7 +198,7 @@ public:
   // Adds multiple compilation flags to the session.
   //
   // Returns ErrorObject indicating success or failure.
-  ErrorObject addFlags(const std::vector<std::string> &flags);
+  ErrorObject addFlags(std::span<std::string> flags);
 
   // Compiles an input file to an output file.
   // This will:
@@ -376,7 +377,7 @@ CompileContext::createSession(const Handle &handle) {
   CompileSession compileSession(shared_from_this(), session, backend);
 
   // Get backend-specific flags and apply them.
-  auto &flags = kBackendFlags.at(backend);
+  auto flags = getBackendFlags(backend);
   FUSILLI_CHECK_ERROR(compileSession.addFlags(flags));
 
   return ok(std::move(compileSession));
@@ -470,8 +471,7 @@ inline ErrorObject CompileSession::addFlag(const std::string &flag) {
   return ok();
 }
 
-inline ErrorObject
-CompileSession::addFlags(const std::vector<std::string> &flags) {
+inline ErrorObject CompileSession::addFlags(std::span<std::string> flags) {
   for (const auto &flag : flags) {
     FUSILLI_CHECK_ERROR(addFlag(flag));
   }
