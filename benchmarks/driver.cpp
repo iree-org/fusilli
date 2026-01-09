@@ -264,7 +264,9 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts, DataType aType,
   auto matmulAttr = MatmulAttr().setName("matmul");
 
   auto outT = graph.matmul(aT, bT, matmulAttr);
-  outT->setDataType(outType);
+  // Use `biasType` as the intermediate type when bias is present,
+  // and `outType` otherwise.
+  outT->setDataType(opts.bias ? biasType : outType);
 
   std::shared_ptr<TensorAttr> biasT;
   if (opts.bias) {
