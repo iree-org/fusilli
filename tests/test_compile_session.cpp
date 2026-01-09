@@ -13,8 +13,8 @@
 #include <catch2/matchers/catch_matchers_string.hpp>
 
 #include <filesystem>
-#include <memory>
 #include <string>
+#include <vector>
 
 using namespace fusilli;
 
@@ -62,8 +62,6 @@ TEST_CASE("CompileContext::create loads symbols correctly",
   REQUIRE(majorVersion >= 1);
   REQUIRE(majorVersion <= 10); // Sanity check.
   REQUIRE(minorVersion >= 0);
-
-  INFO("API Version: " << majorVersion << "." << minorVersion);
 }
 
 TEST_CASE("CompileContext::createSession with CPU backend",
@@ -182,9 +180,6 @@ TEST_CASE("CompileSession::compile with valid MLIR",
   // Verify the output file was created and is not empty.
   REQUIRE(std::filesystem::exists(output.path));
   REQUIRE(std::filesystem::file_size(output.path) > 0);
-
-  INFO("Compiled VMFB size: " << std::filesystem::file_size(output.path)
-                              << " bytes");
 }
 
 TEST_CASE("CompileSession::compile with custom flags",
@@ -243,8 +238,6 @@ TEST_CASE("CompileSession::compile with invalid MLIR",
       session.compile(input.path.string(), output.path.string());
   REQUIRE(isError(compileResult));
   REQUIRE(compileResult.getCode() == ErrorCode::CompileFailure);
-
-  INFO("Error message: " << compileResult.getMessage());
 }
 
 TEST_CASE("CompileSession::compile with missing input file",
@@ -314,9 +307,6 @@ TEST_CASE("CompileSession::compile with AMDGPU backend",
   // Verify the output file was created and is not empty.
   REQUIRE(std::filesystem::exists(output.path));
   REQUIRE(std::filesystem::file_size(output.path) > 0);
-
-  INFO("Compiled VMFB size: " << std::filesystem::file_size(output.path)
-                              << " bytes");
 }
 #endif
 
@@ -358,7 +348,6 @@ TEST_CASE("CompileSession with invalid flag", "[CompileSession][error]") {
   // If it fails, check the error code.
   if (isError(result)) {
     REQUIRE(result.getCode() == ErrorCode::CompileFailure);
-    INFO("Error message: " << result.getMessage());
   }
 }
 
@@ -380,12 +369,6 @@ TEST_CASE("Multiple CompileContexts can coexist", "[CompileContext]") {
 
     // Both should have the same API version.
     REQUIRE(context1->getAPIVersion() == context2->getAPIVersion());
-
-    INFO("Multiple contexts supported");
-  } else {
-    // If it fails, that's also acceptable behavior.
-    ErrorObject err = maybeContext2;
-    INFO("Multiple contexts not supported: " << err.getMessage());
   }
 }
 
