@@ -257,7 +257,7 @@ private:
 // ============================================================================
 
 // Pipeline enumeration matching IREE's iree_compiler_pipeline_t.
-enum IREECompilerPipeline : int {
+enum IREECompilerPipeline : std::uint8_t {
   IREE_COMPILER_PIPELINE_STD = 0,
 };
 
