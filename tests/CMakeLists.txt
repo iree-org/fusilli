@@ -55,6 +55,8 @@ add_fusilli_tests(
   SRCS
     test_graph.cpp
     test_context.cpp
+    test_compile_command.cpp
+    test_compile_session.cpp
   DEPS
     libfusilli
     libutils
