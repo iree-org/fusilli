@@ -53,6 +53,11 @@
 
 namespace fusilli {
 
+static bool checkSubprocessEnv() {
+  const char *backend = std::getenv("FUSILLI_COMPILE_BACKEND");
+  return (backend && strcmp(backend, "subprocess") == 0);
+}
+
 class Graph : public INode {
 public:
   Graph() : INode(Context{}) {}
@@ -347,11 +352,8 @@ private:
     // Write input asm to cache.
     FUSILLI_CHECK_ERROR(cache.input.write(generatedAsm));
 
-    // Determine which implementation to use.
-    const char *backend = std::getenv("FUSILLI_COMPILE_BACKEND");
-    bool useSubprocess = (backend && strcmp(backend, "subprocess") == 0);
-
-    if (useSubprocess) {
+    // determine which implementation to use.
+    if (checkSubprocessEnv()) {
       // Use CompileCommand (subprocess).
       CompileCommand cmd = FUSILLI_TRY(CompileCommand::build(
           handle, cache.input, cache.output, cache.statistics));
@@ -437,9 +439,21 @@ private:
     }
 
     // Check for a cache miss on compile command.
-    CompileCommand cmd =
-        FUSILLI_TRY(CompileCommand::build(handle, input, output, statistics));
-    if (FUSILLI_TRY(command.read()) != cmd.toString()) {
+    std::string cmd_string;
+
+    if (checkSubprocessEnv()) {
+      // Use CompileCommand (subprocess).
+      CompileCommand cmd =
+          FUSILLI_TRY(CompileCommand::build(handle, input, output, statistics));
+      cmd_string = cmd.toString();
+    } else {
+      // Use CompileSession (C API) - DEFAULT.
+      CompileSession session =
+          FUSILLI_TRY(CompileSession::build(handle, input, output, statistics));
+      cmd_string = session.toString();
+    }
+
+    if (FUSILLI_TRY(command.read()) != cmd_string) {
       FUSILLI_LOG_ENDL("Compile command does not match");
       return ok(false);
     }
