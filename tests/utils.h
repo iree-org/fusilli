@@ -20,8 +20,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <format>
-#include <string>
 #include <utility> // IWYU pragma: export
 #include <vector>
 
@@ -106,17 +104,6 @@ allocateBufferOfType(Handle &handle, const std::shared_ptr<TensorAttr> &tensor,
   default:
     return error(ErrorCode::InvalidAttribute, "Unsupported DataType");
   }
-}
-
-inline ErrorOr<DataType> parseDataTypeString(const std::string &typeStr) {
-  if (typeStr == "fp32")
-    return DataType::Float;
-  if (typeStr == "fp16")
-    return DataType::Half;
-  if (typeStr == "bf16")
-    return DataType::BFloat16;
-  return error(ErrorCode::InvalidArgument,
-               std::format("Unsupported data type: {}", typeStr));
 }
 
 } // namespace fusilli

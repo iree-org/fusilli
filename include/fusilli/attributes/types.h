@@ -69,6 +69,15 @@ static const std::unordered_map<DataType, torch_upstream::ScalarType>
 #undef DEFINE_ENUM
 };
 
+// Map from MLIR type ASM strings to Fusilli types.
+static const std::unordered_map<std::string, DataType> kMlirTypeAsmToDataType =
+    {
+#define DEFINE_ENUM(FUSILLI_TYPE, TORCH_TYPE, MLIR_TYPE)                       \
+  {MLIR_TYPE, DataType::FUSILLI_TYPE},
+        FUSILLI_FORALL_DATA_TYPES(DEFINE_ENUM)
+#undef DEFINE_ENUM
+};
+
 } // namespace fusilli
 
 #endif // FUSILLI_ATTRIBUTES_TYPES_H

@@ -30,7 +30,7 @@ const auto kIsPositiveInteger =
     CLI::Range(int64_t{1}, std::numeric_limits<int64_t>::max());
 const auto kIsValidConvLayout =
     CLI::IsMember({"NCHW", "NHWC", "NCDHW", "NDHWC"});
-const auto kIsValidDataType = CLI::IsMember({"fp32", "fp16", "bf16"});
+const auto kIsValidDataType = CLI::IsMember({"f32", "f16", "bf16"});
 
 //===---------------------------------------------------------------------===//
 // Option classes for organizing benchmark parameters
@@ -663,22 +663,22 @@ static CLI::App *registerMatmulOptions(CLI::App &mainApp,
       ->check(kIsPositiveInteger);
   matmulApp
       ->add_option("--a_type", matmulOpts.a_type,
-                   "Matrix A data type (fp32, fp16, bf16)")
+                   "Matrix A data type (f32, f16, bf16)")
       ->required()
       ->check(kIsValidDataType);
   matmulApp
       ->add_option("--b_type", matmulOpts.b_type,
-                   "Matrix B data type (fp32, fp16, bf16)")
+                   "Matrix B data type (f32, f16, bf16)")
       ->required()
       ->check(kIsValidDataType);
   matmulApp
       ->add_option("--out_type", matmulOpts.out_type,
-                   "Result data type (fp32, fp16, bf16)")
+                   "Result data type (f32, f16, bf16)")
       ->required()
       ->check(kIsValidDataType);
   matmulApp
       ->add_option("--bias_type", matmulOpts.bias_type,
-                   "Bias data type (fp32, fp16, bf16)")
+                   "Bias data type (f32, f16, bf16)")
       ->check(kIsValidDataType);
 
   // matmulApp CLI Flags:
@@ -768,13 +768,13 @@ static ErrorObject runMatmulBenchmark(const MatmulOptions &matmulOpts,
       ErrorCode::InvalidArgument,
       "bias_type must be specified when --bias flag is set");
 
-  // Parse data type strings
-  DataType aType = FUSILLI_TRY(parseDataTypeString(matmulOpts.a_type));
-  DataType bType = FUSILLI_TRY(parseDataTypeString(matmulOpts.b_type));
-  DataType outType = FUSILLI_TRY(parseDataTypeString(matmulOpts.out_type));
+  // Parse data type strings using direct map lookup
+  DataType aType = kMlirTypeAsmToDataType.at(matmulOpts.a_type);
+  DataType bType = kMlirTypeAsmToDataType.at(matmulOpts.b_type);
+  DataType outType = kMlirTypeAsmToDataType.at(matmulOpts.out_type);
   DataType biasType = DataType::NotSet;
   if (matmulOpts.bias) {
-    biasType = FUSILLI_TRY(parseDataTypeString(matmulOpts.bias_type));
+    biasType = kMlirTypeAsmToDataType.at(matmulOpts.bias_type);
   }
 
   ErrorObject status = benchmarkMatmul(matmulOpts, aType, bType, outType,
