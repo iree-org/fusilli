@@ -28,6 +28,19 @@
 
 namespace fusilli {
 
+// Simple argument escaping for command line serialization.
+static std::string escapeArgument(const std::string &arg) {
+  // Simple escaping: wrap in quotes if it contains spaces.
+  auto equal = arg.find('=');
+  if (equal != std::string::npos) {
+    std::string key = arg.substr(0, equal + 1);
+    std::string value = arg.substr(equal + 1);
+    return key + "\"" + value + "\"";
+  }
+
+  return arg;
+}
+
 // CompileCommand encapsulates the construction, serialization, and execution
 // of iree-compile commands for Fusilli graph compilation.
 //
@@ -61,7 +74,10 @@ public:
 
     // Get backend-specific flags.
     auto flags = getBackendFlags(handle.getBackend());
-    args.insert(args.end(), flags.begin(), flags.end());
+    for (const auto &flag : flags) {
+      std::string escapedFlag = escapeArgument(flag);
+      args.push_back(escapedFlag);
+    }
 
     // TODO(#12): Make this conditional (enabled only for testing/debug).
     args.push_back("--iree-scheduling-dump-statistics-format=json");

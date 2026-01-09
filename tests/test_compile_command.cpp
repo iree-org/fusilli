@@ -17,6 +17,18 @@
 
 using namespace fusilli;
 
+// Helper to create a simple MLIR module for testing.
+static std::string getSimpleMLIRModule() {
+  return R"mlir(
+module {
+  func.func @simple_add(%arg0: tensor<4xf32>, %arg1: tensor<4xf32>) -> tensor<4xf32> {
+    %0 = arith.addf %arg0, %arg1 : tensor<4xf32>
+    return %0 : tensor<4xf32>
+  }
+}
+)mlir";
+}
+
 TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {
   // Create test handle for CPU backend.
   Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
@@ -28,6 +40,9 @@ TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {
       CacheFile::create("test_graph", "output.vmfb", /*remove=*/true));
   CacheFile statistics = FUSILLI_REQUIRE_UNWRAP(
       CacheFile::create("test_graph", "statistics.json", /*remove=*/true));
+
+  // Write simple MLIR module to input file.
+  REQUIRE(input.write(getSimpleMLIRModule()).isOk());
 
   // Build the compile command.
   CompileCommand cmd = FUSILLI_REQUIRE_UNWRAP(
@@ -50,10 +65,11 @@ TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {
   bool hasCPUBackend = false;
   bool hasCPUTarget = false;
   for (const auto &arg : args) {
-    if (arg.find("--iree-hal-target-backends=llvm-cpu") != std::string::npos) {
+    if (arg.find("--iree-hal-target-backends=\"llvm-cpu\"") !=
+        std::string::npos) {
       hasCPUBackend = true;
     }
-    if (arg.find("--iree-llvmcpu-target-cpu=host") != std::string::npos) {
+    if (arg.find("--iree-llvmcpu-target-cpu=\"host\"") != std::string::npos) {
       hasCPUTarget = true;
     }
   }
@@ -79,6 +95,12 @@ TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {
   // Check output specification is at the end.
   REQUIRE(args[args.size() - 2] == "-o");
   REQUIRE(args[args.size() - 1] == output.path.string());
+
+  auto result = cmd.execute();
+  REQUIRE(result.isOk());
+
+  auto outputSize = std::filesystem::file_size(output.path);
+  REQUIRE(outputSize > 0);
 }
 
 #ifdef FUSILLI_ENABLE_AMDGPU
@@ -93,6 +115,9 @@ TEST_CASE("CompileCommand::build with AMDGPU backend", "[CompileCommand]") {
       CacheFile::create("test_graph", "output.vmfb", /*remove=*/true));
   CacheFile statistics = FUSILLI_REQUIRE_UNWRAP(
       CacheFile::create("test_graph", "statistics.json", /*remove=*/true));
+
+  // Write simple MLIR module to input file.
+  REQUIRE(input.write(getSimpleMLIRModule()).isOk());
 
   // Build the compile command.
   CompileCommand cmd = FUSILLI_REQUIRE_UNWRAP(
@@ -109,19 +134,25 @@ TEST_CASE("CompileCommand::build with AMDGPU backend", "[CompileCommand]") {
   bool hasHIPTarget = false;
   bool hasOptLevel = false;
   for (const auto &arg : args) {
-    if (arg.find("--iree-hal-target-backends=rocm") != std::string::npos) {
+    if (arg.find("--iree-hal-target-backends=\"rocm\"") != std::string::npos) {
       hasROCMBackend = true;
     }
     if (arg.find("--iree-hip-target=") != std::string::npos) {
       hasHIPTarget = true;
     }
-    if (arg.find("--iree-opt-level=O3") != std::string::npos) {
+    if (arg.find("--iree-opt-level=\"O3\"") != std::string::npos) {
       hasOptLevel = true;
     }
   }
   REQUIRE(hasROCMBackend);
   REQUIRE(hasHIPTarget);
   REQUIRE(hasOptLevel);
+
+  auto result = cmd.execute();
+  REQUIRE(result.isOk());
+
+  auto outputSize = std::filesystem::file_size(output.path);
+  REQUIRE(outputSize > 0);
 }
 #endif
 
@@ -154,7 +185,7 @@ TEST_CASE("CompileCommand::toString format", "[CompileCommand]") {
   REQUIRE_THAT(cmdStr,
                Catch::Matchers::ContainsSubstring(output.path.string()));
   REQUIRE_THAT(cmdStr, Catch::Matchers::ContainsSubstring(
-                           "--iree-hal-target-backends=llvm-cpu"));
+                           "--iree-hal-target-backends=\"llvm-cpu\""));
   REQUIRE_THAT(cmdStr, Catch::Matchers::ContainsSubstring("-o"));
 }
 
