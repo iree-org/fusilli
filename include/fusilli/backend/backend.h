@@ -65,28 +65,28 @@ static const std::unordered_map<Backend, const char *> kHalDriver = {
 static std::string getIreeHipTargetForAmdgpu() {
   auto cmd = getRocmAgentEnumeratorPath();
 
-  FILE *lsofFile_p = popen(cmd.c_str(), "r");
-  if (!lsofFile_p) {
+  FILE *lsofFile = popen(cmd.c_str(), "r");
+  if (!lsofFile) {
     return "";
   }
 
   char buffer[1024];
   std::string target;
   while (true) {
-    char *line_p = fgets(buffer, sizeof(buffer), lsofFile_p);
-    if (line_p == nullptr) {
+    char *line = fgets(buffer, sizeof(buffer), lsofFile);
+    if (line == nullptr) {
       target = "";
       break;
     }
 
-    target = std::string(line_p);
+    target = std::string(line);
     if (target == "gfx000\n")
       continue;
     target.erase(target.find_last_not_of(" \n\r\t") + 1);
     break;
   }
 
-  pclose(lsofFile_p);
+  pclose(lsofFile);
   return target;
 }
 
