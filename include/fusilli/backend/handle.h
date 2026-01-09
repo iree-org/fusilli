@@ -116,10 +116,12 @@ public:
   Handle &operator=(Handle &&) noexcept = default;
   ~Handle() = default;
 
-  // Allow Graph and Buffer objects to access private Handle methods
-  // namely `getDevice()` and `getInstance()`.
+  // Allow Graph, Buffer, and CompileCommand objects to access private Handle
+  // methods namely `getDevice()`, `getInstance()`, and `getBackend()`.
   friend class Graph;
   friend class Buffer;
+  friend class CompileCommand;
+  friend class CompileContext;
 
 private:
   // Creates static singleton IREE runtime instance shared across
