@@ -439,21 +439,21 @@ private:
     }
 
     // Check for a cache miss on compile command.
-    std::string cmd_string;
+    std::string cmdString;
 
     if (checkSubprocessEnv()) {
       // Use CompileCommand (subprocess).
       CompileCommand cmd =
           FUSILLI_TRY(CompileCommand::build(handle, input, output, statistics));
-      cmd_string = cmd.toString();
+      cmdString = cmd.toString();
     } else {
       // Use CompileSession (C API) - DEFAULT.
       CompileSession session =
           FUSILLI_TRY(CompileSession::build(handle, input, output, statistics));
-      cmd_string = session.toString();
+      cmdString = session.toString();
     }
 
-    if (FUSILLI_TRY(command.read()) != cmd_string) {
+    if (FUSILLI_TRY(command.read()) != cmdString) {
       FUSILLI_LOG_ENDL("Compile command does not match");
       return ok(false);
     }
