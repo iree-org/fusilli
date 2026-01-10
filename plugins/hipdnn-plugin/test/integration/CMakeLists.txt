@@ -90,8 +90,8 @@ add_fusilli_plugin_test(
 )
 
 add_fusilli_plugin_test(
-  NAME fusilli_plugin_simple_matmul_with_bias_test
-  SRCS matmul/simple_matmul_with_bias.cpp
+  NAME fusilli_plugin_matmul_parameterized_test
+  SRCS matmul/matmul_parameterized.cpp
   DEPS
     GTest::gtest_main
     hip::host
@@ -107,8 +107,8 @@ add_fusilli_plugin_test(
 )
 
 add_fusilli_plugin_test(
-  NAME fusilli_plugin_simple_batched_matmul_test
-  SRCS matmul/simple_batched_matmul.cpp
+  NAME fusilli_plugin_batched_matmul_parameterized_test
+  SRCS matmul/batched_matmul_parameterized.cpp
   DEPS
     GTest::gtest_main
     hip::host
