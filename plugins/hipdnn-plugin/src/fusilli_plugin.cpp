@@ -221,41 +221,48 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetApplicableEngineIds(
     return HIPDNN_PLUGIN_STATUS_SUCCESS;
   }
 
-  // Check for conv_fprop graph (optionally with pointwise ops)
+  // Check for supported graph structure
   GraphWrapper opGraphWrapper(opGraph->ptr, opGraph->size);
-  if (!opGraphWrapper.hasOnlySupportedAttributes(
-          std::set<hipdnn_data_sdk::data_objects::NodeAttributes>{
-              hipdnn_data_sdk::data_objects::NodeAttributes::
-                  ConvolutionFwdAttributes,
-              hipdnn_data_sdk::data_objects::NodeAttributes::
-                  PointwiseAttributes})) {
-    HIPDNN_LOG_INFO("Fusilli only supports conv_fprop and pointwise nodes");
+  if (!opGraphWrapper.hasOnlySupportedAttributes(std::set<
+                                                 hipdnn_data_sdk::data_objects::
+                                                     NodeAttributes>{
+          hipdnn_data_sdk::data_objects::NodeAttributes::
+              ConvolutionFwdAttributes,
+          hipdnn_data_sdk::data_objects::NodeAttributes::PointwiseAttributes,
+          hipdnn_data_sdk::data_objects::NodeAttributes::MatmulAttributes})) {
+    HIPDNN_LOG_INFO(
+        "Fusilli only supports conv_fprop, pointwise, and matmul nodes");
     return HIPDNN_PLUGIN_STATUS_SUCCESS;
   }
-  // Verify node 0 is conv (remaining nodes verified as pointwise by above
-  // check)
-  if (opGraphWrapper.getNode(0).attributes_type() !=
+
+  // Verify first node is either conv_fprop or matmul
+  auto firstNodeType = opGraphWrapper.getNode(0).attributes_type();
+  if (firstNodeType != hipdnn_data_sdk::data_objects::NodeAttributes::
+                           ConvolutionFwdAttributes &&
+      firstNodeType !=
+          hipdnn_data_sdk::data_objects::NodeAttributes::MatmulAttributes) {
+    HIPDNN_LOG_INFO("Fusilli requires first node to be conv_fprop or matmul");
+    return HIPDNN_PLUGIN_STATUS_SUCCESS;
+  }
+
+  // Check symmetric padding for conv_fprop nodes
+  if (firstNodeType ==
       hipdnn_data_sdk::data_objects::NodeAttributes::ConvolutionFwdAttributes) {
-    HIPDNN_LOG_INFO("Fusilli requires first node to be conv_fprop");
-    return HIPDNN_PLUGIN_STATUS_SUCCESS;
+    const hipdnn_data_sdk::data_objects::ConvolutionFwdAttributes
+        *convFwdAttrs =
+            opGraphWrapper.getNode(0).attributes_as_ConvolutionFwdAttributes();
+    // pre/post_padding are flatbuffer::vectors (not std::vectors) and don't
+    // override ==, so we use std::ranges::equal for structural vs referential
+    // equality.
+    if (!std::ranges::equal(*convFwdAttrs->pre_padding(),
+                            *convFwdAttrs->post_padding())) { // C++ 20
+      HIPDNN_LOG_INFO("Fusilli plan builder requires symmetric "
+                      "padding for conv_fprop nodes.");
+      return HIPDNN_PLUGIN_STATUS_SUCCESS;
+    }
   }
 
-  // Check single conv_fprop node for symmetric padding
-  const hipdnn_data_sdk::data_objects::ConvolutionFwdAttributes *convFwdAttrs =
-      opGraphWrapper.getNode(0).attributes_as_ConvolutionFwdAttributes();
-  // pre/post_padding are flatbuffer::vectors (not std::vectors) and don't
-  // override ==, so we use std::ranges::equal for structural vs referential
-  // equality.
-  if (!std::ranges::equal(*convFwdAttrs->pre_padding(),
-                          *convFwdAttrs->post_padding())) { // C++ 20
-    HIPDNN_LOG_INFO("Fusilli plan builder is (currently) requires symmetric "
-                    "padding for conv_fprop nodes.",
-                    opGraphWrapper.nodeCount());
-    return HIPDNN_PLUGIN_STATUS_SUCCESS;
-  }
-
-  // We have a single conv_fprop node with symmetric padding, the fusilli engine
-  // is applicable.
+  // Graph passes all checks, the fusilli engine is applicable.
   engineIds[0] = FUSILLI_PLUGIN_ENGINE_ID;
   *numEngines = 1;
 
