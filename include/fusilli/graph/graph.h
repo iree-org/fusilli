@@ -689,7 +689,7 @@ Graph::layernorm(const std::shared_ptr<TensorAttr> &x,
   subNodes_.emplace_back(
       std::make_unique<LayernormNode>(std::move(layernormAttr), context));
 
-  return {y, m, v};
+  return {std::move(y), std::move(m), std::move(v)};
 }
 
 // Create a MatmulNode, populate it with the specified attributes, create

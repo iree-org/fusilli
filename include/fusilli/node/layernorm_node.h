@@ -57,7 +57,6 @@ public:
     std::shared_ptr<TensorAttr> xT = layernormAttr.getX();
     std::shared_ptr<TensorAttr> sT = layernormAttr.getSCALE();
     std::shared_ptr<TensorAttr> bT = layernormAttr.getBIAS();
-    std::shared_ptr<TensorAttr> eT = layernormAttr.getEPSILON();
     std::shared_ptr<TensorAttr> yT = layernormAttr.getY();
     std::shared_ptr<TensorAttr> mT = layernormAttr.getMEAN();
     std::shared_ptr<TensorAttr> vT = layernormAttr.getINV_VARIANCE();
@@ -65,8 +64,6 @@ public:
     // Ensure mandatory input and output tensors are set.
     FUSILLI_RETURN_ERROR_IF(!xT, ErrorCode::AttributeNotSet,
                             "Layernorm input tensor X not set");
-    FUSILLI_RETURN_ERROR_IF(!eT, ErrorCode::AttributeNotSet,
-                            "Layernorm input tensor EPSILON not set");
     FUSILLI_RETURN_ERROR_IF(!yT, ErrorCode::AttributeNotSet,
                             "Layernorm output tensor Y not set");
 
@@ -114,11 +111,6 @@ public:
               "defined by its stride");
     }
 
-    // Epsilon should be set and be constant scalar.
-    FUSILLI_RETURN_ERROR_IF(
-        !eT->isScalar(), ErrorCode::InvalidAttribute,
-        "Layernorm input tensor EPSILON must be a constant scalar");
-
     // Output tensor checks for training and inference forward phases.
     if (isTrainingForwardPhase()) {
       FUSILLI_RETURN_ERROR_IF(!mT, ErrorCode::AttributeNotSet,
@@ -132,6 +124,13 @@ public:
           vT, ErrorCode::InvalidAttribute,
           "Layernorm output tensor INV_VARIANCE should not be set");
     }
+
+    // Epsilon checks.
+    std::shared_ptr<TensorAttr> eT = layernormAttr.getEpsilon();
+    FUSILLI_RETURN_ERROR_IF(!eT, ErrorCode::AttributeNotSet,
+                            "Layernorm epsilon not set");
+    FUSILLI_RETURN_ERROR_IF(!eT->isScalar(), ErrorCode::InvalidAttribute,
+                            "Layernorm epsilon must be a constant scalar");
 
     return ok();
   }

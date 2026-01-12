@@ -58,23 +58,11 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
     REQUIRE(status.getMessage() == "Layernorm input tensor X not set");
   }
 
-  SECTION("Input EPSILON missing") {
-    attr.setForwardPhase(NormFwdPhase::INFERENCE);
-    attr.setX(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({2, 3}).setStride({3, 1})));
-    LayernormNode node(std::move(attr), ctx);
-
-    auto status = node.preValidateNode();
-    REQUIRE(isError(status));
-    REQUIRE(status.getCode() == ErrorCode::AttributeNotSet);
-    REQUIRE(status.getMessage() == "Layernorm input tensor EPSILON not set");
-  }
-
   SECTION("Output Y missing") {
-    attr.setForwardPhase(NormFwdPhase::INFERENCE);
+    attr.setForwardPhase(NormFwdPhase::INFERENCE)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     LayernormNode node(std::move(attr), ctx);
 
     auto status = node.preValidateNode();
@@ -83,11 +71,25 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
     REQUIRE(status.getMessage() == "Layernorm output tensor Y not set");
   }
 
-  SECTION("All required attributes present for INFERENCE forward phase") {
+  SECTION("Epsilon missing") {
     attr.setForwardPhase(NormFwdPhase::INFERENCE);
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
+    attr.setY(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({2, 3}).setStride({3, 1})));
+    LayernormNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::AttributeNotSet);
+    REQUIRE(status.getMessage() == "Layernorm epsilon not set");
+  }
+
+  SECTION("All required attributes present for INFERENCE forward phase") {
+    attr.setForwardPhase(NormFwdPhase::INFERENCE)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
+    attr.setX(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({2, 3}).setStride({3, 1})));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     LayernormNode node(std::move(attr), ctx);
@@ -97,14 +99,14 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
 
   SECTION("All required and optional attributes present for INFERENCE forward "
           "phase") {
-    attr.setForwardPhase(NormFwdPhase::INFERENCE);
+    attr.setForwardPhase(NormFwdPhase::INFERENCE)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     attr.setSCALE(std::make_shared<TensorAttr>(
         TensorAttr().setDim({1, 3}).setStride({3, 1})));
     attr.setBIAS(std::make_shared<TensorAttr>(
         TensorAttr().setDim({1, 3}).setStride({3, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     LayernormNode node(std::move(attr), ctx);
@@ -113,10 +115,10 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
   }
 
   SECTION("Extra output MEAN for INFERENCE forward phase") {
-    attr.setForwardPhase(NormFwdPhase::INFERENCE);
+    attr.setForwardPhase(NormFwdPhase::INFERENCE)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     attr.setMEAN(std::make_shared<TensorAttr>(
@@ -131,10 +133,10 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
   }
 
   SECTION("Extra output INV_VARIANCE for INFERENCE forward phase") {
-    attr.setForwardPhase(NormFwdPhase::INFERENCE);
+    attr.setForwardPhase(NormFwdPhase::INFERENCE)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     attr.setINV_VARIANCE(std::make_shared<TensorAttr>(
@@ -149,10 +151,10 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
   }
 
   SECTION("Output MEAN missing for TRAINING forward phase") {
-    attr.setForwardPhase(NormFwdPhase::TRAINING);
+    attr.setForwardPhase(NormFwdPhase::TRAINING)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     LayernormNode node(std::move(attr), ctx);
@@ -164,10 +166,10 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
   }
 
   SECTION("Output INV_VARIANCE missing for TRAINING forward phase") {
-    attr.setForwardPhase(NormFwdPhase::TRAINING);
+    attr.setForwardPhase(NormFwdPhase::TRAINING)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     attr.setMEAN(std::make_shared<TensorAttr>(
@@ -182,10 +184,10 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
   }
 
   SECTION("All required attributes present for TRAINING forward phase") {
-    attr.setForwardPhase(NormFwdPhase::TRAINING);
+    attr.setForwardPhase(NormFwdPhase::TRAINING)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     attr.setMEAN(std::make_shared<TensorAttr>(
@@ -199,14 +201,14 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
 
   SECTION("All required and optional attributes present for TRAINING forward "
           "phase") {
-    attr.setForwardPhase(NormFwdPhase::TRAINING);
+    attr.setForwardPhase(NormFwdPhase::TRAINING)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     attr.setSCALE(std::make_shared<TensorAttr>(
         TensorAttr().setDim({1, 3}).setStride({3, 1})));
     attr.setBIAS(std::make_shared<TensorAttr>(
         TensorAttr().setDim({1, 3}).setStride({3, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     attr.setMEAN(std::make_shared<TensorAttr>(
@@ -288,12 +290,12 @@ TEST_CASE("LayernormNode shape checks on SCALE and BIAS tensors",
   int64_t n = 2, c = 3, d = 4;
 
   SECTION("Incorrect SCALE shape") {
-    attr.setForwardPhase(NormFwdPhase::INFERENCE);
+    attr.setForwardPhase(NormFwdPhase::INFERENCE)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
     attr.setSCALE(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     attr.setY(std::make_shared<TensorAttr>());
     LayernormNode node(std::move(attr), ctx);
 
@@ -306,12 +308,12 @@ TEST_CASE("LayernormNode shape checks on SCALE and BIAS tensors",
   }
 
   SECTION("Incorrect BIAS shape") {
-    attr.setForwardPhase(NormFwdPhase::INFERENCE);
+    attr.setForwardPhase(NormFwdPhase::INFERENCE)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
     attr.setBIAS(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     attr.setY(std::make_shared<TensorAttr>());
     LayernormNode node(std::move(attr), ctx);
 
@@ -332,10 +334,10 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
   int64_t n = 2, c = 3, d = 4;
 
   SECTION("Output Y has incorrect shape") {
-    attr.setForwardPhase(NormFwdPhase::INFERENCE);
+    attr.setForwardPhase(NormFwdPhase::INFERENCE)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n + 1, c, d}).setStride({c * d, d, 1})));
     LayernormNode node(std::move(attr), ctx);
@@ -351,10 +353,10 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
   }
 
   SECTION("Output Y has incorrect stride") {
-    attr.setForwardPhase(NormFwdPhase::INFERENCE);
+    attr.setForwardPhase(NormFwdPhase::INFERENCE)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     attr.setY(std::make_shared<TensorAttr>(TensorAttr()
                                                .setDim({n, c, d})
                                                .setStride({d, c * d, 1})
@@ -372,10 +374,10 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
   }
 
   SECTION("Output MEAN has incorrect shape") {
-    attr.setForwardPhase(NormFwdPhase::TRAINING);
+    attr.setForwardPhase(NormFwdPhase::TRAINING)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
     attr.setMEAN(std::make_shared<TensorAttr>(
@@ -397,10 +399,10 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
   }
 
   SECTION("Output MEAN has incorrect stride") {
-    attr.setForwardPhase(NormFwdPhase::TRAINING);
+    attr.setForwardPhase(NormFwdPhase::TRAINING)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
     attr.setMEAN(std::make_shared<TensorAttr>(
@@ -420,10 +422,10 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
   }
 
   SECTION("Output INV_VARIANCE has incorrect shape") {
-    attr.setForwardPhase(NormFwdPhase::TRAINING);
+    attr.setForwardPhase(NormFwdPhase::TRAINING)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
     attr.setMEAN(std::make_shared<TensorAttr>(
@@ -445,10 +447,10 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
   }
 
   SECTION("Output INV_VARIANCE has incorrect stride") {
-    attr.setForwardPhase(NormFwdPhase::TRAINING);
+    attr.setForwardPhase(NormFwdPhase::TRAINING)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
-    attr.setEPSILON(std::make_shared<TensorAttr>(1e-5f));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
     attr.setMEAN(std::make_shared<TensorAttr>(
