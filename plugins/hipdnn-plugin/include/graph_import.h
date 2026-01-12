@@ -16,6 +16,7 @@
 
 #include <fusilli.h>
 #include <hipdnn_data_sdk/data_objects/data_types_generated.h>
+#include <hipdnn_data_sdk/data_objects/matmul_attributes_generated.h>
 #include <hipdnn_data_sdk/data_objects/pointwise_attributes_generated.h>
 #include <hipdnn_data_sdk/data_objects/tensor_attributes_generated.h>
 #include <hipdnn_data_sdk/flatbuffer_utilities/GraphWrapper.hpp>
@@ -149,6 +150,10 @@ private:
       FUSILLI_CHECK_ERROR(
           importPointwiseAttr(node.attributes_as_PointwiseAttributes()));
       break;
+    case hipdnn_data_sdk::data_objects::NodeAttributes::MatmulAttributes:
+      FUSILLI_CHECK_ERROR(
+          importMatmulAttr(node.attributes_as_MatmulAttributes()));
+      break;
     default:
       return fusilli::error(fusilli::ErrorCode::NotImplemented,
                             "Unsupported node type.");
@@ -227,6 +232,26 @@ private:
     // Import node output.
     FUSILLI_CHECK_ERROR(
         importNodeOutput(hipDnnPwAttr->out_0_tensor_uid(), "out0", out));
+
+    return fusilli::ok();
+  }
+
+  fusilli::ErrorObject importMatmulAttr(
+      const hipdnn_data_sdk::data_objects::MatmulAttributes *hipDnnMatmulAttr) {
+    // Import node inputs.
+    std::shared_ptr<fusilli::TensorAttr> a =
+        FUSILLI_TRY(importNodeInput(hipDnnMatmulAttr->a_tensor_uid(), "a"));
+    std::shared_ptr<fusilli::TensorAttr> b =
+        FUSILLI_TRY(importNodeInput(hipDnnMatmulAttr->b_tensor_uid(), "b"));
+
+    // Import node - matmul has no extra attributes.
+    auto fusilliMatmulAttr = fusilli::MatmulAttr();
+    std::shared_ptr<fusilli::TensorAttr> c =
+        fusilliGraph.matmul(a, b, fusilliMatmulAttr);
+
+    // Import node output.
+    FUSILLI_CHECK_ERROR(
+        importNodeOutput(hipDnnMatmulAttr->c_tensor_uid(), "c", c));
 
     return fusilli::ok();
   }
