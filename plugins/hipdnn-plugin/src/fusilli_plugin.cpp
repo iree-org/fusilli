@@ -262,6 +262,30 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetApplicableEngineIds(
     }
   }
 
+  // Check pointwise ops are of supported mode
+  for (uint32_t i = 1; i < opGraphWrapper.nodeCount(); ++i) {
+    const hipdnn_data_sdk::data_objects::Node &node = opGraphWrapper.getNode(i);
+    // We should already know this is true, doing local check to defend against
+    // future code changes.
+    if (node.attributes_type() !=
+        hipdnn_data_sdk::data_objects::NodeAttributes::PointwiseAttributes) {
+      HIPDNN_LOG_INFO(
+          "Fusilli only supports conv_fprop, pointwise, and matmul nodes");
+      return HIPDNN_PLUGIN_STATUS_SUCCESS;
+    }
+
+    // Check pointwise mode supported
+    const hipdnn_data_sdk::data_objects::PointwiseAttributes *pointwiseAttrs =
+        node.attributes_as_PointwiseAttributes();
+    hipdnn_data_sdk::data_objects::PointwiseMode mode =
+        pointwiseAttrs->operation();
+    if (fusilli::isError(hipDnnPointwiseModeToFusilliMode(mode))) {
+      HIPDNN_LOG_INFO("Fusilli doesn't currently support pointwise Mode {}",
+                      mode);
+      return HIPDNN_PLUGIN_STATUS_SUCCESS;
+    }
+  }
+
   // Graph passes all checks, the fusilli engine is applicable.
   engineIds[0] = FUSILLI_PLUGIN_ENGINE_ID;
   *numEngines = 1;
