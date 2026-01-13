@@ -10,6 +10,11 @@
 #include <hipdnn_data_sdk/data_objects/data_types_generated.h>
 #include <hipdnn_data_sdk/data_objects/engine_config_generated.h>
 #include <hipdnn_data_sdk/data_objects/pointwise_attributes_generated.h>
+#include <hipdnn_frontend/Graph.hpp>
+#include <hipdnn_frontend/Utilities.hpp>
+#include <hipdnn_frontend/attributes/MatmulAttributes.hpp>
+#include <hipdnn_frontend/attributes/PointwiseAttributes.hpp>
+#include <hipdnn_frontend/attributes/TensorAttributes.hpp>
 #include <hipdnn_plugin_sdk/EnginePluginApi.h>
 #include <hipdnn_plugin_sdk/PluginApi.h>
 #include <hipdnn_test_sdk/utilities/FlatbufferGraphTestUtils.hpp>
@@ -46,6 +51,61 @@ void testLoggingCallback(hipdnnSeverity_t severity, const char *msg) {
     capturedLogSeverities.push_back(severity);
   }
   logConditionVariable.notify_one();
+}
+
+// Build matmul + pointwise graph using frontend API.
+flatbuffers::DetachedBuffer
+buildMatmulActivGraph(const std::vector<int64_t> &aDims,
+                      const std::vector<int64_t> &bDims,
+                      const std::vector<int64_t> &cDims,
+                      hipdnn_frontend::PointwiseMode activMode) {
+  hipdnn_frontend::graph::Graph graph;
+  graph.set_name("MatmulActivTest")
+      .set_io_data_type(hipdnn_frontend::DataType::FLOAT)
+      .set_compute_data_type(hipdnn_frontend::DataType::FLOAT)
+      .set_intermediate_data_type(hipdnn_frontend::DataType::FLOAT);
+
+  int64_t uid = 1;
+
+  // Input A: [M, K]
+  auto aAttr = std::make_shared<hipdnn_frontend::graph::TensorAttributes>();
+  aAttr->set_uid(uid++)
+      .set_name("A")
+      .set_data_type(hipdnn_frontend::DataType::FLOAT)
+      .set_dim(aDims)
+      .set_stride({aDims[1], 1});
+
+  // Input B: [K, N]
+  auto bAttr = std::make_shared<hipdnn_frontend::graph::TensorAttributes>();
+  bAttr->set_uid(uid++)
+      .set_name("B")
+      .set_data_type(hipdnn_frontend::DataType::FLOAT)
+      .set_dim(bDims)
+      .set_stride({bDims[1], 1});
+
+  // Matmul: A x B -> C_matmul (virtual)
+  hipdnn_frontend::graph::MatmulAttributes matmulAttrs;
+  matmulAttrs.set_name("Matmul");
+  auto cMatmul = graph.matmul(aAttr, bAttr, matmulAttrs);
+
+  // Pointwise activation: C_matmul -> C
+  hipdnn_frontend::graph::PointwiseAttributes pointwiseAttrs;
+  pointwiseAttrs.set_mode(activMode);
+  auto cOut = graph.pointwise(cMatmul, pointwiseAttrs);
+  cOut->set_uid(uid++)
+      .set_name("Activ")
+      .set_data_type(hipdnn_frontend::DataType::FLOAT)
+      .set_dim(cDims)
+      .set_stride({cDims[1], 1})
+      .set_output(true);
+
+  auto result = graph.validate();
+  if (result.is_bad()) {
+    throw std::runtime_error("Graph validation failed: " +
+                             result.get_message());
+  }
+
+  return graph.buildFlatbufferOperationGraph();
 }
 
 TEST(TestFusilliPluginApi, Logging) {
@@ -306,6 +366,40 @@ TEST(TestFusilliPluginApi, GetApplicableEngineIdsConvBiasActiv) {
     bool activSupported =
         !fusilli::isError(hipDnnPointwiseModeToFusilliMode(activMode));
     uint32_t expectedEngines = activSupported ? 1 : 0;
+    ASSERT_EQ(numEngines, expectedEngines);
+  }
+
+  EXPECT_EQ(hipdnnEnginePluginDestroy(handle), HIPDNN_PLUGIN_STATUS_SUCCESS);
+}
+
+TEST(TestFusilliPluginApi, GetApplicableEngineIdsMatmulPointwise) {
+  hipdnnEnginePluginHandle_t handle = nullptr;
+  ASSERT_EQ(hipdnnEnginePluginCreate(&handle), HIPDNN_PLUGIN_STATUS_SUCCESS);
+
+  std::array<int64_t, 5> engineIDs;
+  uint32_t numEngines = 0;
+
+  // Test matmul + unary pointwise for various activation modes.
+  for (auto mode : {hipdnn_frontend::PointwiseMode::RELU_FWD,
+                    hipdnn_frontend::PointwiseMode::SIGMOID_FWD,
+                    hipdnn_frontend::PointwiseMode::TANH_FWD,
+                    hipdnn_frontend::PointwiseMode::GELU_FWD}) {
+    auto flatbufferGraph = buildMatmulActivGraph(
+        /*aDims=*/{4, 8}, /*bDims=*/{8, 5}, /*cDims=*/{4, 5}, mode);
+
+    hipdnnPluginConstData_t opGraph;
+    opGraph.ptr = flatbufferGraph.data();
+    opGraph.size = flatbufferGraph.size();
+
+    ASSERT_EQ(hipdnnEnginePluginGetApplicableEngineIds(
+                  handle, &opGraph, engineIDs.data(), 5, &numEngines),
+              HIPDNN_PLUGIN_STATUS_SUCCESS);
+
+    // Graph supported if pointwise mode translates to fusilli.
+    auto sdkMode = hipdnn_frontend::toSdkType(mode);
+    bool modeSupported =
+        !fusilli::isError(hipDnnPointwiseModeToFusilliMode(sdkMode));
+    uint32_t expectedEngines = modeSupported ? 1 : 0;
     ASSERT_EQ(numEngines, expectedEngines);
   }
 
