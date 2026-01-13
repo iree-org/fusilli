@@ -679,3 +679,90 @@ TEST_CASE("MatmulNode postValidateNode checks batch dimensions in output C",
             "or are transposed");
   }
 }
+
+TEST_CASE("MatmulNode mixed precision constraints", "[matmul_node]") {
+  Context ctx;
+  MatmulAttr attr;
+
+  int64_t m = 16, k = 32, n = 64;
+
+  SECTION("Mixed precision 2D matmul (no batch dim) - fail") {
+    auto aT = std::make_shared<TensorAttr>(TensorAttr()
+                                               .setDim({m, k})
+                                               .setStride({k, 1})
+                                               .setDataType(DataType::Float)
+                                               .setName("A_float"));
+    auto bT = std::make_shared<TensorAttr>(TensorAttr()
+                                               .setDim({k, n})
+                                               .setStride({n, 1})
+                                               .setDataType(DataType::Int32)
+                                               .setName("B_int32"));
+    auto cT = std::make_shared<TensorAttr>();
+
+    attr.setA(aT).setB(bT).setC(cT);
+
+    MatmulNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "Mixed precision matmul input tensors A and B must be 3D (1 batch "
+            "dim): A and B have rank=2");
+  }
+
+  SECTION("Mixed precision 4D matmul (2 batch dims) - fail") {
+    int64_t b1 = 2, b2 = 4;
+    auto aT =
+        std::make_shared<TensorAttr>(TensorAttr()
+                                         .setDim({b1, b2, m, k})
+                                         .setStride({b2 * m * k, m * k, k, 1})
+                                         .setDataType(DataType::Float)
+                                         .setName("A_float"));
+    auto bT =
+        std::make_shared<TensorAttr>(TensorAttr()
+                                         .setDim({b1, b2, k, n})
+                                         .setStride({b2 * k * n, k * n, n, 1})
+                                         .setDataType(DataType::Int32)
+                                         .setName("B_int32"));
+    auto cT = std::make_shared<TensorAttr>();
+
+    attr.setA(aT).setB(bT).setC(cT);
+
+    MatmulNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "Mixed precision matmul input tensors A and B must be 3D (1 batch "
+            "dim): A and B have rank=4");
+  }
+
+  SECTION("Mixed precision with broadcast batch dim - fail") {
+    int64_t batchA = 1, batchB = 8;
+    auto aT = std::make_shared<TensorAttr>(TensorAttr()
+                                               .setDim({batchA, m, k})
+                                               .setStride({m * k, k, 1})
+                                               .setDataType(DataType::Float)
+                                               .setName("A_float"));
+    auto bT = std::make_shared<TensorAttr>(TensorAttr()
+                                               .setDim({batchB, k, n})
+                                               .setStride({k * n, n, 1})
+                                               .setDataType(DataType::Int32)
+                                               .setName("B_int32"));
+    auto cT = std::make_shared<TensorAttr>();
+
+    attr.setA(aT).setB(bT).setC(cT);
+
+    MatmulNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "Mixed precision matmul input tensors A and B must have exactly "
+            "equal batch dimensions (no broadcast): A has batch dim=1, B has "
+            "batch dim=8");
+  }
+}
