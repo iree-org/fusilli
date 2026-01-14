@@ -689,6 +689,11 @@ Graph::layernorm(const std::shared_ptr<TensorAttr> &x,
   subNodes_.emplace_back(
       std::make_unique<LayernormNode>(std::move(layernormAttr), context));
 
+  // `std::move` is useful for this case because we're returning an
+  // array initialized from lvalues and `std::move` avoids unnecessary
+  // copy and ref count operations on the shared pointers. This isn't
+  // necessary in methods where a single local variable is returned
+  // as NRVO would handle it.
   return {std::move(y), std::move(m), std::move(v)};
 }
 

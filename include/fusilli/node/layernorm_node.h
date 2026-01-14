@@ -147,15 +147,13 @@ public:
     const std::vector<int64_t> &xDim = xT->getDim();
 
     // Infer shape of output Y tensor.
-    if (yT->getDim().empty()) {
+    if (yT->getDim().empty())
       yT->setDim(xDim);
-    }
 
     // Infer stride of output Y tensor.
-    if (yT->getStride().empty()) {
+    if (yT->getStride().empty())
       // When unspecified, preserve the stride order of xT (input tensor).
       yT->setStride(xT->getStride());
-    }
 
     if (isTrainingForwardPhase()) {
       const auto &[dim, stride] = getTrainingForwardOutputDimAndStride(xDim);
@@ -164,21 +162,17 @@ public:
       std::shared_ptr<TensorAttr> vT = layernormAttr.getINV_VARIANCE();
 
       // Infer shape of output MEAN tensor.
-      if (mT->getDim().empty()) {
+      if (mT->getDim().empty())
         mT->setDim(dim);
-      }
       // Infer shape of output INV_VARIANCE tensor.
-      if (vT->getDim().empty()) {
+      if (vT->getDim().empty())
         vT->setDim(dim);
-      }
       // Infer stride of output MEAN tensor.
-      if (mT->getStride().empty()) {
+      if (mT->getStride().empty())
         mT->setStride(stride);
-      }
       // Infer stride of output INV_VARIANCE tensor.
-      if (vT->getStride().empty()) {
+      if (vT->getStride().empty())
         vT->setStride(stride);
-      }
     }
 
     return ok();
