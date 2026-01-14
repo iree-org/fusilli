@@ -88,6 +88,7 @@ ROCM_LIBRARIES_REPO = "https://github.com/ROCm/rocm-libraries.git"
 IREE_REPO = "https://github.com/iree-org/iree.git"
 IREE_DIR = PEBBLE_DIR / "iree"
 IREE_SUBMODULES = ["third_party/flatcc", "third_party/benchmark"]
+HIPDNN_SRC_DIR = PEBBLE_DIR / "rocm-libraries"
 
 # ==============================================================================
 # Utils
@@ -205,61 +206,61 @@ def install_hip(run_id: str):
 
 def build_hipdnn(git_ref: str):
     """Build and install hipDNN from rocm-libraries sparse checkout."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        hipdnn_src = Path(tmpdir) / "rocm-libraries"
+    # Sparse checkout of rocm-libraries
+    print(f"Sparse checkout of rocm-libraries at {git_ref}...")
+    subprocess.run(
+        [
+            "git",
+            "clone",
+            "--no-checkout",
+            "--filter=blob:none",
+            ROCM_LIBRARIES_REPO,
+            str(HIPDNN_SRC_DIR),
+        ],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "sparse-checkout", "init", "--cone"],
+        cwd=HIPDNN_SRC_DIR,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "sparse-checkout", "set", "projects/hipdnn"],
+        cwd=HIPDNN_SRC_DIR,
+        check=True,
+    )
+    subprocess.run(["git", "checkout", git_ref], cwd=HIPDNN_SRC_DIR, check=True)
 
-        # Sparse checkout of rocm-libraries
-        print(f"Sparse checkout of rocm-libraries at {git_ref}...")
-        subprocess.run(
-            [
-                "git",
-                "clone",
-                "--no-checkout",
-                "--filter=blob:none",
-                ROCM_LIBRARIES_REPO,
-                str(hipdnn_src),
-            ],
-            check=True,
-        )
-        subprocess.run(
-            ["git", "sparse-checkout", "init", "--cone"],
-            cwd=hipdnn_src,
-            check=True,
-        )
-        subprocess.run(
-            ["git", "sparse-checkout", "set", "projects/hipdnn"],
-            cwd=hipdnn_src,
-            check=True,
-        )
-        subprocess.run(["git", "checkout", git_ref], cwd=hipdnn_src, check=True)
+    # Build inside projects/hipdnn so IDEs auto-discover compile_commands.json
+    hipdnn_project_dir = HIPDNN_SRC_DIR / "projects" / "hipdnn"
+    hipdnn_build_dir = hipdnn_project_dir / "build"
+    print(f"Building hipDNN from {hipdnn_project_dir}...")
 
-        # Build inside the clone
-        hipdnn_build = hipdnn_src / "build"
-        print(f"Building hipDNN from {hipdnn_src / 'projects' / 'hipdnn'}...")
+    cmake_args = [
+        "cmake",
+        "-G",
+        "Ninja",
+        "-S",
+        str(hipdnn_project_dir),
+        "-B",
+        str(hipdnn_build_dir),
+        f"-DCMAKE_INSTALL_PREFIX={INSTALL_DIR}",
+        f"-DCMAKE_PREFIX_PATH={INSTALL_DIR}",
+        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+        "-DHIP_PLATFORM=amd",
+        "-DHIP_DNN_BUILD_PLUGINS=OFF",
+        # Headers are already checked into git, no need to re-generate them
+        # unless you're changing the schema.
+        "-DHIP_DNN_GENERATE_SDK_HEADERS=OFF",
+        "-DENABLE_CLANG_TIDY=OFF",
+        "-DENABLE_CLANG_FORMAT=OFF",
+    ]
+    subprocess.run(cmake_args, check=True)
 
-        cmake_args = [
-            "cmake",
-            "-G",
-            "Ninja",
-            "-S",
-            str(hipdnn_src / "projects" / "hipdnn"),
-            "-B",
-            str(hipdnn_build),
-            f"-DCMAKE_INSTALL_PREFIX={INSTALL_DIR}",
-            f"-DCMAKE_PREFIX_PATH={INSTALL_DIR}",
-            "-DCMAKE_BUILD_TYPE=Release",
-            "-DHIP_PLATFORM=amd",
-            "-DHIP_DNN_SKIP_TESTS=ON",
-            "-DHIP_DNN_BUILD_PLUGINS=OFF",
-            "-DHIP_DNN_GENERATE_SDK_HEADERS=OFF",
-            "-DENABLE_CLANG_TIDY=OFF",
-            "-DENABLE_CLANG_FORMAT=OFF",
-        ]
-        subprocess.run(cmake_args, check=True)
-
-        # Build and install
-        subprocess.run(["cmake", "--build", str(hipdnn_build)], check=True)
-        subprocess.run(["cmake", "--install", str(hipdnn_build)], check=True)
+    # Build and install
+    subprocess.run(["cmake", "--build", str(hipdnn_build_dir)], check=True)
+    subprocess.run(["cmake", "--install", str(hipdnn_build_dir)], check=True)
 
 
 def setup_iree(tag: str):
@@ -334,6 +335,7 @@ def generate_cmake_user_presets():
                     "CMAKE_CXX_COMPILER": str(llvm_bin / "clang++"),
                     "CMAKE_PREFIX_PATH": str(INSTALL_DIR),
                     "IREE_SOURCE_DIR": str(IREE_DIR),
+                    "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                     "IREE_USE_SYSTEM_DEPS": "ON",
                     "HIP_PLATFORM": "amd",
                 },
