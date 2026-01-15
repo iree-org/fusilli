@@ -156,15 +156,19 @@ public:
 
     // Check for mixed precision matmuls (inputs with differing element types).
     // Due to torch-mlir MLIR constraints, when element types differ:
-    // - Both LHS and RHS must be 3D (1 batch dim)
+    // - Both LHS and RHS must have rank 3 (single batch dim)
     // - The batch dim must be exactly equal (no broadcast)
-    // This is because we need `torch.matmul` to lower to `torch.bmm` in the
-    // cases of mixed precision.
+    //
+    // PyTorch does not allow differing input element types for any of the
+    // matmul variants. However, torch-mlir breaks conformity with pytorch in
+    // the case of `torch.bmm`. So, we need to be sure that `torch.matmul` will
+    // lower to `torch.bmm` in the cases of mixed precision.
     if (aT->getDataType() != bT->getDataType()) {
       constexpr int64_t kMixedPrecisionRequiredRank = 3;
       FUSILLI_RETURN_ERROR_IF(
           aRank != kMixedPrecisionRequiredRank, ErrorCode::InvalidAttribute,
-          "Mixed precision matmul input tensors A and B must be 3D (1 batch "
+          "Mixed precision matmul is only supported when input tensors A and B "
+          "are of rank 3 (single batch "
           "dim): A and B have rank=" +
               std::to_string(aRank));
       FUSILLI_RETURN_ERROR_IF(

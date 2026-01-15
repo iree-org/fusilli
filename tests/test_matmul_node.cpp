@@ -707,8 +707,8 @@ TEST_CASE("MatmulNode mixed precision constraints", "[matmul_node]") {
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "Mixed precision matmul input tensors A and B must be 3D (1 batch "
-            "dim): A and B have rank=2");
+            "Mixed precision matmul is only supported when input tensors A and "
+            "B are of rank 3 (single batch dim): A and B have rank=2");
   }
 
   SECTION("Mixed precision 4D matmul (2 batch dims) - fail") {
@@ -735,8 +735,8 @@ TEST_CASE("MatmulNode mixed precision constraints", "[matmul_node]") {
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "Mixed precision matmul input tensors A and B must be 3D (1 batch "
-            "dim): A and B have rank=4");
+            "Mixed precision matmul is only supported when input tensors A and "
+            "B are of rank 3 (single batch dim): A and B have rank=4");
   }
 
   SECTION("Mixed precision with broadcast batch dim - fail") {
