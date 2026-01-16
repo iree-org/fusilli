@@ -263,7 +263,10 @@ TEST_CASE("Graph `getCompiledArtifact` invalid input IR", "[graph]") {
         g.getCompiledArtifact(handle, "invalid mlir", /*remove=*/true);
     REQUIRE(isError(err));
     REQUIRE(err.getCode() == ErrorCode::CompileFailure);
-    REQUIRE(err.getMessage() == "iree-compile command failed");
+    // Error message varies between subprocess and C API backends.
+    // Subprocess: "iree-compile command failed"
+    // C API: "Failed to parse source file" (more detailed)
+    REQUIRE(!err.getMessage().empty());
   }
   // Cache created with "remove", ensure it is removed after the test.
   REQUIRE(!std::filesystem::exists(

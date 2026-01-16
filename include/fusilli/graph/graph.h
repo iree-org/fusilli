@@ -22,6 +22,8 @@
 #include "fusilli/backend/backend.h"
 #include "fusilli/backend/buffer.h"
 #include "fusilli/backend/handle.h"
+#include "fusilli/graph/compile_command.h"
+#include "fusilli/graph/compile_session.h"
 #include "fusilli/graph/context.h"
 #include "fusilli/node/conv_node.h"
 #include "fusilli/node/matmul_node.h"
@@ -50,6 +52,11 @@
 #define IREE_COMPILE_STATISTICS_FILENAME "iree-compile-statistics.json"
 
 namespace fusilli {
+
+static bool checkSubprocessEnv() {
+  const char *backend = std::getenv("FUSILLI_COMPILE_BACKEND");
+  return (backend && strcmp(backend, "subprocess") == 0);
+}
 
 class Graph : public INode {
 public:
@@ -311,28 +318,6 @@ private:
   ErrorObject createPerGraphSession(const Handle &handle,
                                     const std::string &vmfbPath);
 
-  std::string buildCompileCommand(const Handle &handle, const CacheFile &input,
-                                  const CacheFile &output,
-                                  const CacheFile &statistics) {
-    std::vector<std::string> args = {getIreeCompilePath(), input.path};
-    auto &flags = kBackendFlags.at(handle.getBackend());
-    args.insert(args.end(), flags.begin(), flags.end());
-    // TODO(#12): Make this conditional (enabled only for testing/debug).
-    args.push_back("--iree-scheduling-dump-statistics-format=json");
-    args.push_back("--iree-scheduling-dump-statistics-file=" +
-                   statistics.path.string());
-    args.push_back("-o");
-    args.push_back(output.path);
-    std::ostringstream cmdss;
-    interleave(
-        args.begin(), args.end(),
-        // each_fn:
-        [&](const std::string &name) { cmdss << name; },
-        // between_fn:
-        [&] { cmdss << " "; });
-    return cmdss.str() + "\n";
-  }
-
   // Create compiled artifacts from graph writing results to the cache. Set
   // `remove = true` to remove cache files when returned `CachedAssets` lifetime
   // ends.
@@ -367,19 +352,24 @@ private:
     // Write input asm to cache.
     FUSILLI_CHECK_ERROR(cache.input.write(generatedAsm));
 
-    // Build + cache + log compile command.
-    std::string cmd = buildCompileCommand(handle, cache.input, cache.output,
-                                          cache.statistics);
-    FUSILLI_CHECK_ERROR(cache.command.write(cmd));
-    FUSILLI_LOG_LABEL_ENDL("INFO: iree-compile command");
-    FUSILLI_LOG_ENDL(cmd);
-
-    // Run iree-compile.
-    // TODO(#11): in the error case, std::system will dump to stderr, it would
-    // be great to capture this for better logging + reproducer production.
-    int returnCode = std::system(cmd.c_str());
-    FUSILLI_RETURN_ERROR_IF(returnCode, ErrorCode::CompileFailure,
-                            "iree-compile command failed");
+    // determine which implementation to use.
+    if (checkSubprocessEnv()) {
+      // Use CompileCommand (subprocess).
+      CompileCommand cmd = FUSILLI_TRY(CompileCommand::build(
+          handle, cache.input, cache.output, cache.statistics));
+      FUSILLI_CHECK_ERROR(cmd.writeTo(cache.command));
+      FUSILLI_LOG_LABEL_ENDL("INFO: iree-compile command (subprocess)");
+      FUSILLI_LOG_ENDL(cmd.toString());
+      FUSILLI_CHECK_ERROR(cmd.execute());
+    } else {
+      // Use CompileSession (C API) - DEFAULT.
+      CompileSession session = FUSILLI_TRY(CompileSession::build(
+          handle, cache.input, cache.output, cache.statistics));
+      FUSILLI_CHECK_ERROR(session.writeTo(cache.command));
+      FUSILLI_LOG_LABEL_ENDL("INFO: iree-compile command (C API)");
+      FUSILLI_LOG_ENDL(session.toString());
+      FUSILLI_CHECK_ERROR(session.execute());
+    }
 
     return ok(std::move(cache));
   }
@@ -449,8 +439,21 @@ private:
     }
 
     // Check for a cache miss on compile command.
-    std::string cmd = buildCompileCommand(handle, input, output, statistics);
-    if (FUSILLI_TRY(command.read()) != cmd) {
+    std::string cmdString;
+
+    if (checkSubprocessEnv()) {
+      // Use CompileCommand (subprocess).
+      CompileCommand cmd =
+          FUSILLI_TRY(CompileCommand::build(handle, input, output, statistics));
+      cmdString = cmd.toString();
+    } else {
+      // Use CompileSession (C API) - DEFAULT.
+      CompileSession session =
+          FUSILLI_TRY(CompileSession::build(handle, input, output, statistics));
+      cmdString = session.toString();
+    }
+
+    if (FUSILLI_TRY(command.read()) != cmdString) {
       FUSILLI_LOG_ENDL("Compile command does not match");
       return ok(false);
     }
