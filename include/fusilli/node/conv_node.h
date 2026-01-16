@@ -76,9 +76,6 @@ public:
   std::string getStrideOpsAsm() const;
   std::string getPaddingOpsAsm() const;
   std::string getDilationOpsAsm() const;
-  std::string getPermuteXOpsAsm() const;
-  std::string getPermuteWOpsAsm() const;
-  std::string getPermuteYOpsAsm() const;
 
   const std::string &getName() const override final {
     return convFPropAttr.getName();
@@ -272,9 +269,6 @@ public:
   std::string getStrideOpsAsm() const;
   std::string getPaddingOpsAsm() const;
   std::string getDilationOpsAsm() const;
-  std::string getPermuteDYOpsAsm() const;
-  std::string getPermuteXOpsAsm() const;
-  std::string getPermuteDWOpsAsm() const;
   std::string getPermuteEmptyWOpsAsm() const;
 
   const std::string &getName() const override final {
@@ -448,9 +442,6 @@ public:
   std::string getStrideOpsAsm() const;
   std::string getPaddingOpsAsm() const;
   std::string getDilationOpsAsm() const;
-  std::string getPermuteDYOpsAsm() const;
-  std::string getPermuteWOpsAsm() const;
-  std::string getPermuteDXOpsAsm() const;
   std::string getPermuteEmptyXOpsAsm() const;
 
   const std::string &getName() const override final {
