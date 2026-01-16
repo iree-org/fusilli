@@ -46,7 +46,9 @@
 #include "fusilli/backend/runtime.h" // IWYU pragma: export
 
 // Graph:
-#include "fusilli/graph/context.h" // IWYU pragma: export
-#include "fusilli/graph/graph.h"   // IWYU pragma: export
+#include "fusilli/graph/compile_command.h" // IWYU pragma: export
+#include "fusilli/graph/compile_session.h" // IWYU pragma: export
+#include "fusilli/graph/context.h"         // IWYU pragma: export
+#include "fusilli/graph/graph.h"           // IWYU pragma: export
 
 #endif // FUSILLI_H

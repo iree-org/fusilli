@@ -14,6 +14,7 @@
 #ifndef FUSILLI_SUPPORT_EXTERNAL_TOOLS_H
 #define FUSILLI_SUPPORT_EXTERNAL_TOOLS_H
 
+#include "fusilli/support/python_utils.h"
 #include <cstdlib>
 #include <string>
 
@@ -39,6 +40,23 @@ inline std::string getRocmAgentEnumeratorPath() {
 
   // Let shell search for it.
   return std::string("rocm_agent_enumerator");
+}
+
+inline std::string getIreeCompilerLibPath() {
+  // Check environment variable.
+  const char *envPath = std::getenv("FUSILLI_EXTERNAL_IREE_COMPILER_LIB");
+  if (envPath && envPath[0] != '\0') {
+    return std::string(envPath);
+  }
+
+  // Try to find libIREECompiler.so in Python site-packages.
+  auto libPath = findIreeCompilerLib();
+  if (libPath.has_value()) {
+    return *libPath;
+  }
+
+  // Fallback: let the system search for it (may be in LD_LIBRARY_PATH).
+  return "libIREECompiler.so";
 }
 
 } // namespace fusilli

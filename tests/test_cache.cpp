@@ -13,16 +13,19 @@
 #include <catch2/matchers/catch_matchers_string.hpp>
 
 #include <filesystem>
+#include <string>
 #include <utility>
 
 using namespace fusilli;
+
+static std::string kGraphName = "test_cache";
 
 TEST_CASE("CacheFile::create remove = true", "[CacheFile]") {
   SECTION("cache removal") {
     std::filesystem::path cacheFilePath;
     {
       CacheFile cf = FUSILLI_REQUIRE_UNWRAP(CacheFile::create(
-          /*graphName=*/"graph", /*filename=*/"test_temp_file",
+          /*graphName=*/kGraphName, /*filename=*/"test_temp_file",
           /*remove=*/true));
 
       // Double check the path exists.
@@ -42,10 +45,10 @@ TEST_CASE("CacheFile::create remove = true", "[CacheFile]") {
   SECTION("move assignment operator") {
     // Create two cache files with remove=true.
     CacheFile cf1 = FUSILLI_REQUIRE_UNWRAP(CacheFile::create(
-        /*graphName=*/"graph", /*filename=*/"test_file_1",
+        /*graphName=*/kGraphName, /*filename=*/"test_file_1",
         /*remove=*/true));
     CacheFile cf2 = FUSILLI_REQUIRE_UNWRAP(CacheFile::create(
-        /*graphName=*/"graph", /*filename=*/"test_file_2",
+        /*graphName=*/kGraphName, /*filename=*/"test_file_2",
         /*remove=*/true));
 
     // Write different content to each file.
@@ -80,6 +83,9 @@ TEST_CASE("CacheFile::create remove = true", "[CacheFile]") {
     // The second file (path2) should still exist (now owned by cf1).
     REQUIRE(std::filesystem::exists(path2));
   }
+
+  std::filesystem::remove_all(
+      CacheFile::getPath(kGraphName, "a").parent_path());
 }
 
 TEST_CASE("CacheFile::create remove = false", "[CacheFile]") {
@@ -87,7 +93,7 @@ TEST_CASE("CacheFile::create remove = false", "[CacheFile]") {
     std::filesystem::path cacheFilePath;
     {
       CacheFile cf = FUSILLI_REQUIRE_UNWRAP(CacheFile::create(
-          /*graphName=*/"graph", /*filename=*/"test_temp_file",
+          /*graphName=*/kGraphName, /*filename=*/"test_temp_file",
           /*remove=*/false));
 
       // Double check the path exists.
@@ -105,10 +111,10 @@ TEST_CASE("CacheFile::create remove = false", "[CacheFile]") {
   SECTION("move assignment operator") {
     // Create two cache files with remove=false.
     CacheFile cf1 = FUSILLI_REQUIRE_UNWRAP(CacheFile::create(
-        /*graphName=*/"graph", /*filename=*/"test_file_1",
+        /*graphName=*/kGraphName, /*filename=*/"test_file_1",
         /*remove=*/false));
     CacheFile cf2 = FUSILLI_REQUIRE_UNWRAP(CacheFile::create(
-        /*graphName=*/"graph", /*filename=*/"test_file_2",
+        /*graphName=*/kGraphName, /*filename=*/"test_file_2",
         /*remove=*/false));
 
     // Write different content to each file.
@@ -143,11 +149,14 @@ TEST_CASE("CacheFile::create remove = false", "[CacheFile]") {
     // Clean up test artifacts.
     std::filesystem::remove_all(path1.parent_path());
   }
+
+  std::filesystem::remove_all(
+      CacheFile::getPath(kGraphName, "a").parent_path());
 }
 
 TEST_CASE("CacheFile::open", "[CacheFile]") {
   // Try to open a file that doesn't exist.
-  ErrorOr<CacheFile> failOpen = CacheFile::open("test_graph", "test_file.txt");
+  ErrorOr<CacheFile> failOpen = CacheFile::open(kGraphName, "test_file.txt");
   REQUIRE(isError(failOpen));
   ErrorObject err(failOpen);
   REQUIRE(err.getCode() == ErrorCode::FileSystemFailure);
@@ -156,14 +165,14 @@ TEST_CASE("CacheFile::open", "[CacheFile]") {
 
   // Create the file.
   CacheFile cacheFile = FUSILLI_REQUIRE_UNWRAP(CacheFile::create(
-      /*graphName=*/"test_graph",
+      /*graphName=*/kGraphName,
       /*filename=*/"test_file.txt",
       /*remove=*/true));
   FUSILLI_REQUIRE_OK(cacheFile.write("test data"));
 
   // Now open the existing file.
   CacheFile opened =
-      FUSILLI_REQUIRE_UNWRAP(CacheFile::open("test_graph", "test_file.txt"));
+      FUSILLI_REQUIRE_UNWRAP(CacheFile::open(kGraphName, "test_file.txt"));
 
   // Verify we can read the content.
   std::string content = FUSILLI_REQUIRE_UNWRAP(opened.read());
