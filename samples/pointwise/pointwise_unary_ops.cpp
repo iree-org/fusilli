@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -99,18 +100,18 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       break;
     }
     case PointwiseAttr::Mode::SIGMOID_FWD: {
-      double x_d = static_cast<double>(x);
-      y = T(1) / (T(1) + std::exp(-x_d));
+      double xD = static_cast<double>(x);
+      y = T(1) / (T(1) + std::exp(-xD));
       break;
     }
     case PointwiseAttr::Mode::TANH_FWD: {
-      double x_d = static_cast<double>(x);
-      y = std::tanh(x_d);
+      double xD = static_cast<double>(x);
+      y = std::tanh(xD);
       break;
     }
     case PointwiseAttr::Mode::CEIL: {
-      double x_d = static_cast<double>(x);
-      y = std::ceil(x_d);
+      double xD = static_cast<double>(x);
+      y = std::ceil(xD);
       break;
     }
     default:
@@ -122,7 +123,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     std::vector<T> result;
     FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
 
-    auto is_close = [](T lhs, T rhs) -> bool {
+    auto isClose = [](T lhs, T rhs) -> bool {
       if (std::is_floating_point<T>::value || std::is_same<T, half>::value) {
         return std::abs(static_cast<double>(lhs) - static_cast<double>(rhs)) <
                1e-3;
@@ -131,7 +132,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     };
 
     for (auto val : result) {
-      REQUIRE(is_close(val, y));
+      REQUIRE(isClose(val, y));
     }
 
     // Execute graph a few times.
@@ -143,7 +144,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     result.clear();
     FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
     for (auto val : result)
-      REQUIRE(is_close(val, y));
+      REQUIRE(isClose(val, y));
   };
 
   // Parameterize sample by backend and create device-specific handles.
