@@ -52,21 +52,16 @@ inline fusilli::ErrorOr<fusilli::DataType> hipDnnDataTypeToFusilliDataType(
   }
 }
 
+#define POINTWISE_CASE(CASE)                                                   \
+  case hipdnn_data_sdk::data_objects::PointwiseMode::CASE:                     \
+    return fusilli::PointwiseAttr::Mode::CASE;
+
 // Convert from hipDNN PointwiseMode to fusilli PointwiseAttr::Mode.
 inline fusilli::ErrorOr<fusilli::PointwiseAttr::Mode>
 hipDnnPointwiseModeToFusilliMode(
     hipdnn_data_sdk::data_objects::PointwiseMode hipdnnMode) {
   switch (hipdnnMode) {
-  case hipdnn_data_sdk::data_objects::PointwiseMode::ADD:
-    return ok(fusilli::PointwiseAttr::Mode::ADD);
-  case hipdnn_data_sdk::data_objects::PointwiseMode::DIV:
-    return ok(fusilli::PointwiseAttr::Mode::DIV);
-  case hipdnn_data_sdk::data_objects::PointwiseMode::MUL:
-    return ok(fusilli::PointwiseAttr::Mode::MUL);
-  case hipdnn_data_sdk::data_objects::PointwiseMode::RELU_FWD:
-    return ok(fusilli::PointwiseAttr::Mode::RELU_FWD);
-  case hipdnn_data_sdk::data_objects::PointwiseMode::SUB:
-    return ok(fusilli::PointwiseAttr::Mode::SUB);
+    FUSILLI_POINTWISE_OPS(POINTWISE_CASE)
   default:
     return error(fusilli::ErrorCode::NotImplemented,
                  "Unsupported pointwise mode.");

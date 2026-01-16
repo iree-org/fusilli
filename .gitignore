@@ -1,6 +1,7 @@
 coverage_report/
 .venv/
 build/
+build-*/
 .cache/
 .rocprofv3/
 benchmark_results.csv

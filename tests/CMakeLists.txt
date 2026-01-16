@@ -94,292 +94,43 @@ add_fusilli_tests(
     Catch2::Catch2WithMain
 )
 
-add_fusilli_lit_test(
-  SRC
+add_fusilli_lit_tests(
+  SRCS
     lit/test_asm_emitter.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_conv_asm_emitter_nchw_kcrs.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_conv_asm_emitter_nchw_krsc.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_conv_asm_emitter_nhwc_krsc.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_conv_asm_emitter_nhwc_kcrs.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_conv_asm_emitter_nchw_kcrs_with_pad.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_conv_asm_emitter_nhwc_krsc_with_pad.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_conv_asm_emitter_nhwc_krsc_with_relu.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_conv_asm_emitter_ndhwc_kdrsc.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_conv_asm_emitter_ndhwc_kdrsc_grouped.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_conv_asm_emitter_nhwc_krsc_grouped.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_pointwise_asm_emitter_relu.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_pointwise_asm_emitter_add.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_pointwise_asm_emitter_add_transposed.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
+    lit/test_pointwise_asm_emitter_ceil.cpp
+    lit/test_pointwise_asm_emitter_cmp_eq.cpp
+    lit/test_pointwise_asm_emitter_cmp_neq.cpp
+    lit/test_pointwise_asm_emitter_cmp_gt.cpp
+    lit/test_pointwise_asm_emitter_cmp_ge.cpp
+    lit/test_pointwise_asm_emitter_cmp_lt.cpp
+    lit/test_pointwise_asm_emitter_cmp_le.cpp
     lit/test_pointwise_asm_emitter_div.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_pointwise_asm_emitter_mul.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
+    lit/test_pointwise_asm_emitter_sigmoid.cpp
+    lit/test_pointwise_asm_emitter_tanh.cpp
     lit/test_pointwise_asm_emitter_sub.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_conv_wgrad_asm_emitter_nhwc_krsc.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_conv_wgrad_asm_emitter_nhwc_krsc_grouped.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_conv_wgrad_asm_emitter_nhwc_krsc_grouped_strided.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_conv_dgrad_asm_emitter_nhwc_kcrs.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_conv_dgrad_asm_emitter_nhwc_kcrs_grouped.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_matmul_asm_emitter_basic.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_matmul_asm_emitter_batched.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_matmul_asm_emitter_broadcast_3D.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_matmul_asm_emitter_broadcast_4D.cpp
-  DEPS
-    libfusilli
-  TOOLS
-    FileCheck
-    iree-opt
-    iree-compile
-)
-
-add_fusilli_lit_test(
-  SRC
     lit/test_matmul_asm_emitter_noncontiguous.cpp
   DEPS
     libfusilli

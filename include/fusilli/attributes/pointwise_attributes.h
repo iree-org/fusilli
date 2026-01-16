@@ -24,6 +24,54 @@
 
 namespace fusilli {
 
+#define FUSILLI_POINTWISE_OPS(OP)                                              \
+  OP(ADD)                                                                      \
+  OP(ADD_SQUARE)                                                               \
+  OP(BINARY_SELECT)                                                            \
+  OP(CEIL)                                                                     \
+  OP(CMP_EQ)                                                                   \
+  OP(CMP_GE)                                                                   \
+  OP(CMP_GT)                                                                   \
+  OP(CMP_LE)                                                                   \
+  OP(CMP_LT)                                                                   \
+  OP(CMP_NEQ)                                                                  \
+  OP(DIV)                                                                      \
+  OP(ELU_BWD)                                                                  \
+  OP(ELU_FWD)                                                                  \
+  OP(ERF)                                                                      \
+  OP(EXP)                                                                      \
+  OP(FLOOR)                                                                    \
+  OP(GELU_APPROX_TANH_BWD)                                                     \
+  OP(GELU_APPROX_TANH_FWD)                                                     \
+  OP(GELU_BWD)                                                                 \
+  OP(GELU_FWD)                                                                 \
+  OP(GEN_INDEX)                                                                \
+  OP(IDENTITY)                                                                 \
+  OP(LOG)                                                                      \
+  OP(LOGICAL_AND)                                                              \
+  OP(LOGICAL_NOT)                                                              \
+  OP(LOGICAL_OR)                                                               \
+  OP(MAX_OP)                                                                   \
+  OP(MIN_OP)                                                                   \
+  OP(MUL)                                                                      \
+  OP(NEG)                                                                      \
+  OP(RECIPROCAL)                                                               \
+  OP(RELU_BWD)                                                                 \
+  OP(RELU_FWD)                                                                 \
+  OP(RSQRT)                                                                    \
+  OP(SIGMOID_BWD)                                                              \
+  OP(SIGMOID_FWD)                                                              \
+  OP(SIN)                                                                      \
+  OP(SOFTPLUS_BWD)                                                             \
+  OP(SOFTPLUS_FWD)                                                             \
+  OP(SQRT)                                                                     \
+  OP(SUB)                                                                      \
+  OP(SWISH_BWD)                                                                \
+  OP(SWISH_FWD)                                                                \
+  OP(TAN)                                                                      \
+  OP(TANH_BWD)                                                                 \
+  OP(TANH_FWD)
+
 class PointwiseAttr : public AttributesCRTP<PointwiseAttr> {
 public:
   // Names for Tensor Inputs and Outputs. Pointwise can have a maximum of three
@@ -31,14 +79,12 @@ public:
   enum class InputNames : uint8_t { IN_0, IN_1, IN_2 };
   enum class OutputNames : uint8_t { OUT_0 };
 
+#define FUSILLI_POINTWISE_DECLARE(OP) OP,
   enum class Mode : uint8_t {
     NOT_SET,
-    ADD,
-    DIV,
-    MUL,
-    RELU_FWD,
-    SUB,
+    FUSILLI_POINTWISE_OPS(FUSILLI_POINTWISE_DECLARE)
   };
+#undef FUSILLI_POINTWISE_DECLARE
 
   std::unordered_map<InputNames, std::shared_ptr<TensorAttr>> inputs;
   std::unordered_map<OutputNames, std::shared_ptr<TensorAttr>> outputs;
@@ -71,22 +117,32 @@ private:
   Mode mode_ = Mode::NOT_SET;
 };
 
+#define DECLARE_STRINGIFY_POINTWISE_MODE(mode)                                 \
+  {PointwiseAttr::Mode::mode, #mode},
+
 inline const std::unordered_map<PointwiseAttr::Mode, std::string>
     PointwiseAttr::kModeToStr = {
-        {PointwiseAttr::Mode::NOT_SET, "NOT_SET"},
-        {PointwiseAttr::Mode::RELU_FWD, "RELU_FWD"},
-        {PointwiseAttr::Mode::ADD, "ADD"},
-        {PointwiseAttr::Mode::DIV, "DIV"},
-        {PointwiseAttr::Mode::MUL, "MUL"},
-        {PointwiseAttr::Mode::SUB, "SUB"},
-};
+        FUSILLI_POINTWISE_OPS(DECLARE_STRINGIFY_POINTWISE_MODE)};
+#undef DECLARE_STRINGIFY_POINTWISE_MODE
+
+// clang-format off
 inline const std::unordered_map<PointwiseAttr::Mode, int>
     PointwiseAttr::kModeToRequiredInputCount = {
-        {PointwiseAttr::Mode::RELU_FWD, 1},
         {PointwiseAttr::Mode::ADD, 2},
+        {PointwiseAttr::Mode::CEIL, 1},
+        {PointwiseAttr::Mode::CMP_EQ, 2},
+        {PointwiseAttr::Mode::CMP_LT, 2},
+        {PointwiseAttr::Mode::CMP_LE, 2},
+        {PointwiseAttr::Mode::CMP_GT, 2},
+        {PointwiseAttr::Mode::CMP_GE, 2},
+        {PointwiseAttr::Mode::CMP_NEQ, 2},
         {PointwiseAttr::Mode::DIV, 2},
         {PointwiseAttr::Mode::MUL, 2},
-        {PointwiseAttr::Mode::SUB, 2}};
+        {PointwiseAttr::Mode::RELU_FWD, 1},
+        {PointwiseAttr::Mode::SIGMOID_FWD, 1},
+        {PointwiseAttr::Mode::SUB, 2},
+        {PointwiseAttr::Mode::TANH_FWD, 1}};
+// clang-format on
 
 } // namespace fusilli
 
