@@ -101,6 +101,11 @@ allocateBufferOfType(Handle &handle, const std::shared_ptr<TensorAttr> &tensor,
         handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
         /*bufferData=*/
         std::vector<int8_t>(tensor->getVolume(), int8_t(initVal)))));
+  case DataType::Boolean:
+    return std::make_shared<Buffer>(FUSILLI_TRY(Buffer::allocate(
+        handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
+        /*bufferData=*/
+        std::vector<int8_t>(tensor->getVolume(), int8_t(initVal)))));
   default:
     return error(ErrorCode::InvalidAttribute, "Unsupported DataType");
   }
