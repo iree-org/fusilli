@@ -43,6 +43,7 @@ add_fusilli_tests(
   PREFIX fusilli_node_tests
   SRCS
     test_conv_node.cpp
+    test_layernorm_node.cpp
     test_matmul_node.cpp
     test_pointwise_node.cpp
   DEPS
@@ -326,6 +327,50 @@ add_fusilli_lit_test(
 add_fusilli_lit_test(
   SRC
     lit/test_conv_dgrad_asm_emitter_nhwc_kcrs_grouped.cpp
+  DEPS
+    libfusilli
+  TOOLS
+    FileCheck
+    iree-opt
+    iree-compile
+)
+
+add_fusilli_lit_test(
+  SRC
+    lit/test_layernorm_infer_asm_emitter_nchw.cpp
+  DEPS
+    libfusilli
+  TOOLS
+    FileCheck
+    iree-opt
+    iree-compile
+)
+
+add_fusilli_lit_test(
+  SRC
+    lit/test_layernorm_infer_asm_emitter_scale_bias_nhwc.cpp
+  DEPS
+    libfusilli
+  TOOLS
+    FileCheck
+    iree-opt
+    iree-compile
+)
+
+add_fusilli_lit_test(
+  SRC
+    lit/test_layernorm_train_asm_emitter_nchw.cpp
+  DEPS
+    libfusilli
+  TOOLS
+    FileCheck
+    iree-opt
+    iree-compile
+)
+
+add_fusilli_lit_test(
+  SRC
+    lit/test_layernorm_train_asm_emitter_scale_bias_nhwc.cpp
   DEPS
     libfusilli
   TOOLS
