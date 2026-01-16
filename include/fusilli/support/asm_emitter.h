@@ -1289,7 +1289,7 @@ inline std::string PointwiseNode::getResultNamesAndTypesAsm() const {
   return getResultNamesAsm() + ": " + getResultTypesAsm();
 }
 
-#define DECLARE_UNARY_EMITTER(PWOP, SCHEMA, OPIR)                              \
+#define DECLARE_UNARY_POINTWISE_EMITTER(PWOP, SCHEMA, OPIR)                    \
   case PointwiseAttr::Mode::PWOP: {                                            \
     return std::format(SCHEMA, getPermuteInputOpsAsm(0), /* {0} */             \
                        getResultNamesAsm(),              /* {1} */             \
@@ -1302,7 +1302,7 @@ inline std::string PointwiseNode::getResultNamesAndTypesAsm() const {
     );                                                                         \
   }
 
-#define DECLARE_BINARY_EMITTER(PWOP, SCHEMA, OPIR)                             \
+#define DECLARE_BINARY_POINTWISE_EMITTER(PWOP, SCHEMA, OPIR)                   \
   case PointwiseAttr::Mode::PWOP: {                                            \
     return std::format(SCHEMA, getPermuteInputOpsAsm(0), /* {0} */             \
                        getPermuteInputOpsAsm(1),         /* {1} */             \
@@ -1338,11 +1338,11 @@ constexpr std::string_view kSubAddSchema = R"(
 )";
 
 #define DECLARE_UNARY_TORCH_EMITTER(PWOP, OPIR)                                \
-  DECLARE_UNARY_EMITTER(PWOP, kUnaryTorchSchema, OPIR)
+  DECLARE_UNARY_POINTWISE_EMITTER(PWOP, kUnaryTorchSchema, OPIR)
 #define DECLARE_BINARY_TORCH_EMITTER(PWOP, OPIR)                               \
-  DECLARE_BINARY_EMITTER(PWOP, kBinaryTorchSchema, OPIR)
+  DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kBinaryTorchSchema, OPIR)
 #define DECLARE_SUB_ADD_EMITTER(PWOP, OPIR)                                    \
-  DECLARE_BINARY_EMITTER(PWOP, kSubAddSchema, OPIR)
+  DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kSubAddSchema, OPIR)
 
 inline std::string PointwiseNode::emitNodePreAsm() const {
   switch (pointwiseAttr.getMode()) {
@@ -1367,8 +1367,8 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
   }
 }
 
-#undef DECLARE_UNARY_EMITTER
-#undef DECLARE_BINARY_EMITTER
+#undef DECLARE_UNARY_POINTWISE_EMITTER
+#undef DECLARE_BINARY_POINTWISE_EMITTER
 
 } // namespace fusilli
 

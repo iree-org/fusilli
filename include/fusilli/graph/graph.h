@@ -458,12 +458,11 @@ private:
     return ok(true);
   }
 
-  std::shared_ptr<TensorAttr> outputTensor(const std::string &name,
-                                           DataType dt = DataType::NotSet) {
+  std::shared_ptr<TensorAttr> outputTensor(const std::string &name) {
     FUSILLI_LOG_LABEL_ENDL("INFO: Adding output tensor '"
                            << name << "' to Graph outputs");
     auto tensor = std::make_shared<TensorAttr>();
-    tensor->setName(name).setIsVirtual(true).setDataType(dt);
+    tensor->setName(name).setIsVirtual(true);
     fullGraphOutputs_.insert(tensor);
     return tensor;
   }
@@ -672,24 +671,6 @@ Graph::matmul(const std::shared_ptr<TensorAttr> &a,
   return c;
 }
 
-static std::unordered_map<PointwiseAttr::Mode, DataType>
-    kPointwiseDefaultDataTypes = {
-        {PointwiseAttr::Mode::RELU_FWD, DataType::NotSet},
-        {PointwiseAttr::Mode::ADD, DataType::NotSet},
-        {PointwiseAttr::Mode::SUB, DataType::NotSet},
-        {PointwiseAttr::Mode::MUL, DataType::NotSet},
-        {PointwiseAttr::Mode::DIV, DataType::NotSet},
-        {PointwiseAttr::Mode::CEIL, DataType::NotSet},
-        {PointwiseAttr::Mode::SIGMOID_FWD, DataType::NotSet},
-        {PointwiseAttr::Mode::TANH_FWD, DataType::NotSet},
-        {PointwiseAttr::Mode::CMP_EQ, DataType::Boolean},
-        {PointwiseAttr::Mode::CMP_NEQ, DataType::Boolean},
-        {PointwiseAttr::Mode::CMP_LT, DataType::Boolean},
-        {PointwiseAttr::Mode::CMP_LE, DataType::Boolean},
-        {PointwiseAttr::Mode::CMP_GT, DataType::Boolean},
-        {PointwiseAttr::Mode::CMP_GE, DataType::Boolean},
-};
-
 // Create a PointwiseNode for single operand cases (e.g. RELU), populate it with
 // the specified attributes, create output tensors and add the node to the
 // graph's sub nodes.
@@ -709,8 +690,7 @@ Graph::pointwise(const std::shared_ptr<TensorAttr> &in,
   pointwiseAttr.setIN_0(in);
 
   // Set outputs.
-  DataType outDataType = kPointwiseDefaultDataTypes.at(pointwiseAttr.getMode());
-  auto out = outputTensor(pointwiseAttr.getName() + "_OUT_0", outDataType);
+  auto out = outputTensor(pointwiseAttr.getName() + "_OUT_0");
   pointwiseAttr.setOUT_0(out);
 
   // Create node and add to Graph's subNodes_.
@@ -742,8 +722,7 @@ Graph::pointwise(const std::shared_ptr<TensorAttr> &in0,
   pointwiseAttr.setIN_0(in0).setIN_1(in1);
 
   // Set outputs.
-  DataType outDataType = kPointwiseDefaultDataTypes.at(pointwiseAttr.getMode());
-  auto out = outputTensor(pointwiseAttr.getName() + "_OUT_0", outDataType);
+  auto out = outputTensor(pointwiseAttr.getName() + "_OUT_0");
   pointwiseAttr.setOUT_0(out);
 
   // Create node and add to Graph's subNodes_.

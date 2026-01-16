@@ -26,8 +26,8 @@ namespace fusilli {
 
 #define FUSILLI_POINTWISE_OPS(OP)                                              \
   OP(ADD)                                                                      \
-  OP(ADD_SQUARE)                                                               \
-  OP(BINARY_SELECT)                                                            \
+  /* OP(ADD_SQUARE)  */                                                        \
+  /* OP(BINARY_SELECT)  */                                                     \
   OP(CEIL)                                                                     \
   OP(CMP_EQ)                                                                   \
   OP(CMP_GE)                                                                   \
@@ -36,40 +36,40 @@ namespace fusilli {
   OP(CMP_LT)                                                                   \
   OP(CMP_NEQ)                                                                  \
   OP(DIV)                                                                      \
-  OP(ELU_BWD)                                                                  \
-  OP(ELU_FWD)                                                                  \
-  OP(ERF)                                                                      \
-  OP(EXP)                                                                      \
-  OP(FLOOR)                                                                    \
-  OP(GELU_APPROX_TANH_BWD)                                                     \
-  OP(GELU_APPROX_TANH_FWD)                                                     \
-  OP(GELU_BWD)                                                                 \
-  OP(GELU_FWD)                                                                 \
-  OP(GEN_INDEX)                                                                \
-  OP(IDENTITY)                                                                 \
-  OP(LOG)                                                                      \
-  OP(LOGICAL_AND)                                                              \
-  OP(LOGICAL_NOT)                                                              \
-  OP(LOGICAL_OR)                                                               \
-  OP(MAX_OP)                                                                   \
-  OP(MIN_OP)                                                                   \
+  /* OP(ELU_BWD) */                                                            \
+  /* OP(ELU_FWD) */                                                            \
+  /* OP(ERF)   */                                                              \
+  /* OP(EXP)   */                                                              \
+  /* OP(FLOOR)  */                                                             \
+  /* OP(GELU_APPROX_TANH_BWD)  */                                              \
+  /* OP(GELU_APPROX_TANH_FWD)  */                                              \
+  /* OP(GELU_BWD) */                                                           \
+  /* OP(GELU_FWD) */                                                           \
+  /* OP(GEN_INDEX) */                                                          \
+  /* OP(IDENTITY)  */                                                          \
+  /* OP(LOG) */                                                                \
+  /* OP(LOGICAL_AND) */                                                        \
+  /* OP(LOGICAL_NOT) */                                                        \
+  /* OP(LOGICAL_OR) */                                                         \
+  /* OP(MAX_OP) */                                                             \
+  /* OP(MIN_OP) */                                                             \
   OP(MUL)                                                                      \
-  OP(NEG)                                                                      \
-  OP(RECIPROCAL)                                                               \
-  OP(RELU_BWD)                                                                 \
+  /* OP(NEG) */                                                                \
+  /* OP(RECIPROCAL) */                                                         \
+  /* OP(RELU_BWD) */                                                           \
   OP(RELU_FWD)                                                                 \
-  OP(RSQRT)                                                                    \
-  OP(SIGMOID_BWD)                                                              \
+  /* OP(RSQRT) */                                                              \
+  /* OP(SIGMOID_BWD) */                                                        \
   OP(SIGMOID_FWD)                                                              \
-  OP(SIN)                                                                      \
-  OP(SOFTPLUS_BWD)                                                             \
-  OP(SOFTPLUS_FWD)                                                             \
-  OP(SQRT)                                                                     \
+  /* OP(SIN) */                                                                \
+  /* OP(SOFTPLUS_BWD) */                                                       \
+  /* OP(SOFTPLUS_FWD) */                                                       \
+  /* OP(SQRT) */                                                               \
   OP(SUB)                                                                      \
-  OP(SWISH_BWD)                                                                \
-  OP(SWISH_FWD)                                                                \
-  OP(TAN)                                                                      \
-  OP(TANH_BWD)                                                                 \
+  /* OP(SWISH_BWD) */                                                          \
+  /* OP(SWISH_FWD) */                                                          \
+  /* OP(TAN) */                                                                \
+  /* OP(TANH_BWD) */                                                           \
   OP(TANH_FWD)
 
 class PointwiseAttr : public AttributesCRTP<PointwiseAttr> {

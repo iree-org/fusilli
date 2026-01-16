@@ -42,7 +42,7 @@
 //
 // clang-format on
 
-#include "test_utils.h"
+#include "../utils.h"
 #include <fusilli.h>
 
 #include <iostream>
