@@ -37,13 +37,8 @@ TEST_CASE("LayernormAttr setters and getters", "[layernorm_attr]") {
   auto m = std::make_shared<TensorAttr>(6.0f);
   auto v = std::make_shared<TensorAttr>(7.0f);
 
-  attr.setX(x)
-      .setSCALE(s)
-      .setBIAS(b)
-      .setEPSILON(e)
-      .setY(y)
-      .setMEAN(m)
-      .setINV_VARIANCE(v);
+  attr.setX(x).setSCALE(s).setBIAS(b).setY(y).setMEAN(m).setINV_VARIANCE(v);
+  attr.setEpsilon(e);
 
   REQUIRE(attr.inputs.size() == 4);
   REQUIRE(attr.outputs.size() == 3);
@@ -59,10 +54,11 @@ TEST_CASE("LayernormAttr setters and getters", "[layernorm_attr]") {
   CHECK_TENSOR_PROPERTIES(X, x);
   CHECK_TENSOR_PROPERTIES(SCALE, s);
   CHECK_TENSOR_PROPERTIES(BIAS, b);
-  CHECK_TENSOR_PROPERTIES(EPSILON, e);
   CHECK_TENSOR_PROPERTIES(Y, y);
   CHECK_TENSOR_PROPERTIES(MEAN, m);
   CHECK_TENSOR_PROPERTIES(INV_VARIANCE, v);
+
+  CHECK_TENSOR_PROPERTIES(Epsilon, e);
 
 #undef CHECK_TENSOR_PROPERTIES
 }
