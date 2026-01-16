@@ -239,6 +239,45 @@ function(add_fusilli_lit_test)
   )
 endfunction()
 
+# Creates multiple fusilli lit tests.
+#
+#  add_fusilli_lit_tests(
+#    SRCS <file> [<file> ...]
+#    [DEPS <dep> [<dep> ...]]
+#    [TOOLS <tool> [<tool> ...]]
+#  )
+# SRCS
+#  Source files to compile into individual executables (required).
+# DEPS
+#  Library dependencies to be linked to the targets.
+# TOOLS
+#  External tools needed for the tests.
+function(add_fusilli_lit_tests)
+  if(NOT FUSILLI_BUILD_TESTS)
+    return()
+  endif()
+
+  cmake_parse_arguments(
+    _RULE               # prefix
+    ""                  # options
+    ""                  # one value keywords
+    "SRCS;DEPS;TOOLS"   # multi-value keywords
+    ${ARGN}             # extra arguments
+  )
+
+  if(NOT DEFINED _RULE_SRCS)
+    message(FATAL_ERROR "add_fusilli_lit_tests: SRCS is required")
+  endif()
+
+  foreach(_TEST_FILE ${_RULE_SRCS})
+    add_fusilli_lit_test(
+      SRC ${_TEST_FILE}
+      DEPS ${_RULE_DEPS}
+      TOOLS ${_RULE_TOOLS}
+    )
+  endforeach()
+endfunction()
+
 
 # Creates a CTest test that wraps an executable.
 #
