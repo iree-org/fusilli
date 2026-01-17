@@ -35,6 +35,7 @@ public:
     WGrad,
     DGrad,
     Matmul,
+    Reduction,
   };
 
   explicit INode(const Context &ctx) : context(ctx) {}
