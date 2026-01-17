@@ -73,6 +73,11 @@ TEST_CASE("ReductionNode preValidateNode detects missing mode",
     REQUIRE(status.getCode() == ErrorCode::AttributeNotSet);
     REQUIRE(status.getMessage() == "Reduction operation requires Y output");
   }
+}
+
+TEST_CASE("ReductionNode postValidateNode detects rank mismatch",
+          "[reduction_node]") {
+  Context ctx;
 
   SECTION("Input and output ranks don't match") {
     ReductionAttr attr;
@@ -84,7 +89,9 @@ TEST_CASE("ReductionNode preValidateNode detects missing mode",
     attr.setX(x).setY(y);
     ReductionNode node(std::move(attr), ctx);
 
-    auto status = node.preValidateNode();
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+    auto status = node.postValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::AttributeNotSet);
     REQUIRE(status.getMessage() ==

@@ -50,21 +50,14 @@ public:
     // Validate input X exists
     FUSILLI_RETURN_ERROR_IF(!reductionAttr.getX(), ErrorCode::AttributeNotSet,
                             "Reduction operation requires X input");
-
     // Validate output Y exists
     FUSILLI_RETURN_ERROR_IF(!reductionAttr.getY(), ErrorCode::AttributeNotSet,
                             "Reduction operation requires Y output");
 
-    // Validate that input and output have the same rank
-    const auto &xTensor = reductionAttr.getX();
-    const auto &yTensor = reductionAttr.getY();
-    if (!xTensor->getDim().empty() && !yTensor->getDim().empty()) {
-      FUSILLI_RETURN_ERROR_IF(
-          xTensor->getDim().size() != yTensor->getDim().size(),
-          ErrorCode::AttributeNotSet,
-          "Reduction input and output must have the same rank");
-    }
-
+    // Validate that X dimensions are set
+    FUSILLI_RETURN_ERROR_IF(reductionAttr.getX()->getDim().empty(),
+                            ErrorCode::AttributeNotSet,
+                            "Reduction input X dimensions not set");
     return ok();
   }
 
@@ -75,17 +68,11 @@ public:
     // Fill missing properties from context (including data types)
     reductionAttr.fillFromContext(context);
 
-    const auto &xTensor = reductionAttr.getX();
-    const auto &yTensor = reductionAttr.getY();
-
-    // Validate that X dimensions are set
-    FUSILLI_RETURN_ERROR_IF(xTensor->getDim().empty(),
-                            ErrorCode::AttributeNotSet,
-                            "Reduction input X dimensions not set");
-
     // If Y dimensions are not set, default to same shape as X (no reduction)
     // User must explicitly set which dimensions to reduce by setting output
     // dims
+    const auto &xTensor = reductionAttr.getX();
+    const auto &yTensor = reductionAttr.getY();
     if (yTensor->getDim().empty()) {
       yTensor->setDim(xTensor->getDim());
     }
@@ -96,7 +83,20 @@ public:
           yTensor->getDim(),
           getContiguousStrideOrder(yTensor->getDim().size())));
     }
+    return ok();
+  }
 
+  ErrorObject postValidateNode() const override final {
+    FUSILLI_LOG_LABEL_ENDL("INFO: Post-Validating ReductionNode '"
+                           << reductionAttr.getName() << "'");
+
+    // Validate that input and output have the same rank
+    const auto &xTensor = reductionAttr.getX();
+    const auto &yTensor = reductionAttr.getY();
+    FUSILLI_RETURN_ERROR_IF(
+        xTensor->getDim().size() != yTensor->getDim().size(),
+        ErrorCode::AttributeNotSet,
+        "Reduction input and output must have the same rank");
     return ok();
   }
 };

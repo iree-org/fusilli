@@ -24,6 +24,10 @@
 
 namespace fusilli {
 
+#define FUSILLI_REDUCTION_MODES(OP)                                            \
+  OP(NOT_SET), OP(SUM), /* OP(ADD), OP(MUL), */ OP(MIN),                       \
+      OP(MAX) /*, OP(AMAX), OP(AVG), OP(NORM1), OP(NORM2), OP(MUL_NO_ZEROS) */
+
 class ReductionAttr : public AttributesCRTP<ReductionAttr> {
 public:
   // Names for Tensor Inputs and Outputs. Reduction has a single input.
@@ -31,10 +35,9 @@ public:
   enum class OutputNames : uint8_t { Y };
 
   enum class Mode : uint8_t {
-    NOT_SET,
-    SUM,
-    MIN,
-    MAX,
+#define FUSILLI_REDUCTION_MODE_ENUM(mode) mode
+    FUSILLI_REDUCTION_MODES(FUSILLI_REDUCTION_MODE_ENUM)
+#undef FUSILLI_REDUCTION_MODE_ENUM
   };
 
   std::unordered_map<InputNames, std::shared_ptr<TensorAttr>> inputs;
@@ -64,11 +67,12 @@ private:
 
 inline const std::unordered_map<ReductionAttr::Mode, std::string>
     ReductionAttr::kModeToStr = {
-        {ReductionAttr::Mode::NOT_SET, "NOT_SET"},
-        {ReductionAttr::Mode::SUM, "SUM"},
-        {ReductionAttr::Mode::MIN, "MIN"},
-        {ReductionAttr::Mode::MAX, "MAX"},
+#define FUSILLI_REDUCTION_MODE_MAP(mode) {ReductionAttr::Mode::mode, #mode}
+        FUSILLI_REDUCTION_MODES(FUSILLI_REDUCTION_MODE_MAP)
+#undef FUSILLI_REDUCTION_MODE_MAP
 };
+
+#undef FUSILLI_REDUCTION_MODES
 
 } // namespace fusilli
 
