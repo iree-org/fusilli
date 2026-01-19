@@ -1,4 +1,4 @@
-// Copyright 2025 Advanced Micro Devices, Inc.
+// Copyright 2026 Advanced Micro Devices, Inc.
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -16,46 +16,46 @@
 
 using namespace fusilli;
 
-TEST_CASE("LayernormNode getName correctly propagates the attribute name",
+TEST_CASE("LayerNormNode getName correctly propagates the attribute name",
           "[layernorm_node]") {
   Context ctx;
   LayernormAttr attr;
   attr.setName("foo_layernorm");
 
-  LayernormNode node(std::move(attr), ctx);
+  LayerNormNode node(std::move(attr), ctx);
   REQUIRE(node.getName() == "foo_layernorm");
 }
 
-TEST_CASE("LayernormNode getType returns correct type", "[layernorm_node]") {
+TEST_CASE("LayerNormNode getType returns correct type", "[layernorm_node]") {
   Context ctx;
   LayernormAttr attr;
 
-  LayernormNode node(std::move(attr), ctx);
-  REQUIRE(node.getType() == INode::Type::Layernorm);
+  LayerNormNode node(std::move(attr), ctx);
+  REQUIRE(node.getType() == INode::Type::LayerNorm);
 }
 
-TEST_CASE("LayernormNode preValidateNode detects missing attributes",
+TEST_CASE("LayerNormNode preValidateNode detects missing attributes",
           "[layernorm_node]") {
   Context ctx;
   LayernormAttr attr;
 
   SECTION("Forward phase not set") {
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     auto status = node.preValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::AttributeNotSet);
-    REQUIRE(status.getMessage() == "Layernorm forward phase not set");
+    REQUIRE(status.getMessage() == "LayerNorm forward phase not set");
   }
 
   SECTION("Input X missing") {
     attr.setForwardPhase(NormFwdPhase::INFERENCE);
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     auto status = node.preValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::AttributeNotSet);
-    REQUIRE(status.getMessage() == "Layernorm input tensor X not set");
+    REQUIRE(status.getMessage() == "LayerNorm input tensor X not set");
   }
 
   SECTION("Output Y missing") {
@@ -63,12 +63,12 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
         .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setX(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     auto status = node.preValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::AttributeNotSet);
-    REQUIRE(status.getMessage() == "Layernorm output tensor Y not set");
+    REQUIRE(status.getMessage() == "LayerNorm output tensor Y not set");
   }
 
   SECTION("Epsilon missing") {
@@ -77,12 +77,12 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     auto status = node.preValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::AttributeNotSet);
-    REQUIRE(status.getMessage() == "Layernorm epsilon not set");
+    REQUIRE(status.getMessage() == "LayerNorm epsilon not set");
   }
 
   SECTION("All required attributes present for INFERENCE forward phase") {
@@ -92,7 +92,7 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     FUSILLI_REQUIRE_OK(node.preValidateNode());
   }
@@ -109,7 +109,7 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
         TensorAttr().setDim({1, 3}).setStride({3, 1})));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     FUSILLI_REQUIRE_OK(node.preValidateNode());
   }
@@ -123,13 +123,13 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     attr.setMEAN(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 1}).setStride({1, 1})));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     auto status = node.preValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "Layernorm output tensor MEAN should not be set");
+            "LayerNorm output tensor MEAN should not be set");
   }
 
   SECTION("Extra output INV_VARIANCE for INFERENCE forward phase") {
@@ -141,13 +141,13 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     attr.setINV_VARIANCE(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 1}).setStride({1, 1})));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     auto status = node.preValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "Layernorm output tensor INV_VARIANCE should not be set");
+            "LayerNorm output tensor INV_VARIANCE should not be set");
   }
 
   SECTION("Output MEAN missing for TRAINING forward phase") {
@@ -157,12 +157,12 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     auto status = node.preValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::AttributeNotSet);
-    REQUIRE(status.getMessage() == "Layernorm output tensor MEAN not set");
+    REQUIRE(status.getMessage() == "LayerNorm output tensor MEAN not set");
   }
 
   SECTION("Output INV_VARIANCE missing for TRAINING forward phase") {
@@ -174,13 +174,13 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
         TensorAttr().setDim({2, 3}).setStride({3, 1})));
     attr.setMEAN(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 1}).setStride({1, 1})));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     auto status = node.preValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::AttributeNotSet);
     REQUIRE(status.getMessage() ==
-            "Layernorm output tensor INV_VARIANCE not set");
+            "LayerNorm output tensor INV_VARIANCE not set");
   }
 
   SECTION("All required attributes present for TRAINING forward phase") {
@@ -194,7 +194,7 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
         TensorAttr().setDim({2, 1}).setStride({1, 1})));
     attr.setINV_VARIANCE(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 1}).setStride({1, 1})));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     FUSILLI_REQUIRE_OK(node.preValidateNode());
   }
@@ -215,14 +215,14 @@ TEST_CASE("LayernormNode preValidateNode detects missing attributes",
         TensorAttr().setDim({2, 1}).setStride({1, 1})));
     attr.setINV_VARIANCE(std::make_shared<TensorAttr>(
         TensorAttr().setDim({2, 1}).setStride({1, 1})));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     FUSILLI_REQUIRE_OK(node.preValidateNode());
   }
 }
 
 TEST_CASE(
-    "LayernormNode inferPropertiesNode when output tensors are fully specified",
+    "LayerNormNode inferPropertiesNode when output tensors are fully specified",
     "[layernorm_node]") {
   Context ctx;
   LayernormAttr attr;
@@ -239,7 +239,7 @@ TEST_CASE(
   attr.setINV_VARIANCE(std::make_shared<TensorAttr>(
       TensorAttr().setDim({n, 1}).setStride({1, 1})));
 
-  LayernormNode node(std::move(attr), ctx);
+  LayerNormNode node(std::move(attr), ctx);
   FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
 
   auto yT = node.layernormAttr.getY();
@@ -254,7 +254,7 @@ TEST_CASE(
 }
 
 TEST_CASE(
-    "LayernormNode inferPropertiesNode when output tensors are under-specified",
+    "LayerNormNode inferPropertiesNode when output tensors are under-specified",
     "[layernorm_node]") {
   Context ctx;
   LayernormAttr attr;
@@ -268,7 +268,7 @@ TEST_CASE(
   attr.setMEAN(std::make_shared<TensorAttr>());
   attr.setINV_VARIANCE(std::make_shared<TensorAttr>());
 
-  LayernormNode node(std::move(attr), ctx);
+  LayerNormNode node(std::move(attr), ctx);
   FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
 
   auto yT = node.layernormAttr.getY();
@@ -282,7 +282,7 @@ TEST_CASE(
   REQUIRE(vT->getStride() == std::vector<int64_t>{1, 1});
 }
 
-TEST_CASE("LayernormNode shape checks on SCALE and BIAS tensors",
+TEST_CASE("LayerNormNode shape checks on SCALE and BIAS tensors",
           "[layernorm_node]") {
   Context ctx;
   LayernormAttr attr;
@@ -297,13 +297,13 @@ TEST_CASE("LayernormNode shape checks on SCALE and BIAS tensors",
     attr.setSCALE(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
     attr.setY(std::make_shared<TensorAttr>());
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     auto status = node.preValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "Layernorm input tensor SCALE must have shape as "
+            "LayerNorm input tensor SCALE must have shape as "
             "tensor X with single batch");
   }
 
@@ -315,18 +315,18 @@ TEST_CASE("LayernormNode shape checks on SCALE and BIAS tensors",
     attr.setBIAS(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
     attr.setY(std::make_shared<TensorAttr>());
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     auto status = node.preValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "Layernorm input tensor BIAS must have shape as "
+            "LayerNorm input tensor BIAS must have shape as "
             "tensor X with single batch");
   }
 }
 
-TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
+TEST_CASE("LayerNormNode postValidateNode detects incorrect shapes and strides",
           "[layernorm_node]") {
   Context ctx;
   LayernormAttr attr;
@@ -340,7 +340,7 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
     attr.setY(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n + 1, c, d}).setStride({c * d, d, 1})));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     FUSILLI_REQUIRE_OK(node.preValidateNode());
     FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
@@ -349,7 +349,7 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(
         status.getMessage() ==
-        "Layernorm output Y tensor must have the same shape as input X tensor");
+        "LayerNorm output Y tensor must have the same shape as input X tensor");
   }
 
   SECTION("Output Y has incorrect stride") {
@@ -361,7 +361,7 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
                                                .setDim({n, c, d})
                                                .setStride({d, c * d, 1})
                                                .setName("Y_invalid_layout")));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     FUSILLI_REQUIRE_OK(node.preValidateNode());
     FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
@@ -384,7 +384,7 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
         TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
     attr.setINV_VARIANCE(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, 1, 1}).setStride({1, 1, 1})));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     FUSILLI_REQUIRE_OK(node.preValidateNode());
     FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
@@ -393,9 +393,8 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
             "Layernorm output MEAN tensor must have shape [B, 1, ..., 1] with "
-            "rank equal to shape rank of input X tensor and batch dimension "
-            "equal to "
-            "input X tensor batch dimension");
+            "rank equal to input X tensor's rank, and batch dimension equal "
+            "to input X tensor's batch dimension");
   }
 
   SECTION("Output MEAN has incorrect stride") {
@@ -410,7 +409,7 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
             "MEAN_invalid_layout")));
     attr.setINV_VARIANCE(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, 1, 1}).setStride({1, 1, 1})));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     FUSILLI_REQUIRE_OK(node.preValidateNode());
     FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
@@ -418,7 +417,7 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "Layernorm output MEAN tensor must have unit strides");
+            "LayerNorm output MEAN tensor must have unit strides");
   }
 
   SECTION("Output INV_VARIANCE has incorrect shape") {
@@ -432,18 +431,18 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
         TensorAttr().setDim({n, 1, 1}).setStride({1, 1, 1})));
     attr.setINV_VARIANCE(std::make_shared<TensorAttr>(
         TensorAttr().setDim({1, 1, 1}).setStride({1, 1, 1})));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     FUSILLI_REQUIRE_OK(node.preValidateNode());
     FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
     auto status = node.postValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
-    REQUIRE(status.getMessage() == "Layernorm output INV_VARIANCE tensor must "
-                                   "have shape [B, 1, ..., 1] with "
-                                   "rank equal to shape rank of input X tensor "
-                                   "and batch dimension equal to "
-                                   "input X tensor batch dimension");
+    REQUIRE(status.getMessage() ==
+            "LayerNorm output INV_VARIANCE tensor must have "
+            "shape [B, 1, ..., 1] with  rank equal to "
+            "input X tensor's rank, and batch dimension equal "
+            "to input X tensor's batch dimension");
   }
 
   SECTION("Output INV_VARIANCE has incorrect stride") {
@@ -458,7 +457,7 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
     attr.setINV_VARIANCE(std::make_shared<TensorAttr>(
         TensorAttr().setDim({n, 1, 1}).setStride({1, 1, n}).setName(
             "INV_VARIANCE_invalid_layout")));
-    LayernormNode node(std::move(attr), ctx);
+    LayerNormNode node(std::move(attr), ctx);
 
     FUSILLI_REQUIRE_OK(node.preValidateNode());
     FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
@@ -466,6 +465,6 @@ TEST_CASE("LayernormNode postValidateNode detects incorrect shapes and strides",
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "Layernorm output INV_VARIANCE tensor must have unit strides");
+            "LayerNorm output INV_VARIANCE tensor must have unit strides");
   }
 }

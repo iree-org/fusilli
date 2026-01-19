@@ -1,4 +1,4 @@
-// Copyright 2025 Advanced Micro Devices, Inc.
+// Copyright 2026 Advanced Micro Devices, Inc.
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 //
 // This file contains definitions for the layer normalization node
-// `LayernormNode`.
+// `LayerNormNode`.
 //
 //===----------------------------------------------------------------------===//
 
@@ -34,25 +34,25 @@ namespace fusilli {
 // Layer normalization node.
 //===----------------------------------------------------------------------===//
 
-class LayernormNode : public NodeCRTP<LayernormNode> {
+class LayerNormNode : public NodeCRTP<LayerNormNode> {
 public:
   LayernormAttr layernormAttr;
 
-  LayernormNode(LayernormAttr &&attr, const Context &ctx)
+  LayerNormNode(LayernormAttr &&attr, const Context &ctx)
       : NodeCRTP(ctx), layernormAttr(std::move(attr)) {}
 
   const std::string &getName() const override final {
     return layernormAttr.getName();
   }
-  Type getType() const override final { return Type::Layernorm; }
+  Type getType() const override final { return Type::LayerNorm; }
 
   ErrorObject preValidateNode() const override final {
-    FUSILLI_LOG_LABEL_ENDL("INFO: Pre-Validating LayernormNode '"
+    FUSILLI_LOG_LABEL_ENDL("INFO: Pre-Validating LayerNormNode '"
                            << layernormAttr.getName() << "'");
 
     FUSILLI_RETURN_ERROR_IF(
         layernormAttr.getForwardPhase() == NormFwdPhase::NOT_SET,
-        ErrorCode::AttributeNotSet, "Layernorm forward phase not set");
+        ErrorCode::AttributeNotSet, "LayerNorm forward phase not set");
 
     std::shared_ptr<TensorAttr> xT = layernormAttr.getX();
     std::shared_ptr<TensorAttr> sT = layernormAttr.getSCALE();
@@ -63,15 +63,15 @@ public:
 
     // Ensure mandatory input and output tensors are set.
     FUSILLI_RETURN_ERROR_IF(!xT, ErrorCode::AttributeNotSet,
-                            "Layernorm input tensor X not set");
+                            "LayerNorm input tensor X not set");
     FUSILLI_RETURN_ERROR_IF(!yT, ErrorCode::AttributeNotSet,
-                            "Layernorm output tensor Y not set");
+                            "LayerNorm output tensor Y not set");
 
     // Shape and layout checks on input tensor.
     size_t xRank = xT->getDim().size();
     FUSILLI_RETURN_ERROR_IF(
         xRank < 2, ErrorCode::InvalidAttribute,
-        "Layernorm input tensor X must have a rank of at least 2");
+        "LayerNorm input tensor X must have a rank of at least 2");
     FUSILLI_RETURN_ERROR_IF(!xT->isContiguous() && !xT->isChannelsLast(),
                             ErrorCode::NotImplemented,
                             "Tensor '" + xT->getName() +
@@ -84,7 +84,7 @@ public:
       expectedDim[0] = 1;
       FUSILLI_RETURN_ERROR_IF(sT->getDim() != expectedDim,
                               ErrorCode::InvalidAttribute,
-                              "Layernorm input tensor SCALE must have shape as "
+                              "LayerNorm input tensor SCALE must have shape as "
                               "tensor X with single batch");
 
       FUSILLI_RETURN_ERROR_IF(
@@ -101,7 +101,7 @@ public:
       expectedDim[0] = 1;
       FUSILLI_RETURN_ERROR_IF(bT->getDim() != expectedDim,
                               ErrorCode::InvalidAttribute,
-                              "Layernorm input tensor BIAS must have shape as "
+                              "LayerNorm input tensor BIAS must have shape as "
                               "tensor X with single batch");
       FUSILLI_RETURN_ERROR_IF(
           !bT->isContiguous() && !bT->isChannelsLast(),
@@ -114,29 +114,29 @@ public:
     // Output tensor checks for training and inference forward phases.
     if (isTrainingForwardPhase()) {
       FUSILLI_RETURN_ERROR_IF(!mT, ErrorCode::AttributeNotSet,
-                              "Layernorm output tensor MEAN not set");
+                              "LayerNorm output tensor MEAN not set");
       FUSILLI_RETURN_ERROR_IF(!vT, ErrorCode::AttributeNotSet,
-                              "Layernorm output tensor INV_VARIANCE not set");
+                              "LayerNorm output tensor INV_VARIANCE not set");
     } else {
       FUSILLI_RETURN_ERROR_IF(mT, ErrorCode::InvalidAttribute,
-                              "Layernorm output tensor MEAN should not be set");
+                              "LayerNorm output tensor MEAN should not be set");
       FUSILLI_RETURN_ERROR_IF(
           vT, ErrorCode::InvalidAttribute,
-          "Layernorm output tensor INV_VARIANCE should not be set");
+          "LayerNorm output tensor INV_VARIANCE should not be set");
     }
 
     // Epsilon checks.
     std::shared_ptr<TensorAttr> eT = layernormAttr.getEpsilon();
     FUSILLI_RETURN_ERROR_IF(!eT, ErrorCode::AttributeNotSet,
-                            "Layernorm epsilon not set");
+                            "LayerNorm epsilon not set");
     FUSILLI_RETURN_ERROR_IF(!eT->isScalar(), ErrorCode::InvalidAttribute,
-                            "Layernorm epsilon must be a constant scalar");
+                            "LayerNorm epsilon must be a scalar constant");
 
     return ok();
   }
 
   ErrorObject inferPropertiesNode() override final {
-    FUSILLI_LOG_LABEL_ENDL("INFO: Inferring properties for LayernormNode '"
+    FUSILLI_LOG_LABEL_ENDL("INFO: Inferring properties for LayerNormNode '"
                            << layernormAttr.getName() << "'");
 
     layernormAttr.fillFromContext(context);
@@ -179,7 +179,7 @@ public:
   }
 
   ErrorObject postValidateNode() const override final {
-    FUSILLI_LOG_LABEL_ENDL("INFO: Post-Validating LayernormNode '"
+    FUSILLI_LOG_LABEL_ENDL("INFO: Post-Validating LayerNormNode '"
                            << layernormAttr.getName() << "'");
 
     std::shared_ptr<TensorAttr> xT = layernormAttr.getX();
@@ -190,7 +190,7 @@ public:
     // Shape check for output Y tensor.
     FUSILLI_RETURN_ERROR_IF(
         xDim != yT->getDim(), ErrorCode::InvalidAttribute,
-        "Layernorm output Y tensor must have the same shape as input X tensor");
+        "LayerNorm output Y tensor must have the same shape as input X tensor");
 
     // Layout check for output Y tensor.
     FUSILLI_RETURN_ERROR_IF(!yT->isContiguous() && !yT->isChannelsLast(),
@@ -209,24 +209,23 @@ public:
       FUSILLI_RETURN_ERROR_IF(
           dim != mT->getDim(), ErrorCode::InvalidAttribute,
           "Layernorm output MEAN tensor must have shape [B, 1, ..., 1] with "
-          "rank equal to shape rank of input X tensor and batch dimension "
-          "equal to "
-          "input X tensor batch dimension");
+          "rank equal to input X tensor's rank, and batch dimension equal "
+          "to input X tensor's batch dimension");
       // Shape check for output INV_VARIANCE tensor
-      FUSILLI_RETURN_ERROR_IF(dim != vT->getDim(), ErrorCode::InvalidAttribute,
-                              "Layernorm output INV_VARIANCE tensor must have "
-                              "shape [B, 1, ..., 1] with "
-                              "rank equal to shape rank of input X tensor and "
-                              "batch dimension equal to "
-                              "input X tensor batch dimension");
+      FUSILLI_RETURN_ERROR_IF(
+          dim != vT->getDim(), ErrorCode::InvalidAttribute,
+          "LayerNorm output INV_VARIANCE tensor must have "
+          "shape [B, 1, ..., 1] with  rank equal to "
+          "input X tensor's rank, and batch dimension equal "
+          "to input X tensor's batch dimension");
       // Stride check for output MEAN tensor
       FUSILLI_RETURN_ERROR_IF(
           stride != mT->getStride(), ErrorCode::InvalidAttribute,
-          "Layernorm output MEAN tensor must have unit strides");
+          "LayerNorm output MEAN tensor must have unit strides");
       // Stride check for output INV_VARIANCE tensor
       FUSILLI_RETURN_ERROR_IF(
           stride != vT->getStride(), ErrorCode::InvalidAttribute,
-          "Layernorm output INV_VARIANCE tensor must have unit strides");
+          "LayerNorm output INV_VARIANCE tensor must have unit strides");
     }
 
     return ok();

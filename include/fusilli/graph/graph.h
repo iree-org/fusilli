@@ -648,7 +648,7 @@ Graph::convDGrad(const std::shared_ptr<TensorAttr> &dy,
   return dx;
 }
 
-// Create a LayernormNode, populate it with the specified attributes, create
+// Create a LayerNormNode, populate it with the specified attributes, create
 // output tensors and add the node to the graph's sub nodes
 inline std::array<std::shared_ptr<TensorAttr>, 3>
 Graph::layernorm(const std::shared_ptr<TensorAttr> &x,
@@ -665,7 +665,7 @@ Graph::layernorm(const std::shared_ptr<TensorAttr> &x,
   if (bias && bias->getName().empty())
     bias->setName(layernormAttr.getName() + "_BIAS");
 
-  FUSILLI_LOG_LABEL_ENDL("INFO: Adding Layernorm '" << layernormAttr.getName()
+  FUSILLI_LOG_LABEL_ENDL("INFO: Adding LayerNorm '" << layernormAttr.getName()
                                                     << "' to Graph");
 
   // Set inputs.
@@ -687,7 +687,7 @@ Graph::layernorm(const std::shared_ptr<TensorAttr> &x,
 
   // Create node and add to Graph's subNodes_.
   subNodes_.emplace_back(
-      std::make_unique<LayernormNode>(std::move(layernormAttr), context));
+      std::make_unique<LayerNormNode>(std::move(layernormAttr), context));
 
   // `std::move` is useful for this case because we're returning an
   // array initialized from lvalues and `std::move` avoids unnecessary
