@@ -43,12 +43,10 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
       GENERATE(std::vector<int64_t>{2, 16, 64, 64},
                std::vector<int64_t>{1, 16, 1, 1})};
 
-  const auto mode = GENERATE(
-      PointwiseAttr::Mode::CMP_EQ
-      //        , PointwiseAttr::Mode::CMP_LT,
-      //               PointwiseAttr::Mode::CMP_LE, PointwiseAttr::Mode::CMP_GT,
-      //               PointwiseAttr::Mode::CMP_GE, PointwiseAttr::Mode::CMP_NEQ
-  );
+  const auto mode =
+      GENERATE(PointwiseAttr::Mode::CMP_EQ, PointwiseAttr::Mode::CMP_LT,
+               PointwiseAttr::Mode::CMP_LE, PointwiseAttr::Mode::CMP_GT,
+               PointwiseAttr::Mode::CMP_GE, PointwiseAttr::Mode::CMP_NEQ);
 
   auto execute = [&]<typename T>(const std::shared_ptr<Handle> &handlePtr,
                                  DataType dt, T x0, T x1) {

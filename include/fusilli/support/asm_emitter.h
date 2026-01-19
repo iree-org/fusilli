@@ -1316,20 +1316,21 @@ inline std::string PointwiseNode::getResultNamesAndTypesAsm() const {
     );                                                                         \
   }
 
-constexpr std::string_view kUnaryTorchSchema = R"(
+inline std::string PointwiseNode::emitNodePreAsm() const {
+  constexpr std::string_view kUnaryTorchSchema = R"(
 {0}
 {1}_perm = {6} {2} : {3} -> {4}
 {5}
 )";
 
-constexpr std::string_view kBinaryTorchSchema = R"(
+  constexpr std::string_view kBinaryTorchSchema = R"(
 {0}
 {1}
 {2}_perm = {7} {3} : {4} -> {5}
 {6}
 )";
 
-constexpr std::string_view kSubAddSchema = R"(
+  constexpr std::string_view kSubAddSchema = R"(
 {0}
 {1}
 %alpha_{8} = torch.constant.int 1
@@ -1344,7 +1345,6 @@ constexpr std::string_view kSubAddSchema = R"(
 #define FUSILLI_DECLARE_SUB_ADD_EMITTER(PWOP, OPIR)                            \
   FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kSubAddSchema, OPIR)
 
-inline std::string PointwiseNode::emitNodePreAsm() const {
   switch (pointwiseAttr.getMode()) {
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(CEIL, torch.aten.ceil)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_EQ, torch.aten.eq.Tensor)
