@@ -282,6 +282,109 @@ TEST_CASE(
   REQUIRE(vT->getStride() == std::vector<int64_t>{1, 1});
 }
 
+TEST_CASE(
+    "LayerNormNode inferPropertiesNode when SCALE/BIAS tensors are unspecified",
+    "[layernorm_node]") {
+  Context ctx;
+  LayernormAttr attr;
+  attr.setForwardPhase(NormFwdPhase::INFERENCE)
+      .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
+
+  int64_t n = 2, c = 5, d = 10;
+
+  SECTION("SCALE shape and strides are unspecified") {
+    attr.setX(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
+    attr.setSCALE(std::make_shared<TensorAttr>(TensorAttr()));
+    attr.setY(std::make_shared<TensorAttr>());
+    LayerNormNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+    auto sT = node.layernormAttr.getSCALE();
+    REQUIRE(sT->getDim() == std::vector<int64_t>{1, c, d});
+    REQUIRE(sT->getStride() == std::vector<int64_t>{c * d, d, 1});
+  }
+
+  SECTION("SCALE shape and strides are partically specified") {
+    attr.setX(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({n, c, d}).setStride({c * d, 1, c})));
+    attr.setSCALE(std::make_shared<TensorAttr>(TensorAttr().setDim({1, c, d})));
+    attr.setY(std::make_shared<TensorAttr>());
+    LayerNormNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+    auto sT = node.layernormAttr.getSCALE();
+    REQUIRE(sT->getDim() == std::vector<int64_t>{1, c, d});
+    REQUIRE(sT->getStride() == std::vector<int64_t>{c * d, 1, c});
+  }
+
+  SECTION("SCALE shape and strides are set") {
+    attr.setX(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({n, c, d}).setStride({c * d, 1, c})));
+    attr.setSCALE(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({1, c, d}).setStride({c * d, 1, c})));
+    attr.setY(std::make_shared<TensorAttr>());
+    LayerNormNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+    auto sT = node.layernormAttr.getSCALE();
+    REQUIRE(sT->getDim() == std::vector<int64_t>{1, c, d});
+    REQUIRE(sT->getStride() == std::vector<int64_t>{c * d, 1, c});
+  }
+
+  SECTION("BIAS shape and strides are unspecified") {
+    attr.setX(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
+    attr.setBIAS(std::make_shared<TensorAttr>(TensorAttr()));
+    attr.setY(std::make_shared<TensorAttr>());
+    LayerNormNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+    auto bT = node.layernormAttr.getBIAS();
+    REQUIRE(bT->getDim() == std::vector<int64_t>{1, c, d});
+    REQUIRE(bT->getStride() == std::vector<int64_t>{c * d, d, 1});
+  }
+
+  SECTION("BIAS shape and strides are partically specified") {
+    attr.setX(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({n, c, d}).setStride({c * d, 1, c})));
+    attr.setBIAS(std::make_shared<TensorAttr>(TensorAttr().setDim({1, c, d})));
+    attr.setY(std::make_shared<TensorAttr>());
+    LayerNormNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+    auto bT = node.layernormAttr.getBIAS();
+    REQUIRE(bT->getDim() == std::vector<int64_t>{1, c, d});
+    REQUIRE(bT->getStride() == std::vector<int64_t>{c * d, 1, c});
+  }
+
+  SECTION("BIAS shape and strides are set") {
+    attr.setX(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({n, c, d}).setStride({c * d, 1, c})));
+    attr.setBIAS(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({1, c, d}).setStride({c * d, 1, c})));
+    attr.setY(std::make_shared<TensorAttr>());
+    LayerNormNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+    auto bT = node.layernormAttr.getBIAS();
+    REQUIRE(bT->getDim() == std::vector<int64_t>{1, c, d});
+    REQUIRE(bT->getStride() == std::vector<int64_t>{c * d, 1, c});
+  }
+}
+
 TEST_CASE("LayerNormNode shape checks on SCALE and BIAS tensors",
           "[layernorm_node]") {
   Context ctx;

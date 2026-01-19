@@ -79,36 +79,47 @@ public:
                                 "defined by its stride");
 
     // Shape and layout checks on scale tensor.
+    // If scale tensor's dims/strides are not set, they will be inferred in
+    // inferPropertiesNode().
     if (sT) {
-      std::vector<int64_t> expectedDim = xT->getDim();
-      expectedDim[0] = 1;
-      FUSILLI_RETURN_ERROR_IF(sT->getDim() != expectedDim,
-                              ErrorCode::InvalidAttribute,
-                              "LayerNorm input tensor SCALE must have shape as "
-                              "tensor X with single batch");
+      if (!sT->getDim().empty()) {
+        FUSILLI_RETURN_ERROR_IF(
+            sT->getDim() != getScaleBiasDim(xT->getDim()),
+            ErrorCode::InvalidAttribute,
+            "LayerNorm input tensor SCALE must have shape as "
+            "tensor X with single batch");
+      }
 
-      FUSILLI_RETURN_ERROR_IF(
-          !sT->isContiguous() && !sT->isChannelsLast(),
-          ErrorCode::NotImplemented,
-          "Tensor '" + sT->getName() +
-              "' is neither contiguous nor channels-last as "
-              "defined by its stride");
+      if (!sT->getStride().empty()) {
+        FUSILLI_RETURN_ERROR_IF(
+            !sT->isContiguous() && !sT->isChannelsLast(),
+            ErrorCode::NotImplemented,
+            "Tensor '" + sT->getName() +
+                "' is neither contiguous nor channels-last as "
+                "defined by its stride");
+      }
     }
 
     // Shape and layout checks on bias tensor.
+    // If scale tensor's dims/strides are not set, they will be inferred in
+    // inferPropertiesNode().
     if (bT) {
-      std::vector<int64_t> expectedDim = xT->getDim();
-      expectedDim[0] = 1;
-      FUSILLI_RETURN_ERROR_IF(bT->getDim() != expectedDim,
-                              ErrorCode::InvalidAttribute,
-                              "LayerNorm input tensor BIAS must have shape as "
-                              "tensor X with single batch");
-      FUSILLI_RETURN_ERROR_IF(
-          !bT->isContiguous() && !bT->isChannelsLast(),
-          ErrorCode::NotImplemented,
-          "Tensor '" + bT->getName() +
-              "' is neither contiguous nor channels-last as "
-              "defined by its stride");
+      if (!bT->getDim().empty()) {
+        FUSILLI_RETURN_ERROR_IF(
+            bT->getDim() != getScaleBiasDim(xT->getDim()),
+            ErrorCode::InvalidAttribute,
+            "LayerNorm input tensor BIAS must have shape as "
+            "tensor X with single batch");
+      }
+
+      if (!bT->getStride().empty()) {
+        FUSILLI_RETURN_ERROR_IF(
+            !bT->isContiguous() && !bT->isChannelsLast(),
+            ErrorCode::NotImplemented,
+            "Tensor '" + bT->getName() +
+                "' is neither contiguous nor channels-last as "
+                "defined by its stride");
+      }
     }
 
     // Output tensor checks for training and inference forward phases.
@@ -146,34 +157,44 @@ public:
 
     const std::vector<int64_t> &xDim = xT->getDim();
 
-    // Infer shape of output Y tensor.
-    if (yT->getDim().empty())
-      yT->setDim(xDim);
+#define INFER_TENSOR_DIM_AND_STRIDE(TENSOR, DIM, STRIDE)                       \
+  if (TENSOR->getDim().empty())                                                \
+    TENSOR->setDim(DIM);                                                       \
+  if (TENSOR->getStride().empty())                                             \
+    TENSOR->setStride(STRIDE);
 
-    // Infer stride of output Y tensor.
-    if (yT->getStride().empty())
-      // When unspecified, preserve the stride order of xT (input tensor).
-      yT->setStride(xT->getStride());
+    // Infer shape and stride of input SCALE tensor if they're not set.
+    std::shared_ptr<TensorAttr> sT = layernormAttr.getSCALE();
+    if (sT) {
+      INFER_TENSOR_DIM_AND_STRIDE(
+          sT, getScaleBiasDim(xDim),
+          getScaleBiasStride(sT->getDim(), xT->getStride()));
+    }
+
+    // Infer shape and stride of input BIAS tensor if they're not set.
+    std::shared_ptr<TensorAttr> bT = layernormAttr.getBIAS();
+    if (bT) {
+      INFER_TENSOR_DIM_AND_STRIDE(
+          bT, getScaleBiasDim(xDim),
+          getScaleBiasStride(bT->getDim(), xT->getStride()));
+    }
+
+    // Infer shape and stride of output Y tensor.
+    // When stride is unspecified, preserve the stride order of xT.
+    INFER_TENSOR_DIM_AND_STRIDE(yT, xDim, xT->getStride());
 
     if (isTrainingForwardPhase()) {
       const auto &[dim, stride] = getTrainingForwardOutputDimAndStride(xDim);
 
+      // Infer shape and stride of output MEAN tensor.
       std::shared_ptr<TensorAttr> mT = layernormAttr.getMEAN();
-      std::shared_ptr<TensorAttr> vT = layernormAttr.getINV_VARIANCE();
+      INFER_TENSOR_DIM_AND_STRIDE(mT, dim, stride);
 
-      // Infer shape of output MEAN tensor.
-      if (mT->getDim().empty())
-        mT->setDim(dim);
-      // Infer shape of output INV_VARIANCE tensor.
-      if (vT->getDim().empty())
-        vT->setDim(dim);
-      // Infer stride of output MEAN tensor.
-      if (mT->getStride().empty())
-        mT->setStride(stride);
-      // Infer stride of output INV_VARIANCE tensor.
-      if (vT->getStride().empty())
-        vT->setStride(stride);
+      // Infer shape and stride of output INV_VARIANCE tensor.
+      std::shared_ptr<TensorAttr> vT = layernormAttr.getINV_VARIANCE();
+      INFER_TENSOR_DIM_AND_STRIDE(vT, dim, stride);
     }
+#undef INFER_TENSOR_DIM_AND_STRIDE
 
     return ok();
   }
@@ -247,6 +268,22 @@ private:
     // channels-last layouts.
     std::vector<int64_t> stride(dim.size(), 1);
     return {dim, stride};
+  }
+
+  std::vector<int64_t> getScaleBiasDim(const std::vector<int64_t> &xDim) const {
+    // The SCALE and BIAS tensors are input X tensor's dims with single batch.
+    auto dim = xDim;
+    dim[0] = 1;
+    return dim;
+  }
+
+  std::vector<int64_t>
+  getScaleBiasStride(const std::vector<int64_t> &scaleBiasDim,
+                     const std::vector<int64_t> &xStride) const {
+    // The SCALE and BIAS tensors have stride based on input stride order.
+    const auto strideOrder =
+        generateStrideOrderPreservingFormat(xStride, scaleBiasDim.size());
+    return generateStrideFromDim(scaleBiasDim, strideOrder);
   }
 };
 
