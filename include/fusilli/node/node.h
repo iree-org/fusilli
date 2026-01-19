@@ -34,6 +34,7 @@ public:
     Pointwise,
     WGrad,
     DGrad,
+    LayerNorm,
     Matmul,
   };
 
