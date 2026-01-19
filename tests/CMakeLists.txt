@@ -47,6 +47,7 @@ add_fusilli_tests(
   fusilli_node_tests
   SRCS
   test_conv_node.cpp
+  test_layernorm_node.cpp
   test_matmul_node.cpp
   test_pointwise_node.cpp
   DEPS

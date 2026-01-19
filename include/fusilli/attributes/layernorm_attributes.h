@@ -37,10 +37,13 @@ public:
   FUSILLI_GENERIC_INPUT_TENSOR_SETTER(LayernormAttr, InputNames, X)
   FUSILLI_GENERIC_INPUT_TENSOR_SETTER(LayernormAttr, InputNames, SCALE)
   FUSILLI_GENERIC_INPUT_TENSOR_SETTER(LayernormAttr, InputNames, BIAS)
-  FUSILLI_GENERIC_INPUT_TENSOR_SETTER(LayernormAttr, InputNames, EPSILON)
   FUSILLI_GENERIC_OUTPUT_TENSOR_SETTER(LayernormAttr, OutputNames, Y)
   FUSILLI_GENERIC_OUTPUT_TENSOR_SETTER(LayernormAttr, OutputNames, MEAN)
   FUSILLI_GENERIC_OUTPUT_TENSOR_SETTER(LayernormAttr, OutputNames, INV_VARIANCE)
+
+  LayernormAttr &setEpsilon(const std::shared_ptr<TensorAttr> &epsilon) {
+    return setInput(InputNames::EPSILON, epsilon);
+  }
 
   LayernormAttr &setForwardPhase(NormFwdPhase forwardPhase) {
     forwardPhase_ = forwardPhase;
@@ -51,10 +54,13 @@ public:
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, X)
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, SCALE)
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, BIAS)
-  FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, EPSILON)
   FUSILLI_GENERIC_OUTPUT_TENSOR_GETTER(OutputNames, Y)
   FUSILLI_GENERIC_OUTPUT_TENSOR_GETTER(OutputNames, MEAN)
   FUSILLI_GENERIC_OUTPUT_TENSOR_GETTER(OutputNames, INV_VARIANCE)
+
+  std::shared_ptr<TensorAttr> getEpsilon() const {
+    return getInput(InputNames::EPSILON);
+  }
 
   NormFwdPhase getForwardPhase() const { return forwardPhase_; }
 
