@@ -1342,7 +1342,7 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
   FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(PWOP, kUnaryTorchSchema, OPIR)
 #define FUSILLI_DECLARE_BINARY_TORCH_EMITTER(PWOP, OPIR)                       \
   FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kBinaryTorchSchema, OPIR)
-#define FUSILLI_DECLARE_SUB_ADD_EMITTER(PWOP, OPIR)                            \
+#define FUSILLI_DECLARE_SUB_AND_TORCH_EMITTER(PWOP, OPIR)                      \
   FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kSubAddSchema, OPIR)
 
   switch (pointwiseAttr.getMode()) {
@@ -1358,8 +1358,8 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RELU_FWD, torch.aten.relu)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(SIGMOID_FWD, torch.aten.sigmoid)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(TANH_FWD, torch.aten.tanh)
-    FUSILLI_DECLARE_SUB_ADD_EMITTER(ADD, torch.aten.add.Tensor)
-    FUSILLI_DECLARE_SUB_ADD_EMITTER(SUB, torch.aten.sub.Tensor)
+    FUSILLI_DECLARE_SUB_AND_TORCH_EMITTER(ADD, torch.aten.add.Tensor)
+    FUSILLI_DECLARE_SUB_AND_TORCH_EMITTER(SUB, torch.aten.sub.Tensor)
 
   default:
     assert(false && "Unsupported pointwise mode");
@@ -1371,7 +1371,7 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
 #undef FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER
 #undef FUSILLI_DECLARE_UNARY_TORCH_EMITTER
 #undef FUSILLI_DECLARE_BINARY_TORCH_EMITTER
-#undef FUSILLI_DECLARE_SUB_ADD_EMITTER
+#undef FUSILLI_DECLARE_SUB_AND_TORCH_EMITTER
 
 } // namespace fusilli
 

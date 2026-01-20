@@ -161,7 +161,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
 #endif
 
   // int32
-  // execute(handlePtr, DataType::Int32, int(-128));
+  execute(handlePtr, DataType::Int32, int(-128));
   // fp16
   execute(handlePtr, DataType::Half, half(3.14));
 }

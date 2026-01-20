@@ -117,15 +117,14 @@ private:
   Mode mode_ = Mode::NOT_SET;
 };
 
-#define DECLARE_STRINGIFY_POINTWISE_MODE(mode)                                 \
+#define FUSILLI_DECLARE_STRINGIFY_POINTWISE_MODE(mode)                         \
   {PointwiseAttr::Mode::mode, #mode},
 
 inline const std::unordered_map<PointwiseAttr::Mode, std::string>
     PointwiseAttr::kModeToStr = {
-        FUSILLI_POINTWISE_OPS(DECLARE_STRINGIFY_POINTWISE_MODE)};
-#undef DECLARE_STRINGIFY_POINTWISE_MODE
+        FUSILLI_POINTWISE_OPS(FUSILLI_DECLARE_STRINGIFY_POINTWISE_MODE)};
+#undef FUSILLI_DECLARE_STRINGIFY_POINTWISE_MODE
 
-// clang-format off
 inline const std::unordered_map<PointwiseAttr::Mode, int>
     PointwiseAttr::kModeToRequiredInputCount = {
         {PointwiseAttr::Mode::ADD, 2},
@@ -142,7 +141,6 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::SIGMOID_FWD, 1},
         {PointwiseAttr::Mode::SUB, 2},
         {PointwiseAttr::Mode::TANH_FWD, 1}};
-// clang-format on
 
 } // namespace fusilli
 

@@ -39,7 +39,7 @@
 //
 // clang-format on
 
-#include "../utils.h"
+#include "utils.h"
 #include <fusilli.h>
 
 #include <iostream>
