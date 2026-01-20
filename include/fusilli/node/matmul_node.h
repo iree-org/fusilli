@@ -168,8 +168,7 @@ public:
       FUSILLI_RETURN_ERROR_IF(
           aRank != kMixedPrecisionRequiredRank, ErrorCode::InvalidAttribute,
           "Mixed precision matmul is only supported when input tensors A and B "
-          "are of rank 3 (single batch "
-          "dim): A and B have rank=" +
+          "are of rank 3 (single batch dim): A and B have rank=" +
               std::to_string(aRank));
       FUSILLI_RETURN_ERROR_IF(
           aDim[0] != bDim[0], ErrorCode::InvalidAttribute,
@@ -248,9 +247,8 @@ private:
     for (size_t i = 0; i < batchDims; ++i) {
       FUSILLI_RETURN_ERROR_IF(
           perm[i] != static_cast<int64_t>(i), ErrorCode::InvalidAttribute,
-          "Matmul tensor " + name +
-              " has batch dimensions that are not outermost or are "
-              "transposed");
+          "Matmul tensor " + name + " has batch dimensions that are " +
+              "not outermost or are transposed");
     }
     return ok();
   };
