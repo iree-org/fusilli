@@ -25,8 +25,17 @@
 namespace fusilli {
 
 #define FUSILLI_REDUCTION_MODES(OP)                                            \
-  OP(NOT_SET), OP(SUM), /* OP(ADD), OP(MUL), */ OP(MIN),                       \
-      OP(MAX) /*, OP(AMAX), OP(AVG), OP(NORM1), OP(NORM2), OP(MUL_NO_ZEROS) */
+  OP(NOT_SET)                                                                  \
+  OP(SUM)                                                                      \
+  /* OP(ADD), */                                                               \
+  /* OP(MUL), */                                                               \
+  OP(MIN)                                                                      \
+  OP(MAX)                                                                      \
+  /* OP(AMAX), */                                                              \
+  /* OP(AVG), */                                                               \
+  /* OP(NORM1), */                                                             \
+  /* OP(NORM2), */                                                             \
+  /* OP(MUL_NO_ZEROS) */
 
 class ReductionAttr : public AttributesCRTP<ReductionAttr> {
 public:
@@ -35,7 +44,7 @@ public:
   enum class OutputNames : uint8_t { Y };
 
   enum class Mode : uint8_t {
-#define FUSILLI_REDUCTION_MODE_ENUM(mode) mode
+#define FUSILLI_REDUCTION_MODE_ENUM(mode) mode,
     FUSILLI_REDUCTION_MODES(FUSILLI_REDUCTION_MODE_ENUM)
 #undef FUSILLI_REDUCTION_MODE_ENUM
   };
@@ -66,11 +75,10 @@ private:
 };
 
 inline const std::unordered_map<ReductionAttr::Mode, std::string>
+#define FUSILLI_REDUCTION_MODE_MAP(mode) {ReductionAttr::Mode::mode, #mode},
     ReductionAttr::kModeToStr = {
-#define FUSILLI_REDUCTION_MODE_MAP(mode) {ReductionAttr::Mode::mode, #mode}
-        FUSILLI_REDUCTION_MODES(FUSILLI_REDUCTION_MODE_MAP)
+        FUSILLI_REDUCTION_MODES(FUSILLI_REDUCTION_MODE_MAP)};
 #undef FUSILLI_REDUCTION_MODE_MAP
-};
 
 #undef FUSILLI_REDUCTION_MODES
 
