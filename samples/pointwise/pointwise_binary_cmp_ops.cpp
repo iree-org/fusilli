@@ -24,67 +24,69 @@ using namespace fusilli;
 
 // Based on parameters, generates a unique name for the graph
 static std::string generateName(PointwiseAttr::Mode mode, DataType type,
-                                const std::vector<std::vector<int64_t>> &dims) {
+                                const std::vector<int64_t> &lhsDims,
+                                const std::vector<int64_t> &rhsDims) {
   std::string name =
       std::format("pointwise_{}_dt{}", PointwiseAttr::kModeToStr.at(mode),
                   kDataTypeToMlirTypeAsm.at(type));
-  for (size_t i = 0; i < dims.size(); ++i) {
-    name += std::format("_in{}", i);
-    for (const auto &d : dims[i]) {
-      name += std::format("_{}", d);
-    }
+  name += std::format("_in0");
+  for (const auto &d : lhsDims) {
+    name += std::format("_{}", d);
+  }
+  name += std::format("_in1");
+  for (const auto &d : rhsDims) {
+    name += std::format("_{}", d);
   }
   return name;
 };
 
-TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
-  const auto dims = std::vector<std::vector<int64_t>>{
-      std::vector<int64_t>{2, 16, 64, 64},
-      GENERATE(std::vector<int64_t>{2, 16, 64, 64},
-               std::vector<int64_t>{1, 16, 1, 1})};
+TensorAttr getTensorAttr(DataType dt, const std::vector<int64_t> &dims) {
+  return TensorAttr()
+      .setDim(dims)
+      .setStride(
+          generateStrideFromDim(dims, getContiguousStrideOrder(dims.size())))
+      .setDataType(dt);
+}
 
-  const auto mode =
-      GENERATE(PointwiseAttr::Mode::CMP_EQ, PointwiseAttr::Mode::CMP_LT,
-               PointwiseAttr::Mode::CMP_LE, PointwiseAttr::Mode::CMP_GT,
-               PointwiseAttr::Mode::CMP_GE, PointwiseAttr::Mode::CMP_NEQ);
+void testPointwiseBinaryCmpOp(PointwiseAttr::Mode mode,
+                              const std::vector<int64_t> &lhsDims,
+                              const std::vector<int64_t> &rhsDims) {
 
-  auto execute = [&]<typename T>(const std::shared_ptr<Handle> &handlePtr,
-                                 DataType dt, T x0, T x1) {
-    auto buildNewGraph = [&](const Handle &handle) {
-      // Create graph
-      auto graph = std::make_shared<Graph>();
-      graph->setName(generateName(mode, dt, dims));
-      graph->setIODataType(dt).setComputeDataType(dt);
+  auto buildNewGraph = [](std::string name, const Handle &handle, DataType dt,
+                          PointwiseAttr::Mode mode, TensorAttr lhsTy,
+                          TensorAttr rhsTy)
+      -> std::tuple<std::shared_ptr<Graph>, std::shared_ptr<TensorAttr>,
+                    std::shared_ptr<TensorAttr>, std::shared_ptr<TensorAttr>> {
+    // Create graph
+    auto graph = std::make_shared<Graph>();
+    graph->setName(name);
+    graph->setIODataType(dt).setComputeDataType(dt);
 
-      // Initialize input tensors
-      auto x0T =
-          graph->tensor(TensorAttr().setName("in0").setDim(dims[0]).setStride(
-              generateStrideFromDim(dims[0],
-                                    getContiguousStrideOrder(dims[0].size()))));
-      auto x1T =
-          graph->tensor(TensorAttr().setName("in1").setDim(dims[1]).setStride(
-              generateStrideFromDim(dims[1],
-                                    getContiguousStrideOrder(dims[1].size()))));
+    // Initialize input tensors
+    auto x0T = graph->tensor(lhsTy);
+    auto x1T = graph->tensor(rhsTy);
 
-      // Create Pointwise op
-      auto pointwiseAttr = PointwiseAttr().setMode(mode);
-      auto pointwiseResult = graph->pointwise(x0T, x1T, pointwiseAttr);
+    // Create Pointwise op
+    auto pointwiseAttr = PointwiseAttr().setMode(mode);
+    auto pointwiseResult = graph->pointwise(x0T, x1T, pointwiseAttr);
 
-      pointwiseResult->setName("result").setOutput(true);
+    pointwiseResult->setName("result").setOutput(true);
 
-      // Validate, infer missing properties
-      FUSILLI_REQUIRE_OK(graph->validate());
+    // Validate, infer missing properties
+    FUSILLI_REQUIRE_OK(graph->validate());
 
-      // Compile
-      FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    // Compile
+    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
 
-      return std::make_tuple(graph, x0T, x1T, pointwiseResult);
-    };
+    return std::make_tuple(graph, x0T, x1T, pointwiseResult);
+  };
 
-    Handle &handle = *handlePtr;
-    // Build graph for the given handle (device), validate and compile it.
-    auto [graph, x0T, x1T, yT] = buildNewGraph(handle);
-
+  auto execute = []<typename T>(Handle &handle, PointwiseAttr::Mode mode,
+                                std::shared_ptr<Graph> &graph,
+                                const std::shared_ptr<TensorAttr> &x0T,
+                                const std::shared_ptr<TensorAttr> &x1T,
+                                const std::shared_ptr<TensorAttr> &yT,
+                                DataType dt, T x0, T x1) {
     // Allocate input buffers.
     auto x0Buf =
         FUSILLI_REQUIRE_UNWRAP(allocateBufferOfType(handle, x0T, dt, x0));
@@ -172,14 +174,49 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
   }
 #endif
 
+  Handle &handle = *handlePtr;
   // int32
-  execute(handlePtr, DataType::Int32, int(-50), int(-50));
-  execute(handlePtr, DataType::Int32, int(-50), int(-51));
-  execute(handlePtr, DataType::Int32, int(-51), int(-50));
-  execute(handlePtr, DataType::Int32, int(-51), int(-51));
+  {
+    std::string name = generateName(mode, DataType::Int32, lhsDims, rhsDims);
+    TensorAttr lhsTy = getTensorAttr(DataType::Int32, lhsDims);
+    TensorAttr rhsTy = getTensorAttr(DataType::Int32, rhsDims);
+    auto [graph, x0T, x1T, yT] =
+        buildNewGraph(name, handle, DataType::Int32, mode, lhsTy, rhsTy);
+    execute(handle, mode, graph, x0T, x1T, yT, DataType::Int32, int(-50),
+            int(-50));
+    execute(handle, mode, graph, x0T, x1T, yT, DataType::Int32, int(-50),
+            int(-51));
+    execute(handle, mode, graph, x0T, x1T, yT, DataType::Int32, int(-51),
+            int(-50));
+    execute(handle, mode, graph, x0T, x1T, yT, DataType::Int32, int(-51),
+            int(-51));
+  }
   // fp16
-  execute(handlePtr, DataType::Half, half(1.0), half(1.0));
-  execute(handlePtr, DataType::Half, half(1.0), half(1.1));
-  execute(handlePtr, DataType::Half, half(1.1), half(1.1));
-  execute(handlePtr, DataType::Half, half(1.1), half(1.0));
+  {
+    std::string name = generateName(mode, DataType::Half, lhsDims, rhsDims);
+    TensorAttr lhsTy = getTensorAttr(DataType::Half, lhsDims);
+    TensorAttr rhsTy = getTensorAttr(DataType::Half, rhsDims);
+    auto [graph, x0T, x1T, yT] =
+        buildNewGraph(name, handle, DataType::Half, mode, lhsTy, rhsTy);
+    execute(handle, mode, graph, x0T, x1T, yT, DataType::Half, half(1.0),
+            half(1.0));
+    execute(handle, mode, graph, x0T, x1T, yT, DataType::Half, half(1.0),
+            half(1.1));
+    execute(handle, mode, graph, x0T, x1T, yT, DataType::Half, half(1.1),
+            half(1.1));
+    execute(handle, mode, graph, x0T, x1T, yT, DataType::Half, half(1.1),
+            half(1.0));
+  }
+}
+
+TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
+  std::vector<int64_t> lhsDims = {2, 16, 64, 64};
+  std::vector<int64_t> rhsDims = GENERATE(std::vector<int64_t>{2, 16, 64, 64},
+                                          std::vector<int64_t>{1, 16, 1, 1});
+
+  const auto mode =
+      GENERATE(PointwiseAttr::Mode::CMP_EQ, PointwiseAttr::Mode::CMP_LT,
+               PointwiseAttr::Mode::CMP_LE, PointwiseAttr::Mode::CMP_GT,
+               PointwiseAttr::Mode::CMP_GE, PointwiseAttr::Mode::CMP_NEQ);
+  testPointwiseBinaryCmpOp(mode, lhsDims, rhsDims);
 }
