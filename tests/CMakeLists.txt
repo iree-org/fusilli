@@ -38,6 +38,7 @@ add_fusilli_tests(
     test_layernorm_attributes.cpp
     test_matmul_attributes.cpp
     test_pointwise_attributes.cpp
+    test_reduction_attributes.cpp
   DEPS
     libfusilli
     Catch2::Catch2WithMain)
@@ -50,6 +51,7 @@ add_fusilli_tests(
     test_layernorm_node.cpp
     test_matmul_node.cpp
     test_pointwise_node.cpp
+    test_reduction_node.cpp
   DEPS
     libfusilli
     Catch2::Catch2WithMain)
