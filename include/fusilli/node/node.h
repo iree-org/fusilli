@@ -36,6 +36,7 @@ public:
     DGrad,
     LayerNorm,
     Matmul,
+    Reduction,
   };
 
   explicit INode(const Context &ctx) : context(ctx) {}
