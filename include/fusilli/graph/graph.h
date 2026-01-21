@@ -361,11 +361,11 @@ private:
 
     // determine which implementation to use.
     if (checkCompileBackendEnv()) {
-      // Use CompileCommand (subprocess).
+      // Use CompileCommand (cli).
       CompileCommand cmd = CompileCommand::build(
           handle, cache.input, cache.output, cache.statistics);
       FUSILLI_CHECK_ERROR(cmd.writeTo(cache.command));
-      FUSILLI_LOG_LABEL_ENDL("INFO: iree-compile command (subprocess)");
+      FUSILLI_LOG_LABEL_ENDL("INFO: iree-compile command (cli)");
       FUSILLI_LOG_ENDL(cmd.toString());
       FUSILLI_CHECK_ERROR(cmd.execute());
     } else {
@@ -449,7 +449,7 @@ private:
     std::string cmdString;
 
     if (checkCompileBackendEnv()) {
-      // Use CompileCommand (subprocess).
+      // Use CompileCommand (cli).
       CompileCommand cmd =
           CompileCommand::build(handle, input, output, statistics);
       cmdString = cmd.toString();
