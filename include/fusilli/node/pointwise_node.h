@@ -28,6 +28,16 @@
 
 namespace fusilli {
 
+static const std::unordered_map<PointwiseAttr::Mode, DataType>
+    kPointwiseForcedDataTypes = {
+        {PointwiseAttr::Mode::CMP_EQ, DataType::Boolean},
+        {PointwiseAttr::Mode::CMP_NEQ, DataType::Boolean},
+        {PointwiseAttr::Mode::CMP_LT, DataType::Boolean},
+        {PointwiseAttr::Mode::CMP_LE, DataType::Boolean},
+        {PointwiseAttr::Mode::CMP_GT, DataType::Boolean},
+        {PointwiseAttr::Mode::CMP_GE, DataType::Boolean},
+};
+
 class PointwiseNode : public NodeCRTP<PointwiseNode> {
 public:
   PointwiseAttr pointwiseAttr;
@@ -93,6 +103,12 @@ public:
   ErrorObject inferPropertiesNode() override final {
     FUSILLI_LOG_LABEL_ENDL("INFO: Inferring properties for PointwiseNode '"
                            << pointwiseAttr.getName() << "'");
+
+    // Force output data type for specific modes:
+    if (kPointwiseForcedDataTypes.contains(pointwiseAttr.getMode())) {
+      pointwiseAttr.getOUT_0()->setDataType(
+          kPointwiseForcedDataTypes.at(pointwiseAttr.getMode()));
+    }
 
     // Fill missing properties from context (including data types)
     pointwiseAttr.fillFromContext(context);

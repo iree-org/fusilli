@@ -14,7 +14,9 @@
 #ifndef FUSILLI_GRAPH_GRAPH_H
 #define FUSILLI_GRAPH_GRAPH_H
 
+#include "fusilli/attributes/common.h"
 #include "fusilli/attributes/conv_attributes.h"
+#include "fusilli/attributes/layernorm_attributes.h"
 #include "fusilli/attributes/matmul_attributes.h"
 #include "fusilli/attributes/pointwise_attributes.h"
 #include "fusilli/attributes/tensor_attributes.h"
@@ -26,6 +28,7 @@
 #include "fusilli/backend/handle.h"
 #include "fusilli/graph/context.h"
 #include "fusilli/node/conv_node.h"
+#include "fusilli/node/layernorm_node.h"
 #include "fusilli/node/matmul_node.h"
 #include "fusilli/node/node.h"
 #include "fusilli/node/pointwise_node.h"
@@ -240,6 +243,10 @@ public:
   std::shared_ptr<TensorAttr> convDGrad(const std::shared_ptr<TensorAttr> &dy,
                                         const std::shared_ptr<TensorAttr> &w,
                                         ConvDGradAttr &attributes);
+  std::array<std::shared_ptr<TensorAttr>, 3>
+  layernorm(const std::shared_ptr<TensorAttr> &x,
+            const std::shared_ptr<TensorAttr> &scale,
+            const std::shared_ptr<TensorAttr> &bias, LayernormAttr &attributes);
   std::shared_ptr<TensorAttr> matmul(const std::shared_ptr<TensorAttr> &a,
                                      const std::shared_ptr<TensorAttr> &b,
                                      MatmulAttr &attributes);
@@ -642,6 +649,55 @@ Graph::convDGrad(const std::shared_ptr<TensorAttr> &dy,
       std::make_unique<ConvDGradNode>(std::move(convDGradAttr), context));
 
   return dx;
+}
+
+// Create a LayerNormNode, populate it with the specified attributes, create
+// output tensors and add the node to the graph's sub nodes
+inline std::array<std::shared_ptr<TensorAttr>, 3>
+Graph::layernorm(const std::shared_ptr<TensorAttr> &x,
+                 const std::shared_ptr<TensorAttr> &scale,
+                 const std::shared_ptr<TensorAttr> &bias,
+                 LayernormAttr &layernormAttr) {
+  // Populate names when not set.
+  if (layernormAttr.getName().empty())
+    layernormAttr.setName("layernorm_" + std::to_string(subNodes_.size()));
+  if (x && x->getName().empty())
+    x->setName(layernormAttr.getName() + "_X");
+  if (scale && scale->getName().empty())
+    scale->setName(layernormAttr.getName() + "_SCALE");
+  if (bias && bias->getName().empty())
+    bias->setName(layernormAttr.getName() + "_BIAS");
+
+  FUSILLI_LOG_LABEL_ENDL("INFO: Adding LayerNorm '" << layernormAttr.getName()
+                                                    << "' to Graph");
+
+  // Set inputs.
+  layernormAttr.setX(x);
+  layernormAttr.setSCALE(scale);
+  layernormAttr.setBIAS(bias);
+
+  // Set outputs.
+  std::shared_ptr<TensorAttr> y = outputTensor(layernormAttr.getName() + "_Y");
+  std::shared_ptr<TensorAttr> m = nullptr;
+  std::shared_ptr<TensorAttr> v = nullptr;
+  if (layernormAttr.getForwardPhase() == NormFwdPhase::TRAINING) {
+    m = outputTensor(layernormAttr.getName() + "_MEAN");
+    v = outputTensor(layernormAttr.getName() + "_INV_VARIANCE");
+  }
+  layernormAttr.setY(y);
+  layernormAttr.setMEAN(m);
+  layernormAttr.setINV_VARIANCE(v);
+
+  // Create node and add to Graph's subNodes_.
+  subNodes_.emplace_back(
+      std::make_unique<LayerNormNode>(std::move(layernormAttr), context));
+
+  // `std::move` is useful for this case because we're returning an
+  // array initialized from lvalues and `std::move` avoids unnecessary
+  // copy and ref count operations on the shared pointers. This isn't
+  // necessary in methods where a single local variable is returned
+  // as NRVO would handle it.
+  return {std::move(y), std::move(m), std::move(v)};
 }
 
 // Create a MatmulNode, populate it with the specified attributes, create
