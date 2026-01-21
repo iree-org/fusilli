@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include <fusilli.h>
+#include <utils.h>
 
 #include "pointwise_utils.h"
 
@@ -12,7 +13,6 @@
 #include <catch2/generators/catch_generators.hpp>
 
 #include <cmath>
-#include <cstddef>
 #include <cstdint>
 #include <format>
 #include <memory>

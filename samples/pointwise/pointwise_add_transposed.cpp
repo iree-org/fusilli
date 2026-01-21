@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include <fusilli.h>
+#include <utils.h>
 
 #include "pointwise_utils.h"
 
@@ -12,6 +13,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 using namespace fusilli;
