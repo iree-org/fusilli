@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef FUSILLI_GRAPH_COMPILE_COMMAND_H
-#define FUSILLI_GRAPH_COMPILE_COMMAND_H
+#ifndef FUSILLI_BACKEND_COMPILE_COMMAND_H
+#define FUSILLI_BACKEND_COMPILE_COMMAND_H
 
 #include "fusilli/backend/backend.h"
 #include "fusilli/backend/handle.h"
@@ -29,16 +29,18 @@
 namespace fusilli {
 
 // Simple argument escaping for command line serialization.
-static std::string escapeArgument(const std::string &arg) {
-  // Simple escaping: wrap in quotes if it contains spaces.
-  auto equal = arg.find('=');
-  if (equal != std::string::npos) {
-    std::string key = arg.substr(0, equal + 1);
-    std::string value = arg.substr(equal + 1);
-    return key + "\"" + value + "\"";
+inline std::string escapeArgument(const std::string &arg) {
+  std::string escaped;
+  escaped.reserve(arg.size() + 2);
+  escaped += '"';
+  for (char c : arg) {
+    if (c == '"' || c == '\\' || c == '$' || c == '`') {
+      escaped += '\\';
+    }
+    escaped += c;
   }
-
-  return arg;
+  escaped += '"';
+  return escaped;
 }
 
 // CompileCommand encapsulates the construction, serialization, and execution
@@ -65,11 +67,10 @@ public:
   // - statistics output flags
   // - output file specification
   //
-  // Returns ErrorOr<CompileCommand> containing the built command or error.
-  static ErrorOr<CompileCommand> build(const Handle &handle,
-                                       const CacheFile &input,
-                                       const CacheFile &output,
-                                       const CacheFile &statistics) {
+  // Returns CompileCommand containing the built command or error.
+  static CompileCommand build(const Handle &handle, const CacheFile &input,
+                              const CacheFile &output,
+                              const CacheFile &statistics) {
     std::vector<std::string> args = {getIreeCompilePath(), input.path};
 
     // Get backend-specific flags.
@@ -88,7 +89,7 @@ public:
     args.push_back("-o");
     args.push_back(output.path);
 
-    return ok(CompileCommand(std::move(args)));
+    return CompileCommand(std::move(args));
   }
 
   // Move constructors (RAII pattern).
@@ -162,4 +163,4 @@ private:
 
 } // namespace fusilli
 
-#endif // FUSILLI_GRAPH_COMPILE_COMMAND_H
+#endif // FUSILLI_BACKEND_COMPILE_COMMAND_H

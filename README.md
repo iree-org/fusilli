@@ -152,3 +152,10 @@ Tests and samples that are built with the cmake flag `-DFUSILLI_ENABLE_LOGGING=O
 Alternatively, one may call the logging API directly as needed:
 - Calling `fusilli::isLoggingEnabled() = <true|false>` has the same effect as setting `FUSILLI_LOG_INFO = 1|0`.
 - Calling `fusilli::getStream() = <stream_name>` has the same effect as setting the output stream using `FUSILLI_LOG_FILE`.
+
+
+### Environment Varialbles
+
+| Environment Variable              | Description
+| --------------------------------- | -----------
+| `FUSILLI_COMPILE_BACKEND_USE_CLI` | Enables the use of the CLI tool to invoke compilation, otherwise uses CAPI

@@ -17,8 +17,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef FUSILLI_GRAPH_COMPILE_SESSION_H
-#define FUSILLI_GRAPH_COMPILE_SESSION_H
+#ifndef FUSILLI_BACKEND_COMPILE_SESSION_H
+#define FUSILLI_BACKEND_COMPILE_SESSION_H
 
 #include "fusilli/backend/backend.h"
 #include "fusilli/backend/handle.h"
@@ -198,7 +198,7 @@ public:
   // Adds multiple compilation flags to the session.
   //
   // Returns ErrorObject indicating success or failure.
-  ErrorObject addFlags(std::span<std::string> flags);
+  ErrorObject addFlags(std::span<const std::string> flags);
 
   // Compiles an input file to an output file.
   // This will:
@@ -256,9 +256,13 @@ private:
 // Implementation (header-only)
 // ============================================================================
 
-// Pipeline enumeration matching IREE's iree_compiler_pipeline_t.
+// Pipeline enumeration matching IREE's iree_compiler_pipeline_t. These are
+// taken from the IREE C API headers.
 enum IREECompilerPipeline : std::uint8_t {
   IREE_COMPILER_PIPELINE_STD = 0,
+  IREE_COMPILER_PIPELINE_HAL_EXECUTABLE = 1,
+  IREE_COMPILER_PIPELINE_PRECOMPILE = 2,
+  IREE_COMPILER_PIPELINE_VM = 3,
 };
 
 // ----------------------------------------------------------------------------
@@ -271,14 +275,13 @@ inline ErrorOr<std::shared_ptr<CompileContext>> CompileContext::create() {
   static std::mutex instanceMutex;
   static std::shared_ptr<CompileContext> globalInstance;
 
-  // If multiple threads simultaneously request a handle, they will
-  // race into `createSharedInstance()` but only one will succeed in
-  // creating the instance, and others will use it.
+  // If multiple threads simultaneously request a handle, they will race to get
+  // the globalInstance. The first one to acquire the lock will create it,
+  // others will see it's already created
   std::lock_guard<std::mutex> lock(instanceMutex);
 
-  if (globalInstance != nullptr) {
+  if (globalInstance != nullptr)
     return ok(globalInstance);
-  }
 
   // Get the path to the IREE compiler shared library.
   std::string libPath = getIreeCompilerLibPath();
@@ -291,8 +294,8 @@ inline ErrorOr<std::shared_ptr<CompileContext>> CompileContext::create() {
 
   if (!libHandle) {
     libHandle = dlmopen(LM_ID_NEWLM, libPath.c_str(), RTLD_LAZY | RTLD_LOCAL);
-  } else {
   }
+
   if (!libHandle) {
     std::string error = "Failed to load IREE compiler library: ";
     error += dlerror();
@@ -477,7 +480,8 @@ inline ErrorObject CompileSession::addFlag(const std::string &flag) {
   return ok();
 }
 
-inline ErrorObject CompileSession::addFlags(std::span<std::string> flags) {
+inline ErrorObject
+CompileSession::addFlags(std::span<const std::string> flags) {
   for (const auto &flag : flags) {
     FUSILLI_CHECK_ERROR(addFlag(flag));
   }
@@ -540,8 +544,14 @@ inline ErrorObject CompileSession::compile(std::string_view input,
 
   // Output VM bytecode.
   error = context_->ireeCompilerInvocationOutputVMBytecode_(inv, outputHandle);
+
+  // Specify that the written file should be kept after destroying the output
   context_->ireeCompilerOutputKeep_(outputHandle);
+
+  // Close and destroy the handle.
   context_->ireeCompilerOutputDestroy_(outputHandle);
+
+  // Invocation is no longer required.
   context_->ireeCompilerInvocationDestroy_(inv);
 
   if (error) {
@@ -562,7 +572,7 @@ inline ErrorObject CompileSession::compile(std::string_view input,
 }
 
 // ----------------------------------------------------------------------------
-// CompileCommand-style interface implementation
+// Interface that matches the build behavior of CompileCommand
 // ----------------------------------------------------------------------------
 
 inline ErrorOr<CompileSession>
@@ -633,4 +643,4 @@ inline const std::vector<std::string> &CompileSession::getArgs() const {
 
 } // namespace fusilli
 
-#endif // FUSILLI_GRAPH_COMPILE_SESSION_H
+#endif // FUSILLI_BACKEND_COMPILE_SESSION_H

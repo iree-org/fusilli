@@ -21,9 +21,9 @@
 #include "fusilli/attributes/types.h"
 #include "fusilli/backend/backend.h"
 #include "fusilli/backend/buffer.h"
+#include "fusilli/backend/compile_command.h"
+#include "fusilli/backend/compile_session.h"
 #include "fusilli/backend/handle.h"
-#include "fusilli/graph/compile_command.h"
-#include "fusilli/graph/compile_session.h"
 #include "fusilli/graph/context.h"
 #include "fusilli/node/conv_node.h"
 #include "fusilli/node/matmul_node.h"
@@ -53,9 +53,9 @@
 
 namespace fusilli {
 
-static bool checkSubprocessEnv() {
-  const char *backend = std::getenv("FUSILLI_COMPILE_BACKEND");
-  return (backend && strcmp(backend, "subprocess") == 0);
+inline bool checkCompileBackendEnv() {
+  const char *backend = std::getenv("FUSILLI_COMPILE_BACKEND_USE_CLI");
+  return backend && strcmp(backend, "0") != 0;
 }
 
 class Graph : public INode {
@@ -353,10 +353,10 @@ private:
     FUSILLI_CHECK_ERROR(cache.input.write(generatedAsm));
 
     // determine which implementation to use.
-    if (checkSubprocessEnv()) {
+    if (checkCompileBackendEnv()) {
       // Use CompileCommand (subprocess).
-      CompileCommand cmd = FUSILLI_TRY(CompileCommand::build(
-          handle, cache.input, cache.output, cache.statistics));
+      CompileCommand cmd = CompileCommand::build(
+          handle, cache.input, cache.output, cache.statistics);
       FUSILLI_CHECK_ERROR(cmd.writeTo(cache.command));
       FUSILLI_LOG_LABEL_ENDL("INFO: iree-compile command (subprocess)");
       FUSILLI_LOG_ENDL(cmd.toString());
@@ -441,10 +441,10 @@ private:
     // Check for a cache miss on compile command.
     std::string cmdString;
 
-    if (checkSubprocessEnv()) {
+    if (checkCompileBackendEnv()) {
       // Use CompileCommand (subprocess).
       CompileCommand cmd =
-          FUSILLI_TRY(CompileCommand::build(handle, input, output, statistics));
+          CompileCommand::build(handle, input, output, statistics);
       cmdString = cmd.toString();
     } else {
       // Use CompileSession (C API) - DEFAULT.

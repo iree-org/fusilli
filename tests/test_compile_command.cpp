@@ -47,8 +47,7 @@ TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {
   REQUIRE(input.write(getSimpleMLIRModule()).isOk());
 
   // Build the compile command.
-  CompileCommand cmd = FUSILLI_REQUIRE_UNWRAP(
-      CompileCommand::build(handle, input, output, statistics));
+  CompileCommand cmd = CompileCommand::build(handle, input, output, statistics);
 
   // Verify the command arguments.
   const auto &args = cmd.getArgs();
@@ -67,11 +66,10 @@ TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {
   bool hasCPUBackend = false;
   bool hasCPUTarget = false;
   for (const auto &arg : args) {
-    if (arg.find("--iree-hal-target-backends=\"llvm-cpu\"") !=
-        std::string::npos) {
+    if (arg.find("--iree-hal-target-backends=llvm-cpu") != std::string::npos) {
       hasCPUBackend = true;
     }
-    if (arg.find("--iree-llvmcpu-target-cpu=\"host\"") != std::string::npos) {
+    if (arg.find("--iree-llvmcpu-target-cpu=host") != std::string::npos) {
       hasCPUTarget = true;
     }
   }
@@ -123,8 +121,7 @@ TEST_CASE("CompileCommand::build with AMDGPU backend", "[CompileCommand]") {
   REQUIRE(input.write(getSimpleMLIRModule()).isOk());
 
   // Build the compile command.
-  CompileCommand cmd = FUSILLI_REQUIRE_UNWRAP(
-      CompileCommand::build(handle, input, output, statistics));
+  CompileCommand cmd = CompileCommand::build(handle, input, output, statistics);
 
   // Verify the command arguments.
   const auto &args = cmd.getArgs();
@@ -173,8 +170,7 @@ TEST_CASE("CompileCommand::toString format", "[CompileCommand]") {
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
 
   // Build the compile command.
-  CompileCommand cmd = FUSILLI_REQUIRE_UNWRAP(
-      CompileCommand::build(handle, input, output, statistics));
+  CompileCommand cmd = CompileCommand::build(handle, input, output, statistics);
 
   // Get string representation.
   std::string cmdStr = cmd.toString();
@@ -189,7 +185,7 @@ TEST_CASE("CompileCommand::toString format", "[CompileCommand]") {
   REQUIRE_THAT(cmdStr,
                Catch::Matchers::ContainsSubstring(output.path.string()));
   REQUIRE_THAT(cmdStr, Catch::Matchers::ContainsSubstring(
-                           "--iree-hal-target-backends=\"llvm-cpu\""));
+                           "--iree-hal-target-backends=llvm-cpu"));
   REQUIRE_THAT(cmdStr, Catch::Matchers::ContainsSubstring("-o"));
   std::filesystem::remove_all(input.path.parent_path());
 }
@@ -209,8 +205,7 @@ TEST_CASE("CompileCommand::writeTo", "[CompileCommand]") {
       CacheFile::create(kGraphName, "command.txt", /*remove=*/true));
 
   // Build the compile command.
-  CompileCommand cmd = FUSILLI_REQUIRE_UNWRAP(
-      CompileCommand::build(handle, input, output, statistics));
+  CompileCommand cmd = CompileCommand::build(handle, input, output, statistics);
 
   // Write to cache file.
   FUSILLI_REQUIRE_OK(cmd.writeTo(commandFile));
@@ -236,8 +231,7 @@ TEST_CASE("CompileCommand::getArgs", "[CompileCommand]") {
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
 
   // Build the compile command.
-  CompileCommand cmd = FUSILLI_REQUIRE_UNWRAP(
-      CompileCommand::build(handle, input, output, statistics));
+  CompileCommand cmd = CompileCommand::build(handle, input, output, statistics);
 
   // Get args and verify structure.
   const auto &args = cmd.getArgs();
@@ -272,13 +266,13 @@ TEST_CASE("CompileCommand round-trip serialization", "[CompileCommand]") {
       CacheFile::create(kGraphName, "command.txt", /*remove=*/true));
 
   // Build and write command.
-  CompileCommand cmd1 = FUSILLI_REQUIRE_UNWRAP(
-      CompileCommand::build(handle, input, output, statistics));
+  CompileCommand cmd1 =
+      CompileCommand::build(handle, input, output, statistics);
   FUSILLI_REQUIRE_OK(cmd1.writeTo(commandFile));
 
   // Build another command with the same parameters.
-  CompileCommand cmd2 = FUSILLI_REQUIRE_UNWRAP(
-      CompileCommand::build(handle, input, output, statistics));
+  CompileCommand cmd2 =
+      CompileCommand::build(handle, input, output, statistics);
 
   // Read the serialized command.
   std::string serializedCmd = FUSILLI_REQUIRE_UNWRAP(commandFile.read());

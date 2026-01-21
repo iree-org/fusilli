@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <format>
 #include <memory>
+#include <mutex>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -62,7 +63,8 @@ static const std::unordered_map<Backend, const char *> kHalDriver = {
     {Backend::AMDGPU, "hip"},
 };
 
-static std::string getIreeHipTargetForAmdgpu() {
+// Parses AMDGPU arch (e.g. `gfx942`) from `rocm_agent_enumerator` CLI output.
+inline std::string getIreeHipTargetForAmdgpu() {
   auto cmd = getRocmAgentEnumeratorPath();
 
   FILE *lsofFile = popen(cmd.c_str(), "r");
@@ -91,12 +93,10 @@ static std::string getIreeHipTargetForAmdgpu() {
 }
 
 // Map from backend to IREE compile flags.
-static std::span<std::string> getBackendFlags(Backend backend) {
-  static std::mutex mutex;
+inline std::span<const std::string> getBackendFlags(Backend backend) {
+  static std::once_flag initFlag;
   static std::unordered_map<Backend, std::vector<std::string>> kBackendFlags;
-  std::lock_guard<std::mutex> lock(mutex);
-  // Initialize backend flags on first use.
-  if (kBackendFlags.empty()) {
+  std::call_once(initFlag, []() {
     std::vector<std::string> cpuFlags = {
         "--iree-hal-target-backends=llvm-cpu",
         "--iree-llvmcpu-target-cpu=host",
@@ -124,7 +124,7 @@ static std::span<std::string> getBackendFlags(Backend backend) {
 
     kBackendFlags[Backend::CPU] = std::move(cpuFlags);
     kBackendFlags[Backend::AMDGPU] = std::move(amdGpuFlags);
-  }
+  });
 
   return kBackendFlags.at(backend);
 }
