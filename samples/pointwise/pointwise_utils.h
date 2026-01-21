@@ -4,8 +4,8 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#ifndef WORKSPACE_SAMPLES_POINTWISE_UTILS_H
-#define WORKSPACE_SAMPLES_POINTWISE_UTILS_H
+#ifndef WORKSPACE_SAMPLES_POINTWISE_POINTWISE_UTILS_H
+#define WORKSPACE_SAMPLES_POINTWISE_POINTWISE_UTILS_H
 
 // Include test utilities (FUSILLI_REQUIRE_OK, allocateBufferOfType, etc.)
 // Uses angle brackets to search include paths rather than relative directory
@@ -173,4 +173,4 @@ private:
 
 } // namespace fusilli
 
-#endif // WORKSPACE_SAMPLES_POINTWISE_UTILS_H
+#endif // WORKSPACE_SAMPLES_POINTWISE_POINTWISE_UTILS_H

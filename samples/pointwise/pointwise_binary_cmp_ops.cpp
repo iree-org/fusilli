@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include <fusilli.h>
+#include <utils.h>
 
 #include "pointwise_utils.h"
 
