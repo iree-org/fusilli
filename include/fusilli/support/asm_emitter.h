@@ -945,83 +945,19 @@ inline std::string MatmulNode::emitNodePreAsm() const {
 //
 //===----------------------------------------------------------------------===//
 
-// Get permute operations for input tensor in MLIR assembly format.
-// inputIndex: 0 for IN_0, 1 for IN_1, 2 for IN_2
-inline std::string PointwiseNode::getPermuteInputOpsAsm(int inputIndex) const {
-  // Get the input tensor based on index
-  std::shared_ptr<TensorAttr> inputT = pointwiseAttr.inputs.at(
-      static_cast<PointwiseAttr::InputNames>(inputIndex));
-  std::ostringstream oss;
-  std::string prefix = "permute_IN_" + std::to_string(inputIndex);
-  std::string suffix = pointwiseAttr.getName();
-
-  // Emit permute dimensions based on layout.
-  oss << getListOfIntOpsAsm(inputT->getPhysicalToLogicalPermuteOrder(), prefix,
-                            suffix);
-
-  // Emit the permute op itself with unique name.
-  constexpr std::string_view schema = R"(
-    {0}_in{1}_{2}_perm = torch.aten.permute {0}, {3} : {4}, !torch.list<int> -> {5}
-  )";
-
-  std::string output =
-      std::format(schema,
-                  inputT->getValueNameAsm(),   // {0}
-                  inputIndex,                  // {1}
-                  suffix,                      // {2}
-                  "%" + prefix + "_" + suffix, // {3}
-                  inputT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                           /*useLogicalDims=*/false), // {4}
-                  inputT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                           /*useLogicalDims=*/true) // {5}
-      );
-
-  return oss.str() + output;
-}
-
-// Get permute operations for OUT_0 tensor in MLIR assembly format.
-//
-// The suffix is included in the intermediate _perm name to ensure SSA
-// uniqueness, matching the naming convention used by getResultNamesAsm().
-inline std::string PointwiseNode::getPermuteOut0OpsAsm() const {
-  std::ostringstream oss;
-  std::string prefix = "permute_OUT_0";
-  std::string suffix = pointwiseAttr.getName();
-  std::shared_ptr<TensorAttr> out0T = pointwiseAttr.getOUT_0();
-
-  oss << getListOfIntOpsAsm(out0T->getLogicalToPhysicalPermuteOrder(), prefix,
-                            suffix);
-
-  // Emit the permute op itself. The operand includes the suffix to match
-  // the result naming from the main pointwise op.
-  constexpr std::string_view schema = R"(
-    {0} = torch.aten.permute {0}_{4}_perm, {1} : {2}, !torch.list<int> -> {3}
-  )";
-
-  std::string output =
-      std::format(schema,
-                  out0T->getValueNameAsm(),    // {0}
-                  "%" + prefix + "_" + suffix, // {1}
-                  out0T->getTensorTypeAsm(/*isValueTensor=*/true,
-                                          /*useLogicalDims=*/true), // {2}
-                  out0T->getTensorTypeAsm(/*isValueTensor=*/true,
-                                          /*useLogicalDims=*/false), // {3}
-                  suffix                                             // {4}
-      );
-
-  return oss.str() + output;
-}
-
 // Emits PointwiseNode's operand names in MLIR assembly format.
+//
+// The unique suffix is included to ensure SSA uniqueness when the same
+// tensor is used by multiple operations in a graph.
 inline std::string PointwiseNode::getOperandNamesAsm() const {
   std::ostringstream oss;
   std::string suffix = pointwiseAttr.getName();
   const auto &in0 = pointwiseAttr.getIN_0();
-  oss << in0->getValueNameAsm() << "_in0_" << suffix << "_perm";
+  oss << in0->getValueNameAsm() << "_" << suffix << "_perm";
   if (const auto &in1 = pointwiseAttr.getIN_1())
-    oss << ", " << in1->getValueNameAsm() << "_in1_" << suffix << "_perm";
+    oss << ", " << in1->getValueNameAsm() << "_" << suffix << "_perm";
   if (const auto &in2 = pointwiseAttr.getIN_2())
-    oss << ", " << in2->getValueNameAsm() << "_in2_" << suffix << "_perm";
+    oss << ", " << in2->getValueNameAsm() << "_" << suffix << "_perm";
   return oss.str();
 }
 
@@ -1044,8 +980,7 @@ inline std::string PointwiseNode::getOperandTypesAsm() const {
 // Emits PointwiseNode's result names in MLIR assembly format.
 //
 // The unique suffix and "_perm" are included to ensure SSA uniqueness when
-// the same tensor is used by multiple operations. This intermediate result
-// is then used by the output permute.
+// the same tensor is used by multiple operations in a graph.
 inline std::string PointwiseNode::getResultNamesAsm() const {
   return pointwiseAttr.getOUT_0()->getValueNameAsm() + "_" +
          pointwiseAttr.getName() + "_perm";
@@ -1064,32 +999,49 @@ inline std::string PointwiseNode::getResultNamesAndTypesAsm() const {
 
 #define FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(PWOP, SCHEMA, OPIR)            \
   case PointwiseAttr::Mode::PWOP: {                                            \
-    return std::format(SCHEMA, getPermuteInputOpsAsm(0), /* {0} */             \
-                       getResultNamesAsm(),              /* {1} */             \
-                       getOperandNamesAsm(),             /* {2} */             \
-                       getOperandTypesAsm(),             /* {3} */             \
-                       getResultTypesAsm(),              /* {4} */             \
-                       getPermuteOut0OpsAsm(),           /* {5} */             \
-                       #OPIR,                            /* {6} */             \
-                       getName()                         /* {7} */             \
+    return std::format(SCHEMA, permuteIN0,   /* {0} */                         \
+                       getResultNamesAsm(),  /* {1} */                         \
+                       getOperandNamesAsm(), /* {2} */                         \
+                       getOperandTypesAsm(), /* {3} */                         \
+                       getResultTypesAsm(),  /* {4} */                         \
+                       permuteOUT0,          /* {5} */                         \
+                       #OPIR,                /* {6} */                         \
+                       getName()             /* {7} */                         \
     );                                                                         \
   }
 
 #define FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER(PWOP, SCHEMA, OPIR)           \
   case PointwiseAttr::Mode::PWOP: {                                            \
-    return std::format(SCHEMA, getPermuteInputOpsAsm(0), /* {0} */             \
-                       getPermuteInputOpsAsm(1),         /* {1} */             \
-                       getResultNamesAsm(),              /* {2} */             \
-                       getOperandNamesAsm(),             /* {3} */             \
-                       getOperandTypesAsm(),             /* {4} */             \
-                       getResultTypesAsm(),              /* {5} */             \
-                       getPermuteOut0OpsAsm(),           /* {6} */             \
-                       #OPIR,                            /* {7} */             \
-                       getName()                         /* {8} */             \
+    return std::format(SCHEMA, permuteIN0,   /* {0} */                         \
+                       permuteIN1,           /* {1} */                         \
+                       getResultNamesAsm(),  /* {2} */                         \
+                       getOperandNamesAsm(), /* {3} */                         \
+                       getOperandTypesAsm(), /* {4} */                         \
+                       getResultTypesAsm(),  /* {5} */                         \
+                       permuteOUT0,          /* {6} */                         \
+                       #OPIR,                /* {7} */                         \
+                       getName()             /* {8} */                         \
     );                                                                         \
   }
 
 inline std::string PointwiseNode::emitNodePreAsm() const {
+  std::string uniqueSSASuffix = pointwiseAttr.getName();
+
+  // Generate permute operations for inputs and output using the standard
+  // getPermuteOpsAsm() with unique suffixes to prevent SSA redefinitions
+  // when multiple operations use the same tensors.
+  std::string permuteIN0 =
+      getPermuteOpsAsm(pointwiseAttr.getIN_0(), "permute_IN_0", uniqueSSASuffix,
+                       /*isInput=*/true);
+  std::string permuteIN1 =
+      pointwiseAttr.getIN_1()
+          ? getPermuteOpsAsm(pointwiseAttr.getIN_1(), "permute_IN_1",
+                             uniqueSSASuffix, /*isInput=*/true)
+          : "";
+  std::string permuteOUT0 =
+      getPermuteOpsAsm(pointwiseAttr.getOUT_0(), "permute_OUT_0",
+                       uniqueSSASuffix, /*isInput=*/false);
+
   constexpr std::string_view kUnaryTorchSchema = R"(
 {0}
 {1} = {6} {2} : {3} -> {4}

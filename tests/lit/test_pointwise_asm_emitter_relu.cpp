@@ -17,8 +17,8 @@
 // TORCH-CHECK:       %permute_IN_0_val_2_pointwise_relu = torch.constant.int 2
 // TORCH-CHECK:       %permute_IN_0_val_3_pointwise_relu = torch.constant.int 3
 // TORCH-CHECK:       %permute_IN_0_pointwise_relu = torch.prim.ListConstruct %permute_IN_0_val_0_pointwise_relu, %permute_IN_0_val_1_pointwise_relu, %permute_IN_0_val_2_pointwise_relu, %permute_IN_0_val_3_pointwise_relu : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %arg0_in0_pointwise_relu_perm = torch.aten.permute %arg0, %permute_IN_0_pointwise_relu : !torch.vtensor<[16,256,64,32],f32>, !torch.list<int> -> !torch.vtensor<[16,256,64,32],f32>
-// TORCH-CHECK:       %result_pointwise_relu_perm = torch.aten.relu %arg0_in0_pointwise_relu_perm : !torch.vtensor<[16,256,64,32],f32> -> !torch.vtensor<[16,256,64,32],f32>
+// TORCH-CHECK:       %arg0_pointwise_relu_perm = torch.aten.permute %arg0, %permute_IN_0_pointwise_relu : !torch.vtensor<[16,256,64,32],f32>, !torch.list<int> -> !torch.vtensor<[16,256,64,32],f32>
+// TORCH-CHECK:       %result_pointwise_relu_perm = torch.aten.relu %arg0_pointwise_relu_perm : !torch.vtensor<[16,256,64,32],f32> -> !torch.vtensor<[16,256,64,32],f32>
 // TORCH-CHECK:       %permute_OUT_0_val_0_pointwise_relu = torch.constant.int 0
 // TORCH-CHECK:       %permute_OUT_0_val_1_pointwise_relu = torch.constant.int 1
 // TORCH-CHECK:       %permute_OUT_0_val_2_pointwise_relu = torch.constant.int 2
