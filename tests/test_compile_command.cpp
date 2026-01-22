@@ -17,18 +17,6 @@
 
 using namespace fusilli;
 
-// Helper to create a simple MLIR module for testing.
-static std::string getSimpleMLIRModule() {
-  return R"mlir(
-module {
-  func.func @simple_add(%arg0: tensor<4xf32>, %arg1: tensor<4xf32>) -> tensor<4xf32> {
-    %0 = arith.addf %arg0, %arg1 : tensor<4xf32>
-    return %0 : tensor<4xf32>
-  }
-}
-)mlir";
-}
-
 static std::string kGraphName = "test_compile_command";
 
 TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {

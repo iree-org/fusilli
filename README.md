@@ -156,6 +156,9 @@ Alternatively, one may call the logging API directly as needed:
 
 ### Environment Variables
 
-| Environment Variable              | Description
-| --------------------------------- | -----------
-| `FUSILLI_COMPILE_BACKEND_USE_CLI` | Enables the use of the CLI tool to invoke compilation, otherwise uses CAPI
+| Environment Variable                     | Description
+| ---------------------------------------- | -----------
+| `FUSILLI_COMPILE_BACKEND_USE_CLI`        | Enables the use of the CLI tool to invoke compilation, otherwise uses CAPI
+| `FUSILLI_EXTERNAL_IREE_COMPILE`          | Path to `iree-compile` binary
+| `FUSILLI_EXTERNAL_IREE_COMPILER_LIB`     | Path to the IREE compiler dynamic library
+| `FUSILLI_EXTERNAL_ROCM_AGENT_ENUMERATOR` | Path to `rocm_agent_enumerator` binary
