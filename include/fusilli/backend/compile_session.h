@@ -292,9 +292,8 @@ inline ErrorOr<std::shared_ptr<CompileContext>> CompileContext::create() {
   void *libHandle =
       dlopen(libPath.c_str(), RTLD_LAZY | RTLD_LOCAL | RTLD_NOLOAD);
 
-  if (!libHandle) {
+  if (!libHandle)
     libHandle = dlmopen(LM_ID_NEWLM, libPath.c_str(), RTLD_LAZY | RTLD_LOCAL);
-  }
 
   if (!libHandle) {
     std::string error = "Failed to load IREE compiler library: ";
