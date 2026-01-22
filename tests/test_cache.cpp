@@ -104,7 +104,7 @@ TEST_CASE("CacheFile::create remove = false", "[CacheFile]") {
     // Cache file should not have been removed.
     REQUIRE(std::filesystem::exists(cacheFilePath));
 
-    // Remote test artifacts.
+    // Remove test artifacts.
     std::filesystem::remove_all(cacheFilePath.parent_path());
   }
 
@@ -178,7 +178,7 @@ TEST_CASE("CacheFile::open", "[CacheFile]") {
   std::string content = FUSILLI_REQUIRE_UNWRAP(opened.read());
   REQUIRE(content == "test data");
 
-  // Remote test artifacts.
+  // Remove test artifacts.
   std::filesystem::remove_all(cacheFile.path.parent_path());
 }
 
@@ -198,6 +198,6 @@ TEST_CASE("CacheFile directory sanitization", "[CacheFile]") {
   // Verify the file was actually created.
   REQUIRE(std::filesystem::exists(cacheFile.path));
 
-  // Remote test artifacts.
+  // Remove test artifacts.
   std::filesystem::remove_all(cacheFile.path.parent_path());
 }
