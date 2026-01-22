@@ -26,9 +26,8 @@ namespace fusilli {
 // Custom deleter for FILE* from popen
 struct PopenDeleter {
   void operator()(FILE *fp) const {
-    if (fp) {
+    if (fp)
       pclose(fp);
-    }
   }
 };
 
@@ -38,13 +37,11 @@ inline std::optional<std::string> execCommand(const std::string &cmd) {
   std::string result;
 
   std::unique_ptr<FILE, PopenDeleter> pipe(popen(cmd.c_str(), "r"));
-  if (!pipe) {
+  if (!pipe)
     return std::nullopt;
-  }
 
-  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
     result += buffer.data();
-  }
 
   return result;
 }
@@ -60,9 +57,8 @@ inline std::vector<std::string> getPythonSitePackages() {
       "2>/dev/null";
 
   auto output = execCommand(pythonCmd);
-  if (!output.has_value() || output->empty()) {
+  if (!output.has_value() || output->empty())
     return sitePaths;
-  }
 
   // Parse the output - one path per line
   std::string path;
@@ -76,9 +72,8 @@ inline std::vector<std::string> getPythonSitePackages() {
       path += c;
     }
   }
-  if (!path.empty()) {
+  if (!path.empty())
     sitePaths.push_back(path);
-  }
 
   return sitePaths;
 }
@@ -93,9 +88,8 @@ findInSitePackages(const std::string &relativePathPattern) {
     std::filesystem::path fullPath =
         std::filesystem::path(sitePath) / relativePathPattern;
 
-    if (std::filesystem::exists(fullPath)) {
+    if (std::filesystem::exists(fullPath))
       return fullPath.string();
-    }
   }
 
   return std::nullopt;
@@ -108,15 +102,13 @@ inline std::optional<std::string> findIreeCompilerLib() {
   std::mutex lock;
   std::lock_guard<std::mutex> guard(lock);
   std::optional<std::string> libPath;
-  if (libPath.has_value()) {
+  if (libPath.has_value())
     return libPath;
-  }
 
   // Try the standard pip install location
   libPath = findInSitePackages("iree/compiler/_mlir_libs/libIREECompiler.so");
-  if (libPath.has_value()) {
+  if (libPath.has_value())
     return libPath;
-  }
 
   // Try alternative locations
   libPath = findInSitePackages("iree_compiler/_mlir_libs/libIREECompiler.so");
