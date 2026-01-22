@@ -154,7 +154,7 @@ Alternatively, one may call the logging API directly as needed:
 - Calling `fusilli::getStream() = <stream_name>` has the same effect as setting the output stream using `FUSILLI_LOG_FILE`.
 
 
-### Environment Varialbles
+### Environment Variables
 
 | Environment Variable              | Description
 | --------------------------------- | -----------
