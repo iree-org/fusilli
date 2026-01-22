@@ -91,14 +91,14 @@ jobs:
                    ${{ matrix.cmake-options }} && \
                  cmake --build build --target all"
 
-    - name: Test fusilli (libIREECompiler)
+    - name: Test fusilli (libIREECompiler CAPI)
       if: ${{ matrix.name != 'cpu_gcc13_codecov' }}
       run: |
         build_tools/docker/exec_docker_ci.sh \
         bash -c "ctest --test-dir build --output-on-failure --extra-verbose --timeout 120 -j \$(nproc) && \
                  tests/test_cache_empty.sh"
 
-    - name: Test fusilli (iree-compile)
+    - name: Test fusilli (iree-compile CLI)
       if: ${{ matrix.name != 'cpu_gcc13_codecov' }}
       run: |
         build_tools/docker/exec_docker_ci.sh \
