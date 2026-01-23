@@ -101,7 +101,7 @@ findInSitePackages(const std::string &relativePathPattern) {
 inline std::optional<std::string> findIreeCompilerLib() {
   static std::mutex lock;
   std::lock_guard<std::mutex> guard(lock);
-  std::optional<std::string> libPath;
+  static std::optional<std::string> libPath;
   if (libPath.has_value())
     return libPath;
 
