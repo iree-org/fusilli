@@ -23,7 +23,7 @@ static std::string kGraphName = "test_compile_session";
 TEST_CASE("CompileContext::create successfully loads library",
           "[CompileContext]") {
   // Get the shared compiler context.
-  auto context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
 
   // Should succeed (assuming libIREECompiler.so is available).
   REQUIRE(context != nullptr);
@@ -41,7 +41,7 @@ TEST_CASE("CompileContext::create successfully loads library",
 TEST_CASE("CompileContext::create loads symbols correctly",
           "[CompileContext]") {
   // Get the shared compiler context.
-  auto context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
   REQUIRE(context != nullptr);
 
   // API version should be in a reasonable range (e.g., 1.x or 2.x).
@@ -57,7 +57,7 @@ TEST_CASE("CompileContext::create loads symbols correctly",
 TEST_CASE("CompileContext::createSession with CPU backend",
           "[CompileContext][CompileSession]") {
   // Get the shared compiler context.
-  auto context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
   REQUIRE(context != nullptr);
 
   // Create a handle for CPU backend.
@@ -77,7 +77,7 @@ TEST_CASE("CompileContext::createSession with CPU backend",
 TEST_CASE("CompileContext::createSession with AMDGPU backend",
           "[CompileContext][CompileSession]") {
   // Get the shared compiler context.
-  auto context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
   REQUIRE(context != nullptr);
 
   // Create a handle for AMDGPU backend.
@@ -97,7 +97,7 @@ TEST_CASE("CompileContext::createSession with AMDGPU backend",
 TEST_CASE("CompileContext supports multiple sessions",
           "[CompileContext][CompileSession]") {
   // Get the shared compiler context.
-  auto context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
   REQUIRE(context != nullptr);
 
   // Create a handle.
@@ -114,7 +114,7 @@ TEST_CASE("CompileContext supports multiple sessions",
 
 TEST_CASE("CompileSession::addFlag", "[CompileSession]") {
   // Get the shared compiler context and create a session.
-  auto context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
   REQUIRE(context != nullptr);
   Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
   auto session = FUSILLI_REQUIRE_UNWRAP(context->createSession(handle));
@@ -128,7 +128,7 @@ TEST_CASE("CompileSession::addFlag", "[CompileSession]") {
 
 TEST_CASE("CompileSession::addFlags", "[CompileSession]") {
   // Get the shared compiler context and create a session.
-  auto context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
   REQUIRE(context != nullptr);
   Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
   auto session = FUSILLI_REQUIRE_UNWRAP(context->createSession(handle));
@@ -147,7 +147,7 @@ TEST_CASE("CompileSession::addFlags", "[CompileSession]") {
 TEST_CASE("CompileSession::compile with valid MLIR",
           "[CompileSession][integration]") {
   // Get the shared compiler context and create a session.
-  auto context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
   REQUIRE(context != nullptr);
   Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
   auto session = FUSILLI_REQUIRE_UNWRAP(context->createSession(handle));
@@ -176,7 +176,7 @@ TEST_CASE("CompileSession::compile with valid MLIR",
 TEST_CASE("CompileSession::compile with custom flags",
           "[CompileSession][integration]") {
   // Get the shared compiler context and create a session.
-  auto context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
   REQUIRE(context != nullptr);
   Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
   auto session = FUSILLI_REQUIRE_UNWRAP(context->createSession(handle));
@@ -210,7 +210,7 @@ TEST_CASE("CompileSession::compile with custom flags",
 TEST_CASE("CompileSession::compile with invalid MLIR",
           "[CompileSession][error]") {
   // Get the shared compiler context and create a session.
-  auto context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
   REQUIRE(context != nullptr);
   Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
   auto session = FUSILLI_REQUIRE_UNWRAP(context->createSession(handle));
@@ -236,7 +236,7 @@ TEST_CASE("CompileSession::compile with invalid MLIR",
 TEST_CASE("CompileSession::compile with missing input file",
           "[CompileSession][error]") {
   // Get the shared compiler context and create a session.
-  auto context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
   REQUIRE(context != nullptr);
   Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
   auto session = FUSILLI_REQUIRE_UNWRAP(context->createSession(handle));
@@ -257,7 +257,7 @@ TEST_CASE("CompileSession::compile with missing input file",
 
 TEST_CASE("CompileSession move semantics", "[CompileSession]") {
   // Get the shared compiler context and create sessions.
-  auto context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
   REQUIRE(context != nullptr);
   Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
   auto session1 = FUSILLI_REQUIRE_UNWRAP(context->createSession(handle));
@@ -278,7 +278,7 @@ TEST_CASE("CompileSession move semantics", "[CompileSession]") {
 TEST_CASE("CompileSession::compile with AMDGPU backend",
           "[CompileSession][integration][amdgpu]") {
   // Get the shared compiler context and create a session for AMDGPU.
-  auto context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
   REQUIRE(context != nullptr);
   Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU));
   auto session = FUSILLI_REQUIRE_UNWRAP(context->createSession(handle));
@@ -307,7 +307,7 @@ TEST_CASE("CompileSession::compile with AMDGPU backend",
 
 TEST_CASE("CompileSession cleanup on destruction", "[CompileSession]") {
   // Get the shared compiler context.
-  auto context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
   REQUIRE(context != nullptr);
   Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
 
@@ -331,7 +331,7 @@ TEST_CASE("CompileSession cleanup on destruction", "[CompileSession]") {
 
 TEST_CASE("CompileSession with invalid flag", "[CompileSession][error]") {
   // Get the shared compiler context and create a session.
-  auto context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
   REQUIRE(context != nullptr);
   Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
   auto session = FUSILLI_REQUIRE_UNWRAP(context->createSession(handle));
@@ -351,7 +351,7 @@ TEST_CASE("Multiple CompileContexts can coexist", "[CompileContext]") {
   // specifically checks if multiple contexts can be created. This might fail
   // if IREE's global state doesn't support multiple initializations.
 
-  auto context1 = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
+  auto *context1 = FUSILLI_REQUIRE_UNWRAP(CompileContext::create());
   REQUIRE(context1 != nullptr);
 
   // Try to create a second context.
@@ -359,7 +359,7 @@ TEST_CASE("Multiple CompileContexts can coexist", "[CompileContext]") {
 
   // If it succeeds, both contexts should be usable.
   if (isOk(maybeContext2)) {
-    auto context2 = FUSILLI_REQUIRE_UNWRAP(std::move(maybeContext2));
+    auto *context2 = FUSILLI_REQUIRE_UNWRAP(std::move(maybeContext2));
     REQUIRE(context2 != nullptr);
 
     // Both should have the same API version.
