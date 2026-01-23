@@ -377,7 +377,7 @@ private:
         /*in=*/std::move(inputCache),
         /*out=*/std::move(outputCache),
         /*cmd=*/std::move(commandCache),
-        /*stat=*/std::move(statisticsCache));
+        /*stats=*/std::move(statisticsCache));
 
     // Write input asm to cache.
     FUSILLI_CHECK_ERROR(cache.input.write(generatedAsm));
