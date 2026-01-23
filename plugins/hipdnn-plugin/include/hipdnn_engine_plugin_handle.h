@@ -54,10 +54,13 @@ public:
   // creation (in `hipdnnEnginePluginCreate`) we defer the fusilli::Handle
   // creation until we know if a stream has been set.
   fusilli::ErrorOr<std::reference_wrapper<fusilli::Handle>> getFusilliHandle() {
-    if (!_fusilliHandle.has_value())
-      _fusilliHandle = FUSILLI_TRY(
+    if (!_fusilliHandle.has_value()) {
+      FUSILLI_ASSIGN_OR_RETURN(
+          auto handle,
           fusilli::Handle::create(fusilli::Backend::AMDGPU, deviceId,
                                   reinterpret_cast<uintptr_t>(_stream)));
+      _fusilliHandle = std::move(handle);
+    }
     return fusilli::ok(
         std::reference_wrapper<fusilli::Handle>(*_fusilliHandle));
   }

@@ -154,15 +154,16 @@ testConvAsmEmitterXNhwcWKrscWithRelu(const std::string &mode) {
   FUSILLI_CHECK_ERROR(graph->validate());
 
   if (mode == "default") {
-    std::cout << FUSILLI_TRY(graph->emitAsm()) << std::endl;
+    FUSILLI_ASSIGN_OR_RETURN(auto generatedAsm, graph->emitAsm());
+    std::cout << generatedAsm << std::endl;
   }
 
   if (mode == "stats") {
-    Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
     FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
-    std::cout << FUSILLI_TRY(graph->readCompilationCacheFile(
-                     CachedAssetsType::Statistics))
-              << std::endl;
+    FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
+                                             CachedAssetsType::Statistics));
+    std::cout << stats << std::endl;
   }
 
   return ok();

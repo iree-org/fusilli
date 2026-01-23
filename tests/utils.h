@@ -48,9 +48,11 @@
 // Unwrap the type returned from an expression that evaluates to an ErrorOr,
 // fail the test using Catch2's REQUIRE if the result is an ErrorObject.
 //
-// This is very similar to FUSILLI_TRY, but FUSILLI_TRY propagates an error to
-// callers on the error path, this fails the test on the error path. The two
-// macros are analogous to rust's `?` (try) operator and `.unwrap()` call.
+// This is very similar to FUSILLI_ASSIGN_OR_RETURN, but
+// FUSILLI_ASSIGN_OR_RETURN propagates an error to callers on the error path,
+// this fails the test on the error path. The two macros are analogous to rust's
+// `?` (try) operator and
+// `.unwrap()` call.
 #define FUSILLI_REQUIRE_UNWRAP(expr)                                           \
   ({                                                                           \
     auto errorOr = (expr);                                                     \
@@ -74,38 +76,69 @@ allocateBufferOfType(Handle &handle, const std::shared_ptr<TensorAttr> &tensor,
                           "Tensor is not set");
 
   switch (type) {
-  case DataType::Float:
-    return std::make_shared<Buffer>(FUSILLI_TRY(Buffer::allocate(
-        handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
-        /*bufferData=*/
-        std::vector<float>(tensor->getVolume(), float(initVal)))));
-  case DataType::Int32:
-    return std::make_shared<Buffer>(FUSILLI_TRY(Buffer::allocate(
-        handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
-        /*bufferData=*/std::vector<int>(tensor->getVolume(), int(initVal)))));
-  case DataType::Half:
-    return std::make_shared<Buffer>(FUSILLI_TRY(Buffer::allocate(
-        handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
-        /*bufferData=*/std::vector<half>(tensor->getVolume(), half(initVal)))));
-  case DataType::BFloat16:
-    return std::make_shared<Buffer>(FUSILLI_TRY(Buffer::allocate(
-        handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
-        /*bufferData=*/std::vector<bf16>(tensor->getVolume(), bf16(initVal)))));
-  case DataType::Int16:
-    return std::make_shared<Buffer>(FUSILLI_TRY(Buffer::allocate(
-        handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
-        /*bufferData=*/
-        std::vector<int16_t>(tensor->getVolume(), int16_t(initVal)))));
-  case DataType::Int8:
-    return std::make_shared<Buffer>(FUSILLI_TRY(Buffer::allocate(
-        handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
-        /*bufferData=*/
-        std::vector<int8_t>(tensor->getVolume(), int8_t(initVal)))));
-  case DataType::Boolean:
-    return std::make_shared<Buffer>(FUSILLI_TRY(Buffer::allocate(
-        handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
-        /*bufferData=*/
-        std::vector<int8_t>(tensor->getVolume(), int8_t(initVal)))));
+  case DataType::Float: {
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto buffer,
+        Buffer::allocate(
+            handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
+            /*bufferData=*/
+            std::vector<float>(tensor->getVolume(), float(initVal))));
+    return std::make_shared<Buffer>(std::move(buffer));
+  }
+  case DataType::Int32: {
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto buffer,
+        Buffer::allocate(handle,
+                         /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
+                         /*bufferData=*/
+                         std::vector<int>(tensor->getVolume(), int(initVal))));
+    return std::make_shared<Buffer>(std::move(buffer));
+  }
+  case DataType::Half: {
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto buffer,
+        Buffer::allocate(
+            handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
+            /*bufferData=*/
+            std::vector<half>(tensor->getVolume(), half(initVal))));
+    return std::make_shared<Buffer>(std::move(buffer));
+  }
+  case DataType::BFloat16: {
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto buffer,
+        Buffer::allocate(
+            handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
+            /*bufferData=*/
+            std::vector<bf16>(tensor->getVolume(), bf16(initVal))));
+    return std::make_shared<Buffer>(std::move(buffer));
+  }
+  case DataType::Int16: {
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto buffer,
+        Buffer::allocate(
+            handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
+            /*bufferData=*/
+            std::vector<int16_t>(tensor->getVolume(), int16_t(initVal))));
+    return std::make_shared<Buffer>(std::move(buffer));
+  }
+  case DataType::Int8: {
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto buffer,
+        Buffer::allocate(
+            handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
+            /*bufferData=*/
+            std::vector<int8_t>(tensor->getVolume(), int8_t(initVal))));
+    return std::make_shared<Buffer>(std::move(buffer));
+  }
+  case DataType::Boolean: {
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto buffer,
+        Buffer::allocate(
+            handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
+            /*bufferData=*/
+            std::vector<int8_t>(tensor->getVolume(), int8_t(initVal))));
+    return std::make_shared<Buffer>(std::move(buffer));
+  }
   default:
     return error(ErrorCode::InvalidAttribute, "Unsupported DataType");
   }
@@ -153,19 +186,20 @@ inline ErrorObject testUnaryPointwiseAsmEmitter(const std::string &graphName,
   FUSILLI_CHECK_ERROR(graph->validate());
 
   if (mode == "default") {
-    std::cout << FUSILLI_TRY(graph->emitAsm()) << std::endl;
+    FUSILLI_ASSIGN_OR_RETURN(auto generatedAsm, graph->emitAsm());
+    std::cout << generatedAsm << std::endl;
   }
 
   if (mode == "stats") {
 #ifdef FUSILLI_ENABLE_AMDGPU
-    Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU));
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::AMDGPU));
 #else
-    Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
 #endif
     FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
-    std::cout << FUSILLI_TRY(graph->readCompilationCacheFile(
-                     CachedAssetsType::Statistics))
-              << std::endl;
+    FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
+                                             CachedAssetsType::Statistics));
+    std::cout << stats << std::endl;
   }
 
   return ok();
@@ -194,19 +228,20 @@ inline ErrorObject testBinaryPointwiseAsmEmitter(const std::string &graphName,
   FUSILLI_CHECK_ERROR(graph->validate());
 
   if (mode == "default") {
-    std::cout << FUSILLI_TRY(graph->emitAsm()) << std::endl;
+    FUSILLI_ASSIGN_OR_RETURN(auto generatedAsm, graph->emitAsm());
+    std::cout << generatedAsm << std::endl;
   }
 
   if (mode == "stats") {
 #ifdef FUSILLI_ENABLE_AMDGPU
-    Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU));
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::AMDGPU));
 #else
-    Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
 #endif
     FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
-    std::cout << FUSILLI_TRY(graph->readCompilationCacheFile(
-                     CachedAssetsType::Statistics))
-              << std::endl;
+    FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
+                                             CachedAssetsType::Statistics));
+    std::cout << stats << std::endl;
   }
 
   return ok();

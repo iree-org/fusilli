@@ -16,9 +16,11 @@
 // Unwrap the type returned from an expression that evaluates to an ErrorOr,
 // fail the test using GTest's EXPECT_TRUE if the result is an ErrorObject.
 //
-// This is very similar to FUSILLI_TRY, but FUSILLI_TRY propagates an error to
-// callers on the error path, this fails the test on the error path. The two
-// macros are analogous to rust's `?` (try) operator and `.unwrap()` call.
+// This is very similar to FUSILLI_ASSIGN_OR_RETURN, but
+// FUSILLI_ASSIGN_OR_RETURN propagates an error to callers on the error path,
+// this fails the test on the error path. The two macros are analogous to rust's
+// `?` (try) operator and
+// `.unwrap()` call.
 #define FUSILLI_PLUGIN_EXPECT_UNWRAP(expr)                                     \
   ({                                                                           \
     auto _errorOr = (expr);                                                    \

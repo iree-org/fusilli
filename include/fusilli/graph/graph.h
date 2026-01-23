@@ -95,11 +95,11 @@ public:
                             "Graph must be validated before being compiled");
 
     // Generate MLIR assembly for this graph.
-    std::string generatedAsm = FUSILLI_TRY(emitAsm());
+    FUSILLI_ASSIGN_OR_RETURN(std::string generatedAsm, emitAsm());
 
     // Compile using IREE compiler or reuse cached artifact.
-    std::string vmfbPath =
-        FUSILLI_TRY(getCompiledArtifact(handle, generatedAsm, remove));
+    FUSILLI_ASSIGN_OR_RETURN(std::string vmfbPath,
+                             getCompiledArtifact(handle, generatedAsm, remove));
 
     FUSILLI_LOG_LABEL_ENDL("INFO: Compiled Graph cached at \"" + vmfbPath +
                            "\"");
@@ -279,14 +279,18 @@ public:
   getCompiledArtifact(const Handle &handle, const std::string &generatedAsm,
                       bool remove, std::optional<bool> *reCompiled = nullptr) {
     // Check for cache hit.
-    if (FUSILLI_TRY(validateCache(handle, generatedAsm))) {
+    FUSILLI_ASSIGN_OR_RETURN(bool cacheValid,
+                             validateCache(handle, generatedAsm));
+    if (cacheValid) {
       if (reCompiled)
         *reCompiled = false;
       return ok(cache_->output.path);
     }
     // (Re)generate cache.
-    cache_ =
-        FUSILLI_TRY(generateCompiledArtifact(handle, generatedAsm, remove));
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto generatedCache,
+        generateCompiledArtifact(handle, generatedAsm, remove));
+    cache_ = std::move(generatedCache);
     if (reCompiled)
       *reCompiled = true;
     return ok(cache_->output.path);
@@ -348,28 +352,32 @@ private:
                            const std::string &generatedAsm, bool remove) {
     FUSILLI_LOG_LABEL_ENDL("INFO: Generating compiled artifacts");
 
-    // Create cache.
+    // Create cache files.
+    FUSILLI_ASSIGN_OR_RETURN(auto inputCache,
+                             CacheFile::create(
+                                 /*graphName=*/getName(),
+                                 /*fileName=*/IREE_COMPILE_INPUT_FILENAME,
+                                 /*remove=*/remove));
+    FUSILLI_ASSIGN_OR_RETURN(auto outputCache,
+                             CacheFile::create(
+                                 /*graphName=*/getName(),
+                                 /*fileName=*/IREE_COMPILE_OUTPUT_FILENAME,
+                                 /*remove=*/remove));
+    FUSILLI_ASSIGN_OR_RETURN(auto commandCache,
+                             CacheFile::create(
+                                 /*graphName=*/getName(),
+                                 /*fileName=*/IREE_COMPILE_COMMAND_FILENAME,
+                                 /*remove=*/remove));
+    FUSILLI_ASSIGN_OR_RETURN(auto statisticsCache,
+                             CacheFile::create(
+                                 /*graphName=*/getName(),
+                                 /*fileName=*/IREE_COMPILE_STATISTICS_FILENAME,
+                                 /*remove=*/remove));
     CachedAssets cache = CachedAssets(
-        /*in=*/
-        FUSILLI_TRY(CacheFile::create(
-            /*graphName=*/getName(),
-            /*fileName=*/IREE_COMPILE_INPUT_FILENAME,
-            /*remove=*/remove)),
-        /*out=*/
-        FUSILLI_TRY(CacheFile::create(
-            /*graphName=*/getName(),
-            /*fileName=*/IREE_COMPILE_OUTPUT_FILENAME,
-            /*remove=*/remove)),
-        /*cmd=*/
-        FUSILLI_TRY(CacheFile::create(
-            /*graphName=*/getName(),
-            /*fileName=*/IREE_COMPILE_COMMAND_FILENAME,
-            /*remove=*/remove)),
-        /*stat=*/
-        FUSILLI_TRY(CacheFile::create(
-            /*graphName=*/getName(),
-            /*fileName=*/IREE_COMPILE_STATISTICS_FILENAME,
-            /*remove=*/remove)));
+        /*in=*/std::move(inputCache),
+        /*out=*/std::move(outputCache),
+        /*cmd=*/std::move(commandCache),
+        /*stat=*/std::move(statisticsCache));
 
     // Write input asm to cache.
     FUSILLI_CHECK_ERROR(cache.input.write(generatedAsm));
@@ -436,28 +444,35 @@ private:
     }
 
     // Open expected files.
-    CacheFile input = FUSILLI_TRY(CacheFile::open(
-        /*graphName=*/getName(),
-        /*fileName=*/IREE_COMPILE_INPUT_FILENAME));
-    CacheFile output = FUSILLI_TRY(CacheFile::open(
-        /*graphName=*/getName(),
-        /*fileName=*/IREE_COMPILE_OUTPUT_FILENAME));
-    CacheFile command = FUSILLI_TRY(CacheFile::open(
-        /*graphName=*/getName(),
-        /*fileName=*/IREE_COMPILE_COMMAND_FILENAME));
-    CacheFile statistics = FUSILLI_TRY(CacheFile::open(
-        /*graphName=*/getName(),
-        /*fileName=*/IREE_COMPILE_STATISTICS_FILENAME));
+    FUSILLI_ASSIGN_OR_RETURN(CacheFile input,
+                             CacheFile::open(
+                                 /*graphName=*/getName(),
+                                 /*fileName=*/IREE_COMPILE_INPUT_FILENAME));
+    FUSILLI_ASSIGN_OR_RETURN(CacheFile output,
+                             CacheFile::open(
+                                 /*graphName=*/getName(),
+                                 /*fileName=*/IREE_COMPILE_OUTPUT_FILENAME));
+    FUSILLI_ASSIGN_OR_RETURN(CacheFile command,
+                             CacheFile::open(
+                                 /*graphName=*/getName(),
+                                 /*fileName=*/IREE_COMPILE_COMMAND_FILENAME));
+    FUSILLI_ASSIGN_OR_RETURN(
+        CacheFile statistics,
+        CacheFile::open(
+            /*graphName=*/getName(),
+            /*fileName=*/IREE_COMPILE_STATISTICS_FILENAME));
 
     // Check for a cache miss on generated assembly.
-    if (FUSILLI_TRY(input.read()) != generatedAsm) {
+    FUSILLI_ASSIGN_OR_RETURN(std::string inputContents, input.read());
+    if (inputContents != generatedAsm) {
       FUSILLI_LOG_ENDL("Generated assembly does not match");
       return ok(false);
     }
 
     // Check for a cache miss on compile command.
     std::string cmd = buildCompileCommand(handle, input, output, statistics);
-    if (FUSILLI_TRY(command.read()) != cmd) {
+    FUSILLI_ASSIGN_OR_RETURN(std::string commandContents, command.read());
+    if (commandContents != cmd) {
       FUSILLI_LOG_ENDL("Compile command does not match");
       return ok(false);
     }

@@ -42,7 +42,8 @@ public:
     // Create a shared IREE runtime instance (thread-safe) and use it
     // along with the backend to construct a handle (without initializing
     // the device yet).
-    auto handle = Handle(backend, FUSILLI_TRY(Handle::createSharedInstance()));
+    FUSILLI_ASSIGN_OR_RETURN(auto instance, Handle::createSharedInstance());
+    auto handle = Handle(backend, std::move(instance));
 
     // Lazy create handle-specific IREE HAL device and populate the handle.
     switch (backend) {
@@ -96,7 +97,8 @@ public:
     // Create a shared IREE runtime instance (thread-safe) and use it
     // along with the backend to construct a handle (without initializing
     // the device yet).
-    auto handle = Handle(backend, FUSILLI_TRY(Handle::createSharedInstance()));
+    FUSILLI_ASSIGN_OR_RETURN(auto instance, Handle::createSharedInstance());
+    auto handle = Handle(backend, std::move(instance));
 
     // Lazy create handle-specific IREE HAL device and populate the handle.
     FUSILLI_CHECK_ERROR(
