@@ -952,36 +952,6 @@ inline std::string LayerNormNode::getResultTypesAsm() const {
   return oss.str();
 }
 
-// Get permute ops for input X in MLIR assembly format.
-inline std::string LayerNormNode::getPermuteXOpsAsm() const {
-  std::ostringstream oss;
-
-  std::string prefix = "permute_x";
-  std::string suffix = layernormAttr.getName();
-  std::shared_ptr<TensorAttr> xT = layernormAttr.getX();
-
-  // Emit permute dimensions based on layout.
-  oss << getListOfIntOpsAsm(xT->getPhysicalToLogicalPermuteOrder(), prefix,
-                            suffix);
-
-  // Emit the permute op itself.
-  constexpr std::string_view schema = R"(
-    {0}_perm = torch.aten.permute {0}, {1} : {2}, !torch.list<int> -> {3}
-  )";
-
-  std::string output =
-      std::format(schema,
-                  xT->getValueNameAsm(),       // {0}
-                  "%" + prefix + "_" + suffix, // {1}
-                  xT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/false), // {2}
-                  xT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/true) // {3}
-      );
-
-  return oss.str() + output;
-}
-
 // Get normalized_shape list construction ops in MLIR assembly format.
 // normalized_shape is the dimensions to normalize over (typically all dims
 // except batch).
@@ -992,167 +962,12 @@ inline std::string LayerNormNode::getNormalizedShapeOpsAsm() const {
                             /*suffix=*/suffix);
 }
 
-// Get permute ops for scale tensor in MLIR assembly format.
-inline std::string LayerNormNode::getPermuteScaleOpsAsm() const {
-  std::string suffix = layernormAttr.getName();
-  std::shared_ptr<TensorAttr> sT = layernormAttr.getSCALE();
-
-  if (!sT) {
-    // If scale is not set, emit a none constant
-    return std::format("%none_scale_{} = torch.constant.none", suffix);
-  }
-
-  std::ostringstream oss;
-  std::string prefix = "permute_scale";
-
-  // Emit permute dimensions based on layout.
-  oss << getListOfIntOpsAsm(sT->getPhysicalToLogicalPermuteOrder(), prefix,
-                            suffix);
-
-  // Emit the permute op itself.
-  constexpr std::string_view schema = R"(
-    {0}_perm = torch.aten.permute {0}, {1} : {2}, !torch.list<int> -> {3}
-  )";
-
-  std::string output =
-      std::format(schema,
-                  sT->getValueNameAsm(),       // {0}
-                  "%" + prefix + "_" + suffix, // {1}
-                  sT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/false), // {2}
-                  sT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/true) // {3}
-      );
-
-  return oss.str() + output;
-}
-
-// Get permute ops for bias tensor in MLIR assembly format.
-inline std::string LayerNormNode::getPermuteBiasOpsAsm() const {
-  std::string suffix = layernormAttr.getName();
-  std::shared_ptr<TensorAttr> bT = layernormAttr.getBIAS();
-
-  if (!bT) {
-    // If bias is not set, emit a none constant
-    return std::format("%none_bias_{} = torch.constant.none", suffix);
-  }
-
-  std::ostringstream oss;
-  std::string prefix = "permute_bias";
-
-  // Emit permute dimensions based on layout.
-  oss << getListOfIntOpsAsm(bT->getPhysicalToLogicalPermuteOrder(), prefix,
-                            suffix);
-
-  // Emit the permute op itself.
-  constexpr std::string_view schema = R"(
-    {0}_perm = torch.aten.permute {0}, {1} : {2}, !torch.list<int> -> {3}
-  )";
-
-  std::string output =
-      std::format(schema,
-                  bT->getValueNameAsm(),       // {0}
-                  "%" + prefix + "_" + suffix, // {1}
-                  bT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/false), // {2}
-                  bT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/true) // {3}
-      );
-
-  return oss.str() + output;
-}
-
 // Get epsilon constant op in MLIR assembly format.
 inline std::string LayerNormNode::getEpsilonOpsAsm() const {
   std::string suffix = layernormAttr.getName();
   float eps =
       std::get<float>(layernormAttr.getEpsilon()->getScalarValue().value());
   return std::format("%eps_{} = torch.constant.float {:e}", suffix, eps);
-}
-
-// Get permute ops for output Y in MLIR assembly format.
-inline std::string LayerNormNode::getPermuteYOpsAsm() const {
-  std::ostringstream oss;
-
-  std::string prefix = "permute_y";
-  std::string suffix = layernormAttr.getName();
-  std::shared_ptr<TensorAttr> yT = layernormAttr.getY();
-
-  oss << getListOfIntOpsAsm(yT->getLogicalToPhysicalPermuteOrder(), prefix,
-                            suffix);
-
-  // Emit the permute op itself.
-  constexpr std::string_view schema = R"(
-    {0} = torch.aten.permute {0}_perm, {1} : {2}, !torch.list<int> -> {3}
-  )";
-
-  std::string output =
-      std::format(schema,
-                  yT->getValueNameAsm(),       // {0}
-                  "%" + prefix + "_" + suffix, // {1}
-                  yT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/true), // {2}
-                  yT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/false) // {3}
-      );
-
-  return oss.str() + output;
-}
-
-// Get permute ops for output MEAN in MLIR assembly format.
-inline std::string LayerNormNode::getPermuteMeanOpsAsm() const {
-  std::ostringstream oss;
-  std::string prefix = "permute_mean";
-  std::string suffix = layernormAttr.getName();
-  std::shared_ptr<TensorAttr> mT = layernormAttr.getMEAN();
-
-  oss << getListOfIntOpsAsm(mT->getLogicalToPhysicalPermuteOrder(), prefix,
-                            suffix);
-
-  // Emit the permute op itself.
-  constexpr std::string_view schema = R"(
-    {0} = torch.aten.permute {0}_perm, {1} : {2}, !torch.list<int> -> {3}
-  )";
-
-  std::string output =
-      std::format(schema,
-                  mT->getValueNameAsm(),       // {0}
-                  "%" + prefix + "_" + suffix, // {1}
-                  mT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/true), // {2}
-                  mT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/false) // {3}
-      );
-
-  return oss.str() + output;
-}
-
-// Get permute ops for output INV_VARIANCE in MLIR assembly format.
-inline std::string LayerNormNode::getPermuteInvVarianceOpsAsm() const {
-  std::ostringstream oss;
-  std::string prefix = "permute_inv_variance";
-  std::string suffix = layernormAttr.getName();
-  std::shared_ptr<TensorAttr> vT = layernormAttr.getINV_VARIANCE();
-
-  oss << getListOfIntOpsAsm(vT->getLogicalToPhysicalPermuteOrder(), prefix,
-                            suffix);
-
-  // Emit the permute op itself.
-  constexpr std::string_view schema = R"(
-    {0} = torch.aten.permute {0}_perm, {1} : {2}, !torch.list<int> -> {3}
-  )";
-
-  std::string output =
-      std::format(schema,
-                  vT->getValueNameAsm(),       // {0}
-                  "%" + prefix + "_" + suffix, // {1}
-                  vT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/true), // {2}
-                  vT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/false) // {3}
-      );
-
-  return oss.str() + output;
 }
 
 // This gets called by the recursive `emitAsmSubtree()` method to emit
@@ -1162,7 +977,31 @@ inline std::string LayerNormNode::getPermuteInvVarianceOpsAsm() const {
 // schema, take extra caution about double bracing the curly brackets
 // (refer to the comments at the top of this file for details).
 inline std::string LayerNormNode::emitNodePreAsm() const {
+  std::string uniqueSSASuffix = layernormAttr.getName();
+  std::string permuteX = getPermuteOpsAsm(layernormAttr.getX(), "permute_x",
+                                          uniqueSSASuffix, /*isInput=*/true);
+  std::string permuteY = getPermuteOpsAsm(layernormAttr.getY(), "permute_y",
+                                          uniqueSSASuffix, /*isInput=*/false);
+  std::string permuteScale =
+      layernormAttr.getSCALE()
+          ? getPermuteOpsAsm(layernormAttr.getSCALE(), "permute_scale",
+                             uniqueSSASuffix, /*isInput=*/true)
+          : std::format("%none_scale_{} = torch.constant.none",
+                        uniqueSSASuffix);
+  std::string permuteBias =
+      layernormAttr.getBIAS()
+          ? getPermuteOpsAsm(layernormAttr.getBIAS(), "permute_bias",
+                             uniqueSSASuffix, /*isInput=*/true)
+          : std::format("%none_bias_{} = torch.constant.none", uniqueSSASuffix);
+
   if (isTrainingForwardPhase()) {
+    std::string permuteMean =
+        getPermuteOpsAsm(layernormAttr.getMEAN(), "permute_mean",
+                         uniqueSSASuffix, /*isInput=*/false);
+    std::string permuteInvVariance = getPermuteOpsAsm(
+        layernormAttr.getINV_VARIANCE(), "permute_inv_variance",
+        uniqueSSASuffix, /*isInput=*/false);
+
     constexpr std::string_view schema = R"(
       {0}
       {1}
@@ -1176,18 +1015,18 @@ inline std::string LayerNormNode::emitNodePreAsm() const {
     )";
 
     return std::format(schema,
-                       getNormalizedShapeOpsAsm(),   // {0}
-                       getEpsilonOpsAsm(),           // {1}
-                       getPermuteXOpsAsm(),          // {2}
-                       getPermuteScaleOpsAsm(),      // {3}
-                       getPermuteBiasOpsAsm(),       // {4}
-                       getResultNamesAsm(),          // {5}
-                       getOperandNamesAsm(),         // {6}
-                       getOperandTypesAsm(),         // {7}
-                       getResultTypesAsm(),          // {8}
-                       getPermuteYOpsAsm(),          // {9}
-                       getPermuteMeanOpsAsm(),       // {10}
-                       getPermuteInvVarianceOpsAsm() // {11}
+                       getNormalizedShapeOpsAsm(), // {0}
+                       getEpsilonOpsAsm(),         // {1}
+                       permuteX,                   // {2}
+                       permuteScale,               // {3}
+                       permuteBias,                // {4}
+                       getResultNamesAsm(),        // {5}
+                       getOperandNamesAsm(),       // {6}
+                       getOperandTypesAsm(),       // {7}
+                       getResultTypesAsm(),        // {8}
+                       permuteY,                   // {9}
+                       permuteMean,                // {10}
+                       permuteInvVariance          // {11}
     );
   }
 
@@ -1202,19 +1041,17 @@ inline std::string LayerNormNode::emitNodePreAsm() const {
     {10}
   )";
 
-  std::string uniqueSSASuffix = layernormAttr.getName();
-
   std::string output = std::format(schema, uniqueSSASuffix,
                                    getNormalizedShapeOpsAsm(), // {0}
                                    getEpsilonOpsAsm(),         // {1}
-                                   getPermuteXOpsAsm(),        // {2}
-                                   getPermuteScaleOpsAsm(),    // {3}
-                                   getPermuteBiasOpsAsm(),     // {4}
+                                   permuteX,                   // {2}
+                                   permuteScale,               // {3}
+                                   permuteBias,                // {4}
                                    getResultNamesAsm(),        // {5}
                                    getOperandNamesAsm(),       // {6}
                                    getOperandTypesAsm(),       // {7}
                                    getResultTypesAsm(),        // {8}
-                                   getPermuteYOpsAsm()         // {9}
+                                   permuteY                    // {9}
   );
 
   return output;

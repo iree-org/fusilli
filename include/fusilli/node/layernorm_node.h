@@ -47,14 +47,8 @@ public:
   std::string getOperandTypesAsm() const;
   std::string getResultNamesAsm() const;
   std::string getResultTypesAsm() const;
-  std::string getPermuteXOpsAsm() const;
   std::string getNormalizedShapeOpsAsm() const;
-  std::string getPermuteScaleOpsAsm() const;
-  std::string getPermuteBiasOpsAsm() const;
   std::string getEpsilonOpsAsm() const;
-  std::string getPermuteYOpsAsm() const;
-  std::string getPermuteMeanOpsAsm() const;
-  std::string getPermuteInvVarianceOpsAsm() const;
 
   const std::string &getName() const override final {
     return layernormAttr.getName();
