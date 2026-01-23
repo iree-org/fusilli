@@ -258,7 +258,7 @@ private:
 
 // Pipeline enumeration matching IREE's iree_compiler_pipeline_t. These are
 // taken from the IREE C API headers.
-enum IREECompilerPipeline : std::uint8_t {
+enum IREECompilerPipeline : uint8_t {
   IREE_COMPILER_PIPELINE_STD = 0,
   IREE_COMPILER_PIPELINE_HAL_EXECUTABLE = 1,
   IREE_COMPILER_PIPELINE_PRECOMPILE = 2,
