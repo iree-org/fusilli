@@ -21,11 +21,11 @@
 // TORCH-CHECK:       %permute_IN_1_pointwise_add_transposed = torch.prim.ListConstruct %permute_IN_1_val_0_pointwise_add_transposed, %permute_IN_1_val_1_pointwise_add_transposed : (!torch.int, !torch.int) -> !torch.list<int>
 // TORCH-CHECK:       %arg1_add_transposed_in1_pointwise_add_transposed_perm = torch.aten.permute %arg1_add_transposed, %permute_IN_1_pointwise_add_transposed : !torch.vtensor<[256,128],f32>, !torch.list<int> -> !torch.vtensor<[128,256],f32>
 // TORCH-CHECK:       %alpha_pointwise_add_transposed = torch.constant.int 1
-// TORCH-CHECK:       %result_perm = torch.aten.add.Tensor %arg0_input_in0_pointwise_add_transposed_perm, %arg1_add_transposed_in1_pointwise_add_transposed_perm, %alpha_pointwise_add_transposed : !torch.vtensor<[128,256],f32>, !torch.vtensor<[128,256],f32>, !torch.int -> !torch.vtensor<[128,256],f32>
+// TORCH-CHECK:       %result_pointwise_add_transposed_perm = torch.aten.add.Tensor %arg0_input_in0_pointwise_add_transposed_perm, %arg1_add_transposed_in1_pointwise_add_transposed_perm, %alpha_pointwise_add_transposed : !torch.vtensor<[128,256],f32>, !torch.vtensor<[128,256],f32>, !torch.int -> !torch.vtensor<[128,256],f32>
 // TORCH-CHECK:       %permute_OUT_0_val_0_pointwise_add_transposed = torch.constant.int 0
 // TORCH-CHECK:       %permute_OUT_0_val_1_pointwise_add_transposed = torch.constant.int 1
 // TORCH-CHECK:       %permute_OUT_0_pointwise_add_transposed = torch.prim.ListConstruct %permute_OUT_0_val_0_pointwise_add_transposed, %permute_OUT_0_val_1_pointwise_add_transposed : (!torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %result = torch.aten.permute %result_perm, %permute_OUT_0_pointwise_add_transposed : !torch.vtensor<[128,256],f32>, !torch.list<int> -> !torch.vtensor<[128,256],f32>
+// TORCH-CHECK:       %result = torch.aten.permute %result_pointwise_add_transposed_perm, %permute_OUT_0_pointwise_add_transposed : !torch.vtensor<[128,256],f32>, !torch.list<int> -> !torch.vtensor<[128,256],f32>
 // TORCH-CHECK:       torch.overwrite.tensor.contents %result overwrites %result_ : !torch.vtensor<[128,256],f32>, !torch.tensor<[128,256],f32>
 // TORCH-CHECK:       return
 // TORCH-CHECK:     }

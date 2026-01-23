@@ -32,20 +32,20 @@
 // TORCH-CHECK:       %permute_X_val_2_conv_fprop = torch.constant.int 2
 // TORCH-CHECK:       %permute_X_val_3_conv_fprop = torch.constant.int 3
 // TORCH-CHECK:       %permute_X_conv_fprop = torch.prim.ListConstruct %permute_X_val_0_conv_fprop, %permute_X_val_1_conv_fprop, %permute_X_val_2_conv_fprop, %permute_X_val_3_conv_fprop : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %arg0_image_perm = torch.aten.permute %arg0_image, %permute_X_conv_fprop : !torch.vtensor<[16,128,64,32],f32>, !torch.list<int> -> !torch.vtensor<[16,128,64,32],f32>
+// TORCH-CHECK:       %arg0_image_conv_fprop_perm = torch.aten.permute %arg0_image, %permute_X_conv_fprop : !torch.vtensor<[16,128,64,32],f32>, !torch.list<int> -> !torch.vtensor<[16,128,64,32],f32>
 // TORCH-CHECK:       %permute_W_val_0_conv_fprop = torch.constant.int 0
 // TORCH-CHECK:       %permute_W_val_1_conv_fprop = torch.constant.int 1
 // TORCH-CHECK:       %permute_W_val_2_conv_fprop = torch.constant.int 2
 // TORCH-CHECK:       %permute_W_val_3_conv_fprop = torch.constant.int 3
 // TORCH-CHECK:       %permute_W_conv_fprop = torch.prim.ListConstruct %permute_W_val_0_conv_fprop, %permute_W_val_1_conv_fprop, %permute_W_val_2_conv_fprop, %permute_W_val_3_conv_fprop : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %arg1_filter_perm = torch.aten.permute %arg1_filter, %permute_W_conv_fprop : !torch.vtensor<[256,128,1,1],f32>, !torch.list<int> -> !torch.vtensor<[256,128,1,1],f32>
-// TORCH-CHECK:       %result_perm = torch.aten.convolution %arg0_image_perm, %arg1_filter_perm, %bias_conv_fprop, %stride_conv_fprop, %padding_conv_fprop, %dilation_conv_fprop, %transposed_conv_fprop, %output_padding_conv_fprop, %groups_conv_fprop : !torch.vtensor<[16,128,64,32],f32>, !torch.vtensor<[256,128,1,1],f32>, !torch.none, !torch.list<int>, !torch.list<int>, !torch.list<int>, !torch.bool, !torch.list<int>, !torch.int -> !torch.vtensor<[16,256,64,32],f32>
+// TORCH-CHECK:       %arg1_filter_conv_fprop_perm = torch.aten.permute %arg1_filter, %permute_W_conv_fprop : !torch.vtensor<[256,128,1,1],f32>, !torch.list<int> -> !torch.vtensor<[256,128,1,1],f32>
+// TORCH-CHECK:       %result_conv_fprop_perm = torch.aten.convolution %arg0_image_conv_fprop_perm, %arg1_filter_conv_fprop_perm, %bias_conv_fprop, %stride_conv_fprop, %padding_conv_fprop, %dilation_conv_fprop, %transposed_conv_fprop, %output_padding_conv_fprop, %groups_conv_fprop : !torch.vtensor<[16,128,64,32],f32>, !torch.vtensor<[256,128,1,1],f32>, !torch.none, !torch.list<int>, !torch.list<int>, !torch.list<int>, !torch.bool, !torch.list<int>, !torch.int -> !torch.vtensor<[16,256,64,32],f32>
 // TORCH-CHECK:       %permute_Y_val_0_conv_fprop = torch.constant.int 0
 // TORCH-CHECK:       %permute_Y_val_1_conv_fprop = torch.constant.int 1
 // TORCH-CHECK:       %permute_Y_val_2_conv_fprop = torch.constant.int 2
 // TORCH-CHECK:       %permute_Y_val_3_conv_fprop = torch.constant.int 3
 // TORCH-CHECK:       %permute_Y_conv_fprop = torch.prim.ListConstruct %permute_Y_val_0_conv_fprop, %permute_Y_val_1_conv_fprop, %permute_Y_val_2_conv_fprop, %permute_Y_val_3_conv_fprop : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %result = torch.aten.permute %result_perm, %permute_Y_conv_fprop : !torch.vtensor<[16,256,64,32],f32>, !torch.list<int> -> !torch.vtensor<[16,256,64,32],f32>
+// TORCH-CHECK:       %result = torch.aten.permute %result_conv_fprop_perm, %permute_Y_conv_fprop : !torch.vtensor<[16,256,64,32],f32>, !torch.list<int> -> !torch.vtensor<[16,256,64,32],f32>
 // TORCH-CHECK:       torch.overwrite.tensor.contents %result overwrites %result_ : !torch.vtensor<[16,256,64,32],f32>, !torch.tensor<[16,256,64,32],f32>
 // TORCH-CHECK:       return
 // TORCH-CHECK:     }

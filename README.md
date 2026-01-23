@@ -26,7 +26,7 @@ If you prefer a custom setup instead, the following dependencies need to be brou
 
 **Test Requirements:** catch2, lit, FileCheck, iree-opt, iree-compile
 
-Fusilli interfaces with the IREE compiler through the CLI and with IREE runtime through its C-API. In the future we may want an alternate C-API integration for the compiler as well but for now running it as a tool with process isolation is useful for general developer ergonomics. The IREE compiler is a heavy dependency to build (due to MLIR/LLVM), so we recommend using a prebuilt release either from a python nightly package or shared library distribution. The IREE runtime on the other hand is much more lightweight and is designed to be built from source and statically linked in. IREE does not export a shared runtime library to allow for maximum flexibility with low-level and toolchain specific (LTO style) optimizations.
+Fusilli interfaces with the IREE compiler through the CLI and C-API and with IREE runtime through its C-API. Selection between the C-API and CLI for the compiler can be controlled via an environment variable. The IREE compiler is a heavy dependency to build (due to MLIR/LLVM), so we recommend using a prebuilt release either from a python nightly package or shared library distribution. The IREE runtime on the other hand is much more lightweight and is designed to be built from source and statically linked in. IREE does not export a shared runtime library to allow for maximum flexibility with low-level and toolchain specific (LTO style) optimizations.
 
 Easiest way to get [`lit`](https://llvm.org/docs/CommandGuide/lit.html), and the `iree-*` CLI tools is through `pip install`. [`FileCheck`](https://llvm.org/docs/CommandGuide/FileCheck.html) comes packaged with clang / llvm distributions. Everything else should be available via `apt` based install.
 
@@ -152,3 +152,13 @@ Tests and samples that are built with the cmake flag `-DFUSILLI_ENABLE_LOGGING=O
 Alternatively, one may call the logging API directly as needed:
 - Calling `fusilli::isLoggingEnabled() = <true|false>` has the same effect as setting `FUSILLI_LOG_INFO = 1|0`.
 - Calling `fusilli::getStream() = <stream_name>` has the same effect as setting the output stream using `FUSILLI_LOG_FILE`.
+
+
+### Environment Variables
+
+| Environment Variable                     | Description
+| ---------------------------------------- | -----------
+| `FUSILLI_COMPILE_BACKEND_USE_CLI`        | Enables the use of the CLI tool to invoke compilation, otherwise uses CAPI
+| `FUSILLI_EXTERNAL_IREE_COMPILE`          | Path to `iree-compile` binary
+| `FUSILLI_EXTERNAL_IREE_COMPILER_LIB`     | Path to the IREE compiler dynamic library
+| `FUSILLI_EXTERNAL_ROCM_AGENT_ENUMERATOR` | Path to `rocm_agent_enumerator` binary

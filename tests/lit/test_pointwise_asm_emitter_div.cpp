@@ -24,13 +24,13 @@
 // TORCH-CHECK:       %permute_IN_1_val_3_pointwise_div = torch.constant.int 3
 // TORCH-CHECK:       %permute_IN_1_pointwise_div = torch.prim.ListConstruct %permute_IN_1_val_0_pointwise_div, %permute_IN_1_val_1_pointwise_div, %permute_IN_1_val_2_pointwise_div, %permute_IN_1_val_3_pointwise_div : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
 // TORCH-CHECK:       %arg1_in1_pointwise_div_perm = torch.aten.permute %arg1, %permute_IN_1_pointwise_div : !torch.vtensor<[1,3,1,1],f32>, !torch.list<int> -> !torch.vtensor<[1,3,1,1],f32>
-// TORCH-CHECK:       %result_perm = torch.aten.div.Tensor %arg0_in0_pointwise_div_perm, %arg1_in1_pointwise_div_perm : !torch.vtensor<[2,3,224,224],f32>, !torch.vtensor<[1,3,1,1],f32> -> !torch.vtensor<[2,3,224,224],f32>
+// TORCH-CHECK:       %result_pointwise_div_perm = torch.aten.div.Tensor %arg0_in0_pointwise_div_perm, %arg1_in1_pointwise_div_perm : !torch.vtensor<[2,3,224,224],f32>, !torch.vtensor<[1,3,1,1],f32> -> !torch.vtensor<[2,3,224,224],f32>
 // TORCH-CHECK:       %permute_OUT_0_val_0_pointwise_div = torch.constant.int 0
 // TORCH-CHECK:       %permute_OUT_0_val_1_pointwise_div = torch.constant.int 1
 // TORCH-CHECK:       %permute_OUT_0_val_2_pointwise_div = torch.constant.int 2
 // TORCH-CHECK:       %permute_OUT_0_val_3_pointwise_div = torch.constant.int 3
 // TORCH-CHECK:       %permute_OUT_0_pointwise_div = torch.prim.ListConstruct %permute_OUT_0_val_0_pointwise_div, %permute_OUT_0_val_1_pointwise_div, %permute_OUT_0_val_2_pointwise_div, %permute_OUT_0_val_3_pointwise_div : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %result = torch.aten.permute %result_perm, %permute_OUT_0_pointwise_div : !torch.vtensor<[2,3,224,224],f32>, !torch.list<int> -> !torch.vtensor<[2,3,224,224],f32>
+// TORCH-CHECK:       %result = torch.aten.permute %result_pointwise_div_perm, %permute_OUT_0_pointwise_div : !torch.vtensor<[2,3,224,224],f32>, !torch.list<int> -> !torch.vtensor<[2,3,224,224],f32>
 // TORCH-CHECK:       torch.overwrite.tensor.contents %result overwrites %result_ : !torch.vtensor<[2,3,224,224],f32>, !torch.tensor<[2,3,224,224],f32>
 // TORCH-CHECK:       return
 // TORCH-CHECK:     }

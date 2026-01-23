@@ -17,16 +17,16 @@
 // TORCH-CHECK:       %permute_A_val_0_matmul = torch.constant.int 0
 // TORCH-CHECK:       %permute_A_val_1_matmul = torch.constant.int 1
 // TORCH-CHECK:       %permute_A_matmul = torch.prim.ListConstruct %permute_A_val_0_matmul, %permute_A_val_1_matmul : (!torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %arg0_matrix_a_perm = torch.aten.permute %arg0_matrix_a, %permute_A_matmul : !torch.vtensor<[64,128],f32>, !torch.list<int> -> !torch.vtensor<[64,128],f32>
+// TORCH-CHECK:       %arg0_matrix_a_matmul_perm = torch.aten.permute %arg0_matrix_a, %permute_A_matmul : !torch.vtensor<[64,128],f32>, !torch.list<int> -> !torch.vtensor<[64,128],f32>
 // TORCH-CHECK:       %permute_B_val_0_matmul = torch.constant.int 0
 // TORCH-CHECK:       %permute_B_val_1_matmul = torch.constant.int 1
 // TORCH-CHECK:       %permute_B_matmul = torch.prim.ListConstruct %permute_B_val_0_matmul, %permute_B_val_1_matmul : (!torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %arg1_matrix_b_perm = torch.aten.permute %arg1_matrix_b, %permute_B_matmul : !torch.vtensor<[128,256],f32>, !torch.list<int> -> !torch.vtensor<[128,256],f32>
-// TORCH-CHECK:       %result_perm = torch.aten.matmul %arg0_matrix_a_perm, %arg1_matrix_b_perm : !torch.vtensor<[64,128],f32>, !torch.vtensor<[128,256],f32> -> !torch.vtensor<[64,256],f32>
+// TORCH-CHECK:       %arg1_matrix_b_matmul_perm = torch.aten.permute %arg1_matrix_b, %permute_B_matmul : !torch.vtensor<[128,256],f32>, !torch.list<int> -> !torch.vtensor<[128,256],f32>
+// TORCH-CHECK:       %result_matmul_perm = torch.aten.matmul %arg0_matrix_a_matmul_perm, %arg1_matrix_b_matmul_perm : !torch.vtensor<[64,128],f32>, !torch.vtensor<[128,256],f32> -> !torch.vtensor<[64,256],f32>
 // TORCH-CHECK:       %permute_C_val_0_matmul = torch.constant.int 0
 // TORCH-CHECK:       %permute_C_val_1_matmul = torch.constant.int 1
 // TORCH-CHECK:       %permute_C_matmul = torch.prim.ListConstruct %permute_C_val_0_matmul, %permute_C_val_1_matmul : (!torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %result = torch.aten.permute %result_perm, %permute_C_matmul : !torch.vtensor<[64,256],f32>, !torch.list<int> -> !torch.vtensor<[64,256],f32>
+// TORCH-CHECK:       %result = torch.aten.permute %result_matmul_perm, %permute_C_matmul : !torch.vtensor<[64,256],f32>, !torch.list<int> -> !torch.vtensor<[64,256],f32>
 // TORCH-CHECK:       torch.overwrite.tensor.contents %result overwrites %result_ : !torch.vtensor<[64,256],f32>, !torch.tensor<[64,256],f32>
 // TORCH-CHECK:       return
 // TORCH-CHECK:     }
