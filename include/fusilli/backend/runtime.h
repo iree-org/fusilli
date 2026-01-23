@@ -242,7 +242,7 @@ inline ErrorObject Graph::execute(
 
   // Populate input buffers.
   for (const auto &input : fullGraphInputsSorted_) {
-    // Scalar constants should not be used in the variantPsack.
+    // Scalar constants should not be used in the variantPack.
     if (input->isScalar()) {
       FUSILLI_RETURN_ERROR_IF(variantPack.contains(input),
                               ErrorCode::VariantPackError,
