@@ -23,12 +23,12 @@
 // TORCH-CHECK:       %permute_IN_1_pointwise_sub = torch.prim.ListConstruct %permute_IN_1_val_0_pointwise_sub, %permute_IN_1_val_1_pointwise_sub, %permute_IN_1_val_2_pointwise_sub : (!torch.int, !torch.int, !torch.int) -> !torch.list<int>
 // TORCH-CHECK:       %arg1_in1_pointwise_sub_perm = torch.aten.permute %arg1, %permute_IN_1_pointwise_sub : !torch.vtensor<[3,1,1],f32>, !torch.list<int> -> !torch.vtensor<[3,1,1],f32>
 // TORCH-CHECK:       %alpha_pointwise_sub = torch.constant.int 1
-// TORCH-CHECK:       %result_perm = torch.aten.sub.Tensor %arg0_in0_pointwise_sub_perm, %arg1_in1_pointwise_sub_perm, %alpha_pointwise_sub : !torch.vtensor<[3,16,16],f32>, !torch.vtensor<[3,1,1],f32>, !torch.int -> !torch.vtensor<[3,16,16],f32>
+// TORCH-CHECK:       %result_pointwise_sub_perm = torch.aten.sub.Tensor %arg0_in0_pointwise_sub_perm, %arg1_in1_pointwise_sub_perm, %alpha_pointwise_sub : !torch.vtensor<[3,16,16],f32>, !torch.vtensor<[3,1,1],f32>, !torch.int -> !torch.vtensor<[3,16,16],f32>
 // TORCH-CHECK:       %permute_OUT_0_val_0_pointwise_sub = torch.constant.int 0
 // TORCH-CHECK:       %permute_OUT_0_val_1_pointwise_sub = torch.constant.int 1
 // TORCH-CHECK:       %permute_OUT_0_val_2_pointwise_sub = torch.constant.int 2
 // TORCH-CHECK:       %permute_OUT_0_pointwise_sub = torch.prim.ListConstruct %permute_OUT_0_val_0_pointwise_sub, %permute_OUT_0_val_1_pointwise_sub, %permute_OUT_0_val_2_pointwise_sub : (!torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %result = torch.aten.permute %result_perm, %permute_OUT_0_pointwise_sub : !torch.vtensor<[3,16,16],f32>, !torch.list<int> -> !torch.vtensor<[3,16,16],f32>
+// TORCH-CHECK:       %result = torch.aten.permute %result_pointwise_sub_perm, %permute_OUT_0_pointwise_sub : !torch.vtensor<[3,16,16],f32>, !torch.list<int> -> !torch.vtensor<[3,16,16],f32>
 // TORCH-CHECK:       torch.overwrite.tensor.contents %result overwrites %result_ : !torch.vtensor<[3,16,16],f32>, !torch.tensor<[3,16,16],f32>
 // TORCH-CHECK:       return
 // TORCH-CHECK:     }

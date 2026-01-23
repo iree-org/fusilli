@@ -111,11 +111,14 @@ inline std::string getListOfIntOpsAsm(const std::vector<int64_t> &listOfInts,
 //
 // When isInput=true (physical-to-logical permute):
 //   - Operand: {name} with physical layout
-//   - Result:  {name}_perm with logical layout
+//   - Result:  {name}_{suffix}_perm with logical layout
 //
 // When isInput=false (logical-to-physical permute):
-//   - Operand: {name}_perm with logical layout
+//   - Operand: {name}_{suffix}_perm with logical layout
 //   - Result:  {name} with physical layout
+//
+// The suffix is used to ensure unique SSA names when the same tensor is used
+// by multiple different operations in a graph.
 inline std::string getPermuteOpsAsm(const std::shared_ptr<TensorAttr> &tensor,
                                     const std::string &prefix,
                                     const std::string &suffix, bool isInput) {
@@ -129,9 +132,15 @@ inline std::string getPermuteOpsAsm(const std::shared_ptr<TensorAttr> &tensor,
   // Emit torch.constant.int ops and ListConstruct.
   oss << getListOfIntOpsAsm(permuteOrder, prefix, suffix);
 
-  std::string resultName = tensor->getValueNameAsm() + (isInput ? "_perm" : "");
+  // Include the suffix in permuted tensor names to ensure uniqueness when
+  // the same tensor is used by multiple operations. For input permutes, the
+  // operand is the original tensor (no suffix needed), but the result gets
+  // the suffix. For output permutes, the operand has the suffix (from the
+  // main op result), but the result is the final tensor (no suffix needed).
+  std::string resultName =
+      tensor->getValueNameAsm() + (isInput ? "_" + suffix + "_perm" : "");
   std::string operandName =
-      tensor->getValueNameAsm() + (isInput ? "" : "_perm");
+      tensor->getValueNameAsm() + (isInput ? "" : "_" + suffix + "_perm");
   std::string fromType = tensor->getTensorTypeAsm(
       /*isValueTensor=*/true, /*useLogicalDims=*/!isInput);
   std::string toType = tensor->getTensorTypeAsm(
@@ -373,10 +382,15 @@ inline std::string Graph::emitNodePostAsm() const {
 // Its output is used to materialize the contents of {} in
 //      %result = torch.aten.convolution {}, ...
 // with
-//      "%arg0_image, %arg1_filter"
+//      "%arg0_image_conv_fprop_perm, %arg1_filter_conv_fprop_perm"
+//
+// The unique suffix is included to ensure SSA uniqueness when the same
+// tensor is used by multiple operations.
 inline std::string ConvFPropNode::getOperandNamesAsm() const {
-  return convFPropAttr.getX()->getValueNameAsm() + "_perm" + ", " +
-         convFPropAttr.getW()->getValueNameAsm() + "_perm";
+  std::string suffix = convFPropAttr.getName();
+  return convFPropAttr.getX()->getValueNameAsm() + "_" + suffix + "_perm" +
+         ", " + convFPropAttr.getW()->getValueNameAsm() + "_" + suffix +
+         "_perm";
 }
 
 // Emits ConvFPropNode's operand types in MLIR assembly format.
@@ -398,9 +412,13 @@ inline std::string ConvFPropNode::getOperandTypesAsm() const {
 // Its output is used to materialize the contents of {} in
 //      {} = torch.aten.convolution ...
 // with
-//      "%result"
+//      "%result_conv_fprop"
+//
+// The unique suffix is included because the schema appends "_perm" to this,
+// producing "%result_conv_fprop_perm" which is then used by the output permute.
 inline std::string ConvFPropNode::getResultNamesAsm() const {
-  return convFPropAttr.getY()->getValueNameAsm();
+  return convFPropAttr.getY()->getValueNameAsm() + "_" +
+         convFPropAttr.getName();
 }
 
 // Emits ConvFPropNode's result types in MLIR assembly format.
@@ -526,11 +544,14 @@ inline std::string ConvFPropNode::emitNodePreAsm() const {
 // args (dy, x, and w). The empty tensor (%empty_w_{suffix}) is required by
 // torch.aten.convolution_backward for the w arg even when calculating weight
 // gradient.
+//
+// The unique suffix is included to ensure SSA uniqueness when the same
+// tensor is used by multiple operations.
 inline std::string ConvWGradNode::getOperandNamesAsm() const {
   std::string suffix = convWGradAttr.getName();
-  return convWGradAttr.getDY()->getValueNameAsm() + "_perm" + ", " +
-         convWGradAttr.getX()->getValueNameAsm() + "_perm" + ", %empty_w_" +
-         suffix;
+  return convWGradAttr.getDY()->getValueNameAsm() + "_" + suffix + "_perm" +
+         ", " + convWGradAttr.getX()->getValueNameAsm() + "_" + suffix +
+         "_perm" + ", %empty_w_" + suffix;
 }
 
 // Emits ConvWGradNode's operand types in MLIR assembly format.
@@ -552,9 +573,13 @@ inline std::string ConvWGradNode::getOperandTypesAsm() const {
 // Its output is used to materialize the contents of {} in
 //      {} = torch.aten.convolution_backward ...
 // with
-//      "%result"
+//      "%result_wgrad"
+//
+// The unique suffix is included because the schema appends "_perm" to this,
+// producing "%result_wgrad_perm" which is then used by the output permute.
 inline std::string ConvWGradNode::getResultNamesAsm() const {
-  return convWGradAttr.getDW()->getValueNameAsm();
+  return convWGradAttr.getDW()->getValueNameAsm() + "_" +
+         convWGradAttr.getName();
 }
 
 // Emits ConvWGradNode's result types in MLIR assembly format.
@@ -691,10 +716,14 @@ inline std::string ConvWGradNode::emitNodePreAsm() const {
 // args (dy, x, and w). The empty tensor (%empty_x_{suffix}) is required by
 // torch.aten.convolution_backward for the x arg even when calculating data
 // gradient, so it's included between DY and W operands.
+//
+// The unique suffix is included to ensure SSA uniqueness when the same
+// tensor is used by multiple operations.
 inline std::string ConvDGradNode::getOperandNamesAsm() const {
   std::string suffix = convDGradAttr.getName();
-  return convDGradAttr.getDY()->getValueNameAsm() + "_perm" + ", %empty_x_" +
-         suffix + ", " + convDGradAttr.getW()->getValueNameAsm() + "_perm";
+  return convDGradAttr.getDY()->getValueNameAsm() + "_" + suffix + "_perm" +
+         ", %empty_x_" + suffix + ", " +
+         convDGradAttr.getW()->getValueNameAsm() + "_" + suffix + "_perm";
 }
 
 // Emits ConvDGradNode's operand types in MLIR assembly format.
@@ -712,8 +741,13 @@ inline std::string ConvDGradNode::getOperandTypesAsm() const {
 }
 
 // Emits ConvDGradNode's result names in MLIR assembly format.
+//
+// The unique suffix is included because the schema appends "_perm" to this,
+// producing a unique intermediate name which is then used by the output
+// permute.
 inline std::string ConvDGradNode::getResultNamesAsm() const {
-  return convDGradAttr.getDX()->getValueNameAsm();
+  return convDGradAttr.getDX()->getValueNameAsm() + "_" +
+         convDGradAttr.getName();
 }
 
 // Emits ConvDGradNode's result types in MLIR assembly format.
@@ -840,9 +874,13 @@ inline std::string ConvDGradNode::emitNodePreAsm() const {
 //===----------------------------------------------------------------------===//
 
 // Emits MatmulNode's operand names in MLIR assembly format.
+//
+// The unique suffix is included to ensure SSA uniqueness when the same
+// tensor is used by multiple operations.
 inline std::string MatmulNode::getOperandNamesAsm() const {
-  return matmulAttr.getA()->getValueNameAsm() + "_perm" + ", " +
-         matmulAttr.getB()->getValueNameAsm() + "_perm";
+  std::string suffix = matmulAttr.getName();
+  return matmulAttr.getA()->getValueNameAsm() + "_" + suffix + "_perm" + ", " +
+         matmulAttr.getB()->getValueNameAsm() + "_" + suffix + "_perm";
 }
 
 // Emits MatmulNode's operand types in MLIR assembly format.
@@ -855,8 +893,12 @@ inline std::string MatmulNode::getOperandTypesAsm() const {
 }
 
 // Emits MatmulNode's result names in MLIR assembly format.
+//
+// The unique suffix is included because the schema appends "_perm" to this,
+// producing a unique intermediate name which is then used by the output
+// permute.
 inline std::string MatmulNode::getResultNamesAsm() const {
-  return matmulAttr.getC()->getValueNameAsm();
+  return matmulAttr.getC()->getValueNameAsm() + "_" + matmulAttr.getName();
 }
 
 // Emits MatmulNode's result types in MLIR assembly format.
@@ -935,6 +977,9 @@ inline std::string PointwiseNode::getPermuteInputOpsAsm(int inputIndex) const {
 }
 
 // Get permute operations for OUT_0 tensor in MLIR assembly format.
+//
+// The suffix is included in the intermediate _perm name to ensure SSA
+// uniqueness, matching the naming convention used by getResultNamesAsm().
 inline std::string PointwiseNode::getPermuteOut0OpsAsm() const {
   std::ostringstream oss;
   std::string prefix = "permute_OUT_0";
@@ -944,9 +989,10 @@ inline std::string PointwiseNode::getPermuteOut0OpsAsm() const {
   oss << getListOfIntOpsAsm(out0T->getLogicalToPhysicalPermuteOrder(), prefix,
                             suffix);
 
-  // Emit the permute op itself.
+  // Emit the permute op itself. The operand includes the suffix to match
+  // the result naming from the main pointwise op.
   constexpr std::string_view schema = R"(
-    {0} = torch.aten.permute {0}_perm, {1} : {2}, !torch.list<int> -> {3}
+    {0} = torch.aten.permute {0}_{4}_perm, {1} : {2}, !torch.list<int> -> {3}
   )";
 
   std::string output =
@@ -956,7 +1002,8 @@ inline std::string PointwiseNode::getPermuteOut0OpsAsm() const {
                   out0T->getTensorTypeAsm(/*isValueTensor=*/true,
                                           /*useLogicalDims=*/true), // {2}
                   out0T->getTensorTypeAsm(/*isValueTensor=*/true,
-                                          /*useLogicalDims=*/false) // {3}
+                                          /*useLogicalDims=*/false), // {3}
+                  suffix                                             // {4}
       );
 
   return oss.str() + output;
@@ -992,8 +1039,13 @@ inline std::string PointwiseNode::getOperandTypesAsm() const {
 }
 
 // Emits PointwiseNode's result names in MLIR assembly format.
+//
+// The unique suffix is included because the schema appends "_perm" to this,
+// producing a unique intermediate name which is then used by the output
+// permute.
 inline std::string PointwiseNode::getResultNamesAsm() const {
-  return pointwiseAttr.getOUT_0()->getValueNameAsm();
+  return pointwiseAttr.getOUT_0()->getValueNameAsm() + "_" +
+         pointwiseAttr.getName();
 }
 
 // Emits PointwiseNode's result types in MLIR assembly format.
