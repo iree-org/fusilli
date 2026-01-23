@@ -580,7 +580,7 @@ CompileSession::build(const Handle &handle, const CacheFile &input,
   FUSILLI_LOG_LABEL_ENDL("INFO: Building compile session");
 
   // Create compiler context.
-  auto* context = FUSILLI_TRY(CompileContext::create());
+  auto *context = FUSILLI_TRY(CompileContext::create());
 
   // Create session with backend-specific flags.
   auto session = FUSILLI_TRY(context->createSession(handle));
