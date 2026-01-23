@@ -112,7 +112,7 @@ private:
     // Import graph level properties.
     fusilli::DataType ioDataType;
     FUSILLI_ASSIGN_OR_RETURN(ioDataType, hipDnnDataTypeToFusilliDataType(
-                                                  hipDnnGraph.io_data_type()));
+                                             hipDnnGraph.io_data_type()));
     fusilli::DataType intermediateDataType;
     FUSILLI_ASSIGN_OR_RETURN(
         intermediateDataType,
