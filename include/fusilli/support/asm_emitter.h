@@ -412,13 +412,14 @@ inline std::string ConvFPropNode::getOperandTypesAsm() const {
 // Its output is used to materialize the contents of {} in
 //      {} = torch.aten.convolution ...
 // with
-//      "%result_conv_fprop"
+//      "%result_conv_fprop_perm"
 //
-// The unique suffix is included because the schema appends "_perm" to this,
-// producing "%result_conv_fprop_perm" which is then used by the output permute.
+// The unique suffix and "_perm" are included to ensure SSA uniqueness when
+// the same tensor is used by multiple operations. This intermediate result
+// is then used by the output permute.
 inline std::string ConvFPropNode::getResultNamesAsm() const {
   return convFPropAttr.getY()->getValueNameAsm() + "_" +
-         convFPropAttr.getName();
+         convFPropAttr.getName() + "_perm";
 }
 
 // Emits ConvFPropNode's result types in MLIR assembly format.
@@ -500,7 +501,7 @@ inline std::string ConvFPropNode::emitNodePreAsm() const {
     {4}
     {5}
     {6}
-    {7}_perm = torch.aten.convolution {8}, %bias_{0}, %stride_{0}, %padding_{0}, %dilation_{0}, %transposed_{0}, %output_padding_{0}, %groups_{0} : {9}, !torch.none, !torch.list<int>, !torch.list<int>, !torch.list<int>, !torch.bool, !torch.list<int>, !torch.int -> {10}
+    {7} = torch.aten.convolution {8}, %bias_{0}, %stride_{0}, %padding_{0}, %dilation_{0}, %transposed_{0}, %output_padding_{0}, %groups_{0} : {9}, !torch.none, !torch.list<int>, !torch.list<int>, !torch.list<int>, !torch.bool, !torch.list<int>, !torch.int -> {10}
     {11}
     )";
 
@@ -573,13 +574,14 @@ inline std::string ConvWGradNode::getOperandTypesAsm() const {
 // Its output is used to materialize the contents of {} in
 //      {} = torch.aten.convolution_backward ...
 // with
-//      "%result_wgrad"
+//      "%result_wgrad_perm"
 //
-// The unique suffix is included because the schema appends "_perm" to this,
-// producing "%result_wgrad_perm" which is then used by the output permute.
+// The unique suffix and "_perm" are included to ensure SSA uniqueness when
+// the same tensor is used by multiple operations. This intermediate result
+// is then used by the output permute.
 inline std::string ConvWGradNode::getResultNamesAsm() const {
   return convWGradAttr.getDW()->getValueNameAsm() + "_" +
-         convWGradAttr.getName();
+         convWGradAttr.getName() + "_perm";
 }
 
 // Emits ConvWGradNode's result types in MLIR assembly format.
@@ -671,7 +673,7 @@ inline std::string ConvWGradNode::emitNodePreAsm() const {
     %true_{0} = torch.constant.bool true
     %false_{0} = torch.constant.bool false
     %output_mask_{0} = torch.prim.ListConstruct %false_{0}, %true_{0}, %false_{0} : (!torch.bool, !torch.bool, !torch.bool) -> !torch.list<bool>
-    %grad_input_{0}, {8}_perm, %grad_bias_{0} = torch.aten.convolution_backward {9}, %bias_{0}, %stride_{0}, %padding_{0}, %dilation_{0}, %transposed_{0}, %output_padding_{0}, %groups_{0}, %output_mask_{0} : {10}, !torch.none, !torch.list<int>, !torch.list<int>, !torch.list<int>, !torch.bool, !torch.list<int>, !torch.int, !torch.list<bool> -> !torch.none, {11}, !torch.none
+    %grad_input_{0}, {8}, %grad_bias_{0} = torch.aten.convolution_backward {9}, %bias_{0}, %stride_{0}, %padding_{0}, %dilation_{0}, %transposed_{0}, %output_padding_{0}, %groups_{0}, %output_mask_{0} : {10}, !torch.none, !torch.list<int>, !torch.list<int>, !torch.list<int>, !torch.bool, !torch.list<int>, !torch.int, !torch.list<bool> -> !torch.none, {11}, !torch.none
     {12}
     )";
 
@@ -742,12 +744,12 @@ inline std::string ConvDGradNode::getOperandTypesAsm() const {
 
 // Emits ConvDGradNode's result names in MLIR assembly format.
 //
-// The unique suffix is included because the schema appends "_perm" to this,
-// producing a unique intermediate name which is then used by the output
-// permute.
+// The unique suffix and "_perm" are included to ensure SSA uniqueness when
+// the same tensor is used by multiple operations. This intermediate result
+// is then used by the output permute.
 inline std::string ConvDGradNode::getResultNamesAsm() const {
   return convDGradAttr.getDX()->getValueNameAsm() + "_" +
-         convDGradAttr.getName();
+         convDGradAttr.getName() + "_perm";
 }
 
 // Emits ConvDGradNode's result types in MLIR assembly format.
@@ -834,7 +836,7 @@ inline std::string ConvDGradNode::emitNodePreAsm() const {
     %true_{0} = torch.constant.bool true
     %false_{0} = torch.constant.bool false
     %output_mask_{0} = torch.prim.ListConstruct %true_{0}, %false_{0}, %false_{0} : (!torch.bool, !torch.bool, !torch.bool) -> !torch.list<bool>
-    {8}_perm, %grad_weight_{0}, %grad_bias_{0} = torch.aten.convolution_backward {9}, %bias_{0}, %stride_{0}, %padding_{0}, %dilation_{0}, %transposed_{0}, %output_padding_{0}, %groups_{0}, %output_mask_{0} : {10}, !torch.none, !torch.list<int>, !torch.list<int>, !torch.list<int>, !torch.bool, !torch.list<int>, !torch.int, !torch.list<bool> -> {11}, !torch.none, !torch.none
+    {8}, %grad_weight_{0}, %grad_bias_{0} = torch.aten.convolution_backward {9}, %bias_{0}, %stride_{0}, %padding_{0}, %dilation_{0}, %transposed_{0}, %output_padding_{0}, %groups_{0}, %output_mask_{0} : {10}, !torch.none, !torch.list<int>, !torch.list<int>, !torch.list<int>, !torch.bool, !torch.list<int>, !torch.int, !torch.list<bool> -> {11}, !torch.none, !torch.none
     {12}
   )";
 
@@ -894,11 +896,12 @@ inline std::string MatmulNode::getOperandTypesAsm() const {
 
 // Emits MatmulNode's result names in MLIR assembly format.
 //
-// The unique suffix is included because the schema appends "_perm" to this,
-// producing a unique intermediate name which is then used by the output
-// permute.
+// The unique suffix and "_perm" are included to ensure SSA uniqueness when
+// the same tensor is used by multiple operations. This intermediate result
+// is then used by the output permute.
 inline std::string MatmulNode::getResultNamesAsm() const {
-  return matmulAttr.getC()->getValueNameAsm() + "_" + matmulAttr.getName();
+  return matmulAttr.getC()->getValueNameAsm() + "_" + matmulAttr.getName() +
+         "_perm";
 }
 
 // Emits MatmulNode's result types in MLIR assembly format.
@@ -911,7 +914,7 @@ inline std::string MatmulNode::emitNodePreAsm() const {
   constexpr std::string_view schema = R"(
     {0}
     {1}
-    {2}_perm = torch.aten.matmul {3} : {4} -> {5}
+    {2} = torch.aten.matmul {3} : {4} -> {5}
     {6}
   )";
 
@@ -1040,12 +1043,12 @@ inline std::string PointwiseNode::getOperandTypesAsm() const {
 
 // Emits PointwiseNode's result names in MLIR assembly format.
 //
-// The unique suffix is included because the schema appends "_perm" to this,
-// producing a unique intermediate name which is then used by the output
-// permute.
+// The unique suffix and "_perm" are included to ensure SSA uniqueness when
+// the same tensor is used by multiple operations. This intermediate result
+// is then used by the output permute.
 inline std::string PointwiseNode::getResultNamesAsm() const {
   return pointwiseAttr.getOUT_0()->getValueNameAsm() + "_" +
-         pointwiseAttr.getName();
+         pointwiseAttr.getName() + "_perm";
 }
 
 // Emits PointwiseNode's result types in MLIR assembly format.
@@ -1089,14 +1092,14 @@ inline std::string PointwiseNode::getResultNamesAndTypesAsm() const {
 inline std::string PointwiseNode::emitNodePreAsm() const {
   constexpr std::string_view kUnaryTorchSchema = R"(
 {0}
-{1}_perm = {6} {2} : {3} -> {4}
+{1} = {6} {2} : {3} -> {4}
 {5}
 )";
 
   constexpr std::string_view kBinaryTorchSchema = R"(
 {0}
 {1}
-{2}_perm = {7} {3} : {4} -> {5}
+{2} = {7} {3} : {4} -> {5}
 {6}
 )";
 
@@ -1104,7 +1107,7 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
 {0}
 {1}
 %alpha_{8} = torch.constant.int 1
-{2}_perm = {7} {3}, %alpha_{8} : {4}, !torch.int -> {5}
+{2} = {7} {3}, %alpha_{8} : {4}, !torch.int -> {5}
 {6}
 )";
 
