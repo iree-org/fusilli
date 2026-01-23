@@ -137,7 +137,7 @@ public:
   //
   // Note: stderr output from failed compilation is currently not captured
   // (see TODO #11 in original code).
-  ErrorObject execute() const {
+  ErrorObject execute() {
     FUSILLI_LOG_LABEL_ENDL("INFO: Executing compile command");
 
     // TODO(#11): in the error case, std::system will dump to stderr, it would

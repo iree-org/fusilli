@@ -55,7 +55,7 @@ class CompileSession;
 // - Can create multiple CompileSessions
 //
 // Usage:
-//   ErrorOr<std::shared_ptr<CompileContext>> ctx =
+//   ErrorOr<CompileContext*> ctx =
 //       CompileContext::create();
 //   ErrorOr<CompileSession> session = ctx->createSession(handle);
 //   FUSILLI_CHECK_ERROR(session->compile(inputFile, outputFile));
@@ -72,9 +72,9 @@ public:
   // - Initialize the compiler global state
   // - Load all required function pointers
   //
-  // Returns ErrorOr<std::shared_ptr<CompileContext>> containing the context
+  // Returns ErrorOr<CompileContext*> containing the context
   // or error.
-  static ErrorOr<std::shared_ptr<CompileContext>> create();
+  static ErrorOr<CompileContext *> create();
 
   // Delete copy constructors (shared via shared_ptr).
   CompileContext(const CompileContext &) = delete;
@@ -217,15 +217,15 @@ public:
   ErrorObject writeTo(CacheFile &cacheFile) const;
 
   // Execute compilation (wrapper around compile()).
-  ErrorObject execute() const;
+  ErrorObject execute();
 
   // Get arguments (for compatibility/testing).
   const std::vector<std::string> &getArgs() const;
 
 private:
   // Private constructor - use CompileContext::createSession().
-  CompileSession(std::shared_ptr<CompileContext> context,
-                 iree_compiler_session_t *session, Backend backend);
+  CompileSession(CompileContext *context, iree_compiler_session_t *session,
+                 Backend backend);
 
   // Destroys an IREE compiler error object.
   void destroyError(iree_compiler_error_t *error);
@@ -236,7 +236,7 @@ private:
   friend class CompileContext;
 
   // Shared pointer to the compiler context (keeps library loaded).
-  std::shared_ptr<CompileContext> context_;
+  CompileContext *context_;
 
   // IREE compiler session.
   iree_compiler_session_t *session_ = nullptr;
@@ -269,11 +269,11 @@ enum IREECompilerPipeline : uint8_t {
 // CompileContext implementation
 // ----------------------------------------------------------------------------
 
-inline ErrorOr<std::shared_ptr<CompileContext>> CompileContext::create() {
+inline ErrorOr<CompileContext *> CompileContext::create() {
   FUSILLI_LOG_LABEL_ENDL("INFO: Creating IREE compiler context");
 
   static std::mutex instanceMutex;
-  static std::shared_ptr<CompileContext> globalInstance;
+  static std::unique_ptr<CompileContext> globalInstance;
 
   // If multiple threads simultaneously request a handle, they will race to get
   // the globalInstance. The first one to acquire the lock will create it,
@@ -281,7 +281,7 @@ inline ErrorOr<std::shared_ptr<CompileContext>> CompileContext::create() {
   std::lock_guard<std::mutex> lock(instanceMutex);
 
   if (globalInstance != nullptr)
-    return ok(globalInstance);
+    return ok(globalInstance.get());
 
   // Get the path to the IREE compiler shared library.
   std::string libPath = getIreeCompilerLibPath();
@@ -303,7 +303,7 @@ inline ErrorOr<std::shared_ptr<CompileContext>> CompileContext::create() {
 
   // Create the context object (can't use make_shared due to private ctor).
   globalInstance =
-      std::shared_ptr<CompileContext>(new CompileContext(libHandle));
+      std::unique_ptr<CompileContext>(new CompileContext(libHandle));
 
   // Load all required symbols.
   FUSILLI_CHECK_ERROR(globalInstance->loadSymbols());
@@ -311,7 +311,7 @@ inline ErrorOr<std::shared_ptr<CompileContext>> CompileContext::create() {
   // Initialize the compiler.
   FUSILLI_LOG_LABEL_ENDL("INFO: Initializing IREE compiler");
   globalInstance->ireeCompilerGlobalInitialize_();
-  return ok(globalInstance);
+  return ok(globalInstance.get());
 }
 
 inline CompileContext::CompileContext(void *libHandle)
@@ -382,7 +382,7 @@ CompileContext::createSession(const Handle &handle) {
   Backend backend = handle.getBackend();
 
   // Create the CompileSession object.
-  CompileSession compileSession(shared_from_this(), session, backend);
+  CompileSession compileSession(this, session, backend);
 
   // Get backend-specific flags and apply them.
   auto flags = getBackendFlags(backend);
@@ -404,10 +404,10 @@ inline std::string CompileContext::getRevision() const {
 // CompileSession implementation
 // ----------------------------------------------------------------------------
 
-inline CompileSession::CompileSession(std::shared_ptr<CompileContext> context,
+inline CompileSession::CompileSession(CompileContext *context,
                                       iree_compiler_session_t *session,
                                       Backend backend)
-    : context_(std::move(context)), session_(session), backend_(backend) {}
+    : context_(context), session_(session), backend_(backend) {}
 
 inline CompileSession::CompileSession(CompileSession &&other) noexcept
     : context_(std::move(other.context_)), session_(other.session_),
@@ -629,11 +629,11 @@ inline ErrorObject CompileSession::writeTo(CacheFile &cacheFile) const {
   return cacheFile.write(toString());
 }
 
-inline ErrorObject CompileSession::execute() const {
+inline ErrorObject CompileSession::execute() {
   FUSILLI_LOG_LABEL_ENDL("INFO: Executing compile session");
 
   // Call existing compile() method.
-  return const_cast<CompileSession *>(this)->compile(inputPath_, outputPath_);
+  return compile(inputPath_, outputPath_);
 }
 
 inline const std::vector<std::string> &CompileSession::getArgs() const {
