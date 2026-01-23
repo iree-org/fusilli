@@ -43,10 +43,12 @@
 #include "fusilli/node/reduction_node.h" // IWYU pragma: export
 
 // Backend:
-#include "fusilli/backend/backend.h" // IWYU pragma: export
-#include "fusilli/backend/buffer.h"  // IWYU pragma: export
-#include "fusilli/backend/handle.h"  // IWYU pragma: export
-#include "fusilli/backend/runtime.h" // IWYU pragma: export
+#include "fusilli/backend/backend.h"         // IWYU pragma: export
+#include "fusilli/backend/buffer.h"          // IWYU pragma: export
+#include "fusilli/backend/compile_command.h" // IWYU pragma: export
+#include "fusilli/backend/compile_session.h" // IWYU pragma: export
+#include "fusilli/backend/handle.h"          // IWYU pragma: export
+#include "fusilli/backend/runtime.h"         // IWYU pragma: export
 
 // Graph:
 #include "fusilli/graph/context.h" // IWYU pragma: export
