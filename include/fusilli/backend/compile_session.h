@@ -410,7 +410,7 @@ inline CompileSession::CompileSession(CompileContext *context,
     : context_(context), session_(session), backend_(backend) {}
 
 inline CompileSession::CompileSession(CompileSession &&other) noexcept
-    : context_(std::move(other.context_)), session_(other.session_),
+    : context_(other.context_), session_(other.session_),
       backend_(other.backend_), inputPath_(std::move(other.inputPath_)),
       outputPath_(std::move(other.outputPath_)),
       flags_(std::move(other.flags_)) {
@@ -426,7 +426,7 @@ CompileSession::operator=(CompileSession &&other) noexcept {
     }
 
     // Move from other.
-    context_ = std::move(other.context_);
+    context_ = other.context_;
     session_ = other.session_;
     backend_ = other.backend_;
     inputPath_ = std::move(other.inputPath_);
@@ -580,7 +580,7 @@ CompileSession::build(const Handle &handle, const CacheFile &input,
   FUSILLI_LOG_LABEL_ENDL("INFO: Building compile session");
 
   // Create compiler context.
-  auto context = FUSILLI_TRY(CompileContext::create());
+  auto* context = FUSILLI_TRY(CompileContext::create());
 
   // Create session with backend-specific flags.
   auto session = FUSILLI_TRY(context->createSession(handle));
