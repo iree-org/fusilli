@@ -99,7 +99,7 @@ findInSitePackages(const std::string &relativePathPattern) {
 // Specifically looks in the iree/compiler/_mlir_libs/ subdirectory
 // where it's typically installed by pip.
 inline std::optional<std::string> findIreeCompilerLib() {
-  std::mutex lock;
+  static std::mutex lock;
   std::lock_guard<std::mutex> guard(lock);
   std::optional<std::string> libPath;
   if (libPath.has_value())
