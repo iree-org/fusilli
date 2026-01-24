@@ -71,7 +71,7 @@ public:
   static CompileCommand build(const Handle &handle, const CacheFile &input,
                               const CacheFile &output,
                               const CacheFile &statistics) {
-    std::vector<std::string> args = {getIreeCompilePath(), input.path};
+    std::vector<std::string> args = {getIreeCompilePath(), input.path.string()};
 
     // Get backend-specific flags.
     auto flags = getBackendFlags(handle.getBackend());
@@ -87,7 +87,7 @@ public:
 
     // Add output specification.
     args.push_back("-o");
-    args.push_back(output.path);
+    args.push_back(output.path.string());
 
     return CompileCommand(std::move(args));
   }

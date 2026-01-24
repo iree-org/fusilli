@@ -439,13 +439,13 @@ hipdnnPluginStatus_t hipdnnEnginePluginCreateExecutionContext(
       -> fusilli::ErrorOr<HipdnnEnginePluginExecutionContext> {
     // Import fusilli::Graph and compute UID -> fusilli::TensorAttr map for
     // graph boundary tensors.
-    HipdnnEnginePluginExecutionContext graphImport =
-        FUSILLI_TRY(importGraph(opGraph));
+    FUSILLI_ASSIGN_OR_RETURN(HipdnnEnginePluginExecutionContext graphImport,
+                             importGraph(opGraph));
 
     // Compile graph
     FUSILLI_CHECK_ERROR(graphImport.graph.validate());
-    FUSILLI_CHECK_ERROR(
-        graphImport.graph.compile(FUSILLI_TRY(handle->getFusilliHandle())));
+    FUSILLI_ASSIGN_OR_RETURN(auto fusilliHandle, handle->getFusilliHandle());
+    FUSILLI_CHECK_ERROR(graphImport.graph.compile(fusilliHandle));
 
     return fusilli::ok(std::move(graphImport));
   };

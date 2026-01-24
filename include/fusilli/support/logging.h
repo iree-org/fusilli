@@ -435,6 +435,20 @@ inline ConditionalStreamer &getLogger() {
     }                                                                          \
   } while (false)
 
+#define FUSILLI_ASSIGN_OR_RETURN_IMPL(errorOr, var, expr)                      \
+  auto errorOr = (expr);                                                       \
+  if (isError(errorOr)) {                                                      \
+    FUSILLI_LOG_LABEL_RED("ERROR: " << errorOr << " ");                        \
+    FUSILLI_LOG_ENDL(#expr << " at " << __FILE__ << ":" << __LINE__);          \
+    return fusilli::ErrorObject(errorOr);                                      \
+  }                                                                            \
+  var = std::move(*errorOr);
+
+#define FUSILLI_CONCAT_IMPL(a, b, c) a##_##b##_##c
+#define FUSILLI_CONCAT(a, b, c) FUSILLI_CONCAT_IMPL(a, b, c)
+#define FUSILLI_ERROR_VAR(varDecl)                                             \
+  FUSILLI_CONCAT(varDecl, __LINE__, __COUNTER__)
+
 // Unwrap the type returned from an expression that evaluates to an ErrorOr,
 // returning an error from the enclosing function in the error case, and the
 // value otherwise.
@@ -444,18 +458,10 @@ inline ConditionalStreamer &getLogger() {
 //
 //   ErrorOr<int> processString() {
 //     // Either gets the string or returns error.
-//     std::string str = FUSILLI_TRY(getString());
+//     FUSILLI_ASSIGN_OR_RETURN(std::string str, getString());
 //     return ok(str.length());
 //   }
-#define FUSILLI_TRY(expr)                                                      \
-  ({                                                                           \
-    auto _errorOr = (expr);                                                    \
-    if (isError(_errorOr)) {                                                   \
-      FUSILLI_LOG_LABEL_RED("ERROR: " << _errorOr << " ");                     \
-      FUSILLI_LOG_ENDL(#expr << " at " << __FILE__ << ":" << __LINE__);        \
-      return fusilli::ErrorObject(_errorOr);                                   \
-    }                                                                          \
-    std::move(*_errorOr);                                                      \
-  })
+#define FUSILLI_ASSIGN_OR_RETURN(varDecl, expr)                                \
+  FUSILLI_ASSIGN_OR_RETURN_IMPL(FUSILLI_ERROR_VAR(_errorOr), varDecl, expr)
 
 #endif // FUSILLI_SUPPORT_LOGGING_H

@@ -265,11 +265,13 @@ TEST_CASE("ErrorOr -> ErrorOr error propagation", "[logging][erroror]") {
   };
 
   auto consumerFunction = [&]() -> ErrorOr<std::string> {
-    return ok(std::format("got {}", FUSILLI_TRY(successFunction())));
+    FUSILLI_ASSIGN_OR_RETURN(auto value, successFunction());
+    return ok(std::format("got {}", value));
   };
 
   auto failingConsumer = [&]() -> ErrorOr<std::string> {
-    return ok(std::format("got {}", FUSILLI_TRY(failingFunction())));
+    FUSILLI_ASSIGN_OR_RETURN(auto value, failingFunction());
+    return ok(std::format("got {}", value));
   };
 
   SECTION("Success propagation") {
