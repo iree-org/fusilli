@@ -123,7 +123,7 @@ public:
 
       FUSILLI_ASSIGN_OR_RETURN(auto broadcastShape,
                                computeBroadcastShape(inputShapes));
-      outTensor->setDim(broadcastShape);
+      outTensor->setDim(std::move(broadcastShape));
     }
 
     if (outTensor->getStride().empty()) {

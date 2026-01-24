@@ -435,6 +435,20 @@ inline ConditionalStreamer &getLogger() {
     }                                                                          \
   } while (false)
 
+#define FUSILLI_ASSIGN_OR_RETURN_IMPL(errorOr, var, expr)                      \
+  auto errorOr = (expr);                                                       \
+  if (isError(errorOr)) {                                                      \
+    FUSILLI_LOG_LABEL_RED("ERROR: " << errorOr << " ");                        \
+    FUSILLI_LOG_ENDL(#expr << " at " << __FILE__ << ":" << __LINE__);          \
+    return fusilli::ErrorObject(errorOr);                                      \
+  }                                                                            \
+  var = std::move(*errorOr);
+
+#define FUSILLI_CONCAT_IMPL(a, b, c) a##_##b##_##c
+#define FUSILLI_CONCAT(a, b, c) FUSILLI_CONCAT_IMPL(a, b, c)
+#define FUSILLI_ERROR_VAR(varDecl)                                             \
+  FUSILLI_CONCAT(varDecl, __LINE__, __COUNTER__)
+
 // Unwrap the type returned from an expression that evaluates to an ErrorOr,
 // returning an error from the enclosing function in the error case, and the
 // value otherwise.
@@ -447,19 +461,6 @@ inline ConditionalStreamer &getLogger() {
 //     FUSILLI_ASSIGN_OR_RETURN(std::string str, getString());
 //     return ok(str.length());
 //   }
-#define FUSILLI_ASSIGN_OR_RETURN_IMPL(errorOr, var, expr)                      \
-  auto errorOr = (expr);                                                       \
-  if (isError(errorOr)) {                                                      \
-    FUSILLI_LOG_LABEL_RED("ERROR: " << errorOr << " ");                        \
-    FUSILLI_LOG_ENDL(#expr << " at " << __FILE__ << ":" << __LINE__);          \
-    return fusilli::ErrorObject(errorOr);                                      \
-  }                                                                            \
-  var = std::move(*errorOr);
-
-#define FUSILLI_CONCAT_IMPL(a, b) a##b
-#define FUSILLI_CONCAT(a, b) FUSILLI_CONCAT_IMPL(a, b)
-#define FUSILLI_ERROR_VAR(varDecl) FUSILLI_CONCAT(varDecl, __LINE__)
-
 #define FUSILLI_ASSIGN_OR_RETURN(varDecl, expr)                                \
   FUSILLI_ASSIGN_OR_RETURN_IMPL(FUSILLI_ERROR_VAR(_errorOr), varDecl, expr)
 

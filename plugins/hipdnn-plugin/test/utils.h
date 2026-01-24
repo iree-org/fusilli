@@ -13,19 +13,21 @@
 #ifndef FUSILLI_PLUGIN_TESTS_UTILS_H
 #define FUSILLI_PLUGIN_TESTS_UTILS_H
 
-// Unwrap the type returned from an expression that evaluates to an ErrorOr,
-// fail the test using GTest's EXPECT_TRUE if the result is an ErrorObject.
-//
-// This is very similar to FUSILLI_ASSIGN_OR_RETURN, but
-// FUSILLI_ASSIGN_OR_RETURN propagates an error to callers on the error path,
-// this fails the test on the error path. The two macros are analogous to rust's
-// `?` (try) operator and
-// `.unwrap()` call.
-#define FUSILLI_PLUGIN_EXPECT_UNWRAP(expr)                                     \
-  ({                                                                           \
-    auto _errorOr = (expr);                                                    \
-    EXPECT_TRUE(isOk(_errorOr));                                               \
-    std::move(*_errorOr);                                                      \
-  })
+#define FUSILLI_PLUGIN_CONCAT_IMPL(a, b, c) a##_##b##_##c
+#define FUSILLI_PLUGIN_ERROR_VAR(name, line, counter)                          \
+  FUSILLI_PLUGIN_CONCAT_IMPL(name, line, counter)
+
+#define FUSILLI_PLUGIN_EXPECT_OR_ASSIGN_IMPL(errorOr, var, expr)               \
+  auto errorOr = (expr);                                                       \
+  EXPECT_TRUE(!isError(errorOr));                                              \
+  var = std::move(*errorOr);
+
+// Assigns the result of an expression that evaluates to an ErrorOr<T> to a
+// variable, or returns the error from the enclosing function if the result is
+// an error.
+#define FUSILLI_PLUGIN_EXPECT_OR_ASSIGN(varDecl, expr)                         \
+  FUSILLI_PLUGIN_EXPECT_OR_ASSIGN_IMPL(                                        \
+      FUSILLI_PLUGIN_ERROR_VAR(_errorOr, __LINE__, __COUNTER__), varDecl,      \
+      expr)
 
 #endif // FUSILLI_PLUGIN_TESTS_UTILS_H
