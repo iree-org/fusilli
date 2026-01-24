@@ -65,9 +65,10 @@ static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
                                       DataType convIOType, int64_t iter,
                                       int64_t deviceId, bool dump) {
 #ifdef FUSILLI_ENABLE_AMDGPU
-  Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
+  FUSILLI_ASSIGN_OR_RETURN(Handle handle,
+                           Handle::create(Backend::AMDGPU, deviceId));
 #else
-  Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
+  FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
 #endif
 
   // Calculate filter channels
@@ -173,9 +174,12 @@ static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
   FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
 
   // Allocate input, weight and output buffers.
-  auto xBuf = FUSILLI_TRY(allocateBufferOfType(handle, xT, convIOType, 1.0f));
-  auto wBuf = FUSILLI_TRY(allocateBufferOfType(handle, wT, convIOType, 1.0f));
-  auto yBuf = FUSILLI_TRY(allocateBufferOfType(handle, yT, convIOType, 0.0f));
+  FUSILLI_ASSIGN_OR_RETURN(auto xBuf,
+                           allocateBufferOfType(handle, xT, convIOType, 1.0f));
+  FUSILLI_ASSIGN_OR_RETURN(auto wBuf,
+                           allocateBufferOfType(handle, wT, convIOType, 1.0f));
+  FUSILLI_ASSIGN_OR_RETURN(auto yBuf,
+                           allocateBufferOfType(handle, yT, convIOType, 0.0f));
 
   // Create variant pack.
   std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
@@ -186,7 +190,8 @@ static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
       };
 
   if (opts.bias) {
-    auto bBuf = FUSILLI_TRY(allocateBufferOfType(handle, bT, convIOType, 1.0f));
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto bBuf, allocateBufferOfType(handle, bT, convIOType, 1.0f));
     variantPack.insert({bT, bBuf});
   }
 
@@ -202,9 +207,10 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts, DataType aType,
                                    DataType biasType, int64_t iter,
                                    int64_t deviceId, bool dump) {
 #ifdef FUSILLI_ENABLE_AMDGPU
-  Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
+  FUSILLI_ASSIGN_OR_RETURN(Handle handle,
+                           Handle::create(Backend::AMDGPU, deviceId));
 #else
-  Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
+  FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
 #endif
 
   // Build attributes based on transpose flags and batch count.
@@ -293,9 +299,12 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts, DataType aType,
   FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
 
   // Allocate input, weight and output buffers.
-  auto aBuf = FUSILLI_TRY(allocateBufferOfType(handle, aT, aType, 1.0f));
-  auto bBuf = FUSILLI_TRY(allocateBufferOfType(handle, bT, bType, 1.0f));
-  auto outBuf = FUSILLI_TRY(allocateBufferOfType(handle, outT, outType, 0.0f));
+  FUSILLI_ASSIGN_OR_RETURN(auto aBuf,
+                           allocateBufferOfType(handle, aT, aType, 1.0f));
+  FUSILLI_ASSIGN_OR_RETURN(auto bBuf,
+                           allocateBufferOfType(handle, bT, bType, 1.0f));
+  FUSILLI_ASSIGN_OR_RETURN(auto outBuf,
+                           allocateBufferOfType(handle, outT, outType, 0.0f));
 
   // Create variant pack.
   std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
@@ -306,8 +315,8 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts, DataType aType,
       };
 
   if (opts.bias) {
-    auto biasBuf =
-        FUSILLI_TRY(allocateBufferOfType(handle, biasT, biasType, 1.0f));
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto biasBuf, allocateBufferOfType(handle, biasT, biasType, 1.0f));
     variantPack.insert({biasT, biasBuf});
   }
 
@@ -322,9 +331,10 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
                                       DataType convIOType, int64_t iter,
                                       int64_t deviceId, bool dump) {
 #ifdef FUSILLI_ENABLE_AMDGPU
-  Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
+  FUSILLI_ASSIGN_OR_RETURN(Handle handle,
+                           Handle::create(Backend::AMDGPU, deviceId));
 #else
-  Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
+  FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
 #endif
 
   // Calculate filter channels
@@ -411,9 +421,12 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
   FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
 
   // Allocate buffers.
-  auto dyBuf = FUSILLI_TRY(allocateBufferOfType(handle, dyT, convIOType, 1.0f));
-  auto xBuf = FUSILLI_TRY(allocateBufferOfType(handle, xT, convIOType, 1.0f));
-  auto dwBuf = FUSILLI_TRY(allocateBufferOfType(handle, dwT, convIOType, 0.0f));
+  FUSILLI_ASSIGN_OR_RETURN(auto dyBuf,
+                           allocateBufferOfType(handle, dyT, convIOType, 1.0f));
+  FUSILLI_ASSIGN_OR_RETURN(auto xBuf,
+                           allocateBufferOfType(handle, xT, convIOType, 1.0f));
+  FUSILLI_ASSIGN_OR_RETURN(auto dwBuf,
+                           allocateBufferOfType(handle, dwT, convIOType, 0.0f));
 
   // Create variant pack.
   std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
@@ -434,9 +447,10 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
                                       DataType convIOType, int64_t iter,
                                       int64_t deviceId, bool dump) {
 #ifdef FUSILLI_ENABLE_AMDGPU
-  Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU, deviceId));
+  FUSILLI_ASSIGN_OR_RETURN(Handle handle,
+                           Handle::create(Backend::AMDGPU, deviceId));
 #else
-  Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
+  FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
 #endif
 
   // Calculate filter channels
@@ -523,9 +537,12 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
   FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
 
   // Allocate buffers.
-  auto dyBuf = FUSILLI_TRY(allocateBufferOfType(handle, dyT, convIOType, 1.0f));
-  auto wBuf = FUSILLI_TRY(allocateBufferOfType(handle, wT, convIOType, 1.0f));
-  auto dxBuf = FUSILLI_TRY(allocateBufferOfType(handle, dxT, convIOType, 0.0f));
+  FUSILLI_ASSIGN_OR_RETURN(auto dyBuf,
+                           allocateBufferOfType(handle, dyT, convIOType, 1.0f));
+  FUSILLI_ASSIGN_OR_RETURN(auto wBuf,
+                           allocateBufferOfType(handle, wT, convIOType, 1.0f));
+  FUSILLI_ASSIGN_OR_RETURN(auto dxBuf,
+                           allocateBufferOfType(handle, dxT, convIOType, 0.0f));
 
   // Create variant pack.
   std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>

@@ -426,8 +426,8 @@ TEST(TestFusilliPluginApi, CreateExecutionContext) {
   const std::vector<int64_t> expectedYStrides = {64, 16, 4, 1};
   const hipdnn_data_sdk::data_objects::DataType dataType =
       hipdnn_data_sdk::data_objects::DataType::FLOAT;
-  fusilli::DataType expectedDataType =
-      FUSILLI_PLUGIN_EXPECT_UNWRAP(hipDnnDataTypeToFusilliDataType(dataType));
+  FUSILLI_PLUGIN_EXPECT_OR_ASSIGN(fusilli::DataType expectedDataType,
+                                  hipDnnDataTypeToFusilliDataType(dataType));
 
   // Create a serialized hipDNN conv_fprop.
   // Note: createValidConvFwdGraph uses hardcoded UIDs 1, 2, 3 for x, w, y

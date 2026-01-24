@@ -12,27 +12,34 @@
 #include <hipdnn_data_sdk/data_objects/data_types_generated.h>
 
 TEST(TestGraphImport, ConvertHipDnnToFusilli) {
-  EXPECT_EQ(FUSILLI_PLUGIN_EXPECT_UNWRAP(hipDnnDataTypeToFusilliDataType(
-                hipdnn_data_sdk::data_objects::DataType::HALF)),
-            fusilli::DataType::Half);
-  EXPECT_EQ(FUSILLI_PLUGIN_EXPECT_UNWRAP(hipDnnDataTypeToFusilliDataType(
-                hipdnn_data_sdk::data_objects::DataType::BFLOAT16)),
-            fusilli::DataType::BFloat16);
-  EXPECT_EQ(FUSILLI_PLUGIN_EXPECT_UNWRAP(hipDnnDataTypeToFusilliDataType(
-                hipdnn_data_sdk::data_objects::DataType::FLOAT)),
-            fusilli::DataType::Float);
-  EXPECT_EQ(FUSILLI_PLUGIN_EXPECT_UNWRAP(hipDnnDataTypeToFusilliDataType(
-                hipdnn_data_sdk::data_objects::DataType::DOUBLE)),
-            fusilli::DataType::Double);
-  EXPECT_EQ(FUSILLI_PLUGIN_EXPECT_UNWRAP(hipDnnDataTypeToFusilliDataType(
-                hipdnn_data_sdk::data_objects::DataType::UINT8)),
-            fusilli::DataType::Uint8);
-  EXPECT_EQ(FUSILLI_PLUGIN_EXPECT_UNWRAP(hipDnnDataTypeToFusilliDataType(
-                hipdnn_data_sdk::data_objects::DataType::INT32)),
-            fusilli::DataType::Int32);
-  EXPECT_EQ(FUSILLI_PLUGIN_EXPECT_UNWRAP(hipDnnDataTypeToFusilliDataType(
-                hipdnn_data_sdk::data_objects::DataType::UNSET)),
-            fusilli::DataType::NotSet);
+  FUSILLI_PLUGIN_EXPECT_OR_ASSIGN(
+      auto halfDt, hipDnnDataTypeToFusilliDataType(
+                       hipdnn_data_sdk::data_objects::DataType::HALF));
+  EXPECT_EQ(halfDt, fusilli::DataType::Half);
+  FUSILLI_PLUGIN_EXPECT_OR_ASSIGN(
+      auto bfloat16Dt, hipDnnDataTypeToFusilliDataType(
+                           hipdnn_data_sdk::data_objects::DataType::BFLOAT16));
+  EXPECT_EQ(bfloat16Dt, fusilli::DataType::BFloat16);
+  FUSILLI_PLUGIN_EXPECT_OR_ASSIGN(
+      auto floatDt, hipDnnDataTypeToFusilliDataType(
+                        hipdnn_data_sdk::data_objects::DataType::FLOAT));
+  EXPECT_EQ(floatDt, fusilli::DataType::Float);
+  FUSILLI_PLUGIN_EXPECT_OR_ASSIGN(
+      auto doubleDt, hipDnnDataTypeToFusilliDataType(
+                         hipdnn_data_sdk::data_objects::DataType::DOUBLE));
+  EXPECT_EQ(doubleDt, fusilli::DataType::Double);
+  FUSILLI_PLUGIN_EXPECT_OR_ASSIGN(
+      auto uint8Dt, hipDnnDataTypeToFusilliDataType(
+                        hipdnn_data_sdk::data_objects::DataType::UINT8));
+  EXPECT_EQ(uint8Dt, fusilli::DataType::Uint8);
+  FUSILLI_PLUGIN_EXPECT_OR_ASSIGN(
+      auto int32Dt, hipDnnDataTypeToFusilliDataType(
+                        hipdnn_data_sdk::data_objects::DataType::INT32));
+  EXPECT_EQ(int32Dt, fusilli::DataType::Int32);
+  FUSILLI_PLUGIN_EXPECT_OR_ASSIGN(
+      auto unsetDt, hipDnnDataTypeToFusilliDataType(
+                        hipdnn_data_sdk::data_objects::DataType::UNSET));
+  EXPECT_EQ(unsetDt, fusilli::DataType::NotSet);
 
   auto invalidResult = hipDnnDataTypeToFusilliDataType(
       static_cast<hipdnn_data_sdk::data_objects::DataType>(42));

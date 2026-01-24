@@ -110,13 +110,21 @@ private:
         opGraphWrapper.getGraph();
 
     // Import graph level properties.
+    fusilli::DataType ioDataType;
+    FUSILLI_ASSIGN_OR_RETURN(ioDataType, hipDnnDataTypeToFusilliDataType(
+                                             hipDnnGraph.io_data_type()));
+    fusilli::DataType intermediateDataType;
+    FUSILLI_ASSIGN_OR_RETURN(
+        intermediateDataType,
+        hipDnnDataTypeToFusilliDataType(hipDnnGraph.intermediate_data_type()));
+    fusilli::DataType computeDataType;
+    FUSILLI_ASSIGN_OR_RETURN(
+        computeDataType,
+        hipDnnDataTypeToFusilliDataType(hipDnnGraph.compute_data_type()));
     fusilliGraph.setName(hipDnnGraph.name()->str())
-        .setIODataType(FUSILLI_TRY(
-            hipDnnDataTypeToFusilliDataType(hipDnnGraph.io_data_type())))
-        .setIntermediateDataType(FUSILLI_TRY(hipDnnDataTypeToFusilliDataType(
-            hipDnnGraph.intermediate_data_type())))
-        .setComputeDataType(FUSILLI_TRY(
-            hipDnnDataTypeToFusilliDataType(hipDnnGraph.compute_data_type())));
+        .setIODataType(ioDataType)
+        .setIntermediateDataType(intermediateDataType)
+        .setComputeDataType(computeDataType);
 
     return importNodes();
   }
@@ -160,10 +168,12 @@ private:
       const hipdnn_data_sdk::data_objects::ConvolutionFwdAttributes
           *hipDnnConvFwdAttr) {
     // Import node inputs.
-    std::shared_ptr<fusilli::TensorAttr> x =
-        FUSILLI_TRY(importNodeInput(hipDnnConvFwdAttr->x_tensor_uid(), "x"));
-    std::shared_ptr<fusilli::TensorAttr> w =
-        FUSILLI_TRY(importNodeInput(hipDnnConvFwdAttr->w_tensor_uid(), "w"));
+    FUSILLI_ASSIGN_OR_RETURN(
+        std::shared_ptr<fusilli::TensorAttr> x,
+        importNodeInput(hipDnnConvFwdAttr->x_tensor_uid(), "x"));
+    FUSILLI_ASSIGN_OR_RETURN(
+        std::shared_ptr<fusilli::TensorAttr> w,
+        importNodeInput(hipDnnConvFwdAttr->w_tensor_uid(), "w"));
 
     // hipdnnEnginePluginGetApplicableEngineIds should have already eliminated
     // any nodes with asymmetric padding, this is just a double check.
@@ -190,14 +200,16 @@ private:
   fusilli::ErrorObject importPointwiseAttr(
       const hipdnn_data_sdk::data_objects::PointwiseAttributes *hipDnnPwAttr) {
     // Get mode and determine input count.
-    fusilli::PointwiseAttr::Mode mode = FUSILLI_TRY(
+    FUSILLI_ASSIGN_OR_RETURN(
+        fusilli::PointwiseAttr::Mode mode,
         hipDnnPointwiseModeToFusilliMode(hipDnnPwAttr->operation()));
     int requiredInputs =
         fusilli::PointwiseAttr::kModeToRequiredInputCount.at(mode);
 
     // Import first input (always present).
-    std::shared_ptr<fusilli::TensorAttr> in0 =
-        FUSILLI_TRY(importNodeInput(hipDnnPwAttr->in_0_tensor_uid(), "in0"));
+    FUSILLI_ASSIGN_OR_RETURN(
+        std::shared_ptr<fusilli::TensorAttr> in0,
+        importNodeInput(hipDnnPwAttr->in_0_tensor_uid(), "in0"));
 
     // Build fusilli pointwise node.
     std::shared_ptr<fusilli::TensorAttr> out;
@@ -214,8 +226,8 @@ private:
       if (!in1Uid.has_value())
         return fusilli::error(fusilli::ErrorCode::AttributeNotSet,
                               "Binary pointwise op missing second input.");
-      std::shared_ptr<fusilli::TensorAttr> in1 =
-          FUSILLI_TRY(importNodeInput(in1Uid.value(), "in1"));
+      FUSILLI_ASSIGN_OR_RETURN(std::shared_ptr<fusilli::TensorAttr> in1,
+                               importNodeInput(in1Uid.value(), "in1"));
       out = fusilliGraph.pointwise(in0, in1, fusilliPwAttr);
       break;
     }
@@ -234,10 +246,12 @@ private:
   fusilli::ErrorObject importMatmulAttr(
       const hipdnn_data_sdk::data_objects::MatmulAttributes *hipDnnMatmulAttr) {
     // Import node inputs.
-    std::shared_ptr<fusilli::TensorAttr> a =
-        FUSILLI_TRY(importNodeInput(hipDnnMatmulAttr->a_tensor_uid(), "a"));
-    std::shared_ptr<fusilli::TensorAttr> b =
-        FUSILLI_TRY(importNodeInput(hipDnnMatmulAttr->b_tensor_uid(), "b"));
+    FUSILLI_ASSIGN_OR_RETURN(
+        std::shared_ptr<fusilli::TensorAttr> a,
+        importNodeInput(hipDnnMatmulAttr->a_tensor_uid(), "a"));
+    FUSILLI_ASSIGN_OR_RETURN(
+        std::shared_ptr<fusilli::TensorAttr> b,
+        importNodeInput(hipDnnMatmulAttr->b_tensor_uid(), "b"));
 
     // Import node - matmul has no extra attributes.
     auto fusilliMatmulAttr = fusilli::MatmulAttr();
@@ -318,11 +332,12 @@ private:
   fusilli::ErrorObject
   importAttrs(fusilli::TensorAttr &dest,
               const hipdnn_data_sdk::data_objects::TensorAttributes *src) {
+    FUSILLI_ASSIGN_OR_RETURN(auto dataType,
+                             hipDnnDataTypeToFusilliDataType(src->data_type()));
     dest.setIsVirtual(src->virtual_())
         .setDim(*src->dims())
         .setStride(*src->strides())
-        .setDataType(
-            FUSILLI_TRY(hipDnnDataTypeToFusilliDataType(src->data_type())));
+        .setDataType(dataType);
     return fusilli::ok();
   }
 };
