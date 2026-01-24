@@ -17,11 +17,11 @@
 // TORCH-CHECK:       %permute_IN_0_val_2_pointwise_mul = torch.constant.int 2
 // TORCH-CHECK:       %permute_IN_0_val_3_pointwise_mul = torch.constant.int 3
 // TORCH-CHECK:       %permute_IN_0_pointwise_mul = torch.prim.ListConstruct %permute_IN_0_val_0_pointwise_mul, %permute_IN_0_val_1_pointwise_mul, %permute_IN_0_val_2_pointwise_mul, %permute_IN_0_val_3_pointwise_mul : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %arg0_in0_pointwise_mul_perm = torch.aten.permute %arg0, %permute_IN_0_pointwise_mul : !torch.vtensor<[2,3,128,128],f32>, !torch.list<int> -> !torch.vtensor<[2,3,128,128],f32>
+// TORCH-CHECK:       %arg0_pointwise_mul_perm = torch.aten.permute %arg0, %permute_IN_0_pointwise_mul : !torch.vtensor<[2,3,128,128],f32>, !torch.list<int> -> !torch.vtensor<[2,3,128,128],f32>
 // TORCH-CHECK:       %permute_IN_1_val_0_pointwise_mul = torch.constant.int 0
 // TORCH-CHECK:       %permute_IN_1_pointwise_mul = torch.prim.ListConstruct %permute_IN_1_val_0_pointwise_mul : (!torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %arg1_in1_pointwise_mul_perm = torch.aten.permute %arg1, %permute_IN_1_pointwise_mul : !torch.vtensor<[128],f32>, !torch.list<int> -> !torch.vtensor<[128],f32>
-// TORCH-CHECK:       %result_pointwise_mul_perm = torch.aten.mul.Tensor %arg0_in0_pointwise_mul_perm, %arg1_in1_pointwise_mul_perm : !torch.vtensor<[2,3,128,128],f32>, !torch.vtensor<[128],f32> -> !torch.vtensor<[2,3,128,128],f32>
+// TORCH-CHECK:       %arg1_pointwise_mul_perm = torch.aten.permute %arg1, %permute_IN_1_pointwise_mul : !torch.vtensor<[128],f32>, !torch.list<int> -> !torch.vtensor<[128],f32>
+// TORCH-CHECK:       %result_pointwise_mul_perm = torch.aten.mul.Tensor %arg0_pointwise_mul_perm, %arg1_pointwise_mul_perm : !torch.vtensor<[2,3,128,128],f32>, !torch.vtensor<[128],f32> -> !torch.vtensor<[2,3,128,128],f32>
 // TORCH-CHECK:       %permute_OUT_0_val_0_pointwise_mul = torch.constant.int 0
 // TORCH-CHECK:       %permute_OUT_0_val_1_pointwise_mul = torch.constant.int 1
 // TORCH-CHECK:       %permute_OUT_0_val_2_pointwise_mul = torch.constant.int 2
