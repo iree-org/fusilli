@@ -160,7 +160,10 @@ private:
   // `device_` depends on `backend_` and `instance_`.
   Backend backend_;
   IreeRuntimeInstanceSharedPtrType instance_;
-  IreeHalDeviceUniquePtrType device_;
+  // Use shared_ptr to allow sharing devices across handles. For CPU, there's
+  // only one logical device shared by all handles. For GPU, devices with the
+  // same (deviceId, stream) configuration are shared.
+  IreeHalDeviceSharedPtrType device_;
 };
 
 } // namespace fusilli
