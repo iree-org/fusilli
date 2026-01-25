@@ -1,0 +1,113 @@
+-- The C compiler identification is Clang 18.1.3
+-- The CXX compiler identification is Clang 18.1.3
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/clang - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/clang++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Fusilli supported systems:
+--   - Host
+-- Fetching IREE sources from tag iree-3.10.0rc20260114
+-- The ASM compiler identification is Clang with GNU-like command-line
+-- Found assembler: /usr/bin/clang
+-- Could not find nvcc, please set CUDAToolkit_ROOT.
+-- IREE HAL drivers:
+--   - local-sync
+--   - local-task
+-- IREE HAL local executable library loaders:
+--   - embedded-elf
+--   - system-library
+--   - vmvx-module
+-- IREE HAL local executable plugin mechanisms:
+--   - embedded-elf
+--   - system-library
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Looking for dlopen
+-- Looking for dlopen - found
+-- Performing Test IREE_SUPPORTS_VISIBILITY_DEFAULT
+-- Performing Test IREE_SUPPORTS_VISIBILITY_DEFAULT - Success
+-- Found Git: /usr/bin/git (found version "2.52.0")
+-- Not adding LLVM/MLIR because the configuration does not require it
+-- Failed to find LLVM FileCheck
+-- git version: v1.8.3-35-g99bdb212 normalized to 1.8.3.35
+-- Google Benchmark version: 1.8.3.35
+-- Looking for shm_open in rt
+-- Looking for shm_open in rt - found
+-- Performing Test HAVE_CXX_FLAG_WALL
+-- Performing Test HAVE_CXX_FLAG_WALL - Success
+-- Performing Test HAVE_CXX_FLAG_WEXTRA
+-- Performing Test HAVE_CXX_FLAG_WEXTRA - Success
+-- Performing Test HAVE_CXX_FLAG_WSHADOW
+-- Performing Test HAVE_CXX_FLAG_WSHADOW - Success
+-- Performing Test HAVE_CXX_FLAG_WFLOAT_EQUAL
+-- Performing Test HAVE_CXX_FLAG_WFLOAT_EQUAL - Success
+-- Performing Test HAVE_CXX_FLAG_WOLD_STYLE_CAST
+-- Performing Test HAVE_CXX_FLAG_WOLD_STYLE_CAST - Success
+-- Performing Test HAVE_CXX_FLAG_WERROR
+-- Performing Test HAVE_CXX_FLAG_WERROR - Success
+-- Performing Test HAVE_CXX_FLAG_WSUGGEST_OVERRIDE
+-- Performing Test HAVE_CXX_FLAG_WSUGGEST_OVERRIDE - Success
+-- Performing Test HAVE_CXX_FLAG_PEDANTIC
+-- Performing Test HAVE_CXX_FLAG_PEDANTIC - Success
+-- Performing Test HAVE_CXX_FLAG_PEDANTIC_ERRORS
+-- Performing Test HAVE_CXX_FLAG_PEDANTIC_ERRORS - Success
+-- Performing Test HAVE_CXX_FLAG_WSHORTEN_64_TO_32
+-- Performing Test HAVE_CXX_FLAG_WSHORTEN_64_TO_32 - Success
+-- Performing Test HAVE_CXX_FLAG_FSTRICT_ALIASING
+-- Performing Test HAVE_CXX_FLAG_FSTRICT_ALIASING - Success
+-- Performing Test HAVE_CXX_FLAG_WNO_DEPRECATED_DECLARATIONS
+-- Performing Test HAVE_CXX_FLAG_WNO_DEPRECATED_DECLARATIONS - Success
+-- Performing Test HAVE_CXX_FLAG_WNO_DEPRECATED
+-- Performing Test HAVE_CXX_FLAG_WNO_DEPRECATED - Success
+-- Performing Test HAVE_CXX_FLAG_WSTRICT_ALIASING
+-- Performing Test HAVE_CXX_FLAG_WSTRICT_ALIASING - Success
+-- Performing Test HAVE_CXX_FLAG_WD654
+-- Performing Test HAVE_CXX_FLAG_WD654 - Failed
+-- Performing Test HAVE_CXX_FLAG_WTHREAD_SAFETY
+-- Performing Test HAVE_CXX_FLAG_WTHREAD_SAFETY - Success
+-- Enabling additional flags: -DINCLUDE_DIRECTORIES=/home/runner/work/fusilli/fusilli/build/_deps/fusilli_iree-src/third_party/benchmark/include
+-- Compiling and running to test HAVE_THREAD_SAFETY_ATTRIBUTES
+-- Performing Test HAVE_THREAD_SAFETY_ATTRIBUTES -- success
+-- Performing Test HAVE_CXX_FLAG_COVERAGE
+-- Performing Test HAVE_CXX_FLAG_COVERAGE - Success
+-- Compiling and running to test HAVE_STD_REGEX
+-- Performing Test HAVE_STD_REGEX -- success
+-- Compiling and running to test HAVE_GNU_POSIX_REGEX
+-- Performing Test HAVE_GNU_POSIX_REGEX -- failed to compile
+-- Compiling and running to test HAVE_POSIX_REGEX
+-- Performing Test HAVE_POSIX_REGEX -- success
+-- Compiling and running to test HAVE_STEADY_CLOCK
+-- Performing Test HAVE_STEADY_CLOCK -- success
+-- Compiling and running to test HAVE_PTHREAD_AFFINITY
+-- Performing Test HAVE_PTHREAD_AFFINITY -- success
+-- *Not* building or importing IREE's compiler tools.
+   Set IREE_BUILD_COMPILER to build them or IREE_HOST_BIN_DIR to import them.
+-- Configuring IREE runtime plugins
+-- Runtime tracing disabled
+-- iree_allocator_system() using `IREE_ALLOCATOR_LIBC_*`
+-- Performing Test IREE_UK_BUILD_X86_64_AVX2_FMA
+-- Performing Test IREE_UK_BUILD_X86_64_AVX2_FMA - Success
+-- Performing Test IREE_UK_BUILD_X86_64_AVX512_BASE
+-- Performing Test IREE_UK_BUILD_X86_64_AVX512_BASE - Success
+-- Performing Test IREE_UK_BUILD_X86_64_AVX512_VNNI
+-- Performing Test IREE_UK_BUILD_X86_64_AVX512_VNNI - Success
+-- Performing Test IREE_UK_BUILD_X86_64_AVX512_BF16
+-- Performing Test IREE_UK_BUILD_X86_64_AVX512_BF16 - Success
+-- IREE task topology: using sysfs (Linux)
+-- Looking for dl_iterate_phdr
+-- Looking for dl_iterate_phdr - found
+CMake Error at build_tools/cmake/FusilliBuildUtils.cmake:44 (message):
+  Could not find 'iree-compile' in PATH.  Please install iree-compile (e.g.,
+  pip install iree-base-compiler).
+Call Stack (most recent call first):
+  CMakeLists.txt:190 (fusilli_find_program)
+
+
+-- Configuring incomplete, errors occurred!
