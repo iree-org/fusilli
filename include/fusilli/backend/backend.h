@@ -16,10 +16,12 @@
 
 #include "fusilli/attributes/types.h"
 #include "fusilli/support/external_tools.h"
+#include "fusilli/support/logging.h"
 
 #include <iree/hal/drivers/hip/api.h>
 #include <iree/runtime/api.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <format>
 #include <memory>
@@ -63,19 +65,117 @@ static const std::unordered_map<Backend, const char *> kHalDriver = {
     {Backend::AMDGPU, "hip"},
 };
 
+// Maps GPU marketing name to IREE SKU target name.
+// Returns empty string if not recognized.
+// Supported marketing names (from IREE's KnownTargets.cpp):
+//   - AMD Instinct MI355X/MI350X/MI325X/MI300X/MI300A/MI308X
+//   - AMD Instinct MI250X/MI250/MI210/MI100
+//   - AMD Radeon PRO W7900/W7800/W7700/V710
+//   - AMD Radeon RX 7900 XTX/XT, RX 7800 XT, RX 7700 XT
+// See:
+// https://github.com/iree-org/iree/blob/main/compiler/src/iree/compiler/Codegen/Dialect/GPU/TargetUtils/KnownTargets.cpp
+inline std::string
+getGpuSkuFromMarketingName(const std::string &marketingName) {
+  // Map of known marketing name patterns to IREE SKU targets.
+  // The key is a substring to match (case-insensitive), value is the SKU.
+  static const std::vector<std::pair<std::string, std::string>> skuPatterns = {
+      // CDNA4
+      {"MI355X", "mi355x"},
+      {"MI350X", "mi350x"},
+      // CDNA3
+      {"MI325X", "mi325x"},
+      {"MI308X", "mi308x"},
+      {"MI300X", "mi300x"},
+      {"MI300A", "mi300a"},
+      // CDNA2
+      {"MI250X", "mi250x"},
+      {"MI250", "mi250"},
+      {"MI210", "mi210"},
+      // CDNA1
+      {"MI100", "mi100"},
+      // RDNA3 Pro
+      {"W7900", "w7900"},
+      {"W7800", "w7800"},
+      {"W7700", "w7700"},
+      {"V710", "v710"},
+      // RDNA3 Consumer
+      {"RX 7900 XTX", "rx7900xtx"},
+      {"RX 7900 XT", "rx7900xt"},
+      {"RX 7800 XT", "rx7800xt"},
+      {"RX 7700 XT", "rx7700xt"},
+      // RDNA4
+      {"RX 9070 XT", "rx9070xt"},
+      {"RX 9070", "rx9070"},
+      {"RX 9060 XT", "rx9060xt"},
+      {"R9700", "r9700"},
+  };
+
+  // Convert marketing name to uppercase for case-insensitive matching.
+  std::string upperName = marketingName;
+  std::ranges::transform(upperName, upperName.begin(), // C++20
+                         [](unsigned char c) { return std::toupper(c); });
+
+  // Find matching SKU pattern.
+  for (const auto &[pattern, sku] : skuPatterns) {
+    std::string upperPattern = pattern;
+    std::ranges::transform(upperPattern, upperPattern.begin(), // C++20
+                           [](unsigned char c) { return std::toupper(c); });
+    if (upperName.find(upperPattern) != std::string::npos)
+      return sku;
+  }
+
+  return "";
+}
+
+// Queries amd-smi for GPU marketing name.
+// Runs `amd-smi static --gpu 0 --json` and extracts market_name field.
+// Returns empty string on failure.
+inline std::string getGpuMarketingNameFromAmdSmi() {
+  std::string cmd = getAmdSmiPath() + " static --gpu 0 --json 2>/dev/null";
+
+  FILE *pipe = popen(cmd.c_str(), "r");
+  if (!pipe)
+    return "";
+
+  // Read entire output into a string.
+  std::string output;
+  char buffer[4096];
+  while (fgets(buffer, sizeof(buffer), pipe) != nullptr)
+    output += buffer;
+  pclose(pipe);
+
+  // Simple JSON parsing: find "market_name": "value"
+  const std::string key = "\"market_name\":";
+  size_t keyPos = output.find(key);
+  if (keyPos == std::string::npos)
+    return "";
+
+  // Find the opening quote of the value.
+  size_t valueStart = output.find('"', keyPos + key.length());
+  if (valueStart == std::string::npos)
+    return "";
+  valueStart++; // Move past the opening quote.
+
+  // Find the closing quote.
+  size_t valueEnd = output.find('"', valueStart);
+  if (valueEnd == std::string::npos)
+    return "";
+
+  return output.substr(valueStart, valueEnd - valueStart);
+}
+
 // Parses AMDGPU arch (e.g. `gfx942`) from `rocm_agent_enumerator` CLI output.
-inline std::string getIreeHipTargetForAmdgpu() {
+inline std::string getArchFromRocmAgentEnumerator() {
   auto cmd = getRocmAgentEnumeratorPath();
 
-  FILE *lsofFile = popen(cmd.c_str(), "r");
-  if (!lsofFile) {
+  FILE *pipe = popen(cmd.c_str(), "r");
+  if (!pipe)
     return "";
-  }
 
   char buffer[1024];
   std::string target;
   while (true) {
-    char *line = fgets(buffer, sizeof(buffer), lsofFile);
+    char *line = fgets(buffer, sizeof(buffer), pipe);
     if (line == nullptr) {
       target = "";
       break;
@@ -88,8 +188,39 @@ inline std::string getIreeHipTargetForAmdgpu() {
     break;
   }
 
-  pclose(lsofFile);
+  pclose(pipe);
   return target;
+}
+
+// Returns the best available IREE HIP target for the current AMD GPU.
+// Attempts to get SKU name (e.g., `mi300x`) via amd-smi for optimal tuning,
+// falls back to architecture (e.g., `gfx942`) via rocm_agent_enumerator.
+// See:
+// https://iree.dev/guides/deployment-configurations/gpu-rocm/#choosing-hip-targets
+inline std::string getIreeHipTargetForAmdgpu() {
+  // Try to get SKU name first via amd-smi for better compiler tuning.
+  FUSILLI_LOG_LABEL_ENDL("INFO: Detecting IREE HIP target for AMD GPU");
+
+  std::string marketingName = getGpuMarketingNameFromAmdSmi();
+  if (!marketingName.empty()) {
+    FUSILLI_LOG_LABEL_ENDL("INFO: amd-smi returned marketing name: \""
+                           << marketingName << "\"");
+    std::string sku = getGpuSkuFromMarketingName(marketingName);
+    if (!sku.empty()) {
+      FUSILLI_LOG_LABEL_ENDL("INFO: Using SKU target: \""
+                             << sku << "\" (from amd-smi)");
+      return sku;
+    }
+  }
+
+  // Fallback to architecture from rocm_agent_enumerator.
+  FUSILLI_LOG_LABEL_ENDL(
+      "INFO: Marketing name / SKU not recognized from amd-smi; falling back to "
+      "architecture from rocm_agent_enumerator");
+  std::string arch = getArchFromRocmAgentEnumerator();
+  FUSILLI_LOG_LABEL_ENDL("INFO: Using architecture target: \""
+                         << arch << "\" (from rocm_agent_enumerator)");
+  return arch;
 }
 
 // Map from backend to IREE compile flags.
@@ -102,9 +233,10 @@ inline std::span<const std::string> getBackendFlags(Backend backend) {
         "--iree-llvmcpu-target-cpu=host",
     };
 
-    // Specify a HIP target for AMD GPU by extracting the architecture
-    // name for the first device using `rocm_agent_enumerator`.
-    // See this page for a full list of supported architectures:
+    // Specify a HIP target for AMD GPU. First attempts to get the SKU name
+    // (e.g., `mi300x`) via `amd-smi` for optimal compiler tuning, then falls
+    // back to architecture (e.g., `gfx942`) via `rocm_agent_enumerator`.
+    // See:
     // https://iree.dev/guides/deployment-configurations/gpu-rocm/#choosing-hip-targets
     auto hipTarget = getIreeHipTargetForAmdgpu();
     std::vector<std::string> amdGpuFlags = {
