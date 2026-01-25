@@ -61,7 +61,4 @@ inline std::string getIreeCompilerLibPath() {
 
 } // namespace fusilli
 
-#undef IREE_COMPILE_PATH
-#undef ROCM_AGENT_ENUMERATOR_PATH
-
 #endif // FUSILLI_SUPPORT_EXTERNAL_TOOLS_H
