@@ -877,16 +877,19 @@ inline std::string ConvDGradNode::emitNodePreAsm() const {
 //===----------------------------------------------------------------------===//
 
 // Emits LayerNormNode's operand names in MLIR assembly format.
+//
+// The unique suffix is included to ensure SSA uniqueness when the same
+// tensor is used by multiple operations.
 inline std::string LayerNormNode::getOperandNamesAsm() const {
   std::ostringstream oss;
   std::string suffix = layernormAttr.getName();
 
-  oss << layernormAttr.getX()->getValueNameAsm() << "_perm, ";
+  oss << layernormAttr.getX()->getValueNameAsm() << "_" << suffix << "_perm, ";
   oss << "%normalized_shape_" << suffix << ", ";
 
   auto getOptionalOperandNameAsm = [&](const std::shared_ptr<TensorAttr> &t,
                                        const std::string &name) {
-    return t ? t->getValueNameAsm() + "_perm, "
+    return t ? t->getValueNameAsm() + "_" + suffix + "_perm, "
              : "%none_" + name + "_" + suffix + ", ";
   };
 
@@ -920,14 +923,22 @@ inline std::string LayerNormNode::getOperandTypesAsm() const {
 }
 
 // Emits LayerNormNode's result names in MLIR assembly format.
+//
+// The unique suffix and "_perm" are included to ensure SSA uniqueness when
+// the same tensor is used by multiple operations. This intermediate result
+// is then used by the output permute.
 inline std::string LayerNormNode::getResultNamesAsm() const {
   std::ostringstream oss;
-  oss << layernormAttr.getY()->getValueNameAsm() << "_perm";
+  std::string suffix = layernormAttr.getName();
+
+  oss << layernormAttr.getY()->getValueNameAsm() << "_" << suffix << "_perm";
 
   if (isTrainingForwardPhase()) {
     oss << ", ";
-    oss << layernormAttr.getMEAN()->getValueNameAsm() << "_perm" << ", ";
-    oss << layernormAttr.getINV_VARIANCE()->getValueNameAsm() << "_perm";
+    oss << layernormAttr.getMEAN()->getValueNameAsm() << "_" << suffix
+        << "_perm" << ", ";
+    oss << layernormAttr.getINV_VARIANCE()->getValueNameAsm() << "_" << suffix
+        << "_perm";
   }
 
   return oss.str();
@@ -956,18 +967,16 @@ inline std::string LayerNormNode::getResultTypesAsm() const {
 // normalized_shape is the dimensions to normalize over (typically all dims
 // except batch).
 inline std::string LayerNormNode::getNormalizedShapeOpsAsm() const {
-  std::string suffix = layernormAttr.getName();
-
   return getListOfIntOpsAsm(getNormalizedShape(), /*prefix=*/"normalized_shape",
-                            /*suffix=*/suffix);
+                            /*suffix=*/layernormAttr.getName());
 }
 
 // Get epsilon constant op in MLIR assembly format.
 inline std::string LayerNormNode::getEpsilonOpsAsm() const {
-  std::string suffix = layernormAttr.getName();
   float eps =
       std::get<float>(layernormAttr.getEpsilon()->getScalarValue().value());
-  return std::format("%eps_{} = torch.constant.float {:e}", suffix, eps);
+  return std::format("%eps_{} = torch.constant.float {:e}",
+                     layernormAttr.getName(), eps);
 }
 
 // This gets called by the recursive `emitAsmSubtree()` method to emit

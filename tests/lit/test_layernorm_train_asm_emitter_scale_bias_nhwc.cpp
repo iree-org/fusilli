@@ -24,38 +24,38 @@
 // TORCH-CHECK:       %permute_x_val_2_layernorm_train = torch.constant.int 1
 // TORCH-CHECK:       %permute_x_val_3_layernorm_train = torch.constant.int 2
 // TORCH-CHECK:       %permute_x_layernorm_train = torch.prim.ListConstruct %permute_x_val_0_layernorm_train, %permute_x_val_1_layernorm_train, %permute_x_val_2_layernorm_train, %permute_x_val_3_layernorm_train : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %arg0_x_perm = torch.aten.permute %arg0_x, %permute_x_layernorm_train : !torch.vtensor<[16,64,32,128],f32>, !torch.list<int> -> !torch.vtensor<[16,128,64,32],f32>
+// TORCH-CHECK:       %arg0_x_layernorm_train_perm = torch.aten.permute %arg0_x, %permute_x_layernorm_train : !torch.vtensor<[16,64,32,128],f32>, !torch.list<int> -> !torch.vtensor<[16,128,64,32],f32>
 // TORCH-CHECK:       %permute_scale_val_0_layernorm_train = torch.constant.int 0
 // TORCH-CHECK:       %permute_scale_val_1_layernorm_train = torch.constant.int 1
 // TORCH-CHECK:       %permute_scale_val_2_layernorm_train = torch.constant.int 2
 // TORCH-CHECK:       %permute_scale_val_3_layernorm_train = torch.constant.int 3
 // TORCH-CHECK:       %permute_scale_layernorm_train = torch.prim.ListConstruct %permute_scale_val_0_layernorm_train, %permute_scale_val_1_layernorm_train, %permute_scale_val_2_layernorm_train, %permute_scale_val_3_layernorm_train : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %arg1_scale_perm = torch.aten.permute %arg1_scale, %permute_scale_layernorm_train : !torch.vtensor<[1,128,64,32],f32>, !torch.list<int> -> !torch.vtensor<[1,128,64,32],f32>
+// TORCH-CHECK:       %arg1_scale_layernorm_train_perm = torch.aten.permute %arg1_scale, %permute_scale_layernorm_train : !torch.vtensor<[1,128,64,32],f32>, !torch.list<int> -> !torch.vtensor<[1,128,64,32],f32>
 // TORCH-CHECK:       %permute_bias_val_0_layernorm_train = torch.constant.int 0
 // TORCH-CHECK:       %permute_bias_val_1_layernorm_train = torch.constant.int 1
 // TORCH-CHECK:       %permute_bias_val_2_layernorm_train = torch.constant.int 2
 // TORCH-CHECK:       %permute_bias_val_3_layernorm_train = torch.constant.int 3
 // TORCH-CHECK:       %permute_bias_layernorm_train = torch.prim.ListConstruct %permute_bias_val_0_layernorm_train, %permute_bias_val_1_layernorm_train, %permute_bias_val_2_layernorm_train, %permute_bias_val_3_layernorm_train : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %arg2_bias_perm = torch.aten.permute %arg2_bias, %permute_bias_layernorm_train : !torch.vtensor<[1,128,64,32],f32>, !torch.list<int> -> !torch.vtensor<[1,128,64,32],f32>
-// TORCH-CHECK:       %y_perm, %mean_perm, %inv_variance_perm = torch.aten.native_layer_norm %arg0_x_perm, %normalized_shape_layernorm_train, %arg1_scale_perm, %arg2_bias_perm, %eps_layernorm_train : !torch.vtensor<[16,128,64,32],f32>, !torch.list<int>, !torch.vtensor<[1,128,64,32],f32>, !torch.vtensor<[1,128,64,32],f32>, !torch.float -> !torch.vtensor<[16,128,64,32],f32>, !torch.vtensor<[16,1,1,1],f32>, !torch.vtensor<[16,1,1,1],f32>
+// TORCH-CHECK:       %arg2_bias_layernorm_train_perm = torch.aten.permute %arg2_bias, %permute_bias_layernorm_train : !torch.vtensor<[1,128,64,32],f32>, !torch.list<int> -> !torch.vtensor<[1,128,64,32],f32>
+// TORCH-CHECK:       %y_layernorm_train_perm, %mean_layernorm_train_perm, %inv_variance_layernorm_train_perm = torch.aten.native_layer_norm %arg0_x_layernorm_train_perm, %normalized_shape_layernorm_train, %arg1_scale_layernorm_train_perm, %arg2_bias_layernorm_train_perm, %eps_layernorm_train : !torch.vtensor<[16,128,64,32],f32>, !torch.list<int>, !torch.vtensor<[1,128,64,32],f32>, !torch.vtensor<[1,128,64,32],f32>, !torch.float -> !torch.vtensor<[16,128,64,32],f32>, !torch.vtensor<[16,1,1,1],f32>, !torch.vtensor<[16,1,1,1],f32>
 // TORCH-CHECK:       %permute_y_val_0_layernorm_train = torch.constant.int 0
 // TORCH-CHECK:       %permute_y_val_1_layernorm_train = torch.constant.int 2
 // TORCH-CHECK:       %permute_y_val_2_layernorm_train = torch.constant.int 3
 // TORCH-CHECK:       %permute_y_val_3_layernorm_train = torch.constant.int 1
 // TORCH-CHECK:       %permute_y_layernorm_train = torch.prim.ListConstruct %permute_y_val_0_layernorm_train, %permute_y_val_1_layernorm_train, %permute_y_val_2_layernorm_train, %permute_y_val_3_layernorm_train : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %y = torch.aten.permute %y_perm, %permute_y_layernorm_train : !torch.vtensor<[16,128,64,32],f32>, !torch.list<int> -> !torch.vtensor<[16,64,32,128],f32>
+// TORCH-CHECK:       %y = torch.aten.permute %y_layernorm_train_perm, %permute_y_layernorm_train : !torch.vtensor<[16,128,64,32],f32>, !torch.list<int> -> !torch.vtensor<[16,64,32,128],f32>
 // TORCH-CHECK:       %permute_mean_val_0_layernorm_train = torch.constant.int 0
 // TORCH-CHECK:       %permute_mean_val_1_layernorm_train = torch.constant.int 1
 // TORCH-CHECK:       %permute_mean_val_2_layernorm_train = torch.constant.int 2
 // TORCH-CHECK:       %permute_mean_val_3_layernorm_train = torch.constant.int 3
 // TORCH-CHECK:       %permute_mean_layernorm_train = torch.prim.ListConstruct %permute_mean_val_0_layernorm_train, %permute_mean_val_1_layernorm_train, %permute_mean_val_2_layernorm_train, %permute_mean_val_3_layernorm_train : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %mean = torch.aten.permute %mean_perm, %permute_mean_layernorm_train : !torch.vtensor<[16,1,1,1],f32>, !torch.list<int> -> !torch.vtensor<[16,1,1,1],f32>
+// TORCH-CHECK:       %mean = torch.aten.permute %mean_layernorm_train_perm, %permute_mean_layernorm_train : !torch.vtensor<[16,1,1,1],f32>, !torch.list<int> -> !torch.vtensor<[16,1,1,1],f32>
 // TORCH-CHECK:       %permute_inv_variance_val_0_layernorm_train = torch.constant.int 0
 // TORCH-CHECK:       %permute_inv_variance_val_1_layernorm_train = torch.constant.int 1
 // TORCH-CHECK:       %permute_inv_variance_val_2_layernorm_train = torch.constant.int 2
 // TORCH-CHECK:       %permute_inv_variance_val_3_layernorm_train = torch.constant.int 3
 // TORCH-CHECK:       %permute_inv_variance_layernorm_train = torch.prim.ListConstruct %permute_inv_variance_val_0_layernorm_train, %permute_inv_variance_val_1_layernorm_train, %permute_inv_variance_val_2_layernorm_train, %permute_inv_variance_val_3_layernorm_train : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %inv_variance = torch.aten.permute %inv_variance_perm, %permute_inv_variance_layernorm_train : !torch.vtensor<[16,1,1,1],f32>, !torch.list<int> -> !torch.vtensor<[16,1,1,1],f32>
+// TORCH-CHECK:       %inv_variance = torch.aten.permute %inv_variance_layernorm_train_perm, %permute_inv_variance_layernorm_train : !torch.vtensor<[16,1,1,1],f32>, !torch.list<int> -> !torch.vtensor<[16,1,1,1],f32>
 // TORCH-CHECK:       torch.overwrite.tensor.contents %inv_variance overwrites %inv_variance_ : !torch.vtensor<[16,1,1,1],f32>, !torch.tensor<[16,1,1,1],f32>
 // TORCH-CHECK:       torch.overwrite.tensor.contents %mean overwrites %mean_ : !torch.vtensor<[16,1,1,1],f32>, !torch.tensor<[16,1,1,1],f32>
 // TORCH-CHECK:       torch.overwrite.tensor.contents %y overwrites %y_ : !torch.vtensor<[16,64,32,128],f32>, !torch.tensor<[16,64,32,128],f32>
@@ -148,19 +148,20 @@ testLayernormInferAsmEmitterScaleBiasNhwc(const std::string &mode) {
   FUSILLI_CHECK_ERROR(graph->validate());
 
   if (mode == "default") {
-    std::cout << FUSILLI_TRY(graph->emitAsm()) << std::endl;
+    FUSILLI_ASSIGN_OR_RETURN(auto generatedAsm, graph->emitAsm());
+    std::cout << generatedAsm << std::endl;
   }
 
   if (mode == "stats") {
 #ifdef FUSILLI_ENABLE_AMDGPU
-    Handle handle = FUSILLI_TRY(Handle::create(Backend::AMDGPU));
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::AMDGPU));
 #else
-    Handle handle = FUSILLI_TRY(Handle::create(Backend::CPU));
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
 #endif
     FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
-    std::cout << FUSILLI_TRY(graph->readCompilationCacheFile(
-                     CachedAssetsType::Statistics))
-              << std::endl;
+    FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
+                                             CachedAssetsType::Statistics));
+    std::cout << stats << std::endl;
   }
 
   return ok();
