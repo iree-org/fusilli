@@ -90,6 +90,31 @@ To save the benchmark results as csv, specify `--output-format csv` instead.
 
 To skip building benchmarks, specify the cmake flag `-DFUSILLI_BUILD_BENCHMARKS=OFF`.
 
+#### Tuning Specs
+
+IREE tuning specs (transform dialect libraries) specify optimal compiler code generation parameters such as workgroup sizes, tile sizes, MMA intrinsics, and shared memory allocation suited for specific workloads. To use a tuning spec with benchmarks:
+
+**Using the C++ benchmark driver:**
+```shell
+FUSILLI_COMPILE_BACKEND_USE_CLI=1 \
+TUNING_SPEC_PATH=/path/to/tuning_spec.mlir \
+  build/bin/benchmarks/fusilli_benchmark_driver --iter 100 \
+  matmul -M 8192 -N 2048 -K 4096 --transA \
+  --a_type bf16 --b_type bf16 --out_type bf16
+```
+
+**Using the Python benchmark wrapper:**
+```shell
+FUSILLI_COMPILE_BACKEND_USE_CLI=1 \
+  python benchmarks/run_benchmark.py \
+  --tuning-spec /path/to/tuning_spec.mlir \
+  --csv results.csv \
+  -f commands.txt
+```
+
+> [!NOTE]
+> Tuning specs require the CLI backend (`FUSILLI_COMPILE_BACKEND_USE_CLI=1`) as the tuning spec flags are not exposed through the IREE C API.
+
 ### Code Coverage (using gcov + lcov)
 
 This works with gcc builds (code coverage with clang instrumentation is future work).
@@ -163,3 +188,4 @@ Alternatively, one may call the logging API directly as needed:
 | `FUSILLI_EXTERNAL_IREE_COMPILER_LIB`     | Path to the IREE compiler dynamic library
 | `FUSILLI_EXTERNAL_ROCM_AGENT_ENUMERATOR` | Path to `rocm_agent_enumerator` binary
 | `FUSILLI_EXTERNAL_AMD_SMI`               | Path to `amd-smi` binary (used for GPU SKU detection)
+| `TUNING_SPEC_PATH`                       | Path to IREE tuning spec file (transform dialect library) specifying compiler code generation parameters

@@ -254,6 +254,12 @@ inline std::span<const std::string> getBackendFlags(Backend backend) {
         // clang-format on
     };
 
+    // Add tuning spec flag if TUNING_SPEC_PATH env var is set
+    if (const char *tuningSpecPath = std::getenv("TUNING_SPEC_PATH")) {
+      amdGpuFlags.push_back(
+          std::format("--iree-codegen-tuning-spec-path={}", tuningSpecPath));
+    }
+
     kBackendFlags[Backend::CPU] = std::move(cpuFlags);
     kBackendFlags[Backend::AMDGPU] = std::move(amdGpuFlags);
   });

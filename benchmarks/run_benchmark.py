@@ -127,6 +127,7 @@ def run_profiled_command(
     verbose: bool,
     cmd_num: int,
     timeout: int,
+    tuning_spec: str | None = None,
 ) -> CommandResult:
 
     driver_args = command.split()
@@ -142,6 +143,11 @@ def run_profiled_command(
             iter_count = int(driver_args[iter_idx + 1])
 
     driver_cmd = [driver_path] + driver_args
+
+    # Set tuning spec via environment variable if provided
+    env = os.environ.copy()
+    if tuning_spec is not None:
+        env["TUNING_SPEC_PATH"] = tuning_spec
 
     # Use either temporary directory or persistent directory
     if output_dir is None:
@@ -176,6 +182,7 @@ def run_profiled_command(
             capture_output=True,
             text=True,
             timeout=timeout_val,
+            env=env,
         )
 
         if verbose and result.stdout:
@@ -290,6 +297,13 @@ The script will:
         help="Timeout in seconds for each command (default: 30, use -1 for no timeout)",
     )
 
+    parser.add_argument(
+        "--tuning-spec",
+        type=str,
+        default=None,
+        help="Path to IREE tuning spec file (sets TUNING_SPEC_PATH env var)",
+    )
+
     return parser
 
 
@@ -378,6 +392,7 @@ def main():
                 args.verbose,
                 cmd_count,
                 args.timeout,
+                args.tuning_spec,
             )
 
         stats = result.stats
