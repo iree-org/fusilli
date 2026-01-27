@@ -28,7 +28,7 @@ inline std::string getIreeCompilePath() {
   }
 
   // Let the shell search for it.
-  return "iree-compile";
+  return std::string("iree-compile");
 }
 
 inline std::string getRocmAgentEnumeratorPath() {
@@ -40,6 +40,17 @@ inline std::string getRocmAgentEnumeratorPath() {
 
   // Let shell search for it.
   return std::string("rocm_agent_enumerator");
+}
+
+inline std::string getAmdSmiPath() {
+  // Check environment variable.
+  const char *envPath = std::getenv("FUSILLI_EXTERNAL_AMD_SMI");
+  if (envPath && envPath[0] != '\0') {
+    return std::string(envPath);
+  }
+
+  // Let shell search for it.
+  return std::string("amd-smi");
 }
 
 inline std::string getIreeCompilerLibPath() {
@@ -56,7 +67,7 @@ inline std::string getIreeCompilerLibPath() {
   }
 
   // Fallback: let the system search for it (may be in LD_LIBRARY_PATH).
-  return "libIREECompiler.so";
+  return std::string("libIREECompiler.so");
 }
 
 } // namespace fusilli

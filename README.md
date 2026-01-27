@@ -162,3 +162,4 @@ Alternatively, one may call the logging API directly as needed:
 | `FUSILLI_EXTERNAL_IREE_COMPILE`          | Path to `iree-compile` binary
 | `FUSILLI_EXTERNAL_IREE_COMPILER_LIB`     | Path to the IREE compiler dynamic library
 | `FUSILLI_EXTERNAL_ROCM_AGENT_ENUMERATOR` | Path to `rocm_agent_enumerator` binary
+| `FUSILLI_EXTERNAL_AMD_SMI`               | Path to `amd-smi` binary (used for GPU SKU detection)
