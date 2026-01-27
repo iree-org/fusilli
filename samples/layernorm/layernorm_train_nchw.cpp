@@ -6,11 +6,11 @@
 
 #include <fusilli.h>
 
+#include "layernorm_utils.h"
 #include "utils.h"
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -25,45 +25,6 @@ TEST_CASE("Layer normalization; training mode; NCHW layout; no bias/scale",
           "[layernorm][graph]") {
   constexpr int64_t n = 2, c = 3, h = 32, w = 32;
   constexpr float eps = 1e-5f;
-
-  auto generateInputAndExpectedTensors = [=]() {
-    // For each batch b, we fill:
-    //   - first half of elements with x0 = 2*b
-    //   - second half of elements with x1 = 2*b + 2
-    //
-    // Layer norm formula: y = (x - mean) / sqrt(variance + eps)
-    // With two distinct values x0, x1:
-    //   y0 = -1 / sqrt(1 + eps)
-    //   y1 = 1 / sqrt(1 + eps)
-    const float div = std::sqrt(1.0f + eps);
-    const float y0 = -1.0f / div;
-    const float y1 = 1.0f / div;
-
-    constexpr size_t size = n * c * h * w;
-    std::vector<float> inputVals(size, 0.0f);
-    std::vector<float> expectedVals(size, 0.0f);
-    std::vector<float> expectedMeans(n, 0.0f);
-    std::vector<float> expectedVariances(n, 1.0f);
-    for (int64_t b = 0; b < n; ++b) {
-      const float x0 = 2.0f * static_cast<float>(b);
-      const float x1 = x0 + 2.0f;
-
-      int64_t start = b * c * h * w;
-      int64_t interm = start + c * h * w / 2;
-      int64_t end = interm + c * h * w / 2;
-
-      std::fill(inputVals.begin() + start, inputVals.begin() + interm, x0);
-      std::fill(inputVals.begin() + interm, inputVals.begin() + end, x1);
-
-      std::fill(expectedVals.begin() + start, expectedVals.begin() + interm,
-                y0);
-      std::fill(expectedVals.begin() + interm, expectedVals.begin() + end, y1);
-
-      expectedMeans[b] = (x0 + x1) / 2.0f;
-    }
-    return std::make_tuple(inputVals, expectedVals, expectedMeans,
-                           expectedVariances);
-  };
 
   auto buildNewGraph = [=](const Handle &handle) {
     auto graph = std::make_shared<Graph>();
@@ -115,7 +76,8 @@ TEST_CASE("Layer normalization; training mode; NCHW layout; no bias/scale",
   auto [graph, xT, yT, mT, vT] = buildNewGraph(handle);
 
   auto [inputVals, expectedVals, expectedMeans, expectedVariances] =
-      generateInputAndExpectedTensors();
+      layernorm_utils::generateIOTensorsForTrainForward(n, c, h, w, 1.f, 0.f,
+                                                        eps);
 
   auto xBuf = std::make_shared<Buffer>(FUSILLI_REQUIRE_UNWRAP(
       Buffer::allocate(handle, castToSizeT(xT->getPhysicalDim()), inputVals)));

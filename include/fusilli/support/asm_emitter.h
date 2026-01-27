@@ -1050,20 +1050,18 @@ inline std::string LayerNormNode::emitNodePreAsm() const {
     {10}
   )";
 
-  std::string output = std::format(schema, uniqueSSASuffix,
-                                   getNormalizedShapeOpsAsm(), // {0}
-                                   getEpsilonOpsAsm(),         // {1}
-                                   permuteX,                   // {2}
-                                   permuteScale,               // {3}
-                                   permuteBias,                // {4}
-                                   getResultNamesAsm(),        // {5}
-                                   getOperandNamesAsm(),       // {6}
-                                   getOperandTypesAsm(),       // {7}
-                                   getResultTypesAsm(),        // {8}
-                                   permuteY                    // {9}
+  return std::format(schema, uniqueSSASuffix,
+                     getNormalizedShapeOpsAsm(), // {0}
+                     getEpsilonOpsAsm(),         // {1}
+                     permuteX,                   // {2}
+                     permuteScale,               // {3}
+                     permuteBias,                // {4}
+                     getResultNamesAsm(),        // {5}
+                     getOperandNamesAsm(),       // {6}
+                     getOperandTypesAsm(),       // {7}
+                     getResultTypesAsm(),        // {8}
+                     permuteY                    // {9}
   );
-
-  return output;
 }
 
 //===----------------------------------------------------------------------===//

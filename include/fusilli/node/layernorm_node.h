@@ -266,6 +266,9 @@ private:
     return layernormAttr.getForwardPhase() == NormFwdPhase::TRAINING;
   }
 
+  // Returns the shape over which normalization is applied:
+  // the input tensor's shape excluding the batch dimension (dim 0),
+  // as normalization is computed independently for each sample in the batch.
   std::vector<int64_t> getNormalizedShape() const {
     const std::vector<int64_t> &xDim = layernormAttr.getX()->getDim();
     std::vector<int64_t> normalizedShape(xDim.cbegin() + 1, xDim.cend());

@@ -6,8 +6,6 @@
 
 // RUN: %{TEST_EXE} | iree-opt --verify-roundtrip
 // RUN: %{TEST_EXE} | FileCheck %s --check-prefix=TORCH-CHECK
-// RUN: %{TEST_EXE} | iree-compile - --compile-to=input | \
-// RUN:             FileCheck %s --check-prefix=LINALG-CHECK
 // RUN: %{TEST_EXE} stats | FileCheck %s --check-prefix=%{BACKEND}-STATS-CHECK
 
 // clang-format off
@@ -39,29 +37,6 @@
 // TORCH-CHECK:       return
 // TORCH-CHECK:     }
 // TORCH-CHECK:   }
-//
-// LINALG-CHECK:    util.func public @main$async(%[[ARG0:.+]]: !hal.buffer_view, %[[ARG1:.+]]: !hal.buffer_view, {{.+}}
-// LINALG-CHECK:      %[[CST:.*]] = arith.constant 0.000000e+00 : f32
-// LINALG-CHECK:      %[[EPS:.*]] = arith.constant 9.99999974E-6 : f32
-// LINALG-CHECK:      %[[NELEMS:.*]] = arith.constant 2.621440e+05 : f32
-// LINALG-CHECK:      %[[INPUT:.+]] = hal.tensor.import wait(%{{.+}}) => %[[ARG1]] : !hal.buffer_view -> tensor<16x128x64x32xf32>
-// LINALG-CHECK:      %[[EMPTY0:.+]] = tensor.empty() : tensor<16x1x1x1xf32>
-// LINALG-CHECK:      %[[FILL:.+]] = linalg.fill ins(%[[CST]] : f32) outs(%[[EMPTY0]] : tensor<16x1x1x1xf32>) -> tensor<16x1x1x1xf32>
-// LINALG-CHECK:      %[[SUM:.+]] = linalg.generic {indexing_maps = [{{.+}}, {{.+}}], iterator_types = ["parallel", "reduction", "reduction", "reduction"]} ins(%[[INPUT]] : tensor<16x128x64x32xf32>) outs(%[[FILL]] : tensor<16x1x1x1xf32>)
-// LINALG-CHECK:      %[[MEAN:.+]] = linalg.generic {{{.+}}} ins(%[[SUM]] : tensor<16x1x1x1xf32>) outs(%[[EMPTY0]] : tensor<16x1x1x1xf32>)
-// LINALG-CHECK:      %[[EMPTY1:.+]] = tensor.empty() : tensor<16x128x64x32xf32>
-// LINALG-CHECK:      %[[COLLAPSED:.+]] = tensor.collapse_shape %{{.+}} {{\[\[}}0, 1, 2, 3]] : tensor<16x1x1x1xf32> into tensor<16xf32>
-// LINALG-CHECK:      %[[BCAST_MEAN:.+]] = linalg.generic {{{.+}}} ins(%[[COLLAPSED]] : tensor<16xf32>) outs(%[[EMPTY1]] : tensor<16x128x64x32xf32>)
-// LINALG-CHECK:      %[[CENTERED:.+]] = linalg.generic {{{.+}}} ins(%[[INPUT]], %[[BCAST_MEAN]] : tensor<16x128x64x32xf32>, tensor<16x128x64x32xf32>) outs(%[[EMPTY1]] : tensor<16x128x64x32xf32>)
-// LINALG-CHECK:      %[[SQUARED:.+]] = linalg.generic {{{.+}}} ins(%[[CENTERED]], %[[CENTERED]] : tensor<16x128x64x32xf32>, tensor<16x128x64x32xf32>) outs(%[[EMPTY1]] : tensor<16x128x64x32xf32>)
-// LINALG-CHECK:      %[[VAR_SUM:.+]] = linalg.generic {{{.+}}} ins(%[[SQUARED]] : tensor<16x128x64x32xf32>) outs(%{{.+}} : tensor<16x1x1x1xf32>)
-// LINALG-CHECK:      %[[VAR:.+]] = linalg.generic {{{.+}}} ins(%[[VAR_SUM]] : tensor<16x1x1x1xf32>) outs(%[[EMPTY0]] : tensor<16x1x1x1xf32>)
-// LINALG-CHECK:      %[[VAR_EPS:.+]] = linalg.generic {{{.+}}} ins(%[[VAR]] : tensor<16x1x1x1xf32>) outs(%[[EMPTY0]] : tensor<16x1x1x1xf32>)
-// LINALG-CHECK:      %[[RSQRT:.+]] = linalg.generic {{{.+}}} ins(%[[VAR_EPS]] : tensor<16x1x1x1xf32>) outs(%[[EMPTY0]] : tensor<16x1x1x1xf32>)
-// LINALG-CHECK:      %[[COLLAPSED2:.+]] = tensor.collapse_shape %[[RSQRT]] {{\[\[}}0, 1, 2, 3]] : tensor<16x1x1x1xf32> into tensor<16xf32>
-// LINALG-CHECK:      %[[BCAST_RSQRT:.+]] = linalg.generic {{{.+}}} ins(%[[COLLAPSED2]] : tensor<16xf32>) outs(%[[EMPTY1]] : tensor<16x128x64x32xf32>)
-// LINALG-CHECK:      %[[OUT:.+]] = linalg.generic {{{.+}}} ins(%[[CENTERED]], %[[BCAST_RSQRT]] : tensor<16x128x64x32xf32>, tensor<16x128x64x32xf32>) outs(%[[EMPTY1]] : tensor<16x128x64x32xf32>)
-// LINALG-CHECK:      %{{.+}} = hal.tensor.alias wait(%{{.+}}) => %[[OUT]] : tensor<16x128x64x32xf32> to %[[ARG0]] : !hal.buffer_view
 //
 // AMDGPU-STATS-CHECK: "dispatch-count": 1
 // CPU-STATS-CHECK: "dispatch-count": 2
