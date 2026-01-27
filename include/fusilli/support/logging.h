@@ -13,6 +13,7 @@
 #ifndef FUSILLI_SUPPORT_LOGGING_H
 #define FUSILLI_SUPPORT_LOGGING_H
 
+#include <fusilli/support/memstream.h>
 #include <iree/base/status.h>
 
 #include <cassert>
@@ -23,7 +24,6 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
-#include <stdio.h>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -33,7 +33,8 @@
 namespace fusilli {
 
 // An RAII based adapter for writing to C++ `std::strings` using C-style
-// `fprint`s.
+// `fprint`s. This is a cross-platform implementation that works on both
+// Linux and Windows.
 //
 // example usage:
 //   // C functions from IREE runtime api.
@@ -49,33 +50,10 @@ namespace fusilli {
 //       FUSILLI_LOG_LABEL_RED("try_thing failure: " << err);
 //     }
 //   }
-struct FprintToString {
-  char *buffer = nullptr;
-  size_t size = 0;
-  FILE *stream = nullptr;
-  std::string &output;
-
-  explicit FprintToString(std::string &output)
-      : stream(open_memstream(&buffer, &size)), output(output) {}
-
-  ~FprintToString() {
-    if (stream) {
-      fclose(stream);
-      if (buffer) {
-        output.assign(buffer, size);
-        free(buffer);
-      }
-    }
-  }
-
-  operator FILE *() { return stream; }
-
-  // Delete all other constructors.
-  FprintToString(FprintToString &&other) noexcept = delete;
-  FprintToString &operator=(FprintToString &&) noexcept = delete;
-  FprintToString(const FprintToString &) = delete;
-  FprintToString &operator=(const FprintToString &) = delete;
-};
+//
+// Note: This is now an alias for FprintAdapter from memstream.h, which
+// provides the cross-platform implementation.
+using FprintToString = FprintAdapter;
 
 enum class [[nodiscard]] ErrorCode : uint8_t {
   OK,
