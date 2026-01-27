@@ -164,19 +164,19 @@ inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
   // Serialize access to the cache check-then-create logic.
   std::lock_guard<std::mutex> lock(gpuDeviceMutex);
 
+  // Clean up all expired entries while we hold the lock.
+  std::erase_if(gpuDeviceCache, // C++20
+                [](const auto &entry) { return entry.second.expired(); });
+
   GpuDeviceKey key{deviceId, stream};
 
   // Try to get an existing device from the cache.
-  auto it = gpuDeviceCache.find(key);
-  if (it != gpuDeviceCache.end()) {
-    IreeHalDeviceSharedPtrType sharedDevice = it->second.lock();
-    if (sharedDevice != nullptr) {
-      FUSILLI_LOG_LABEL_ENDL("INFO: Reusing cached AMDGPU device");
-      device_ = sharedDevice;
-      return ok();
-    }
-    // weak_ptr expired, remove stale entry
-    gpuDeviceCache.erase(it);
+  if (auto it = gpuDeviceCache.find(key); it != gpuDeviceCache.end()) {
+    // Entry exists and is valid (we just cleaned expired ones).
+    FUSILLI_LOG_LABEL_ENDL("INFO: Reusing cached AMDGPU device");
+    // Lock the weak_ptr to get a shared_ptr and assign to device_.
+    device_ = it->second.lock();
+    return ok();
   }
 
   // Create a new device since none exists in cache for this configuration.
