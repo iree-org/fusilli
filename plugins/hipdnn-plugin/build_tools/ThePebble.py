@@ -55,6 +55,12 @@ usage:
        relocatable. The current version of fusilli is built + installed into dist
        using IREE runtime fetched by ThePebble.
 
+     - hipDNN integration tests. Like hip, fetched using `fetch_artifacts.py`.
+
+       The integration test suite is plugin-agnostic. For a pre-defined set of
+       graphs it generates a cartesian grid of graph X engine numerical tests
+       based on engines claiming support for each graph.
+
   --ci-install-and-test-fusilli-plugin
     Builds and installs the fusilli plugin into the dist directory, then runs
     TheRock's test script for fusilli plugin.
@@ -82,9 +88,9 @@ from pathlib import Path
 PEBBLE_DIR = Path.home() / ".cache" / "ThePebble"
 INSTALL_DIR = PEBBLE_DIR / "dist"
 CACHED_CONFIG = PEBBLE_DIR / "_copy_of_thepebble_config_for_cache_invalidation.toml"
-THEROCK_REPO = "https://github.com/ROCm/TheRock.git"
+THEROCK_REPO = "git@github.com:AaronStGeorge/TheRock.git"
 THEROCK_DIR = PEBBLE_DIR / "TheRock"
-ROCM_LIBRARIES_REPO = "https://github.com/ROCm/rocm-libraries.git"
+ROCM_LIBRARIES_REPO = "git@github.com:AaronStGeorge/rocm-libraries.git"
 IREE_REPO = "https://github.com/iree-org/iree.git"
 IREE_DIR = PEBBLE_DIR / "iree"
 IREE_SUBMODULES = ["third_party/flatcc", "third_party/benchmark"]
@@ -136,15 +142,12 @@ def setup_therock(git_ref: str):
     """Clone TheRock and set up venv (ThePebble only uses python scripts)"""
     print(f"Cloning TheRock at {git_ref}...")
     subprocess.run(
-        [
-            "git",
-            "clone",
-            "--depth=1",
-            "--branch",
-            git_ref,
-            THEROCK_REPO,
-            str(THEROCK_DIR),
-        ],
+        ["git", "clone", THEROCK_REPO, str(THEROCK_DIR)],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "checkout", git_ref],
+        cwd=THEROCK_DIR,
         check=True,
     )
 
@@ -186,6 +189,10 @@ def install_hip(run_id: str):
     subprocess.run(cmd, check=True)
 
     # Fetch amd-llvm_dev (not sure why this isn't included in "base")
+    # NOTE: install_rocm_from_artifacts.py wipes --output-dir,
+    # fetch_artifacts.py does not, here we want to compose so the latter is
+    # preferable. --flatten flag merges with directory structure created in the
+    # first call.
     cmd = [
         str(venv_python),
         str(THEROCK_DIR / "build_tools" / "fetch_artifacts.py"),
@@ -201,6 +208,30 @@ def install_hip(run_id: str):
         "amd-llvm_dev",
     ]
     print(f"Fetching amd-llvm_dev artifact...")
+    subprocess.run(cmd, check=True)
+
+
+def install_hipdnn_integration_tests(run_id: str):
+    """Download and install hipDNN integration test artifacts."""
+    venv_python = THEROCK_DIR / ".venv" / "bin" / "python"
+
+    # Use fetch_artifacts.py directly to avoid wiping the directory
+    # Use install_rocm_from_artifacts.py see NOTE in `install_hip`.
+    cmd = [
+        str(venv_python),
+        str(THEROCK_DIR / "build_tools" / "fetch_artifacts.py"),
+        "--run-id",
+        run_id,
+        "--run-github-repo",
+        "ROCm/TheRock",
+        "--artifact-group",
+        "generic",
+        "--output-dir",
+        str(INSTALL_DIR),
+        "--flatten",
+        "hipdnn-integration-tests_test",
+    ]
+    print(f"Fetching hipDNN integration test artifacts from run {run_id}...")
     subprocess.run(cmd, check=True)
 
 
@@ -518,6 +549,7 @@ def main():
         PEBBLE_DIR.mkdir(parents=True, exist_ok=True)
         setup_therock(versions["therock_git_ref"])
         install_hip(versions["hip_run_id"])
+        install_hipdnn_integration_tests(versions["hipdnn_integration_tests_run_id"])
         build_hipdnn(versions["hipdnn_git_ref"])
         setup_iree(versions["iree_git_tag"])
         build_fusilli()
