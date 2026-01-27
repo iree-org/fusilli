@@ -33,6 +33,7 @@
 #include "fusilli/external/torch_types.h"
 #include "fusilli/graph/graph.h"
 #include "fusilli/node/conv_node.h"
+#include "fusilli/node/layernorm_node.h"
 #include "fusilli/node/pointwise_node.h"
 #include "fusilli/support/extras.h"
 
@@ -867,6 +868,200 @@ inline std::string ConvDGradNode::emitNodePreAsm() const {
                                    permuteDX                 // {12}
   );
   return output;
+}
+
+//===----------------------------------------------------------------------===//
+//
+// LayerNormNode ASM Emitter Methods
+//
+//===----------------------------------------------------------------------===//
+
+// Emits LayerNormNode's operand names in MLIR assembly format.
+//
+// The unique suffix is included to ensure SSA uniqueness when the same
+// tensor is used by multiple operations.
+inline std::string LayerNormNode::getOperandNamesAsm() const {
+  std::ostringstream oss;
+  std::string suffix = layernormAttr.getName();
+
+  oss << layernormAttr.getX()->getValueNameAsm() << "_" << suffix << "_perm, ";
+  oss << "%normalized_shape_" << suffix << ", ";
+
+  auto getOptionalOperandNameAsm = [&](const std::shared_ptr<TensorAttr> &t,
+                                       const std::string &name) {
+    return t ? t->getValueNameAsm() + "_" + suffix + "_perm, "
+             : "%none_" + name + "_" + suffix + ", ";
+  };
+
+  oss << getOptionalOperandNameAsm(layernormAttr.getSCALE(), "scale");
+  oss << getOptionalOperandNameAsm(layernormAttr.getBIAS(), "bias");
+  oss << "%eps_" << suffix;
+
+  return oss.str();
+}
+
+// Emits LayerNormNode's operand types in MLIR assembly format.
+inline std::string LayerNormNode::getOperandTypesAsm() const {
+  std::ostringstream oss;
+
+  oss << layernormAttr.getX()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                                /*useLogicalDims=*/true)
+      << ", ";
+  oss << "!torch.list<int>" << ", ";
+
+  auto getOptionalOperandTypeAsm = [&](const std::shared_ptr<TensorAttr> &t) {
+    return t ? t->getTensorTypeAsm(/*isValueTensor=*/true,
+                                   /*useLogicalDims=*/true)
+             : "!torch.none";
+  };
+
+  oss << getOptionalOperandTypeAsm(layernormAttr.getSCALE()) << ", ";
+  oss << getOptionalOperandTypeAsm(layernormAttr.getBIAS()) << ", ";
+  oss << "!torch.float";
+
+  return oss.str();
+}
+
+// Emits LayerNormNode's result names in MLIR assembly format.
+//
+// The unique suffix and "_perm" are included to ensure SSA uniqueness when
+// the same tensor is used by multiple operations. This intermediate result
+// is then used by the output permute.
+inline std::string LayerNormNode::getResultNamesAsm() const {
+  std::ostringstream oss;
+  std::string suffix = layernormAttr.getName();
+
+  oss << layernormAttr.getY()->getValueNameAsm() << "_" << suffix << "_perm";
+
+  if (isTrainingForwardPhase()) {
+    oss << ", ";
+    oss << layernormAttr.getMEAN()->getValueNameAsm() << "_" << suffix
+        << "_perm" << ", ";
+    oss << layernormAttr.getINV_VARIANCE()->getValueNameAsm() << "_" << suffix
+        << "_perm";
+  }
+
+  return oss.str();
+}
+
+// Emits LayerNormNode's result types in MLIR assembly format.
+inline std::string LayerNormNode::getResultTypesAsm() const {
+  std::ostringstream oss;
+  oss << layernormAttr.getY()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                                /*useLogicalDims=*/true);
+
+  if (isTrainingForwardPhase()) {
+    oss << ", ";
+    oss << layernormAttr.getMEAN()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                                     /*useLogicalDims=*/true)
+        << ", ";
+    oss << layernormAttr.getINV_VARIANCE()->getTensorTypeAsm(
+        /*isValueTensor=*/true,
+        /*useLogicalDims=*/true);
+  }
+
+  return oss.str();
+}
+
+// Get normalized_shape list construction ops in MLIR assembly format.
+// normalized_shape is the dimensions to normalize over (typically all dims
+// except batch).
+inline std::string LayerNormNode::getNormalizedShapeOpsAsm() const {
+  return getListOfIntOpsAsm(getNormalizedShape(), /*prefix=*/"normalized_shape",
+                            /*suffix=*/layernormAttr.getName());
+}
+
+// Get epsilon constant op in MLIR assembly format.
+inline std::string LayerNormNode::getEpsilonOpsAsm() const {
+  float eps =
+      std::get<float>(layernormAttr.getEpsilon()->getScalarValue().value());
+  return std::format("%eps_{} = torch.constant.float {:e}",
+                     layernormAttr.getName(), eps);
+}
+
+// This gets called by the recursive `emitAsmSubtree()` method to emit
+// the pre-assembly for each node (including the main Graph). The schema
+// hard-codes things that are not customizable, and leaves the rest
+// for template replacements using `std::format`. When modifying the
+// schema, take extra caution about double bracing the curly brackets
+// (refer to the comments at the top of this file for details).
+inline std::string LayerNormNode::emitNodePreAsm() const {
+  std::string uniqueSSASuffix = layernormAttr.getName();
+  std::string permuteX = getPermuteOpsAsm(layernormAttr.getX(), "permute_x",
+                                          uniqueSSASuffix, /*isInput=*/true);
+  std::string permuteY = getPermuteOpsAsm(layernormAttr.getY(), "permute_y",
+                                          uniqueSSASuffix, /*isInput=*/false);
+  std::string permuteScale =
+      layernormAttr.getSCALE()
+          ? getPermuteOpsAsm(layernormAttr.getSCALE(), "permute_scale",
+                             uniqueSSASuffix, /*isInput=*/true)
+          : std::format("%none_scale_{} = torch.constant.none",
+                        uniqueSSASuffix);
+  std::string permuteBias =
+      layernormAttr.getBIAS()
+          ? getPermuteOpsAsm(layernormAttr.getBIAS(), "permute_bias",
+                             uniqueSSASuffix, /*isInput=*/true)
+          : std::format("%none_bias_{} = torch.constant.none", uniqueSSASuffix);
+
+  if (isTrainingForwardPhase()) {
+    std::string permuteMean =
+        getPermuteOpsAsm(layernormAttr.getMEAN(), "permute_mean",
+                         uniqueSSASuffix, /*isInput=*/false);
+    std::string permuteInvVariance = getPermuteOpsAsm(
+        layernormAttr.getINV_VARIANCE(), "permute_inv_variance",
+        uniqueSSASuffix, /*isInput=*/false);
+
+    constexpr std::string_view schema = R"(
+      {0}
+      {1}
+      {2}
+      {3}
+      {4}
+      {5} = torch.aten.native_layer_norm {6} : {7} -> {8}
+      {9}
+      {10}
+      {11}
+    )";
+
+    return std::format(schema,
+                       getNormalizedShapeOpsAsm(), // {0}
+                       getEpsilonOpsAsm(),         // {1}
+                       permuteX,                   // {2}
+                       permuteScale,               // {3}
+                       permuteBias,                // {4}
+                       getResultNamesAsm(),        // {5}
+                       getOperandNamesAsm(),       // {6}
+                       getOperandTypesAsm(),       // {7}
+                       getResultTypesAsm(),        // {8}
+                       permuteY,                   // {9}
+                       permuteMean,                // {10}
+                       permuteInvVariance          // {11}
+    );
+  }
+
+  constexpr std::string_view schema = R"(
+    {1}
+    {2}
+    {3}
+    {4}
+    {5}
+    %cudnn_enable_{0} = torch.constant.bool false
+    {6} = torch.aten.layer_norm {7}, %cudnn_enable_{0} : {8}, !torch.bool -> {9}
+    {10}
+  )";
+
+  return std::format(schema, uniqueSSASuffix,    // {0}
+                     getNormalizedShapeOpsAsm(), // {1}
+                     getEpsilonOpsAsm(),         // {2}
+                     permuteX,                   // {3}
+                     permuteScale,               // {4}
+                     permuteBias,                // {5}
+                     getResultNamesAsm(),        // {6}
+                     getOperandNamesAsm(),       // {7}
+                     getOperandTypesAsm(),       // {8}
+                     getResultTypesAsm(),        // {9}
+                     permuteY                    // {10}
+  );
 }
 
 //===----------------------------------------------------------------------===//
