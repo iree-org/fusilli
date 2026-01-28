@@ -9,8 +9,101 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <string>
+#include <vector>
 
 using namespace fusilli;
+
+//===----------------------------------------------------------------------===//
+// Tests for parseCompilerFlags
+//===----------------------------------------------------------------------===//
+
+TEST_CASE("parseCompilerFlags", "[backend][flags]") {
+  SECTION("Null input") {
+    std::vector<std::string> result = parseCompilerFlags(nullptr);
+    REQUIRE(result.empty());
+  }
+
+  SECTION("Empty string") {
+    std::vector<std::string> result = parseCompilerFlags("");
+    REQUIRE(result.empty());
+  }
+
+  SECTION("Whitespace-only string") {
+    std::vector<std::string> result = parseCompilerFlags("   \t  \n  ");
+    REQUIRE(result.empty());
+  }
+
+  SECTION("Single flag") {
+    std::vector<std::string> result = parseCompilerFlags("--iree-opt-level=O3");
+    REQUIRE(result.size() == 1);
+    REQUIRE(result[0] == "--iree-opt-level=O3");
+  }
+
+  SECTION("Multiple simple flags") {
+    std::vector<std::string> result = parseCompilerFlags(
+        "--iree-opt-level=O3 --iree-hal-target-backends=rocm");
+    REQUIRE(result.size() == 2);
+    REQUIRE(result[0] == "--iree-opt-level=O3");
+    REQUIRE(result[1] == "--iree-hal-target-backends=rocm");
+  }
+
+  SECTION("Flags with equals signs") {
+    std::vector<std::string> result =
+        parseCompilerFlags("--iree-hip-target=gfx942 --iree-opt-level=O3 "
+                           "--iree-hal-target-backends=rocm");
+    REQUIRE(result.size() == 3);
+    REQUIRE(result[0] == "--iree-hip-target=gfx942");
+    REQUIRE(result[1] == "--iree-opt-level=O3");
+    REQUIRE(result[2] == "--iree-hal-target-backends=rocm");
+  }
+
+  SECTION("Extra whitespace") {
+    std::vector<std::string> result = parseCompilerFlags(
+        "  --iree-opt-level=O3    --iree-hal-target-backends=rocm  ");
+    REQUIRE(result.size() == 2);
+    REQUIRE(result[0] == "--iree-opt-level=O3");
+    REQUIRE(result[1] == "--iree-hal-target-backends=rocm");
+  }
+
+  SECTION("Tuning spec path without spaces") {
+    std::vector<std::string> result = parseCompilerFlags(
+        "--iree-codegen-tuning-spec-path=/home/user/tuning_specs/spec.mlir "
+        "--iree-opt-level=O3");
+    REQUIRE(result.size() == 2);
+    REQUIRE(
+        result[0] ==
+        "--iree-codegen-tuning-spec-path=/home/user/tuning_specs/spec.mlir");
+    REQUIRE(result[1] == "--iree-opt-level=O3");
+  }
+
+  SECTION("Quoted flag with spaces") {
+    std::vector<std::string> result =
+        parseCompilerFlags("--flag1 \"--flag2=value with spaces\"");
+    REQUIRE(result.size() == 2);
+    REQUIRE(result[0] == "--flag1");
+    REQUIRE(result[1] == "--flag2=value with spaces");
+  }
+
+  SECTION("Multiple flags with mixed quoting") {
+    std::vector<std::string> result = parseCompilerFlags(
+        "--iree-opt-level=O3 "
+        "\"--iree-codegen-tuning-spec-path=/path/with spaces/spec.mlir\"");
+    REQUIRE(result.size() == 2);
+    REQUIRE(result[0] == "--iree-opt-level=O3");
+    REQUIRE(result[1] ==
+            "--iree-codegen-tuning-spec-path=/path/with spaces/spec.mlir");
+  }
+
+  SECTION("Complex realistic example") {
+    std::vector<std::string> result =
+        parseCompilerFlags("--iree-codegen-tuning-spec-path=/path/to/spec.mlir "
+                           "--iree-opt-level=O3 --iree-hip-target=mi300x");
+    REQUIRE(result.size() == 3);
+    REQUIRE(result[0] == "--iree-codegen-tuning-spec-path=/path/to/spec.mlir");
+    REQUIRE(result[1] == "--iree-opt-level=O3");
+    REQUIRE(result[2] == "--iree-hip-target=mi300x");
+  }
+}
 
 //===----------------------------------------------------------------------===//
 // Tests for getGpuSkuFromMarketingName
