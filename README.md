@@ -135,7 +135,6 @@ You can pass custom IREE compiler flags using the `FUSILLI_EXTRA_COMPILER_FLAGS`
 
 **Using the C++ benchmark driver with environment variable:**
 ```shell
-FUSILLI_COMPILE_BACKEND_USE_CLI=1 \
 FUSILLI_EXTRA_COMPILER_FLAGS="--iree-opt-level=O3" \
   build/bin/benchmarks/fusilli_benchmark_driver --iter 100 \
   matmul -M 8192 -N 2048 -K 4096 --transA \
@@ -144,20 +143,22 @@ FUSILLI_EXTRA_COMPILER_FLAGS="--iree-opt-level=O3" \
 
 **Using the Python benchmark wrapper:**
 ```shell
-FUSILLI_COMPILE_BACKEND_USE_CLI=1 \
-  python benchmarks/run_benchmark.py \
+python benchmarks/run_benchmark.py \
   --Xiree-compile="--iree-opt-level=O3" \
   -o results.csv \
   -f commands.txt
 ```
 
 **Passing multiple compiler flags:**
+
+Using environment variable:
 ```shell
-# Using environment variable (space-separated)
 FUSILLI_EXTRA_COMPILER_FLAGS="--iree-opt-level=O3 --iree-hal-dump-executable-files-to=/tmp/dump" \
   build/bin/benchmarks/fusilli_benchmark_driver ...
+```
 
-# Using Python wrapper (repeatable flag)
+Using Python wrapper:
+```shell
 python benchmarks/run_benchmark.py \
   --Xiree-compile="--iree-opt-level=O3" \
   --Xiree-compile="--iree-hal-dump-executable-files-to=/tmp/dump" \
@@ -187,14 +188,6 @@ FUSILLI_COMPILE_BACKEND_USE_CLI=1 \
   --Xiree-compile="--iree-codegen-tuning-spec-path=/path/to/tuning_spec.mlir" \
   -o results.csv \
   -f commands.txt
-```
-
-**Combining tuning specs with other compiler flags:**
-```shell
-python benchmarks/run_benchmark.py \
-  --Xiree-compile="--iree-codegen-tuning-spec-path=/path/to/spec.mlir" \
-  --Xiree-compile="--iree-opt-level=O3" \
-  -f commands.txt -o results.csv
 ```
 
 ### Code Coverage (using gcov + lcov)
