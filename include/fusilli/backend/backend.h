@@ -227,9 +227,9 @@ inline std::string getIreeHipTargetForAmdgpu() {
 // Parses space-separated compiler flags from a string.
 // Supports basic quoting for flags with spaces.
 // Example: "--flag1 --flag2='value with spaces' --flag3"
-// Returns empty vector if flagsStr is null or empty.
+// Returns empty vector if flagsStr is null or contains no tokens.
 inline std::vector<std::string> parseCompilerFlags(const char *flagsStr) {
-  if (!flagsStr || flagsStr[0] == '\0')
+  if (!flagsStr)
     return {};
 
   std::vector<std::string> flags;
@@ -276,19 +276,19 @@ inline std::span<const std::string> getBackendFlags(Backend backend) {
         // clang-format on
     };
 
-    // Helper lambda to add extra compiler flags from environment variable
+    // Helper lambda to add extra compiler flags from environment variable.
     auto addExtraFlags = [](std::vector<std::string> &backendFlags) {
       if (const char *extraFlags =
               std::getenv("FUSILLI_EXTRA_COMPILER_FLAGS")) {
         FUSILLI_LOG_LABEL_ENDL("INFO: Adding extra compiler flags from "
                                "FUSILLI_EXTRA_COMPILER_FLAGS");
-        auto parsedFlags = parseCompilerFlags(extraFlags);
+        std::vector<std::string> parsedFlags = parseCompilerFlags(extraFlags);
         backendFlags.insert(backendFlags.end(), parsedFlags.begin(),
                             parsedFlags.end());
       }
     };
 
-    // Add extra flags to both CPU and AMDGPU backends
+    // Add extra flags to both CPU and AMDGPU backends.
     addExtraFlags(cpuFlags);
     addExtraFlags(amdGpuFlags);
 
