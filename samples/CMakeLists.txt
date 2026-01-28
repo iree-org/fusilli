@@ -69,3 +69,13 @@ add_fusilli_samples(
     libutils
     Catch2::Catch2WithMain
 )
+
+add_fusilli_samples(
+  PREFIX fusilli_reduction_samples
+  SRCS
+    reduction/reduction_ops.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)
