@@ -90,6 +90,106 @@ To save the benchmark results as csv, specify `--output-format csv` instead.
 
 To skip building benchmarks, specify the cmake flag `-DFUSILLI_BUILD_BENCHMARKS=OFF`.
 
+#### Python Benchmark Wrapper
+
+The Python benchmark wrapper (`benchmarks/run_benchmark.py`) provides a convenient way to run multiple benchmarks from a commands file and collect results:
+
+```shell
+python benchmarks/run_benchmark.py \
+  -f <commands_file> \
+  -o <output_csv> \
+  [--driver <path_to_driver>] \
+  [--Xiree-compile=<flag>]
+```
+
+**Basic usage example:**
+```shell
+# Create a commands file
+cat > commands.txt <<EOF
+--device 0 --iter 100 matmul -M 1024 -N 1024 -K 1024 --a_type bf16 --b_type bf16 --out_type bf16
+--device 0 --iter 100 matmul -M 2048 -N 2048 -K 2048 --a_type bf16 --b_type bf16 --out_type bf16
+EOF
+
+# Run benchmarks and save results to CSV
+python benchmarks/run_benchmark.py -f commands.txt -o results.csv
+```
+
+The wrapper automatically:
+- Parses each command from the file (one per line)
+- Runs each benchmark through the C++ driver
+- Collects timing statistics using `rocprofv3` (min, max, mean, stddev)
+- Aggregates results into a CSV file
+
+**Key flags:**
+- `-f, --commands-file`: File containing benchmark commands (one per line)
+- `-o, --csv`: Output CSV file for results (default: `benchmark_results.csv`)
+- `--driver`: Path to benchmark driver (default: auto-detected)
+- `--Xiree-compile`: Pass additional flags to iree-compile (repeatable, see next section)
+- `-d, --output-dir`: Directory to save artifacts (default: temporary)
+- `--verbose`: Enable verbose output
+- `-t, --timeout`: Timeout in seconds per command (default: 30)
+
+#### Custom Compiler Flags
+
+You can pass custom IREE compiler flags using the `FUSILLI_EXTRA_COMPILER_FLAGS` environment variable or the `--Xiree-compile` flag with the Python benchmark wrapper.
+
+**Using the C++ benchmark driver with environment variable:**
+```shell
+FUSILLI_EXTRA_COMPILER_FLAGS="--iree-opt-level=O3" \
+  build/bin/benchmarks/fusilli_benchmark_driver --iter 100 \
+  matmul -M 8192 -N 2048 -K 4096 --transA \
+  --a_type bf16 --b_type bf16 --out_type bf16
+```
+
+**Using the Python benchmark wrapper:**
+```shell
+python benchmarks/run_benchmark.py \
+  --Xiree-compile="--iree-opt-level=O3" \
+  -o results.csv \
+  -f commands.txt
+```
+
+**Passing multiple compiler flags:**
+
+Using environment variable:
+```shell
+FUSILLI_EXTRA_COMPILER_FLAGS="--iree-opt-level=O3 --iree-hal-dump-executable-files-to=/tmp/dump" \
+  build/bin/benchmarks/fusilli_benchmark_driver ...
+```
+
+Using Python wrapper:
+```shell
+python benchmarks/run_benchmark.py \
+  --Xiree-compile="--iree-opt-level=O3" \
+  --Xiree-compile="--iree-hal-dump-executable-files-to=/tmp/dump" \
+  -f commands.txt -o results.csv
+```
+
+> [!NOTE]
+> If an extra compiler flag is exposed via CLI but not the C API, please select the CLI backend (set `FUSILLI_COMPILE_BACKEND_USE_CLI=1`). Currently, `--iree-codegen-tuning-spec-path` requires this since it is not exposed through the C API. This limitation is being addressed and will be lifted shortly.
+
+#### Tuning Specs
+
+IREE tuning specs (transform dialect libraries) specify optimal compiler code generation parameters such as workgroup sizes, tile sizes, MMA intrinsics, and shared memory allocation suited for specific workloads. You can pass tuning specs using the custom compiler flags feature described above.
+
+**Example with C++ benchmark driver:**
+```shell
+FUSILLI_COMPILE_BACKEND_USE_CLI=1 \
+FUSILLI_EXTRA_COMPILER_FLAGS="--iree-codegen-tuning-spec-path=/path/to/tuning_spec.mlir" \
+  build/bin/benchmarks/fusilli_benchmark_driver --iter 100 \
+  matmul -M 8192 -N 2048 -K 4096 --transA \
+  --a_type bf16 --b_type bf16 --out_type bf16
+```
+
+**Example with Python benchmark wrapper:**
+```shell
+FUSILLI_COMPILE_BACKEND_USE_CLI=1 \
+  python benchmarks/run_benchmark.py \
+  --Xiree-compile="--iree-codegen-tuning-spec-path=/path/to/tuning_spec.mlir" \
+  -o results.csv \
+  -f commands.txt
+```
+
 ### Code Coverage (using gcov + lcov)
 
 This works with gcc builds (code coverage with clang instrumentation is future work).
@@ -163,3 +263,4 @@ Alternatively, one may call the logging API directly as needed:
 | `FUSILLI_EXTERNAL_IREE_COMPILER_LIB`     | Path to the IREE compiler dynamic library
 | `FUSILLI_EXTERNAL_ROCM_AGENT_ENUMERATOR` | Path to `rocm_agent_enumerator` binary
 | `FUSILLI_EXTERNAL_AMD_SMI`               | Path to `amd-smi` binary (used for GPU SKU detection)
+| `FUSILLI_EXTRA_COMPILER_FLAGS`           | Space-separated list of additional flags to pass to iree-compile (e.g., `"--iree-codegen-tuning-spec-path=/path/to/spec.mlir --iree-opt-level=O3"`)
