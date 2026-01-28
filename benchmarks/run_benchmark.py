@@ -127,7 +127,7 @@ def run_profiled_command(
     verbose: bool,
     cmd_num: int,
     timeout: int,
-    tuning_spec: str | None = None,
+    extra_iree_flags: list[str] | None = None,
 ) -> CommandResult:
 
     driver_args = command.split()
@@ -144,10 +144,11 @@ def run_profiled_command(
 
     driver_cmd = [driver_path] + driver_args
 
-    # Set tuning spec via environment variable if provided
+    # Set extra compiler flags via environment variable if provided
     env = os.environ.copy()
-    if tuning_spec is not None:
-        env["TUNING_SPEC_PATH"] = tuning_spec
+    if extra_iree_flags is not None and len(extra_iree_flags) > 0:
+        # Join multiple flags with spaces
+        env["FUSILLI_EXTRA_COMPILER_FLAGS"] = " ".join(extra_iree_flags)
 
     # Use either temporary directory or persistent directory
     if output_dir is None:
@@ -298,10 +299,12 @@ The script will:
     )
 
     parser.add_argument(
-        "--tuning-spec",
-        type=str,
+        "--Xiree-compile",
+        action="append",
+        dest="extra_iree_flags",
         default=None,
-        help="Path to IREE tuning spec file (sets TUNING_SPEC_PATH env var)",
+        help="Pass additional flags to iree-compile (repeatable). "
+        "Example: --Xiree-compile='--iree-codegen-tuning-spec-path=/path/to/spec.mlir'",
     )
 
     return parser
@@ -392,7 +395,7 @@ def main():
                 args.verbose,
                 cmd_count,
                 args.timeout,
-                args.tuning_spec,
+                args.extra_iree_flags,
             )
 
         stats = result.stats

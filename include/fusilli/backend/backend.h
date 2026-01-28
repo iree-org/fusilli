@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <format>
+#include <iomanip>
 #include <memory>
 #include <mutex>
 #include <ostream>
@@ -223,6 +224,27 @@ inline std::string getIreeHipTargetForAmdgpu() {
   return arch;
 }
 
+// Parses space-separated compiler flags from a string.
+// Supports basic quoting for flags with spaces.
+// Example: "--flag1 --flag2='value with spaces' --flag3"
+// Returns empty vector if flagsStr is null or empty.
+inline std::vector<std::string> parseCompilerFlags(const char *flagsStr) {
+  if (!flagsStr || flagsStr[0] == '\0')
+    return {};
+
+  std::vector<std::string> flags;
+  std::istringstream iss(flagsStr);
+  std::string token;
+
+  while (iss >> std::quoted(token)) {
+    if (!token.empty()) {
+      flags.push_back(token);
+    }
+  }
+
+  return flags;
+}
+
 // Map from backend to IREE compile flags.
 inline std::span<const std::string> getBackendFlags(Backend backend) {
   static std::once_flag initFlag;
@@ -254,11 +276,21 @@ inline std::span<const std::string> getBackendFlags(Backend backend) {
         // clang-format on
     };
 
-    // Add tuning spec flag if TUNING_SPEC_PATH env var is set
-    if (const char *tuningSpecPath = std::getenv("TUNING_SPEC_PATH")) {
-      amdGpuFlags.push_back(
-          std::format("--iree-codegen-tuning-spec-path={}", tuningSpecPath));
-    }
+    // Helper lambda to add extra compiler flags from environment variable
+    auto addExtraFlags = [](std::vector<std::string> &backendFlags) {
+      if (const char *extraFlags =
+              std::getenv("FUSILLI_EXTRA_COMPILER_FLAGS")) {
+        FUSILLI_LOG_LABEL_ENDL("INFO: Adding extra compiler flags from "
+                               "FUSILLI_EXTRA_COMPILER_FLAGS");
+        auto parsedFlags = parseCompilerFlags(extraFlags);
+        backendFlags.insert(backendFlags.end(), parsedFlags.begin(),
+                            parsedFlags.end());
+      }
+    };
+
+    // Add extra flags to both CPU and AMDGPU backends
+    addExtraFlags(cpuFlags);
+    addExtraFlags(amdGpuFlags);
 
     kBackendFlags[Backend::CPU] = std::move(cpuFlags);
     kBackendFlags[Backend::AMDGPU] = std::move(amdGpuFlags);
