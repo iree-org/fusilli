@@ -405,16 +405,16 @@ TEST_CASE("BFloat16 precision limits", "[BFloat16]") {
 TEST_CASE("Float16 and BFloat16 have different bit representations",
           "[Float16][BFloat16]") {
   // 1.0 has different bit patterns in Float16 vs BFloat16
-  Float16 Float16One(1.0f);
-  BFloat16 BFloat16One(1.0f);
+  Float16 float16One(1.0f);
+  BFloat16 bfloat16One(1.0f);
 
   // Float16: 0x3C00, BFloat16: 0x3F80
-  REQUIRE(Float16One.toBits() != BFloat16One.toBits());
-  REQUIRE(Float16One.toBits() == 0x3C00);
-  REQUIRE(BFloat16One.toBits() == 0x3F80);
+  REQUIRE(float16One.toBits() != bfloat16One.toBits());
+  REQUIRE(float16One.toBits() == 0x3C00);
+  REQUIRE(bfloat16One.toBits() == 0x3F80);
 
   // But they both convert back to 1.0
-  REQUIRE(Float16One.toFloat() == BFloat16One.toFloat());
+  REQUIRE(float16One.toFloat() == bfloat16One.toFloat());
 }
 
 TEST_CASE("Float16 has more precision but smaller range than BFloat16",
@@ -424,21 +424,21 @@ TEST_CASE("Float16 has more precision but smaller range than BFloat16",
 
   // Large value that BFloat16 can represent but Float16 cannot
   float large = 100000.0f;
-  Float16 Float16Large(large);
-  BFloat16 BFloat16Large(large);
+  Float16 float16Large(large);
+  BFloat16 bfloat16Large(large);
 
-  REQUIRE(std::isinf(Float16Large.toFloat()));   // Overflows in Float16
-  REQUIRE(!std::isinf(BFloat16Large.toFloat())); // Fits in BFloat16
+  REQUIRE(std::isinf(float16Large.toFloat()));   // Overflows in Float16
+  REQUIRE(!std::isinf(bfloat16Large.toFloat())); // Fits in BFloat16
 
   // Small precision test - Float16 is more precise
   // 1.001 rounded differently
   float precise = 1.001f;
-  Float16 Float16Precise(precise);
-  BFloat16 BFloat16Precise(precise);
+  Float16 float16Precise(precise);
+  BFloat16 bfloat16Precise(precise);
 
   // Float16 should be closer to original value (more mantissa bits)
-  float Float16_err = std::abs(Float16Precise.toFloat() - precise);
-  float BFloat16_err = std::abs(BFloat16Precise.toFloat() - precise);
+  float float16Err = std::abs(float16Precise.toFloat() - precise);
+  float bfloat16Err = std::abs(bfloat16Precise.toFloat() - precise);
   // Float16 has better precision for small values
-  REQUIRE(Float16_err <= BFloat16_err);
+  REQUIRE(float16Err <= bfloat16Err);
 }
