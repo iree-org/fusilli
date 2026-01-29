@@ -20,6 +20,8 @@
 #include <cstdint>
 #include <limits>
 
+#include "fusilli/support/target_platform.h"
+
 namespace fusilli {
 
 // IEEE 754 half-precision floating point (Float16)
@@ -253,7 +255,7 @@ private:
 // Half precision floating point types.
 // On Windows, use portable struct implementations with int16_t storage.
 // On other platforms, use compiler extensions for native support.
-#ifdef _WIN32
+#ifdef FUSILLI_PLATFORM_WINDOWS
 using half = Float16;
 using bf16 = BFloat16;
 #else
