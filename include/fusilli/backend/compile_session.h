@@ -23,11 +23,11 @@
 #include "fusilli/backend/backend.h"
 #include "fusilli/backend/handle.h"
 #include "fusilli/support/cache.h"
+#include "fusilli/support/dllib.h"
 #include "fusilli/support/external_tools.h"
 #include "fusilli/support/extras.h"
 #include "fusilli/support/logging.h"
-
-#include <dlfcn.h>
+#include <cstdint>
 #include <memory>
 #include <span>
 #include <sstream>
@@ -97,9 +97,11 @@ public:
   // Gets the revision string of the loaded compiler.
   std::string getRevision() const;
 
+  DynamicLibrary &getLibrary() { return lib_; }
+
 private:
   // Private constructor - use factory method create().
-  CompileContext(void *libHandle);
+  CompileContext();
 
   // Loads all required function pointers from the shared library.
   ErrorObject loadSymbols();
@@ -107,7 +109,7 @@ private:
   friend class CompileSession;
 
   // Handle to the dynamically loaded library.
-  void *libHandle_ = nullptr;
+  DynamicLibrary lib_;
 
   // Function pointers for IREE compiler API.
   // Global initialization.
@@ -280,30 +282,26 @@ inline ErrorOr<CompileContext *> CompileContext::create() {
   // others will see it's already created
   std::lock_guard<std::mutex> lock(instanceMutex);
 
-  if (globalInstance != nullptr)
+  if (globalInstance != nullptr) {
     return ok(globalInstance.get());
+  }
 
   // Get the path to the IREE compiler shared library.
   std::string libPath = getIreeCompilerLibPath();
   FUSILLI_LOG_LABEL_ENDL(
       "INFO: Loading IREE compiler library from: " << libPath);
 
+  // Create the context object (can't use make_shared due to private ctor).
+  globalInstance = std::unique_ptr<CompileContext>(new CompileContext());
+
   // Load the shared library.
-  void *libHandle =
-      dlopen(libPath.c_str(), RTLD_LAZY | RTLD_LOCAL | RTLD_NOLOAD);
-
-  if (!libHandle)
-    libHandle = dlmopen(LM_ID_NEWLM, libPath.c_str(), RTLD_LAZY | RTLD_LOCAL);
-
-  if (!libHandle) {
+  ErrorObject loadErr = globalInstance->getLibrary().load(libPath);
+  if (isError(loadErr)) {
     std::string error = "Failed to load IREE compiler library: ";
-    error += dlerror();
+    error += loadErr.getMessage();
+    globalInstance.reset();
     return fusilli::error(ErrorCode::CompileFailure, error);
   }
-
-  // Create the context object (can't use make_shared due to private ctor).
-  globalInstance =
-      std::unique_ptr<CompileContext>(new CompileContext(libHandle));
 
   // Load all required symbols.
   FUSILLI_CHECK_ERROR(globalInstance->loadSymbols());
@@ -314,16 +312,15 @@ inline ErrorOr<CompileContext *> CompileContext::create() {
   return ok(globalInstance.get());
 }
 
-inline CompileContext::CompileContext(void *libHandle)
-    : libHandle_(libHandle) {}
+inline CompileContext::CompileContext() = default;
 
 inline CompileContext::~CompileContext() {
-  if (libHandle_) {
+  if (lib_.isLoaded()) {
     FUSILLI_LOG_LABEL_ENDL("INFO: Shutting down IREE compiler");
     if (ireeCompilerGlobalShutdown_) {
       ireeCompilerGlobalShutdown_();
     }
-    dlclose(libHandle_);
+    lib_.close();
   }
 }
 
@@ -332,12 +329,13 @@ inline ErrorObject CompileContext::loadSymbols() {
 
 #define LOAD_SYMBOL(name)                                                      \
   do {                                                                         \
-    name##_ = reinterpret_cast<decltype(name##_)>(dlsym(libHandle_, #name));   \
-    if (!name##_) {                                                            \
+    auto symResult = lib_.getSymbol<decltype(name##_)>(#name);                 \
+    if (isError(symResult)) {                                                  \
       std::string error = "Failed to load symbol " #name ": ";                 \
-      error += dlerror();                                                      \
+      error += ErrorObject(symResult).getMessage();                            \
       return fusilli::error(ErrorCode::CompileFailure, error);                 \
     }                                                                          \
+    name##_ = *symResult;                                                      \
   } while (false)
 
   // Load all required symbols.
