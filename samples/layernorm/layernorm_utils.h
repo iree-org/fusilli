@@ -4,8 +4,8 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#ifndef WORKSPACE_SAMPLES_LAYERNORM_LAYERNORM_UTILS_H
-#define WORKSPACE_SAMPLES_LAYERNORM_LAYERNORM_UTILS_H
+#ifndef FUSILLI_SAMPLES_LAYERNORM_LAYERNORM_UTILS_H
+#define FUSILLI_SAMPLES_LAYERNORM_LAYERNORM_UTILS_H
 
 #include <algorithm>
 #include <cmath>
@@ -82,4 +82,4 @@ generateIOTensorsForTrainForward(int64_t n, int64_t c, int64_t h, int64_t w,
 
 } // namespace fusilli::layernorm_utils
 
-#endif // WORKSPACE_SAMPLES_LAYERNORM_LAYERNORM_UTILS_H
+#endif // FUSILLI_SAMPLES_LAYERNORM_LAYERNORM_UTILS_H
