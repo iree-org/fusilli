@@ -15,109 +15,71 @@
 #ifndef FUSILLI_SUPPORT_FLOAT_TYPES_H
 #define FUSILLI_SUPPORT_FLOAT_TYPES_H
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <limits>
 
 namespace fusilli {
 
 // IEEE 754 half-precision floating point (Float16)
 // Format: 1 sign bit, 5 exponent bits, 10 mantissa bits
+//
+// This type provides implicit conversions to/from float, allowing seamless
+// interoperability with float arithmetic. All operations are performed in
+// float precision through these conversions.
 struct Float16 {
   int16_t data;
 
-  Float16() : data(0) {}
-  explicit Float16(int16_t raw) : data(raw) {}
+  constexpr Float16() : data(0) {}
 
-  // Construct from float
-  explicit Float16(float f) { data = floatToFp16Bits(f); }
+  // Construct from float (handles double via implicit conversion)
+  constexpr Float16(float f) : data(floatToFp16Bits(f)) {}
 
   // Convert to float
-  float toFloat() const { return fp16BitsToFloat(data); }
+  constexpr float toFloat() const { return fp16BitsToFloat(data); }
 
-  // Implicit conversion to float for arithmetic
-  explicit operator float() const { return toFloat(); }
+  // Implicit conversion to float for seamless interoperability
+  // Arithmetic and comparisons work through this conversion
+  constexpr operator float() const { return toFloat(); }
 
-  // Arithmetic operators (perform math in float32)
-  Float16 operator+(const Float16 &other) const {
-    return Float16(toFloat() + other.toFloat());
-  }
-
-  Float16 operator-(const Float16 &other) const {
-    return Float16(toFloat() - other.toFloat());
-  }
-
-  Float16 operator*(const Float16 &other) const {
-    return Float16(toFloat() * other.toFloat());
-  }
-
-  Float16 operator/(const Float16 &other) const {
-    return Float16(toFloat() / other.toFloat());
-  }
-
-  Float16 operator-() const { return Float16(-toFloat()); }
+  // Unary negation
+  constexpr Float16 operator-() const { return Float16(-toFloat()); }
 
   // Compound assignment operators
-  Float16 &operator+=(const Float16 &other) {
-    *this = *this + other;
+  constexpr Float16 &operator+=(Float16 other) {
+    *this = Float16(toFloat() + other.toFloat());
     return *this;
   }
 
-  Float16 &operator-=(const Float16 &other) {
-    *this = *this - other;
+  constexpr Float16 &operator-=(Float16 other) {
+    *this = Float16(toFloat() - other.toFloat());
     return *this;
   }
 
-  Float16 &operator*=(const Float16 &other) {
-    *this = *this * other;
+  constexpr Float16 &operator*=(Float16 other) {
+    *this = Float16(toFloat() * other.toFloat());
     return *this;
   }
 
-  Float16 &operator/=(const Float16 &other) {
-    *this = *this / other;
+  constexpr Float16 &operator/=(Float16 other) {
+    *this = Float16(toFloat() / other.toFloat());
     return *this;
-  }
-
-  // Comparison operators
-  bool operator==(const Float16 &other) const {
-    return toFloat() == other.toFloat();
-  }
-
-  bool operator!=(const Float16 &other) const {
-    return toFloat() != other.toFloat();
-  }
-
-  bool operator<(const Float16 &other) const {
-    return toFloat() < other.toFloat();
-  }
-
-  bool operator<=(const Float16 &other) const {
-    return toFloat() <= other.toFloat();
-  }
-
-  bool operator>(const Float16 &other) const {
-    return toFloat() > other.toFloat();
-  }
-
-  bool operator>=(const Float16 &other) const {
-    return toFloat() >= other.toFloat();
   }
 
   // Create from raw bits
-  static Float16 fromBits(int16_t bits) {
+  static constexpr Float16 fromBits(int16_t bits) {
     Float16 result;
     result.data = bits;
     return result;
   }
 
   // Get raw bits
-  int16_t toBits() const { return data; }
+  constexpr int16_t toBits() const { return data; }
 
 private:
-  static int16_t floatToFp16Bits(float f) {
-    uint32_t bits;
-    std::memcpy(&bits, &f, sizeof(bits));
+  static constexpr int16_t floatToFp16Bits(float f) {
+    uint32_t bits = std::bit_cast<uint32_t>(f);
 
     uint32_t sign = (bits >> 31) & 0x1;
     int32_t exp = ((bits >> 23) & 0xFF) - 127;
@@ -180,7 +142,7 @@ private:
     return static_cast<int16_t>((sign << 15) | (fp16Exp << 10) | fp16Mantissa);
   }
 
-  static float fp16BitsToFloat(int16_t bits) {
+  static constexpr float fp16BitsToFloat(int16_t bits) {
     uint16_t ubits = static_cast<uint16_t>(bits);
     uint32_t sign = (ubits >> 15) & 0x1;
     uint32_t exp = (ubits >> 10) & 0x1F;
@@ -209,109 +171,69 @@ private:
       result = (sign << 31) | ((exp + 127 - 15) << 23) | (mantissa << 13);
     }
 
-    float f;
-    std::memcpy(&f, &result, sizeof(f));
-    return f;
+    return std::bit_cast<float>(result);
   }
 };
 
 // Brain floating point (BFloat16)
 // Format: 1 sign bit, 8 exponent bits, 7 mantissa bits
 // Same exponent range as float32, just truncated mantissa
+//
+// This type provides implicit conversions to/from float, allowing seamless
+// interoperability with float arithmetic. All operations are performed in
+// float precision through these conversions.
 struct BFloat16 {
   int16_t data;
 
-  BFloat16() : data(0) {}
-  explicit BFloat16(int16_t raw) : data(raw) {}
+  constexpr BFloat16() : data(0) {}
 
-  // Construct from float
-  explicit BFloat16(float f) { data = floatToBf16Bits(f); }
+  // Construct from float (handles double via implicit conversion)
+  constexpr BFloat16(float f) : data(floatToBf16Bits(f)) {}
 
   // Convert to float
-  float toFloat() const { return bf16BitsToFloat(data); }
+  constexpr float toFloat() const { return bf16BitsToFloat(data); }
 
-  // Implicit conversion to float for arithmetic
-  explicit operator float() const { return toFloat(); }
+  // Implicit conversion to float for seamless interoperability
+  // Arithmetic and comparisons work through this conversion
+  constexpr operator float() const { return toFloat(); }
 
-  // Arithmetic operators (perform math in float32)
-  BFloat16 operator+(const BFloat16 &other) const {
-    return BFloat16(toFloat() + other.toFloat());
-  }
-
-  BFloat16 operator-(const BFloat16 &other) const {
-    return BFloat16(toFloat() - other.toFloat());
-  }
-
-  BFloat16 operator*(const BFloat16 &other) const {
-    return BFloat16(toFloat() * other.toFloat());
-  }
-
-  BFloat16 operator/(const BFloat16 &other) const {
-    return BFloat16(toFloat() / other.toFloat());
-  }
-
-  BFloat16 operator-() const { return BFloat16(-toFloat()); }
+  // Unary negation
+  constexpr BFloat16 operator-() const { return BFloat16(-toFloat()); }
 
   // Compound assignment operators
-  BFloat16 &operator+=(const BFloat16 &other) {
-    *this = *this + other;
+  constexpr BFloat16 &operator+=(BFloat16 other) {
+    *this = BFloat16(toFloat() + other.toFloat());
     return *this;
   }
 
-  BFloat16 &operator-=(const BFloat16 &other) {
-    *this = *this - other;
+  constexpr BFloat16 &operator-=(BFloat16 other) {
+    *this = BFloat16(toFloat() - other.toFloat());
     return *this;
   }
 
-  BFloat16 &operator*=(const BFloat16 &other) {
-    *this = *this * other;
+  constexpr BFloat16 &operator*=(BFloat16 other) {
+    *this = BFloat16(toFloat() * other.toFloat());
     return *this;
   }
 
-  BFloat16 &operator/=(const BFloat16 &other) {
-    *this = *this / other;
+  constexpr BFloat16 &operator/=(BFloat16 other) {
+    *this = BFloat16(toFloat() / other.toFloat());
     return *this;
-  }
-
-  // Comparison operators
-  bool operator==(const BFloat16 &other) const {
-    return toFloat() == other.toFloat();
-  }
-
-  bool operator!=(const BFloat16 &other) const {
-    return toFloat() != other.toFloat();
-  }
-
-  bool operator<(const BFloat16 &other) const {
-    return toFloat() < other.toFloat();
-  }
-
-  bool operator<=(const BFloat16 &other) const {
-    return toFloat() <= other.toFloat();
-  }
-
-  bool operator>(const BFloat16 &other) const {
-    return toFloat() > other.toFloat();
-  }
-
-  bool operator>=(const BFloat16 &other) const {
-    return toFloat() >= other.toFloat();
   }
 
   // Create from raw bits
-  static BFloat16 fromBits(int16_t bits) {
+  static constexpr BFloat16 fromBits(int16_t bits) {
     BFloat16 result;
     result.data = bits;
     return result;
   }
 
   // Get raw bits
-  int16_t toBits() const { return data; }
+  constexpr int16_t toBits() const { return data; }
 
 private:
-  static int16_t floatToBf16Bits(float f) {
-    uint32_t bits;
-    std::memcpy(&bits, &f, sizeof(bits));
+  static constexpr int16_t floatToBf16Bits(float f) {
+    uint32_t bits = std::bit_cast<uint32_t>(f);
 
     // Round to nearest even
     uint32_t rounding = 0x7FFF + ((bits >> 16) & 1);
@@ -321,12 +243,10 @@ private:
     return static_cast<int16_t>(bits >> 16);
   }
 
-  static float bf16BitsToFloat(int16_t bits) {
+  static constexpr float bf16BitsToFloat(int16_t bits) {
     // bf16 is just the upper 16 bits of float32
     uint32_t result = static_cast<uint32_t>(static_cast<uint16_t>(bits)) << 16;
-    float f;
-    std::memcpy(&f, &result, sizeof(f));
-    return f;
+    return std::bit_cast<float>(result);
   }
 };
 
