@@ -86,6 +86,7 @@ add_fusilli_tests(
     fusilli_support_tests
   SRCS
     test_cache.cpp
+    test_dllib.cpp
     test_ssa_validation.cpp
   DEPS
     libfusilli
