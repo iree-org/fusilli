@@ -375,6 +375,6 @@ function(_add_fusilli_executable_for_test)
       RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/${_RULE_BIN_SUBDIR}
   )
 
-  # Enable clang-tidy for project-owned executable
+  # Enable clang-tidy.
   fusilli_enable_clang_tidy(${_RULE_NAME})
 endfunction()

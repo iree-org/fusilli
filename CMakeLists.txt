@@ -139,7 +139,7 @@ set_target_properties(libfusilli PROPERTIES EXPORT_NAME fusilli)
 # FetchContent) and against an installed version (via find_package).
 add_library(fusilli::fusilli ALIAS libfusilli)
 
-# Enable clang-tidy for project-owned library
+# Enable clang-tidy.
 fusilli_enable_clang_tidy(libfusilli)
 
 # INTERFACE libraries don't install/export header files added via
@@ -198,7 +198,7 @@ if(FUSILLI_BUILD_TESTS OR FUSILLI_BUILD_BENCHMARKS)
 
   # Add library for tests/utils.h
   add_library(libutils INTERFACE)
-  # Enable clang-tidy for project-owned library
+  # Enable clang-tidy.
   fusilli_enable_clang_tidy(libutils)
   target_include_directories(libutils INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
   target_link_libraries(libutils INTERFACE

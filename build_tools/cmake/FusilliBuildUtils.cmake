@@ -5,11 +5,11 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 
-# Enable clang-tidy for a specific target (per-target best practice).
+# Enable clang-tidy for a specific target.
 #
 # This function enables clang-tidy analysis only for project-owned targets,
 # ensuring that third-party dependencies (Catch2, IREE, CLI11) are never
-# analyzed. This matches the approach used by large CMake projects (LLVM, MLIR, IREE).
+# analyzed.
 #
 # Usage:
 #   fusilli_enable_clang_tidy(<target-name>)
