@@ -139,6 +139,68 @@ add_fusilli_benchmark(
     --device 0 --iter 10 conv -F 2 -n 100 -c 3 -H 32 -W 32 -k 32 -y 3 -x 3 -u 1 -v 1 -p 0 -q 0 -l 1 -j 1 --in_layout "NCHW" --fil_layout "NCHW" --out_layout "NCHW" --spatial_dim 2 --bias
 )
 
+# Layer normalization benchmarks
+# Inference forward (F=1) benchmarks
+
+# TODO: iree/#23339
+# add_fusilli_benchmark(
+#   NAME fusilli_benchmark_layernorm_infer_nchw_fp32_single_batch
+#   DRIVER fusilli_benchmark_driver
+#   ARGS
+#     --device 0 --iter 10 layernorm --input 1x128x64x32 -F 1 --type f32 --layout NCHW
+# )
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_infer_nchw_fp32
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128x64x32 -F 1 --type f32 --layout NCHW
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_infer_nhwc_fp16
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128x64x32 -F 1 --type f16 --layout NHWC
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_infer_nhwc_bf16_scale_bias
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128x64x32 -F 1 --type bf16 --layout NHWC --mode 1
+)
+
+# Training forward (F=2) benchmarks
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_train_nchw_bf16
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128x64x32 -F 2 --type bf16 --layout NCHW
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_train_nhwc_fp16_scale_bias
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128x64x32 -F 2 --type f16 --layout NHWC --mode 1
+)
+
+# 3D input benchmarks (NCH format)
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_infer_3d_fp32
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128x256 -F 1 --type f32
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_train_3d_bf16_scale_bias
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128x256 -F 2 --type bf16 --mode 1
+)
+
 # Matrix multiplication benchmarks
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp32
