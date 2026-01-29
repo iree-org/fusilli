@@ -43,28 +43,28 @@ TEST_CASE("Float16 conversion from float", "[Float16]") {
   }
 
   SECTION("zero") {
-    Float16 pos_zero(0.0f);
-    REQUIRE(pos_zero.toFloat() == 0.0f);
+    Float16 posZero(0.0f);
+    REQUIRE(posZero.toFloat() == 0.0f);
 
-    Float16 neg_zero(-0.0f);
-    REQUIRE(neg_zero.toFloat() == -0.0f);
+    Float16 negZero(-0.0f);
+    REQUIRE(negZero.toFloat() == -0.0f);
   }
 }
 
 TEST_CASE("Float16 handles special values", "[Float16]") {
   SECTION("infinity") {
-    Float16 pos_inf(std::numeric_limits<float>::infinity());
-    REQUIRE(std::isinf(pos_inf.toFloat()));
-    REQUIRE(pos_inf.toFloat() > 0);
+    Float16 posInf(std::numeric_limits<float>::infinity());
+    REQUIRE(std::isinf(posInf.toFloat()));
+    REQUIRE(posInf.toFloat() > 0);
 
-    Float16 neg_inf(-std::numeric_limits<float>::infinity());
-    REQUIRE(std::isinf(neg_inf.toFloat()));
-    REQUIRE(neg_inf.toFloat() < 0);
+    Float16 negInf(-std::numeric_limits<float>::infinity());
+    REQUIRE(std::isinf(negInf.toFloat()));
+    REQUIRE(negInf.toFloat() < 0);
   }
 
   SECTION("NaN") {
-    Float16 nan_val(std::numeric_limits<float>::quiet_NaN());
-    REQUIRE(std::isnan(nan_val.toFloat()));
+    Float16 nanVal(std::numeric_limits<float>::quiet_NaN());
+    REQUIRE(std::isnan(nanVal.toFloat()));
   }
 
   SECTION("overflow to infinity") {
@@ -235,28 +235,28 @@ TEST_CASE("BFloat16 conversion from float", "[BFloat16]") {
   }
 
   SECTION("zero") {
-    BFloat16 pos_zero(0.0f);
-    REQUIRE(pos_zero.toFloat() == 0.0f);
+    BFloat16 posZero(0.0f);
+    REQUIRE(posZero.toFloat() == 0.0f);
 
-    BFloat16 neg_zero(-0.0f);
-    REQUIRE(neg_zero.toFloat() == -0.0f);
+    BFloat16 negZero(-0.0f);
+    REQUIRE(negZero.toFloat() == -0.0f);
   }
 }
 
 TEST_CASE("BFloat16 handles special values", "[BFloat16]") {
   SECTION("infinity") {
-    BFloat16 pos_inf(std::numeric_limits<float>::infinity());
-    REQUIRE(std::isinf(pos_inf.toFloat()));
-    REQUIRE(pos_inf.toFloat() > 0);
+    BFloat16 posInf(std::numeric_limits<float>::infinity());
+    REQUIRE(std::isinf(posInf.toFloat()));
+    REQUIRE(posInf.toFloat() > 0);
 
-    BFloat16 neg_inf(-std::numeric_limits<float>::infinity());
-    REQUIRE(std::isinf(neg_inf.toFloat()));
-    REQUIRE(neg_inf.toFloat() < 0);
+    BFloat16 negInf(-std::numeric_limits<float>::infinity());
+    REQUIRE(std::isinf(negInf.toFloat()));
+    REQUIRE(negInf.toFloat() < 0);
   }
 
   SECTION("NaN") {
-    BFloat16 nan_val(std::numeric_limits<float>::quiet_NaN());
-    REQUIRE(std::isnan(nan_val.toFloat()));
+    BFloat16 nanVal(std::numeric_limits<float>::quiet_NaN());
+    REQUIRE(std::isnan(nanVal.toFloat()));
   }
 
   SECTION("large values preserved") {
@@ -405,16 +405,16 @@ TEST_CASE("BFloat16 precision limits", "[BFloat16]") {
 TEST_CASE("Float16 and BFloat16 have different bit representations",
           "[Float16][BFloat16]") {
   // 1.0 has different bit patterns in Float16 vs BFloat16
-  Float16 Float16_one(1.0f);
-  BFloat16 BFloat16_one(1.0f);
+  Float16 Float16One(1.0f);
+  BFloat16 BFloat16One(1.0f);
 
   // Float16: 0x3C00, BFloat16: 0x3F80
-  REQUIRE(Float16_one.toBits() != BFloat16_one.toBits());
-  REQUIRE(Float16_one.toBits() == 0x3C00);
-  REQUIRE(BFloat16_one.toBits() == 0x3F80);
+  REQUIRE(Float16One.toBits() != BFloat16One.toBits());
+  REQUIRE(Float16One.toBits() == 0x3C00);
+  REQUIRE(BFloat16One.toBits() == 0x3F80);
 
   // But they both convert back to 1.0
-  REQUIRE(Float16_one.toFloat() == BFloat16_one.toFloat());
+  REQUIRE(Float16One.toFloat() == BFloat16One.toFloat());
 }
 
 TEST_CASE("Float16 has more precision but smaller range than BFloat16",
@@ -424,21 +424,21 @@ TEST_CASE("Float16 has more precision but smaller range than BFloat16",
 
   // Large value that BFloat16 can represent but Float16 cannot
   float large = 100000.0f;
-  Float16 Float16_large(large);
-  BFloat16 BFloat16_large(large);
+  Float16 Float16Large(large);
+  BFloat16 BFloat16Large(large);
 
-  REQUIRE(std::isinf(Float16_large.toFloat()));   // Overflows in Float16
-  REQUIRE(!std::isinf(BFloat16_large.toFloat())); // Fits in BFloat16
+  REQUIRE(std::isinf(Float16Large.toFloat()));   // Overflows in Float16
+  REQUIRE(!std::isinf(BFloat16Large.toFloat())); // Fits in BFloat16
 
   // Small precision test - Float16 is more precise
   // 1.001 rounded differently
   float precise = 1.001f;
-  Float16 Float16_precise(precise);
-  BFloat16 BFloat16_precise(precise);
+  Float16 Float16Precise(precise);
+  BFloat16 BFloat16Precise(precise);
 
   // Float16 should be closer to original value (more mantissa bits)
-  float Float16_err = std::abs(Float16_precise.toFloat() - precise);
-  float BFloat16_err = std::abs(BFloat16_precise.toFloat() - precise);
+  float Float16_err = std::abs(Float16Precise.toFloat() - precise);
+  float BFloat16_err = std::abs(BFloat16Precise.toFloat() - precise);
   // Float16 has better precision for small values
   REQUIRE(Float16_err <= BFloat16_err);
 }
