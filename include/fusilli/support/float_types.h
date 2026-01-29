@@ -82,7 +82,7 @@ private:
     uint32_t bits = std::bit_cast<uint32_t>(f);
 
     uint32_t sign = (bits >> 31) & 0x1;
-    int32_t exp = ((bits >> 23) & 0xFF) - 127;
+    int32_t exp = static_cast<int32_t>((bits >> 23) & 0xFF) - 127;
     uint32_t mantissa = bits & 0x7FFFFF;
 
     // Handle special cases
