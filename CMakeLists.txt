@@ -139,6 +139,9 @@ set_target_properties(libfusilli PROPERTIES EXPORT_NAME fusilli)
 # FetchContent) and against an installed version (via find_package).
 add_library(fusilli::fusilli ALIAS libfusilli)
 
+# Enable clang-tidy for project-owned library
+fusilli_enable_clang_tidy(libfusilli)
+
 # INTERFACE libraries don't install/export header files added via
 # `target_include_directories`. Using a file set property ensures headers are
 # available in the installed/exported package.
@@ -165,16 +168,6 @@ if(FUSILLI_CODE_COVERAGE)
   set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Debug build" FORCE)
 endif()
 
-# Enable after test/samples to avoid catch2 errors.
-if(FUSILLI_ENABLE_CLANG_TIDY)
-  fusilli_find_program(clang-tidy INSTALL_INSTRUCTIONS "Please install clang-tidy (e.g., apt install clang-tidy).")
-  set(CMAKE_CXX_CLANG_TIDY
-    clang-tidy;
-    -warnings-as-errors=*;
-    --config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy;
-  )
-endif()
-
 # Enable AMD GPU build if requested
 if(FUSILLI_SYSTEMS_AMDGPU)
   # Check for Linux AMD GPU device node - `/dev/kfd`
@@ -198,12 +191,15 @@ if(FUSILLI_BUILD_TESTS OR FUSILLI_BUILD_BENCHMARKS)
       QUIET
       GIT_REPOSITORY https://github.com/catchorg/Catch2.git
       GIT_TAG        v3.11.0
+      SYSTEM
     )
     FetchContent_MakeAvailable(Catch2)
   endif()
 
   # Add library for tests/utils.h
   add_library(libutils INTERFACE)
+  # Enable clang-tidy for project-owned library
+  fusilli_enable_clang_tidy(libutils)
   target_include_directories(libutils INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
   target_link_libraries(libutils INTERFACE
     libfusilli

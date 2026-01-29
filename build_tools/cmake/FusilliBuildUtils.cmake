@@ -5,6 +5,33 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 
+# Enable clang-tidy for a specific target (per-target best practice).
+#
+# This function enables clang-tidy analysis only for project-owned targets,
+# ensuring that third-party dependencies (Catch2, IREE, CLI11) are never
+# analyzed. This matches the approach used by large CMake projects (LLVM, MLIR, IREE).
+#
+# Usage:
+#   fusilli_enable_clang_tidy(<target-name>)
+#
+# This should only be called for targets owned by this repository, not for
+# imported targets or third-party dependencies.
+function(fusilli_enable_clang_tidy target)
+  if(NOT FUSILLI_ENABLE_CLANG_TIDY)
+    return()
+  endif()
+
+  # Ensure clang-tidy is available
+  fusilli_find_program(clang-tidy INSTALL_INSTRUCTIONS
+    "Please install clang-tidy (e.g., apt install clang-tidy).")
+
+  set_target_properties(${target} PROPERTIES
+    CXX_CLANG_TIDY
+      "clang-tidy;-warnings-as-errors=*;--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy"
+  )
+endfunction()
+
+
 # Find an external tool needed for the fusilli build, and create an imported
 # executable target for said tool.
 #
@@ -45,8 +72,10 @@ macro(fusilli_find_program TOOL_NAME)
     endif()
   endif()
 
-  # Create an imported executable for the tool
-  message(STATUS "Using ${TOOL_NAME}: ${${_FULL_VAR_NAME}}")
-  add_executable(${TOOL_NAME} IMPORTED GLOBAL)
-  set_target_properties(${TOOL_NAME} PROPERTIES IMPORTED_LOCATION "${${_FULL_VAR_NAME}}")
+  # Create an imported executable for the tool (only if it doesn't already exist)
+  if(NOT TARGET ${TOOL_NAME})
+    message(STATUS "Using ${TOOL_NAME}: ${${_FULL_VAR_NAME}}")
+    add_executable(${TOOL_NAME} IMPORTED GLOBAL)
+    set_target_properties(${TOOL_NAME} PROPERTIES IMPORTED_LOCATION "${${_FULL_VAR_NAME}}")
+  endif()
 endmacro()
