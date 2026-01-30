@@ -46,15 +46,6 @@ TEST_CASE("parseCompilerFlags", "[backend][flags]") {
                                      "--iree-hal-target-backends=rocm"});
   }
 
-  SECTION("Flags with equals signs") {
-    std::vector<std::string> result =
-        parseCompilerFlags("--iree-hip-target=gfx942 --iree-opt-level=O3 "
-                           "--iree-hal-target-backends=rocm");
-    REQUIRE(result == std::vector<std::string>{
-                          "--iree-hip-target=gfx942", "--iree-opt-level=O3",
-                          "--iree-hal-target-backends=rocm"});
-  }
-
   SECTION("Extra whitespace") {
     std::vector<std::string> result = parseCompilerFlags(
         "  --iree-opt-level=O3    --iree-hal-target-backends=rocm  ");
@@ -91,34 +82,22 @@ TEST_CASE("parseCompilerFlags", "[backend][flags]") {
                 "--iree-codegen-tuning-spec-path=/path/with spaces/spec.mlir"});
   }
 
-  SECTION("Complex realistic example") {
-    std::vector<std::string> result =
-        parseCompilerFlags("--iree-codegen-tuning-spec-path=/path/to/spec.mlir "
-                           "--iree-opt-level=O3 --iree-hip-target=mi300x");
-    REQUIRE(result == std::vector<std::string>{
-                          "--iree-codegen-tuning-spec-path=/path/to/spec.mlir",
-                          "--iree-opt-level=O3", "--iree-hip-target=mi300x"});
-  }
-
-  SECTION("Flags with single quotes (treated as literals)") {
+  SECTION("Single quotes are treated as literals") {
     // Single quotes are NOT delimiters - they are literal characters.
-    // std::quoted only recognizes double quotes (") as delimiters.
+    // Use double quotes for values with spaces.
     std::vector<std::string> result =
         parseCompilerFlags("'--flag1' '--flag2=value'");
     REQUIRE(result == std::vector<std::string>{"'--flag1'", "'--flag2=value'"});
   }
 
-  SECTION("Single quotes with spaces fail - use double quotes") {
-    // Single quotes do NOT work as delimiters, so spaces still split tokens.
-    // Wrong: parseCompilerFlags("'--flag1' '--flag2=/path with/spaces'").
-    // This would incorrectly parse as: {"'--flag1'", "'--flag2=/path",
-    // "with/spaces'"}.
-    //
-    // Correct: Use double quotes for values with spaces.
+  SECTION("Single quotes with spaces do not work") {
+    // Single quotes do NOT protect spaces - they get split into separate
+    // tokens.
     std::vector<std::string> result =
-        parseCompilerFlags("\"--flag1\" \"--flag2=/path with/spaces\"");
-    REQUIRE(result ==
-            std::vector<std::string>{"--flag1", "--flag2=/path with/spaces"});
+        parseCompilerFlags("'--flag1' '--flag2=/path with/spaces'");
+    // This splits incorrectly because single quotes are not delimiters.
+    REQUIRE(result == std::vector<std::string>{"'--flag1'", "'--flag2=/path",
+                                               "with/spaces'"});
   }
 }
 

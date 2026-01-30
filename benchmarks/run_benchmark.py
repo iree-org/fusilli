@@ -146,9 +146,9 @@ def run_profiled_command(
 
     # Set extra compiler flags via environment variable if provided
     env = os.environ.copy()
-    if extra_compiler_flags is not None and len(extra_compiler_flags) > 0:
-        # Join multiple flags with spaces
-        env["FUSILLI_EXTRA_COMPILER_FLAGS"] = " ".join(extra_compiler_flags)
+    if extra_compiler_flags:
+        # Join multiple flags with proper shell quoting
+        env["FUSILLI_EXTRA_COMPILER_FLAGS"] = shlex.join(extra_compiler_flags)
 
     # Use either temporary directory or persistent directory
     if output_dir is None:

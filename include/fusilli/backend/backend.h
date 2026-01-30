@@ -225,15 +225,14 @@ inline std::string getIreeHipTargetForAmdgpu() {
 }
 
 // Parses space-separated compiler flags from a string.
-// Supports double-quote quoting for flags with spaces using std::quoted.
-// Note: std::quoted only recognizes double quotes (") as delimiters.
+// Supports double-quote quoting for flags with spaces.
 // Single quotes (') are treated as literal characters, not delimiters.
 // Examples:
 //   "--flag1 --flag2=value".
 //   "--flag1 \"--flag2=value with spaces\""  (works - double quotes).
-//   "--flag1 '--flag2=value with spaces'"    (fails - single quotes treated as
-//   literals).
-// Returns empty vector if flagsStr is null or contains no tokens.
+//   "--flag1 '--flag2=value with spaces'"    (fails - single quotes are
+//   literal).
+// Returns an empty vector if flagsStr is null or contains no tokens.
 inline std::vector<std::string> parseCompilerFlags(const char *flagsStr) {
   if (!flagsStr)
     return {};
