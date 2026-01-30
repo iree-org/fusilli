@@ -127,6 +127,7 @@ def run_profiled_command(
     verbose: bool,
     cmd_num: int,
     timeout: int,
+    extra_compiler_flags: list[str] | None = None,
 ) -> CommandResult:
 
     driver_args = command.split()
@@ -142,6 +143,12 @@ def run_profiled_command(
             iter_count = int(driver_args[iter_idx + 1])
 
     driver_cmd = [driver_path] + driver_args
+
+    # Set extra compiler flags via environment variable if provided
+    env = os.environ.copy()
+    if extra_compiler_flags:
+        # Join multiple flags with proper shell quoting
+        env["FUSILLI_EXTRA_COMPILER_FLAGS"] = shlex.join(extra_compiler_flags)
 
     # Use either temporary directory or persistent directory
     if output_dir is None:
@@ -176,6 +183,7 @@ def run_profiled_command(
             capture_output=True,
             text=True,
             timeout=timeout_val,
+            env=env,
         )
 
         if verbose and result.stdout:
@@ -290,6 +298,16 @@ The script will:
         help="Timeout in seconds for each command (default: 30, use -1 for no timeout)",
     )
 
+    parser.add_argument(
+        "--Xiree-compile",
+        action="append",
+        dest="extra_compiler_flags",
+        default=None,
+        help="Pass additional flags to iree-compile (repeatable). "
+        "Example: --Xiree-compile='--iree-codegen-tuning-spec-path=/path/to/spec.mlir' "
+        "--Xiree-compile='--iree-opt-level=O3'",
+    )
+
     return parser
 
 
@@ -378,6 +396,7 @@ def main():
                 args.verbose,
                 cmd_count,
                 args.timeout,
+                args.extra_compiler_flags,
             )
 
         stats = result.stats
