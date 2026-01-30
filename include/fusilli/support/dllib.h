@@ -66,7 +66,7 @@ public:
     other.handle_ = nullptr;
   }
 
-  DynamicLibrary &operator=(DynamicLibrary &&other) {
+  DynamicLibrary &operator=(DynamicLibrary &&other) noexcept {
     if (this != &other) {
       auto err = close();
       assert(isOk(err) && "Error closing library during move assignment");
