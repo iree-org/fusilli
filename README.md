@@ -90,6 +90,31 @@ To save the benchmark results as csv, specify `--output-format csv` instead.
 
 To skip building benchmarks, specify the cmake flag `-DFUSILLI_BUILD_BENCHMARKS=OFF`.
 
+### Sanitizers (AddressSanitizer)
+
+Fusilli supports building with AddressSanitizer (ASAN) for detecting memory errors such as use-after-free, buffer overflows, and memory leaks.
+
+To build with AddressSanitizer, specify the cmake flag `-DFUSILLI_ENABLE_ASAN=ON`:
+```shell
+cmake -GNinja -S. -Bbuild \
+    -DCMAKE_C_COMPILER=clang \
+    -DCMAKE_CXX_COMPILER=clang++ \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DFUSILLI_ENABLE_ASAN=ON \
+    -DIREE_SOURCE_DIR=</path/to/iree/source>
+cmake --build build --target all
+ctest --test-dir build
+```
+
+To customize AddressSanitizer behavior at runtime, use the `ASAN_OPTIONS` environment variable:
+```shell
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=0 ctest --test-dir build
+```
+
+> [!NOTE]
+> - Debug builds (`-DCMAKE_BUILD_TYPE=Debug`) provide better stack traces.
+> - Sanitizer builds have runtime overhead and are intended for development/testing, not production.
+
 ### Code Coverage (using gcov + lcov)
 
 This works with gcc builds (code coverage with clang instrumentation is future work).
