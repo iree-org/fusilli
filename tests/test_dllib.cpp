@@ -4,8 +4,7 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include <fusilli/support/dllib.h>
-#include <fusilli/support/logging.h>
+#include <fusilli.h>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -14,6 +13,7 @@
 
 using namespace fusilli;
 
+// TODO(#126): Add Windows tests once we have a Windows CI environment.
 TEST_CASE("DynamicLibrary default construction", "[dllib]") {
   DynamicLibrary lib;
   REQUIRE_FALSE(lib.isLoaded());

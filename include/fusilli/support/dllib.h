@@ -62,11 +62,11 @@ public:
   DynamicLibrary &operator=(const DynamicLibrary &) = delete;
 
   // Movable.
-  DynamicLibrary(DynamicLibrary &&other) noexcept : handle_(other.handle_) {
+  DynamicLibrary(DynamicLibrary &&other) : handle_(other.handle_) {
     other.handle_ = nullptr;
   }
 
-  DynamicLibrary &operator=(DynamicLibrary &&other) noexcept {
+  DynamicLibrary &operator=(DynamicLibrary &&other) {
     if (this != &other) {
       auto err = close();
       assert(isOk(err) && "Error closing library during move assignment");
@@ -76,7 +76,7 @@ public:
     return *this;
   }
 
-  ~DynamicLibrary() noexcept {
+  ~DynamicLibrary() {
     auto err = close();
     assert(isOk(err) && "Error closing library during destruction");
   }
@@ -89,7 +89,7 @@ public:
   /// On Windows, this uses LoadLibraryEx.
   ///
   /// Returns ErrorObject indicating success or failure.
-  ErrorObject load(const std::string &path) noexcept {
+  ErrorObject load(const std::string &path) {
     if (handle_) {
       auto err = close();
       assert(isOk(err) && "Error closing library during load");
@@ -115,7 +115,9 @@ public:
       return error(ErrorCode::FileSystemFailure, errMsg);
     }
 #elif FUSILLI_PLATFORM_LINUX
-    // Use dlmopen with LM_ID_NEWLM to load in a new namespace for isolation.
+    // Use dlmopen with LM_ID_NEWLM to load in a new namespace for isolation. We
+    // use a separate namespace to force reinistialization if another library
+    // loaded and shutdown already.
     handle_ = dlmopen(LM_ID_NEWLM, path.c_str(), RTLD_LAZY | RTLD_LOCAL);
     if (!handle_) {
       const char *err = dlerror();
@@ -132,7 +134,7 @@ public:
   ///
   /// Returns ErrorOr<T> containing the symbol pointer on success, or an error
   /// if the symbol is not found or the library is not loaded.
-  template <typename T> ErrorOr<T> getSymbol(const char *name) noexcept {
+  template <typename T> ErrorOr<T> getSymbol(const char *name) {
     static_assert(std::is_pointer_v<T>, "T must be a pointer type");
     if (!handle_) {
       return error(ErrorCode::InternalError, "Library not loaded");
@@ -182,26 +184,22 @@ public:
   /// Closes the loaded library.
   ///
   /// Safe to call multiple times or on an unloaded library.
-  ErrorObject close() noexcept {
-    try {
-      if (handle_) {
+  ErrorObject close() {
+    if (handle_) {
 #ifdef FUSILLI_PLATFORM_WINDOWS
-        FreeLibrary(handle_);
+      FreeLibrary(handle_);
 #elif FUSILLI_PLATFORM_LINUX
-        dlclose(handle_);
+      dlclose(handle_);
 #else
 #error Unsupported platform
 #endif
-        handle_ = nullptr;
-      }
-      return ok();
-    } catch (...) {
-      return error(ErrorCode::InternalError, "Exception during library close");
+      handle_ = nullptr;
     }
+    return ok();
   }
 
   /// Returns true if a library is currently loaded.
-  bool isLoaded() const noexcept { return handle_ != nullptr; }
+  bool isLoaded() const { return handle_ != nullptr; }
 
 private:
 #ifdef FUSILLI_PLATFORM_WINDOWS

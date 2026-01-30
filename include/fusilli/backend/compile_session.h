@@ -282,9 +282,8 @@ inline ErrorOr<CompileContext *> CompileContext::create() {
   // others will see it's already created
   std::lock_guard<std::mutex> lock(instanceMutex);
 
-  if (globalInstance != nullptr) {
+  if (globalInstance != nullptr)
     return ok(globalInstance.get());
-  }
 
   // Get the path to the IREE compiler shared library.
   std::string libPath = getIreeCompilerLibPath();
