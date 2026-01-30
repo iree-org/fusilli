@@ -35,6 +35,13 @@ public:
   ReductionNode(ReductionAttr &&attr, const Context &ctx)
       : NodeCRTP(ctx), reductionAttr(std::move(attr)) {}
 
+  // MLIR assembly emitter helper methods.
+  std::string emitNodePreAsm() const override final;
+  std::string getOperandNamesAsm() const;
+  std::string getOperandTypesAsm() const;
+  std::string getResultNamesAsm() const;
+  std::string getResultTypesAsm() const;
+
   const std::string &getName() const override final {
     return reductionAttr.getName();
   }
@@ -50,6 +57,7 @@ public:
     // Validate input X exists
     FUSILLI_RETURN_ERROR_IF(!reductionAttr.getX(), ErrorCode::AttributeNotSet,
                             "Reduction operation requires X input");
+
     // Validate output Y exists
     FUSILLI_RETURN_ERROR_IF(!reductionAttr.getY(), ErrorCode::AttributeNotSet,
                             "Reduction operation requires Y output");
@@ -95,8 +103,18 @@ public:
     const auto &yTensor = reductionAttr.getY();
     FUSILLI_RETURN_ERROR_IF(
         xTensor->getDim().size() != yTensor->getDim().size(),
-        ErrorCode::AttributeNotSet,
+        ErrorCode::InvalidAttribute,
         "Reduction input and output must have the same rank");
+
+    // Validate reduction dimensions - if Y[i] differs from X[i], Y[i] must be 1
+    const auto &xDim = xTensor->getDim();
+    const auto &yDim = yTensor->getDim();
+    for (size_t i = 0; i < xDim.size(); ++i) {
+      FUSILLI_RETURN_ERROR_IF(
+          yDim[i] != 1 && yDim[i] != xDim[i], ErrorCode::InvalidAttribute,
+          "Reduction output dimension " + std::to_string(i) +
+              " must be 1 or match input dimension");
+    }
     return ok();
   }
 };
