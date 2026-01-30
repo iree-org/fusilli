@@ -62,7 +62,7 @@ public:
   DynamicLibrary &operator=(const DynamicLibrary &) = delete;
 
   // Movable.
-  DynamicLibrary(DynamicLibrary &&other) : handle_(other.handle_) {
+  DynamicLibrary(DynamicLibrary &&other) noexcept : handle_(other.handle_) {
     other.handle_ = nullptr;
   }
 
@@ -116,7 +116,7 @@ public:
     }
 #elif FUSILLI_PLATFORM_LINUX
     // Use dlmopen with LM_ID_NEWLM to load in a new namespace for isolation. We
-    // use a separate namespace to force reinistialization if another library
+    // use a separate namespace to force reinitialization if another library
     // loaded and shutdown already.
     handle_ = dlmopen(LM_ID_NEWLM, path.c_str(), RTLD_LAZY | RTLD_LOCAL);
     if (!handle_) {
