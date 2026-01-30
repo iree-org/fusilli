@@ -14,20 +14,12 @@
 #define FUSILLI_ATTRIBUTES_TYPES_H
 
 #include "fusilli/external/torch_types.h"
+#include "fusilli/support/float_types.h"
 #include <cstdint>
 #include <string>
 #include <unordered_map>
 
 namespace fusilli {
-
-// Half precision floating point from Clang extensions.
-// https://clang.llvm.org/docs/LanguageExtensions.html#half-precision-floating-point
-// These should be supported by GCC as well.
-// TODO(#14): When on C++23, switch to using `std::float16_t`
-// and `std::bfloat16_t` from <stdfloat> (C++23).
-// https://en.cppreference.com/w/cpp/types/floating-point.html
-using half = _Float16;
-using bf16 = __bf16;
 
 // Define a macro to iterate over all fusilli datatypes and the corresponding
 // torch datatypes and mlir asm.
