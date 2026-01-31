@@ -51,6 +51,7 @@ option(FUSILLI_CODE_COVERAGE "Enable code coverage for tests" OFF)
 option(FUSILLI_ENABLE_LOGGING "Enable logging for tests and samples" OFF)
 option(FUSILLI_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
 option(FUSILLI_SYSTEMS_AMDGPU  "Builds for AMD GPU systems" OFF)
+option(FUSILLI_ENABLE_ASAN "Enable AddressSanitizer" OFF)
 
 message(STATUS "Fusilli supported systems:")
 if(FUSILLI_SYSTEMS_AMDGPU)
@@ -173,6 +174,28 @@ if(FUSILLI_ENABLE_CLANG_TIDY)
     -warnings-as-errors=*;
     --config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy;
   )
+endif()
+
+# Configure sanitizer flags
+set(FUSILLI_SANITIZER_COMPILE_FLAGS "")
+set(FUSILLI_SANITIZER_LINK_FLAGS "")
+if(FUSILLI_ENABLE_ASAN)
+  message(STATUS "AddressSanitizer enabled")
+  list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fsanitize=address -fno-omit-frame-pointer -g)
+  list(APPEND FUSILLI_SANITIZER_LINK_FLAGS -fsanitize=address)
+
+  check_cxx_compiler_flag("-fsanitize-recover=address" SANITIZE_RECOVER_ADDRESS_SUPPORTED)
+  if (SANITIZE_RECOVER_ADDRESS_SUPPORTED)
+    list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fsanitize-recover=address)
+  endif()
+
+  # Disable ASAN global variable instrumentation to avoid ODR violation false
+  # positives when linking with non-ASAN-instrumented libraries (e.g., IREE).
+  # This is needed because IREE_ENABLE_ASAN may be OFF while FUSILLI_ENABLE_ASAN is ON.
+  check_cxx_compiler_flag("-mllvm -asan-globals=0" ASAN_GLOBALS_FLAG_SUPPORTED)
+  if (ASAN_GLOBALS_FLAG_SUPPORTED)
+    list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -mllvm -asan-globals=0)
+  endif()
 endif()
 
 # Enable AMD GPU build if requested

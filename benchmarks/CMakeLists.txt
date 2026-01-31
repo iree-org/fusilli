@@ -17,6 +17,12 @@ set_target_properties(
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/benchmarks
 )
 
+# Set compiler options for sanitizers.
+if(FUSILLI_ENABLE_ASAN)
+  target_compile_options(fusilli_benchmark_driver PRIVATE ${FUSILLI_SANITIZER_COMPILE_FLAGS})
+  target_link_options(fusilli_benchmark_driver PRIVATE ${FUSILLI_SANITIZER_LINK_FLAGS})
+endif()
+
 # Test benchmark runner
 if(FUSILLI_SYSTEMS_AMDGPU)
   add_test(
