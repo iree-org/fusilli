@@ -64,7 +64,11 @@
 // which is compatible with `iree_hal_dim_t` and fixes narrowing conversion
 // warnings.
 inline std::vector<size_t> castToSizeT(const std::vector<int64_t> &input) {
-  return std::vector<size_t>(input.begin(), input.end());
+  std::vector<size_t> sizes;
+  for (auto val : input) {
+    sizes.push_back(static_cast<size_t>(val));
+  }
+  return sizes;
 }
 
 namespace fusilli {

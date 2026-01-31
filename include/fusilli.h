@@ -23,6 +23,7 @@
 #include "fusilli/support/external_tools.h" // IWYU pragma: export
 #include "fusilli/support/extras.h"         // IWYU pragma: export
 #include "fusilli/support/logging.h"        // IWYU pragma: export
+#include "fusilli/support/process.h"        // IWYU pragma: export
 
 // Attributes / Types:
 #include "fusilli/attributes/attributes.h"           // IWYU pragma: export
