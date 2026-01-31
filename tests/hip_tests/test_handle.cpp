@@ -35,15 +35,15 @@ TEST_CASE("Handle creation with deviceId", "[handle][hip_tests]") {
     };
 
     // Create handle.
-    Handle handle = FUSILLI_REQUIRE_UNWRAP(
-        Handle::create(Backend::AMDGPU, /*deviceId=*/deviceId));
+    FUSILLI_REQUIRE_ASSIGN(
+        Handle handle, Handle::create(Backend::AMDGPU, /*deviceId=*/deviceId));
     REQUIRE(static_cast<iree_hal_device_t *>(handle) != nullptr);
 
     // Verify we can allocate, write, and read buffers.
     const std::vector<iree_hal_dim_t> bufferShape = {32};
     std::vector<float> hostData(32, 3.14f);
-    Buffer deviceBuffer =
-        FUSILLI_REQUIRE_UNWRAP(Buffer::allocate(handle, bufferShape, hostData));
+    FUSILLI_REQUIRE_ASSIGN(Buffer deviceBuffer,
+                           Buffer::allocate(handle, bufferShape, hostData));
     std::vector<float> readData;
     FUSILLI_REQUIRE_OK(deviceBuffer.read(handle, readData));
     REQUIRE(readData == hostData);
@@ -70,7 +70,8 @@ TEST_CASE("Handle creation with stream and deviceId", "[handle][hip_tests]") {
     HIP_REQUIRE_SUCCESS(hipStreamCreate(&stream));
 
     // Create a handle.
-    Handle handle = FUSILLI_REQUIRE_UNWRAP(
+    FUSILLI_REQUIRE_ASSIGN(
+        Handle handle,
         Handle::create(Backend::AMDGPU, /*deviceId=*/deviceId,
                        /*stream=*/reinterpret_cast<uintptr_t>(stream)));
     REQUIRE(static_cast<iree_hal_device_t *>(handle) != nullptr);
@@ -78,8 +79,8 @@ TEST_CASE("Handle creation with stream and deviceId", "[handle][hip_tests]") {
     // Verify we can allocate, write, and read buffers.
     const std::vector<iree_hal_dim_t> bufferShape = {32};
     std::vector<float> hostData(32, 3.14f);
-    Buffer deviceBuffer =
-        FUSILLI_REQUIRE_UNWRAP(Buffer::allocate(handle, bufferShape, hostData));
+    FUSILLI_REQUIRE_ASSIGN(Buffer deviceBuffer,
+                           Buffer::allocate(handle, bufferShape, hostData));
     std::vector<float> readData;
     FUSILLI_REQUIRE_OK(deviceBuffer.read(handle, readData));
     REQUIRE(readData == hostData);
@@ -107,10 +108,12 @@ TEST_CASE("Handle creation with stream and deviceId", "[handle][hip_tests]") {
     HIP_REQUIRE_SUCCESS(hipStreamCreate(&stream2));
 
     // Create handles.
-    Handle handle1 = FUSILLI_REQUIRE_UNWRAP(
+    FUSILLI_REQUIRE_ASSIGN(
+        Handle handle1,
         Handle::create(Backend::AMDGPU, /*deviceId=*/deviceId,
                        /*stream=*/reinterpret_cast<uintptr_t>(stream1)));
-    Handle handle2 = FUSILLI_REQUIRE_UNWRAP(
+    FUSILLI_REQUIRE_ASSIGN(
+        Handle handle2,
         Handle::create(Backend::AMDGPU, /*deviceId=*/deviceId,
                        /*stream=*/reinterpret_cast<uintptr_t>(stream2)));
     REQUIRE(static_cast<iree_hal_device_t *>(handle1) != nullptr);
@@ -119,15 +122,15 @@ TEST_CASE("Handle creation with stream and deviceId", "[handle][hip_tests]") {
     // Verify we can allocate, write, and read buffers on handle1.
     const std::vector<iree_hal_dim_t> bufferShape = {32};
     std::vector<float> hostData(32, 3.14f);
-    Buffer deviceBuffer1 = FUSILLI_REQUIRE_UNWRAP(
-        Buffer::allocate(handle1, bufferShape, hostData));
+    FUSILLI_REQUIRE_ASSIGN(Buffer deviceBuffer1,
+                           Buffer::allocate(handle1, bufferShape, hostData));
     std::vector<float> readData;
     FUSILLI_REQUIRE_OK(deviceBuffer1.read(handle1, readData));
     REQUIRE(readData == hostData);
 
     // Verify we can allocate, write, and read buffers on handle2
-    Buffer deviceBuffer2 = FUSILLI_REQUIRE_UNWRAP(
-        Buffer::allocate(handle1, bufferShape, hostData));
+    FUSILLI_REQUIRE_ASSIGN(Buffer deviceBuffer2,
+                           Buffer::allocate(handle1, bufferShape, hostData));
     readData.clear();
     FUSILLI_REQUIRE_OK(deviceBuffer2.read(handle1, readData));
     REQUIRE(readData == hostData);

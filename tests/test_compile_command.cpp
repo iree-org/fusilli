@@ -21,14 +21,17 @@ static std::string kGraphName = "test_compile_command";
 
 TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {
   // Create test handle for CPU backend.
-  Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
 
   // Create temporary cache files.
-  CacheFile input = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile input,
       CacheFile::create(kGraphName, "input.mlir", /*remove=*/true));
-  CacheFile output = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile output,
       CacheFile::create(kGraphName, "output.vmfb", /*remove=*/true));
-  CacheFile statistics = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile statistics,
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
 
   // Write simple MLIR module to input file.
@@ -95,14 +98,17 @@ TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {
 #ifdef FUSILLI_ENABLE_AMDGPU
 TEST_CASE("CompileCommand::build with AMDGPU backend", "[CompileCommand]") {
   // Create test handle for AMDGPU backend.
-  Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
 
   // Create temporary cache files.
-  CacheFile input = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile input,
       CacheFile::create(kGraphName, "input.mlir", /*remove=*/true));
-  CacheFile output = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile output,
       CacheFile::create(kGraphName, "output.vmfb", /*remove=*/true));
-  CacheFile statistics = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile statistics,
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
 
   // Write simple MLIR module to input file.
@@ -147,14 +153,17 @@ TEST_CASE("CompileCommand::build with AMDGPU backend", "[CompileCommand]") {
 
 TEST_CASE("CompileCommand::toString format", "[CompileCommand]") {
   // Create test handle.
-  Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
 
   // Create temporary cache files.
-  CacheFile input = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile input,
       CacheFile::create(kGraphName, "input.mlir", /*remove=*/true));
-  CacheFile output = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile output,
       CacheFile::create(kGraphName, "output.vmfb", /*remove=*/true));
-  CacheFile statistics = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile statistics,
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
 
   // Build the compile command.
@@ -180,16 +189,20 @@ TEST_CASE("CompileCommand::toString format", "[CompileCommand]") {
 
 TEST_CASE("CompileCommand::writeTo", "[CompileCommand]") {
   // Create test handle.
-  Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
 
   // Create temporary cache files.
-  CacheFile input = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile input,
       CacheFile::create(kGraphName, "input.mlir", /*remove=*/true));
-  CacheFile output = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile output,
       CacheFile::create(kGraphName, "output.vmfb", /*remove=*/true));
-  CacheFile statistics = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile statistics,
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
-  CacheFile commandFile = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile commandFile,
       CacheFile::create(kGraphName, "command.txt", /*remove=*/true));
 
   // Build the compile command.
@@ -199,7 +212,7 @@ TEST_CASE("CompileCommand::writeTo", "[CompileCommand]") {
   FUSILLI_REQUIRE_OK(cmd.writeTo(commandFile));
 
   // Read back and verify.
-  std::string writtenContent = FUSILLI_REQUIRE_UNWRAP(commandFile.read());
+  FUSILLI_REQUIRE_ASSIGN(std::string writtenContent, commandFile.read());
   std::string expectedContent = cmd.toString();
 
   REQUIRE(writtenContent == expectedContent);
@@ -208,14 +221,17 @@ TEST_CASE("CompileCommand::writeTo", "[CompileCommand]") {
 
 TEST_CASE("CompileCommand::getArgs", "[CompileCommand]") {
   // Create test handle.
-  Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
 
   // Create temporary cache files.
-  CacheFile input = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile input,
       CacheFile::create(kGraphName, "input.mlir", /*remove=*/true));
-  CacheFile output = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile output,
       CacheFile::create(kGraphName, "output.vmfb", /*remove=*/true));
-  CacheFile statistics = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile statistics,
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
 
   // Build the compile command.
@@ -241,16 +257,20 @@ TEST_CASE("CompileCommand::getArgs", "[CompileCommand]") {
 
 TEST_CASE("CompileCommand round-trip serialization", "[CompileCommand]") {
   // Create test handle.
-  Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
 
   // Create temporary cache files.
-  CacheFile input = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile input,
       CacheFile::create(kGraphName, "input.mlir", /*remove=*/true));
-  CacheFile output = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile output,
       CacheFile::create(kGraphName, "output.vmfb", /*remove=*/true));
-  CacheFile statistics = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile statistics,
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
-  CacheFile commandFile = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile commandFile,
       CacheFile::create(kGraphName, "command.txt", /*remove=*/true));
 
   // Build and write command.
@@ -263,7 +283,7 @@ TEST_CASE("CompileCommand round-trip serialization", "[CompileCommand]") {
       CompileCommand::build(handle, input, output, statistics);
 
   // Read the serialized command.
-  std::string serializedCmd = FUSILLI_REQUIRE_UNWRAP(commandFile.read());
+  FUSILLI_REQUIRE_ASSIGN(std::string serializedCmd, commandFile.read());
 
   // Verify both produce the same string.
   REQUIRE(cmd1.toString() == cmd2.toString());

@@ -86,15 +86,15 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
     auto [graph, x0T, x1T, yT] = buildNewGraph(handle);
 
     // Allocate input buffers.
-    auto x0Buf =
-        FUSILLI_REQUIRE_UNWRAP(allocateBufferOfType(handle, x0T, dt, x0));
-    auto x1Buf =
-        FUSILLI_REQUIRE_UNWRAP(allocateBufferOfType(handle, x1T, dt, x1));
+    FUSILLI_REQUIRE_ASSIGN(auto x0Buf,
+                           allocateBufferOfType(handle, x0T, dt, x0));
+    FUSILLI_REQUIRE_ASSIGN(auto x1Buf,
+                           allocateBufferOfType(handle, x1T, dt, x1));
 
     // Allocate output buffer.
     DataType yDt = DataType::Boolean;
-    auto yBuf =
-        FUSILLI_REQUIRE_UNWRAP(allocateBufferOfType(handle, yT, yDt, false));
+    FUSILLI_REQUIRE_ASSIGN(auto yBuf,
+                           allocateBufferOfType(handle, yT, yDt, false));
 
     // Create variant pack.
     const std::unordered_map<std::shared_ptr<TensorAttr>,
@@ -162,13 +162,13 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
   // Parameterize sample by backend and create device-specific handles.
   std::shared_ptr<Handle> handlePtr;
   SECTION("cpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #endif
 

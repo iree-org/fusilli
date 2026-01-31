@@ -40,13 +40,13 @@ TEST_CASE("Pointwise add with transposed operand", "[pointwise][graph]") {
   // Parameterize sample by backend and create device-specific handles
   std::shared_ptr<Handle> handlePtr;
   SECTION("cpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #endif
 
@@ -90,13 +90,18 @@ TEST_CASE("Pointwise add with transposed operand", "[pointwise][graph]") {
   auto [graph, aT, bT, resultT] = buildNewGraph(handle);
 
   // Allocate input buffers and initialize with input data
-  auto aBuf = std::make_shared<Buffer>(FUSILLI_REQUIRE_UNWRAP(
-      Buffer::allocate(handle, castToSizeT(aT->getPhysicalDim()), inputData)));
-  auto bBuf = std::make_shared<Buffer>(FUSILLI_REQUIRE_UNWRAP(
-      Buffer::allocate(handle, castToSizeT(bT->getPhysicalDim()), inputData)));
+  FUSILLI_REQUIRE_ASSIGN(
+      Buffer aBuffer,
+      Buffer::allocate(handle, castToSizeT(aT->getPhysicalDim()), inputData));
+  auto aBuf = std::make_shared<Buffer>(std::move(aBuffer));
+  FUSILLI_REQUIRE_ASSIGN(
+      Buffer bBuffer,
+      Buffer::allocate(handle, castToSizeT(bT->getPhysicalDim()), inputData));
+  auto bBuf = std::make_shared<Buffer>(std::move(bBuffer));
 
   // Allocate output buffer
-  auto resultBuf = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      auto resultBuf,
       allocateBufferOfType(handle, resultT, DataType::Float, 0.0f));
 
   // Create variant pack

@@ -51,13 +51,13 @@ TEST_CASE("Matrix multiplication; A (M, K), B (K, N); basic matmul",
   // Parameterize sample by backend and create device-specific handles.
   std::shared_ptr<Handle> handlePtr;
   SECTION("cpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #endif
   Handle &handle = *handlePtr;
@@ -66,16 +66,16 @@ TEST_CASE("Matrix multiplication; A (M, K), B (K, N); basic matmul",
   auto [graph, aT, bT, cT] = buildNewGraph(handle);
 
   // Allocate input buffer for A.
-  auto aBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, aT, DataType::Half, 1.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto aBuf, allocateBufferOfType(handle, aT, DataType::Half, 1.0f));
 
   // Allocate input buffer for B.
-  auto bBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, bT, DataType::Half, 1.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto bBuf, allocateBufferOfType(handle, bT, DataType::Half, 1.0f));
 
   // Allocate output buffer for C.
-  auto cBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, cT, DataType::Half, 0.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto cBuf, allocateBufferOfType(handle, cT, DataType::Half, 0.0f));
 
   // Create variant pack.
   const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
@@ -135,13 +135,13 @@ TEST_CASE(
   // Parameterize sample by backend and create device-specific handles.
   std::shared_ptr<Handle> handlePtr;
   SECTION("cpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #endif
   Handle &handle = *handlePtr;
@@ -150,16 +150,16 @@ TEST_CASE(
   auto [graph, aT, bT, cT] = buildNewGraph(handle);
 
   // Allocate input buffer for A.
-  auto aBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, aT, DataType::Half, 1.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto aBuf, allocateBufferOfType(handle, aT, DataType::Half, 1.0f));
 
   // Allocate input buffer for B (transposed layout).
-  auto bBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, bT, DataType::Half, 1.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto bBuf, allocateBufferOfType(handle, bT, DataType::Half, 1.0f));
 
   // Allocate output buffer for C.
-  auto cBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, cT, DataType::Half, 0.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto cBuf, allocateBufferOfType(handle, cT, DataType::Half, 0.0f));
 
   // Create variant pack.
   const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>

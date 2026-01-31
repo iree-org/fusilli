@@ -150,14 +150,14 @@ TEST_CASE("Graph asm_emitter requires validation to be run first", "[graph]") {
 
 TEST_CASE("Graph `getCompiledArtifact` cache generation and invalidation",
           "[graph]") {
-  Handle cpuHandle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle cpuHandle, Handle::create(Backend::CPU));
 #ifdef FUSILLI_ENABLE_AMDGPU
-  Handle gpuHandle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle gpuHandle, Handle::create(Backend::AMDGPU));
 #endif
 
   Graph g = testGraph(/*validate=*/true);
 
-  std::string generatedAsm = FUSILLI_REQUIRE_UNWRAP(g.emitAsm());
+  FUSILLI_REQUIRE_ASSIGN(std::string generatedAsm, g.emitAsm());
 
   // Cache should be empty, compilation artifacts should be generated.
   std::optional<bool> reCompiled = std::nullopt;
@@ -215,13 +215,13 @@ TEST_CASE("Graph `getCompiledArtifact` cache generation and invalidation",
 TEST_CASE("Graph `getCompiledArtifact` should not read cached items from "
           "other/previous Graph instances",
           "[graph]") {
-  Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
 
   std::string generatedAsm;
   {
     Graph g = testGraph(/*validate=*/true);
 
-    generatedAsm = FUSILLI_REQUIRE_UNWRAP(g.emitAsm());
+    FUSILLI_REQUIRE_ASSIGN(generatedAsm, g.emitAsm());
 
     // Cache should be empty.
     std::optional<bool> reCompiled = std::nullopt;
@@ -241,9 +241,11 @@ TEST_CASE("Graph `getCompiledArtifact` should not read cached items from "
   Graph g = testGraph(/*validate=*/true);
 
   // Check that the generated asm matches the cache.
-  CacheFile asmCache = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile asmCache,
       CacheFile::open(g.getName(), IREE_COMPILE_INPUT_FILENAME));
-  REQUIRE(FUSILLI_REQUIRE_UNWRAP(asmCache.read()) == generatedAsm);
+  FUSILLI_REQUIRE_ASSIGN(std::string asmContent, asmCache.read());
+  REQUIRE(asmContent == generatedAsm);
 
   // Nonetheless a new instance should regenerate cache.
   std::optional<bool> reCompiled = std::nullopt;
@@ -254,7 +256,7 @@ TEST_CASE("Graph `getCompiledArtifact` should not read cached items from "
 }
 
 TEST_CASE("Graph `getCompiledArtifact` invalid input IR", "[graph]") {
-  Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
   std::string graphName;
   {
     Graph g;
@@ -274,7 +276,7 @@ TEST_CASE("Graph `getCompiledArtifact` invalid input IR", "[graph]") {
 }
 
 TEST_CASE("Graph `compile` method fails without validation", "[graph]") {
-  Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
 
   Graph g = testGraph(/*validate=*/false);
 
@@ -300,7 +302,7 @@ TEST_CASE("Graph `compile` recompilations with changed handle", "[graph]") {
                                   "fusilli" / g.getName() /
                                   "iree-compile-command.txt";
 
-  Handle cpuHandle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle cpuHandle, Handle::create(Backend::CPU));
   FUSILLI_REQUIRE_OK(g.compile(cpuHandle, /*remove=*/true));
 
   std::string cpuCmd;
@@ -311,7 +313,7 @@ TEST_CASE("Graph `compile` recompilations with changed handle", "[graph]") {
   REQUIRE(!cpuCmd.empty());
 
 #ifdef FUSILLI_ENABLE_AMDGPU
-  Handle gpuHandle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle gpuHandle, Handle::create(Backend::AMDGPU));
   FUSILLI_REQUIRE_OK(g.compile(gpuHandle, /*remove=*/true));
 
   std::string gpuCmd;
@@ -366,13 +368,13 @@ TEST_CASE("Graph `execute`", "[graph]") {
   // Parameterize by backend and create device-specific handles.
   std::shared_ptr<Handle> handlePtr;
   SECTION("cpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #endif
   Handle &handle = *handlePtr;
@@ -381,10 +383,13 @@ TEST_CASE("Graph `execute`", "[graph]") {
   auto [graph, X, W, Y] = buildNewGraph(handle);
 
   // Allocate input buffer.
-  auto xBuf = std::make_shared<Buffer>(FUSILLI_REQUIRE_UNWRAP(Buffer::allocate(
-      handle,
-      /*bufferShape=*/castToSizeT({n, c, h, w}),
-      /*bufferData=*/std::vector<half>(n * c * h * w, half(1.0f)))));
+  FUSILLI_REQUIRE_ASSIGN(
+      Buffer xBuffer,
+      Buffer::allocate(
+          handle,
+          /*bufferShape=*/castToSizeT({n, c, h, w}),
+          /*bufferData=*/std::vector<half>(n * c * h * w, half(1.0f))));
+  auto xBuf = std::make_shared<Buffer>(std::move(xBuffer));
   // xBuf is a shared_ptr<Buffer> and *xBuf is the de-referenced Buffer obj.
   // Hence checking `*xBuf != nullptr` might seem weird at first, but due to
   // the implicit automatic cast from `Buffer` -> `iree_hal_buffer_view_t *`,
@@ -393,17 +398,23 @@ TEST_CASE("Graph `execute`", "[graph]") {
   REQUIRE(*xBuf != nullptr);
 
   // Allocate weight buffer.
-  auto wBuf = std::make_shared<Buffer>(FUSILLI_REQUIRE_UNWRAP(Buffer::allocate(
-      handle,
-      /*bufferShape=*/castToSizeT({k, c, r, s}),
-      /*bufferData=*/std::vector<half>(k * c * r * s, half(1.0f)))));
+  FUSILLI_REQUIRE_ASSIGN(
+      Buffer wBuffer,
+      Buffer::allocate(
+          handle,
+          /*bufferShape=*/castToSizeT({k, c, r, s}),
+          /*bufferData=*/std::vector<half>(k * c * r * s, half(1.0f))));
+  auto wBuf = std::make_shared<Buffer>(std::move(wBuffer));
   REQUIRE(*wBuf != nullptr);
 
   // Allocate output buffer.
-  auto yBuf = std::make_shared<Buffer>(FUSILLI_REQUIRE_UNWRAP(Buffer::allocate(
-      handle,
-      /*bufferShape=*/castToSizeT({n, k, h, w}),
-      /*bufferData=*/std::vector<half>(n * k * h * w, half(0.0f)))));
+  FUSILLI_REQUIRE_ASSIGN(
+      Buffer yBuffer,
+      Buffer::allocate(
+          handle,
+          /*bufferShape=*/castToSizeT({n, k, h, w}),
+          /*bufferData=*/std::vector<half>(n * k * h * w, half(0.0f))));
+  auto yBuf = std::make_shared<Buffer>(std::move(yBuffer));
   REQUIRE(*yBuf != nullptr);
 
   // Create variant pack.

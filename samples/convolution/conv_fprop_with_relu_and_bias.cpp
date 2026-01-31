@@ -72,13 +72,13 @@ TEST_CASE(
   // Parameterize sample by backend and create device-specific handles.
   std::shared_ptr<Handle> handlePtr;
   SECTION("cpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #endif
   Handle &handle = *handlePtr;
@@ -87,17 +87,17 @@ TEST_CASE(
   auto [graph, xT, wT, bT, yT] = buildNewGraph(handle);
 
   // Allocate input buffer.
-  auto xBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, xT, DataType::Half, 1.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto xBuf, allocateBufferOfType(handle, xT, DataType::Half, 1.0f));
   // Allocate weight buffer.
-  auto wBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, wT, DataType::Half, 1.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto wBuf, allocateBufferOfType(handle, wT, DataType::Half, 1.0f));
   // Allocate bias buffer.
-  auto bBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, bT, DataType::Half, 1.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto bBuf, allocateBufferOfType(handle, bT, DataType::Half, 1.0f));
   // Allocate output buffer.
-  auto yBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, yT, DataType::Half, 0.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto yBuf, allocateBufferOfType(handle, yT, DataType::Half, 0.0f));
 
   // Create variant pack.
   const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
