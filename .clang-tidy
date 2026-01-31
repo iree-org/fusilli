@@ -11,6 +11,7 @@ Checks: [
         -misc-no-recursion,
         -misc-use-anonymous-namespace,
         -llvm-else-after-return,
+        -llvm-header-guard,
         -performance-avoid-endl,
         -bugprone-macro-parentheses,
         # Disable since its needed for Catch2 macros.
