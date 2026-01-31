@@ -62,13 +62,13 @@ TEST_CASE("Convolution wgrad; DY/X (NHWC), DW (KRSC); 1x1; no padding; grouped",
   // Parameterize sample by backend and create device-specific handles.
   std::shared_ptr<Handle> handlePtr;
   SECTION("cpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #endif
   Handle &handle = *handlePtr;
@@ -77,12 +77,14 @@ TEST_CASE("Convolution wgrad; DY/X (NHWC), DW (KRSC); 1x1; no padding; grouped",
 
   // Allocate input buffers.
   constexpr float inputScalar = 1.0f;
-  auto dyBuf = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      auto dyBuf,
       allocateBufferOfType(handle, dyT, DataType::Float, inputScalar));
-  auto xBuf = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      auto xBuf,
       allocateBufferOfType(handle, xT, DataType::Float, inputScalar));
-  auto dwBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, dwT, DataType::Float, 0.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto dwBuf, allocateBufferOfType(handle, dwT, DataType::Float, 0.0f));
 
   // Create variant pack.
   const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>

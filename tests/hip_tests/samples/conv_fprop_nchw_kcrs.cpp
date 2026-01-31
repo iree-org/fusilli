@@ -42,7 +42,8 @@ TEST_CASE("Convolution fprop with hip stream; X (NCHW), W (KCRS); 1x1 conv; no "
   hipStream_t stream;
   HIP_REQUIRE_SUCCESS(hipStreamCreate(&stream));
 
-  Handle handle = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      Handle handle,
       Handle::create(Backend::AMDGPU, /*deviceId=*/deviceId,
                      /*stream=*/reinterpret_cast<uintptr_t>(stream)));
 
@@ -76,16 +77,16 @@ TEST_CASE("Convolution fprop with hip stream; X (NCHW), W (KCRS); 1x1 conv; no "
   FUSILLI_REQUIRE_OK(graph.compile(handle, /*remove=*/true));
 
   // Allocate input buffer.
-  auto xBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, xT, DataType::Half, 1.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto xBuf, allocateBufferOfType(handle, xT, DataType::Half, 1.0f));
 
   // Allocate weight buffer.
-  auto wBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, wT, DataType::Half, 1.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto wBuf, allocateBufferOfType(handle, wT, DataType::Half, 1.0f));
 
   // Allocate output buffer.
-  auto yBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, yT, DataType::Half, 0.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto yBuf, allocateBufferOfType(handle, yT, DataType::Half, 0.0f));
 
   // Create variant pack.
   const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>

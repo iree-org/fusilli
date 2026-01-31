@@ -45,20 +45,30 @@
     REQUIRE(isOk(error));                                                      \
   } while (false)
 
-// Unwrap the type returned from an expression that evaluates to an ErrorOr,
-// fail the test using Catch2's REQUIRE if the result is an ErrorObject.
+// Test side dual to FUSILLI_ASSIGN_OR_RETURN. Unwrap the value from an
+// expression that evaluates to an ErrorOr<T>, and fail the test using Catch2's
+// REQUIRE if the result is an error. The unwrapped value is assigned to the
+// provided variable declaration.
 //
 // This is very similar to FUSILLI_ASSIGN_OR_RETURN, but
 // FUSILLI_ASSIGN_OR_RETURN propagates an error to callers on the error path,
-// this fails the test on the error path. The two macros are analogous to rust's
-// `?` (try) operator and
-// `.unwrap()` call.
-#define FUSILLI_REQUIRE_UNWRAP(expr)                                           \
-  ({                                                                           \
-    auto errorOr = (expr);                                                     \
-    FUSILLI_REQUIRE_OK(errorOr);                                               \
-    std::move(*errorOr);                                                       \
-  })
+// while this macro fails the test on the error path. The two macros are
+// analogous to Rust's `?` (try) operator and `.unwrap()` call respectively.
+//
+// Usage:
+//   ErrorOr<int> getValue();
+//
+//   TEST_CASE("thing", "[example]") {
+//     FUSILLI_REQUIRE_ASSIGN(auto value, getValue());
+//     REQUIRE(value == 42);
+//   }
+#define FUSILLI_REQUIRE_ASSIGN_IMPL(errorOr, var, expr)                        \
+  auto errorOr = (expr);                                                       \
+  FUSILLI_REQUIRE_OK(errorOr);                                                 \
+  var = std::move(*errorOr);
+
+#define FUSILLI_REQUIRE_ASSIGN(varDecl, expr)                                  \
+  FUSILLI_REQUIRE_ASSIGN_IMPL(FUSILLI_ERROR_VAR(_errorOr), varDecl, expr)
 
 // Utility to convert vector of dims from int64_t to size_t (unsigned long)
 // which is compatible with `iree_hal_dim_t` and fixes narrowing conversion

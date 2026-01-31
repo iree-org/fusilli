@@ -21,21 +21,21 @@ TEST_CASE("Buffer allocation, move semantics and lifetime", "[buffer]") {
   // Parameterize by backend and create device-specific handles.
   std::shared_ptr<Handle> handlePtr;
   SECTION("cpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #endif
   Handle &handle = *handlePtr;
 
   // Allocate a buffer of shape [2, 3] with all elements set to 1.0f (float).
   std::vector<float> data(6, 1.0f);
-  Buffer buf = FUSILLI_REQUIRE_UNWRAP(
-      Buffer::allocate(handle, castToSizeT({2, 3}), data));
+  FUSILLI_REQUIRE_ASSIGN(Buffer buf,
+                         Buffer::allocate(handle, castToSizeT({2, 3}), data));
   REQUIRE(buf != nullptr);
 
   // Read buffer and check contents.
@@ -63,21 +63,21 @@ TEST_CASE("Buffer import and lifetimes", "[buffer]") {
   // Parameterize by backend and create device-specific handles.
   std::shared_ptr<Handle> handlePtr;
   SECTION("cpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #endif
   Handle &handle = *handlePtr;
 
   // Allocate a buffer of shape [2, 3] with all elements set to half(1.0f).
   std::vector<half> data(6, half(1.0f));
-  Buffer buf = FUSILLI_REQUIRE_UNWRAP(
-      Buffer::allocate(handle, castToSizeT({2, 3}), data));
+  FUSILLI_REQUIRE_ASSIGN(Buffer buf,
+                         Buffer::allocate(handle, castToSizeT({2, 3}), data));
   REQUIRE(buf != nullptr);
 
   // Read buffer and check contents.
@@ -88,7 +88,7 @@ TEST_CASE("Buffer import and lifetimes", "[buffer]") {
 
   // Test import in local scope.
   {
-    Buffer importedBuf = FUSILLI_REQUIRE_UNWRAP(Buffer::import(buf));
+    FUSILLI_REQUIRE_ASSIGN(Buffer importedBuf, Buffer::import(buf));
     // Both buffers co-exist and retain ownership (reference count tracked).
     REQUIRE(importedBuf != nullptr);
     REQUIRE(buf != nullptr);
@@ -123,12 +123,12 @@ TEST_CASE("Buffer errors", "[buffer]") {
 
   SECTION("Reading into a non-empty vector") {
     // Reading into a non-empty vector should fail.
-    Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
 
     // Allocate a buffer of shape [2, 3] with all elements set to 1.0f (float).
     std::vector<float> data(6, 0.0f);
-    Buffer buf = FUSILLI_REQUIRE_UNWRAP(
-        Buffer::allocate(handle, castToSizeT({2, 3}), data));
+    FUSILLI_REQUIRE_ASSIGN(Buffer buf,
+                           Buffer::allocate(handle, castToSizeT({2, 3}), data));
 
     // Read buffer into a non-empty vector.
     std::vector<float> result(6, 1.0f);
@@ -147,7 +147,7 @@ TEST_CASE("Buffer errors", "[buffer]") {
   }
 
   SECTION("Buffer allocation with mismatched data size") {
-    Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
 
     // Test case 1: bufferData has more elements than bufferShape expects.
     std::vector<float> tooMuchData(10, 1.0f);
@@ -171,7 +171,7 @@ TEST_CASE("Buffer errors", "[buffer]") {
   }
 
   SECTION("Buffer allocation with zero dimension") {
-    Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
 
     // Test case 1: bufferShape with a zero dimension.
     std::vector<float> someData(5, 1.0f);
