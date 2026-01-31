@@ -20,6 +20,7 @@
 #include "fusilli/node/node.h"
 #include "fusilli/support/logging.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -54,7 +55,7 @@ getMatmulInferredOutputShape(const std::vector<int64_t> &aDim,
     // Use the maximum of the two dimensions (broadcasting rule)
     assert((aDimVal % bDimVal == 0 || bDimVal % aDimVal == 0) &&
            "Incompatible dimensions for broadcasting");
-    cDim[i] = std::max(aDimVal, bDimVal);
+    cDim[i] = std::max<int64_t>(aDimVal, bDimVal);
   }
 
   // Matrix dimensions: M from A, N from B

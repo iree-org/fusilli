@@ -13,6 +13,8 @@
 #ifndef FUSILLI_SUPPORT_PYTHON_UTILS_H
 #define FUSILLI_SUPPORT_PYTHON_UTILS_H
 
+#include "fusilli/support/process.h"
+
 #include <array>
 #include <cstdio>
 #include <filesystem>
@@ -23,29 +25,6 @@
 #include <vector>
 
 namespace fusilli {
-
-// Custom deleter for FILE* from popen
-struct PopenDeleter {
-  void operator()(FILE *fp) const {
-    if (fp)
-      pclose(fp);
-  }
-};
-
-// Executes a shell command and returns the output as a string.
-inline std::optional<std::string> execCommand(const std::string &cmd) {
-  std::array<char, 128> buffer;
-  std::string result;
-
-  std::unique_ptr<FILE, PopenDeleter> pipe(popen(cmd.c_str(), "r"));
-  if (!pipe)
-    return std::nullopt;
-
-  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
-    result += buffer.data();
-
-  return result;
-}
 
 // Gets the list of Python site-packages directories.
 // Returns a vector of paths where Python packages are installed.

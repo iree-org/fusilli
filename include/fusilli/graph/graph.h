@@ -105,14 +105,14 @@ public:
     FUSILLI_ASSIGN_OR_RETURN(std::string generatedAsm, emitAsm());
 
     // Compile using IREE compiler or reuse cached artifact.
-    FUSILLI_ASSIGN_OR_RETURN(std::string vmfbPath,
+    FUSILLI_ASSIGN_OR_RETURN(auto vmfbPath,
                              getCompiledArtifact(handle, generatedAsm, remove));
 
-    FUSILLI_LOG_LABEL_ENDL("INFO: Compiled Graph cached at \"" + vmfbPath +
-                           "\"");
+    FUSILLI_LOG_LABEL_ENDL("INFO: Compiled Graph cached at \"" +
+                           vmfbPath.string() + "\"");
 
     // Create per-graph IREE runtime session and load the compiled artifact.
-    FUSILLI_CHECK_ERROR(createPerGraphSession(handle, vmfbPath));
+    FUSILLI_CHECK_ERROR(createPerGraphSession(handle, vmfbPath.string()));
 
     return ok();
   }
