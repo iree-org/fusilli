@@ -191,6 +191,8 @@ if(FUSILLI_BUILD_TESTS OR FUSILLI_BUILD_BENCHMARKS)
       QUIET
       GIT_REPOSITORY https://github.com/catchorg/Catch2.git
       GIT_TAG        v3.11.0
+      # SYSTEM marks Catch2 headers as system includes, suppressing compiler
+      # warnings and clang-tidy diagnostics from third-party code.
       SYSTEM
     )
     FetchContent_MakeAvailable(Catch2)
@@ -198,13 +200,13 @@ if(FUSILLI_BUILD_TESTS OR FUSILLI_BUILD_BENCHMARKS)
 
   # Add library for tests/utils.h
   add_library(libutils INTERFACE)
-  # Enable clang-tidy.
-  fusilli_enable_clang_tidy(libutils)
   target_include_directories(libutils INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
   target_link_libraries(libutils INTERFACE
     libfusilli
     Catch2::Catch2WithMain
   )
+  # Enable clang-tidy.
+  fusilli_enable_clang_tidy(libutils)
 endif()
 
 # Build tests and samples
