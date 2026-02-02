@@ -27,9 +27,9 @@ function(fusilli_enable_clang_tidy target)
 
   set_target_properties(${target} PROPERTIES
     CXX_CLANG_TIDY
-      "clang-tidy;\
-      -warnings-as-errors=*;\
-      --config-file=${PROJECT_SOURCE_DIR}/.clang-tidy"
+      clang-tidy;
+      -warnings-as-errors=*;
+      --config-file=${PROJECT_SOURCE_DIR}/.clang-tidy;
   )
 endfunction()
 
