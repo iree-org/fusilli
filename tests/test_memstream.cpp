@@ -1,4 +1,4 @@
-// Copyright 2025 Advanced Micro Devices, Inc.
+// Copyright 2026 Advanced Micro Devices, Inc.
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -26,7 +26,7 @@ TEST_CASE("MemStream basic operations", "[memstream]") {
     REQUIRE(ms.isValid());
 
     fprintf(ms, "Hello, World!");
-    std::string result = ms.str();
+    std::string result = *ms.str();
     REQUIRE(result == "Hello, World!");
   }
 
@@ -35,7 +35,7 @@ TEST_CASE("MemStream basic operations", "[memstream]") {
     REQUIRE(ms.isValid());
 
     fprintf(ms, "Value: %d, Name: %s", 42, "test");
-    std::string result = ms.str();
+    std::string result = *ms.str();
     REQUIRE(result == "Value: 42, Name: test");
   }
 
@@ -46,7 +46,7 @@ TEST_CASE("MemStream basic operations", "[memstream]") {
     fprintf(ms, "First ");
     fprintf(ms, "Second ");
     fprintf(ms, "Third");
-    std::string result = ms.str();
+    std::string result = *ms.str();
     REQUIRE(result == "First Second Third");
   }
 
@@ -64,7 +64,7 @@ TEST_CASE("MemStream basic operations", "[memstream]") {
   SECTION("Empty stream returns empty string") {
     MemStream ms;
     REQUIRE(ms.isValid());
-    REQUIRE(ms.str().empty());
+    REQUIRE(ms.str()->empty());
     REQUIRE(ms.size() == 0);
   }
 
@@ -74,9 +74,9 @@ TEST_CASE("MemStream basic operations", "[memstream]") {
 
     const char data[] = "binary\x00data";
     fwrite(data, 1, sizeof(data) - 1, ms);
-    std::string result = ms.str();
+    std::string result = *ms.str();
     REQUIRE(result.size() == sizeof(data) - 1);
-    REQUIRE(memcmp(result.data(), data, sizeof(data) - 1) == 0);
+    REQUIRE(result == std::string(data, sizeof(data) - 1));
   }
 }
 
@@ -101,7 +101,7 @@ TEST_CASE("MemStream large writes", "[memstream]") {
     // Write a large string to test buffer growth.
     std::string largeData(10000, 'x');
     fprintf(ms, "%s", largeData.c_str());
-    std::string result = ms.str();
+    std::string result = *ms.str();
     REQUIRE(result == largeData);
     REQUIRE(result.size() == 10000);
   }
@@ -113,7 +113,7 @@ TEST_CASE("MemStream large writes", "[memstream]") {
     for (int i = 0; i < 1000; ++i) {
       fprintf(ms, "%d", i % 10);
     }
-    std::string result = ms.str();
+    std::string result = *ms.str();
     REQUIRE(result.size() == 1000);
   }
 }

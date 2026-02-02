@@ -1,4 +1,4 @@
-// Copyright 2025 Advanced Micro Devices, Inc.
+// Copyright 2026 Advanced Micro Devices, Inc.
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -15,19 +15,18 @@
 #ifndef FUSILLI_SUPPORT_MEMSTREAM_H
 #define FUSILLI_SUPPORT_MEMSTREAM_H
 
+#include "fusilli/support/target_platform.h"
+
+#include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <string>
 
-#include "fusilli/support/target_platform.h"
-
-#ifdef FUSILLI_PLATFORM_LINUX
-#include <fcntl.h>
-#include <vector>
-#elif FUSILLI_PLATFORM_WINDOWS
-#include <stdio.h>
+#if FUSILLI_PLATFORM_WINDOWS
 #include <windows.h>
+#elif FUSILLI_PLATFORM_LINUX
 #else
 #error "MemStream is only implemented for Windows and Linux platforms."
 #endif
@@ -56,12 +55,10 @@ public:
     // Create a temporary file.
     char tempPath[MAX_PATH];
     char tempFileName[MAX_PATH];
-    if (GetTempPathA(MAX_PATH, tempPath) == 0) {
+    if (GetTempPathA(MAX_PATH, tempPath) == 0)
       return;
-    }
-    if (GetTempFileNameA(tempPath, "mem", 0, tempFileName) == 0) {
+    if (GetTempFileNameA(tempPath, "mem", 0, tempFileName) == 0)
       return;
-    }
     tempFilePath_ = tempFileName;
     stream_ = fopen(tempFilePath_.c_str(), "w+b");
   }
@@ -71,49 +68,58 @@ public:
       fclose(stream_);
       stream_ = nullptr;
     }
-    if (!tempFilePath_.empty()) {
+    if (!tempFilePath_.empty())
       std::remove(tempFilePath_.c_str());
-    }
   }
 
   FILE *stream() { return stream_; }
   bool isValid() const { return stream_ != nullptr; }
 
   // Retrieve the contents as a string.
-  std::string str() {
+  std::optional<std::string> str() {
     if (!stream_)
-      return "";
+      return std::nullopt;
 
     // Flush pending writes.
-    fflush(stream_);
-
+    if (fflush(stream_) != 0)
+      return std::nullopt;
     // Get the size.
     long currentPos = ftell(stream_);
-    fseek(stream_, 0, SEEK_END);
+    if (fseek(stream_, 0, SEEK_END) != 0)
+      return std::nullopt;
     long size = ftell(stream_);
-    fseek(stream_, 0, SEEK_SET);
+    if (fseek(stream_, 0, SEEK_SET) != 0)
+      return std::nullopt;
 
     // Read the contents.
     std::string result(static_cast<size_t>(size), '\0');
     size_t bytesRead =
         fread(result.data(), 1, static_cast<size_t>(size), stream_);
+    if (ferror(stream_))
+      return std::nullopt;
     result.resize(bytesRead);
 
     // Restore position.
-    fseek(stream_, currentPos, SEEK_SET);
+    if (fseek(stream_, currentPos, SEEK_SET) != 0)
+      return std::nullopt;
 
     return result;
   }
 
   // Get current size of the stream.
-  size_t size() {
+  //
+  // Note: Invoking triggers a flush of the stream to update the buffer.
+  std::optional<size_t> size() {
     if (!stream_)
-      return 0;
-    fflush(stream_);
+      return std::nullopt;
+    if (fflush(stream_) != 0)
+      return std::nullopt;
     long currentPos = ftell(stream_);
-    fseek(stream_, 0, SEEK_END);
+    if (fseek(stream_, 0, SEEK_END) != 0)
+      return std::nullopt;
     long endPos = ftell(stream_);
-    fseek(stream_, currentPos, SEEK_SET);
+    if (fseek(stream_, currentPos, SEEK_SET) != 0)
+      return std::nullopt;
     return static_cast<size_t>(endPos);
   }
 
@@ -142,18 +148,22 @@ private:
   bool isValid() const { return stream_ != nullptr; }
 
   // Retrieve the contents as a string.
-  std::string str() {
+  //
+  // Note: Invoking triggers a flush of the stream to update the buffer.
+  std::optional<std::string> str() {
     if (!stream_)
-      return "";
-    fflush(stream_);
+      return std::nullopt;
+    if (fflush(stream_) != 0)
+      return std::nullopt;
     return std::string(buffer_, size_);
   }
 
   // Get current size of the stream.
-  size_t size() {
+  std::optional<size_t> size() {
     if (!stream_)
-      return 0;
-    fflush(stream_);
+      return std::nullopt;
+    if (fflush(stream_) != 0)
+      return std::nullopt;
     return size_;
   }
 
@@ -187,13 +197,16 @@ public:
 //   } // adapter destructor copies content to output
 //   // output now contains "Value: 42"
 //
+// Note: If no output is written, the resulting string will be empty.
 class FprintAdapter {
 public:
   explicit FprintAdapter(std::string &output) : output_(output), ms_() {}
 
   ~FprintAdapter() {
     if (ms_.isValid()) {
-      output_ = ms_.str();
+      auto strOrErr_ = ms_.str();
+      assert(strOrErr_ && "Failed to get string from MemStream");
+      output_ = *strOrErr_;
     }
   }
 
