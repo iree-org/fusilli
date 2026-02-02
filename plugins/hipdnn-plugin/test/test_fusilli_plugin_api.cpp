@@ -10,6 +10,7 @@
 #include <hipdnn_data_sdk/data_objects/data_types_generated.h>
 #include <hipdnn_data_sdk/data_objects/engine_config_generated.h>
 #include <hipdnn_data_sdk/data_objects/pointwise_attributes_generated.h>
+#include <hipdnn_data_sdk/utilities/EngineNames.hpp>
 #include <hipdnn_frontend/Graph.hpp>
 #include <hipdnn_frontend/Utilities.hpp>
 #include <hipdnn_frontend/attributes/MatmulAttributes.hpp>
@@ -217,7 +218,7 @@ TEST(TestFusilliPluginApi, GetAllEngineIds) {
                                               &numEngines),
             HIPDNN_PLUGIN_STATUS_SUCCESS);
   EXPECT_EQ(numEngines, 1);
-  EXPECT_EQ(engineIds[0], FUSILLI_PLUGIN_ENGINE_ID);
+  EXPECT_EQ(engineIds[0], hipdnn_data_sdk::utilities::FUSILLI_ENGINE_ID);
 }
 
 TEST(TestFusilliPluginApi, GetAllEngineIdsNullNumEngines) {
@@ -265,7 +266,7 @@ TEST(TestFusilliPluginApi, GetApplicableEngineIds) {
                 /*num_engines=*/&numEngines),
             HIPDNN_PLUGIN_STATUS_SUCCESS);
   ASSERT_EQ(numEngines, 1);
-  ASSERT_EQ(engineIDs[0], FUSILLI_PLUGIN_ENGINE_ID);
+  ASSERT_EQ(engineIDs[0], hipdnn_data_sdk::utilities::FUSILLI_ENGINE_ID);
 
   // Create a serialized hipDNN conv_fprop graph with asymmetric padding.
   builder = hipdnn_test_sdk::utilities::createValidConvFwdGraph(
@@ -443,7 +444,7 @@ TEST(TestFusilliPluginApi, CreateExecutionContext) {
   // Create engine config.
   flatbuffers::FlatBufferBuilder configBuilder;
   auto engineConfig = hipdnn_data_sdk::data_objects::CreateEngineConfig(
-      configBuilder, FUSILLI_PLUGIN_ENGINE_ID);
+      configBuilder, hipdnn_data_sdk::utilities::FUSILLI_ENGINE_ID);
   configBuilder.Finish(engineConfig);
   hipdnnPluginConstData_t engineConfigData;
   engineConfigData.ptr = configBuilder.GetBufferPointer();

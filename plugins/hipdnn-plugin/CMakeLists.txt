@@ -72,7 +72,6 @@ endif()
 
 # Global constants
 set(FUSILLI_PLUGIN_NAME fusilli_plugin)
-set(FUSILLI_PLUGIN_ENGINE_ID 1001)
 # Relative path from build/install prefix to plugin location.
 # HIPDNN_PLUGIN_ENGINE_SUBDIR is provided by hipdnn_sdk.
 set(FUSILLI_PLUGIN_RELATIVE_PATH "${CMAKE_INSTALL_LIBDIR}/${HIPDNN_PLUGIN_ENGINE_SUBDIR}")
@@ -111,7 +110,6 @@ target_compile_options(${FUSILLI_PLUGIN_NAME} PRIVATE ${FUSILLI_PLUGIN_WARNING_C
 target_link_libraries(${FUSILLI_PLUGIN_NAME} PRIVATE hipdnn_plugin_sdk hipdnn_data_sdk hip::host fusilli::fusilli)
 target_compile_definitions(${FUSILLI_PLUGIN_NAME} PRIVATE
   FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
-  FUSILLI_PLUGIN_ENGINE_ID=${FUSILLI_PLUGIN_ENGINE_ID}
 )
 set_target_properties(${FUSILLI_PLUGIN_NAME} PROPERTIES
   C_VISIBILITY_PRESET hidden
