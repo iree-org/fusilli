@@ -204,9 +204,9 @@ public:
 
   ~FprintAdapter() {
     if (ms_.isValid()) {
-      auto strOrErr_ = ms_.str();
+      auto strOrErr = ms_.str();
       assert(strOrErr_ && "Failed to get string from MemStream");
-      output_ = *strOrErr_;
+      output_ = *strOrErr;
     }
   }
 
