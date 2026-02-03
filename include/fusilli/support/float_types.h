@@ -7,8 +7,8 @@
 //===----------------------------------------------------------------------===//
 //
 // This file contains portable Float16 and BFloat16 implementations represented
-// as structs with int16_t storage. These types support conversion to/from float
-// and perform arithmetic operations in 32-bit float precision.
+// as structs with uint16_t storage. These types support conversion to/from
+// float and perform arithmetic operations in 32-bit float precision.
 //
 //===----------------------------------------------------------------------===//
 
@@ -33,7 +33,7 @@ namespace fusilli {
 // interoperability with float arithmetic. All operations are performed in
 // float precision through these conversions.
 struct Float16 {
-  int16_t data;
+  uint16_t data;
 
   constexpr Float16() : data(0) {}
 
@@ -49,21 +49,14 @@ struct Float16 {
   // Arithmetic and comparisons work through this conversion
   [[nodiscard]] constexpr operator float() const { return toFloat(); }
 
-  // Create from raw bits
-  [[nodiscard]] static constexpr Float16 fromBits(int16_t bits) {
+  [[nodiscard]] static constexpr Float16 fromBits(uint16_t bits) {
     Float16 result;
     result.data = bits;
     return result;
   }
 
-  [[nodiscard]] static constexpr Float16 fromBits(uint16_t bits) {
-    Float16 result;
-    result.data = static_cast<int16_t>(bits);
-    return result;
-  }
-
   // Get raw bits
-  [[nodiscard]] constexpr int16_t toBits() const { return data; }
+  [[nodiscard]] constexpr uint16_t toBits() const { return data; }
 };
 
 // Brain floating point (BFloat16)
@@ -74,7 +67,7 @@ struct Float16 {
 // interoperability with float arithmetic. All operations are performed in
 // float precision through these conversions.
 struct BFloat16 {
-  int16_t data;
+  uint16_t data;
 
   constexpr BFloat16() : data(0) {}
 
@@ -90,25 +83,18 @@ struct BFloat16 {
   // Arithmetic and comparisons work through this conversion
   [[nodiscard]] constexpr operator float() const { return toFloat(); }
 
-  // Create from raw bits
-  [[nodiscard]] static constexpr BFloat16 fromBits(int16_t bits) {
+  [[nodiscard]] static constexpr BFloat16 fromBits(uint16_t bits) {
     BFloat16 result;
     result.data = bits;
     return result;
   }
 
-  [[nodiscard]] static constexpr BFloat16 fromBits(uint16_t bits) {
-    BFloat16 result;
-    result.data = static_cast<int16_t>(bits);
-    return result;
-  }
-
   // Get raw bits
-  [[nodiscard]] constexpr int16_t toBits() const { return data; }
+  [[nodiscard]] constexpr uint16_t toBits() const { return data; }
 };
 
 // Half precision floating point types.
-// On Windows, use portable struct implementations with int16_t storage.
+// On Windows, use portable struct implementations with uint16_t storage.
 // On other platforms, use compiler extensions for native support.
 #ifdef FUSILLI_PLATFORM_WINDOWS
 using half = Float16;
