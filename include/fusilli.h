@@ -17,13 +17,16 @@
 #include "fusilli/external/torch_types.h" // IWYU pragma: export
 
 // Support:
-#include "fusilli/support/asm_emitter.h"    // IWYU pragma: export
-#include "fusilli/support/cache.h"          // IWYU pragma: export
-#include "fusilli/support/dllib.h"          // IWYU pragma: export
-#include "fusilli/support/external_tools.h" // IWYU pragma: export
-#include "fusilli/support/extras.h"         // IWYU pragma: export
-#include "fusilli/support/float_types.h"    // IWYU pragma: export
-#include "fusilli/support/logging.h"        // IWYU pragma: export
+#include "fusilli/support/asm_emitter.h"     // IWYU pragma: export
+#include "fusilli/support/cache.h"           // IWYU pragma: export
+#include "fusilli/support/dllib.h"           // IWYU pragma: export
+#include "fusilli/support/external_tools.h"  // IWYU pragma: export
+#include "fusilli/support/extras.h"          // IWYU pragma: export
+#include "fusilli/support/float_types.h"     // IWYU pragma: export
+#include "fusilli/support/logging.h"         // IWYU pragma: export
+#include "fusilli/support/memstream.h"       // IWYU pragma: export
+#include "fusilli/support/python_utils.h"    // IWYU pragma: export
+#include "fusilli/support/target_platform.h" // IWYU pragma: export
 
 // Attributes / Types:
 #include "fusilli/attributes/attributes.h"           // IWYU pragma: export
