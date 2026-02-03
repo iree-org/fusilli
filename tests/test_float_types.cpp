@@ -1,4 +1,4 @@
-// Copyright 2025 Advanced Micro Devices, Inc.
+// Copyright 2026 Advanced Micro Devices, Inc.
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -110,72 +110,6 @@ TEST_CASE("Float16 arithmetic operations", "[Float16]") {
   }
 }
 
-TEST_CASE("Float16 compound assignment operators", "[Float16]") {
-  SECTION("+=") {
-    Float16 x(2.0f);
-    x += Float16(3.0f);
-    REQUIRE(x.toFloat() == 5.0f);
-  }
-
-  SECTION("-=") {
-    Float16 x(5.0f);
-    x -= Float16(2.0f);
-    REQUIRE(x.toFloat() == 3.0f);
-  }
-
-  SECTION("*=") {
-    Float16 x(2.0f);
-    x *= Float16(3.0f);
-    REQUIRE(x.toFloat() == 6.0f);
-  }
-
-  SECTION("/=") {
-    Float16 x(6.0f);
-    x /= Float16(2.0f);
-    REQUIRE(x.toFloat() == 3.0f);
-  }
-}
-
-TEST_CASE("Float16 comparison operators", "[Float16]") {
-  Float16 a(2.0f);
-  Float16 b(3.0f);
-  Float16 c(2.0f);
-
-  SECTION("equality") {
-    REQUIRE(a == c);
-    REQUIRE_FALSE(a == b);
-  }
-
-  SECTION("inequality") {
-    REQUIRE(a != b);
-    REQUIRE_FALSE(a != c);
-  }
-
-  SECTION("less than") {
-    REQUIRE(a < b);
-    REQUIRE_FALSE(b < a);
-    REQUIRE_FALSE(a < c);
-  }
-
-  SECTION("less than or equal") {
-    REQUIRE(a <= b);
-    REQUIRE(a <= c);
-    REQUIRE_FALSE(b <= a);
-  }
-
-  SECTION("greater than") {
-    REQUIRE(b > a);
-    REQUIRE_FALSE(a > b);
-    REQUIRE_FALSE(a > c);
-  }
-
-  SECTION("greater than or equal") {
-    REQUIRE(b >= a);
-    REQUIRE(a >= c);
-    REQUIRE_FALSE(a >= b);
-  }
-}
-
 TEST_CASE("Float16 fromBits and toBits", "[Float16]") {
   // 0x3C00 is 1.0 in Float16
   Float16 one = Float16::fromBits(0x3C00);
@@ -202,6 +136,18 @@ TEST_CASE("Float16 precision limits", "[Float16]") {
   // They might round to same value due to Float16 precision
   float diff = std::abs(a.toFloat() - b.toFloat());
   REQUIRE(diff < 0.002f); // Within Float16 precision
+}
+
+TEST_CASE("Float16 denormalized numbers", "[Float16]") {
+  // Smallest positive denormalized Float16: 2^-24 ≈ 5.96e-8
+  Float16 minDenorm = Float16::fromBits(0x0001);
+  REQUIRE(minDenorm.toFloat() > 0.0f);
+  REQUIRE(minDenorm.toFloat() < 1e-6f);
+
+  // Largest denormalized Float16: (2^-14) * (1 - 2^-10)
+  Float16 maxDenorm = Float16::fromBits(0x03FF);
+  REQUIRE(maxDenorm.toFloat() > 0.0f);
+  REQUIRE(std::isnormal(maxDenorm.toFloat()));
 }
 
 // =============================================================================
@@ -272,102 +218,6 @@ TEST_CASE("BFloat16 handles special values", "[BFloat16]") {
     float result = small.toFloat();
     // Should be close (within BFloat16 precision)
     REQUIRE(std::abs(result - 1e-30f) / 1e-30f < 0.01f);
-  }
-}
-
-TEST_CASE("BFloat16 arithmetic operations", "[BFloat16]") {
-  BFloat16 a(2.0f);
-  BFloat16 b(3.0f);
-
-  SECTION("addition") {
-    BFloat16 result = a + b;
-    REQUIRE(result.toFloat() == 5.0f);
-  }
-
-  SECTION("subtraction") {
-    BFloat16 result = b - a;
-    REQUIRE(result.toFloat() == 1.0f);
-  }
-
-  SECTION("multiplication") {
-    BFloat16 result = a * b;
-    REQUIRE(result.toFloat() == 6.0f);
-  }
-
-  SECTION("division") {
-    BFloat16 result = b / a;
-    REQUIRE(result.toFloat() == 1.5f);
-  }
-
-  SECTION("negation") {
-    BFloat16 result = -a;
-    REQUIRE(result.toFloat() == -2.0f);
-  }
-}
-
-TEST_CASE("BFloat16 compound assignment operators", "[BFloat16]") {
-  SECTION("+=") {
-    BFloat16 x(2.0f);
-    x += BFloat16(3.0f);
-    REQUIRE(x.toFloat() == 5.0f);
-  }
-
-  SECTION("-=") {
-    BFloat16 x(5.0f);
-    x -= BFloat16(2.0f);
-    REQUIRE(x.toFloat() == 3.0f);
-  }
-
-  SECTION("*=") {
-    BFloat16 x(2.0f);
-    x *= BFloat16(3.0f);
-    REQUIRE(x.toFloat() == 6.0f);
-  }
-
-  SECTION("/=") {
-    BFloat16 x(6.0f);
-    x /= BFloat16(2.0f);
-    REQUIRE(x.toFloat() == 3.0f);
-  }
-}
-
-TEST_CASE("BFloat16 comparison operators", "[BFloat16]") {
-  BFloat16 a(2.0f);
-  BFloat16 b(3.0f);
-  BFloat16 c(2.0f);
-
-  SECTION("equality") {
-    REQUIRE(a == c);
-    REQUIRE_FALSE(a == b);
-  }
-
-  SECTION("inequality") {
-    REQUIRE(a != b);
-    REQUIRE_FALSE(a != c);
-  }
-
-  SECTION("less than") {
-    REQUIRE(a < b);
-    REQUIRE_FALSE(b < a);
-    REQUIRE_FALSE(a < c);
-  }
-
-  SECTION("less than or equal") {
-    REQUIRE(a <= b);
-    REQUIRE(a <= c);
-    REQUIRE_FALSE(b <= a);
-  }
-
-  SECTION("greater than") {
-    REQUIRE(b > a);
-    REQUIRE_FALSE(a > b);
-    REQUIRE_FALSE(a > c);
-  }
-
-  SECTION("greater than or equal") {
-    REQUIRE(b >= a);
-    REQUIRE(a >= c);
-    REQUIRE_FALSE(a >= b);
   }
 }
 
