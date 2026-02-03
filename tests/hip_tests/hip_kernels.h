@@ -5,11 +5,11 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 // NOLINTNEXTLINE(llvm-header-guard)
-#ifndef TESTS_HIP_TESTS_HIP_KERNELS_H
-#define TESTS_HIP_TESTS_HIP_KERNELS_H
+#ifndef FUSILLI_TESTS_HIP_TESTS_HIP_KERNELS_H
+#define FUSILLI_TESTS_HIP_TESTS_HIP_KERNELS_H
 
 #include <hip/hip_runtime.h>
 
 void launchHelloKernel(dim3 blocks, dim3 threads);
 
-#endif // TESTS_HIP_TESTS_HIP_KERNELS_H
+#endif // FUSILLI_TESTS_HIP_TESTS_HIP_KERNELS_H
