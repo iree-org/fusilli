@@ -56,6 +56,12 @@ struct Float16 {
     return result;
   }
 
+  [[nodiscard]] static constexpr Float16 fromBits(uint16_t bits) {
+    Float16 result;
+    result.data = static_cast<int16_t>(bits);
+    return result;
+  }
+
   // Get raw bits
   [[nodiscard]] constexpr int16_t toBits() const { return data; }
 };
@@ -88,6 +94,12 @@ struct BFloat16 {
   [[nodiscard]] static constexpr BFloat16 fromBits(int16_t bits) {
     BFloat16 result;
     result.data = bits;
+    return result;
+  }
+
+  [[nodiscard]] static constexpr BFloat16 fromBits(uint16_t bits) {
+    BFloat16 result;
+    result.data = static_cast<int16_t>(bits);
     return result;
   }
 
