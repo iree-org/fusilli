@@ -16,6 +16,8 @@ set_target_properties(
   fusilli_benchmark_driver PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/benchmarks
 )
+# Enable clang-tidy.
+fusilli_enable_clang_tidy(fusilli_benchmark_driver)
 
 # Test benchmark runner
 if(FUSILLI_SYSTEMS_AMDGPU)
