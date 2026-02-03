@@ -66,9 +66,8 @@
 inline std::vector<size_t> castToSizeT(const std::vector<int64_t> &input) {
   std::vector<size_t> sizes;
   sizes.reserve(input.size());
-  for (auto val : input) {
+  for (auto val : input)
     sizes.push_back(static_cast<size_t>(val));
-  }
   return sizes;
 }
 

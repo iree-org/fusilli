@@ -172,9 +172,9 @@ inline std::string getArchFromRocmAgentEnumerator() {
   std::istringstream stream(std::move(*outputOrNone));
   std::string target;
   while (std::getline(stream, target)) {
-    if (target == "gfx000\n")
-      continue;
     target.erase(target.find_last_not_of(" \n\r\t") + 1);
+    if (target == "gfx000")
+      continue;
     break;
   }
 

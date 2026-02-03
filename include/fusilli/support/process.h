@@ -1,4 +1,4 @@
-// Copyright 2025 Advanced Micro Devices, Inc.
+// Copyright 2026 Advanced Micro Devices, Inc.
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,9 +6,8 @@
 
 //===----------------------------------------------------------------------===//
 //
-// This file contains a cross-platform memory stream utility that provides
-// a FILE* interface backed by memory. On Linux, it uses open_memstream.
-// On Windows, it uses a pure C++ implementation with temporary files.
+// This file contains a cross-platform process utility for executing shell
+// commands and capturing their output.
 //
 //===----------------------------------------------------------------------===//
 
@@ -18,6 +17,12 @@
 #include "fusilli/support/target_platform.h"
 
 #include <array>
+#include <cstdio>
+#include <memory>
+#include <optional>
+#include <string>
+
+namespace fusilli {
 
 // Custom deleter for FILE* from popen
 struct PopenDeleter {
@@ -50,5 +55,7 @@ inline std::optional<std::string> execCommand(const std::string &cmd) {
 
   return result;
 }
+
+} // namespace fusilli
 
 #endif // FUSILLI_SUPPORT_PROCESS_H

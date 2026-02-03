@@ -88,6 +88,7 @@ add_fusilli_tests(
     test_cache.cpp
     test_dllib.cpp
     test_memstream.cpp
+    test_process.cpp
     test_ssa_validation.cpp
   DEPS
     libfusilli
