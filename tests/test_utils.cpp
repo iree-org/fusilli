@@ -16,10 +16,11 @@
 #include "utils.h"
 
 #include <catch2/catch_test_macros.hpp>
-#include <catch2/catch_tostring.hpp>
 
-#include <sstream>
+#include <cstddef>
+#include <cstdint>
 #include <string>
+#include <vector>
 
 using namespace fusilli;
 
@@ -51,7 +52,7 @@ TEST_CASE("Catch2 StringMaker for half type", "[utils][half]") {
     REQUIRE_FALSE(str3.empty());
     REQUIRE_FALSE(str3 == "{?}");
 
-    REQUIRE(str3.find("0") != std::string::npos);
+    REQUIRE(str3.find('0') != std::string::npos);
   }
 
   SECTION("handles negative values") {
@@ -60,19 +61,19 @@ TEST_CASE("Catch2 StringMaker for half type", "[utils][half]") {
     REQUIRE_FALSE(str4.empty());
     REQUIRE_FALSE(str4 == "{?}");
 
-    // Should show negative sign
-    REQUIRE(str4.find("-") != std::string::npos);
+    // Should show negative sign.
+    REQUIRE(str4.find('-') != std::string::npos);
     REQUIRE(str4.find("42") != std::string::npos);
   }
 
   SECTION("different values produce different strings") {
-    half val_a = half(100.0f);
-    half val_b = half(200.0f);
-    std::string str_a = Catch::StringMaker<half>::convert(val_a);
-    std::string str_b = Catch::StringMaker<half>::convert(val_b);
+    half valA = half(100.0f);
+    half valB = half(200.0f);
+    std::string strA = Catch::StringMaker<half>::convert(valA);
+    std::string strB = Catch::StringMaker<half>::convert(valB);
 
-    // Different values should produce different strings
-    REQUIRE(str_a != str_b);
+    // Different values should produce different strings.
+    REQUIRE(strA != strB);
   }
 }
 
@@ -94,7 +95,7 @@ TEST_CASE("Catch2 StringMaker for bf16 type", "[utils][bf16]") {
     REQUIRE_FALSE(str2.empty());
     REQUIRE_FALSE(str2 == "{?}");
 
-    REQUIRE(str2.find("0") != std::string::npos);
+    REQUIRE(str2.find('0') != std::string::npos);
   }
 
   SECTION("handles negative values") {
@@ -103,29 +104,31 @@ TEST_CASE("Catch2 StringMaker for bf16 type", "[utils][bf16]") {
     REQUIRE_FALSE(str3.empty());
     REQUIRE_FALSE(str3 == "{?}");
 
-    // Should show negative sign
-    REQUIRE(str3.find("-") != std::string::npos);
+    // Should show negative sign.
+    REQUIRE(str3.find('-') != std::string::npos);
     REQUIRE(str3.find("128") != std::string::npos);
   }
 
   SECTION("different values produce different strings") {
-    bf16 val_a = bf16(50.0f);
-    bf16 val_b = bf16(150.0f);
-    std::string str_a = Catch::StringMaker<bf16>::convert(val_a);
-    std::string str_b = Catch::StringMaker<bf16>::convert(val_b);
+    bf16 valA = bf16(50.0f);
+    bf16 valB = bf16(150.0f);
+    std::string strA = Catch::StringMaker<bf16>::convert(valA);
+    std::string strB = Catch::StringMaker<bf16>::convert(valB);
 
-    // Different values should produce different strings
-    REQUIRE(str_a != str_b);
+    // Different values should produce different strings.
+    REQUIRE(strA != strB);
   }
 }
 
-TEST_CASE("Catch2 comparison works with half type", "[utils][half][comparison]") {
+TEST_CASE("Catch2 comparison works with half type",
+          "[utils][half][comparison]") {
   half val1 = half(100.0f);
   half val2 = half(100.0f);
   REQUIRE(val1 == val2);
 }
 
-TEST_CASE("Catch2 comparison works with bf16 type", "[utils][bf16][comparison]") {
+TEST_CASE("Catch2 comparison works with bf16 type",
+          "[utils][bf16][comparison]") {
   bf16 val1 = bf16(200.0f);
   bf16 val2 = bf16(200.0f);
   REQUIRE(val1 == val2);
