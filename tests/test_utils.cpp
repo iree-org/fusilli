@@ -1,4 +1,4 @@
-// Copyright 2025 Advanced Micro Devices, Inc.
+// Copyright 2026 Advanced Micro Devices, Inc.
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -119,49 +119,16 @@ TEST_CASE("Catch2 StringMaker for bf16 type", "[utils][bf16]") {
   }
 }
 
-TEST_CASE("Catch2 comparison failures show readable values for half",
-          "[utils][half][comparison]") {
-  SECTION("equal values pass") {
-    half val1 = half(100.0f);
-    half val2 = half(100.0f);
-    REQUIRE(val1 == val2);
-  }
-
-  SECTION("unequal values fail with readable error message") {
-    // Note: This section is here to document expected behavior.
-    // When this fails, the error message should show actual numeric values
-    // instead of {?} == {?}
-
-    half val1 = half(100.0f);
-    half val2 = half(100.0f); // Same value - test should pass
-
-    // If someone were to change this to different values (e.g., 100.0f vs
-    // 101.0f), the failure message would show:
-    //   REQUIRE( val1 == val2 )
-    //   with expansion:
-    //     100.0f == 101.0f
-    // instead of:
-    //     {?} == {?}
-
-    REQUIRE(val1 == val2);
-  }
+TEST_CASE("Catch2 comparison works with half type", "[utils][half][comparison]") {
+  half val1 = half(100.0f);
+  half val2 = half(100.0f);
+  REQUIRE(val1 == val2);
 }
 
-TEST_CASE("Catch2 comparison failures show readable values for bf16",
-          "[utils][bf16][comparison]") {
-  SECTION("equal values pass") {
-    bf16 val1 = bf16(200.0f);
-    bf16 val2 = bf16(200.0f);
-    REQUIRE(val1 == val2);
-  }
-
-  SECTION("unequal values fail with readable error message") {
-    // Similar to the half test above - documents expected behavior
-    bf16 val1 = bf16(200.0f);
-    bf16 val2 = bf16(200.0f); // Same value - test should pass
-
-    REQUIRE(val1 == val2);
-  }
+TEST_CASE("Catch2 comparison works with bf16 type", "[utils][bf16][comparison]") {
+  bf16 val1 = bf16(200.0f);
+  bf16 val2 = bf16(200.0f);
+  REQUIRE(val1 == val2);
 }
 
 TEST_CASE("castToSizeT utility function", "[utils]") {
