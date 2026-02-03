@@ -19,10 +19,7 @@
 
 #include <iree/base/internal/math.h>
 
-#include <bit>
-#include <cmath>
 #include <cstdint>
-#include <limits>
 
 namespace fusilli {
 
@@ -33,9 +30,9 @@ namespace fusilli {
 // interoperability with float arithmetic. All operations are performed in
 // float precision through these conversions.
 struct Float16 {
-  uint16_t data;
+  uint16_t data = 0;
 
-  constexpr Float16() : data(0) {}
+  constexpr Float16() {}
 
   // Construct from float (handles double via implicit conversion)
   constexpr Float16(float f) : data(iree_math_f32_to_f16(f)) {}
@@ -67,9 +64,9 @@ struct Float16 {
 // interoperability with float arithmetic. All operations are performed in
 // float precision through these conversions.
 struct BFloat16 {
-  uint16_t data;
+  uint16_t data = 0;
 
-  constexpr BFloat16() : data(0) {}
+  constexpr BFloat16() {}
 
   // Construct from float (handles double via implicit conversion)
   constexpr BFloat16(float f) : data(iree_math_f32_to_bf16(f)) {}

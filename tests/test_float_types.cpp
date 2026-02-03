@@ -4,7 +4,7 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include <fusilli/support/float_types.h>
+#include <fusilli.h>
 
 #include <catch2/catch_test_macros.hpp>
 #include <cmath>
