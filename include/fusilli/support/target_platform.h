@@ -7,6 +7,8 @@
 #ifndef FUSILLI_SUPPORT_TARGET_PLATFORM_H
 #define FUSILLI_SUPPORT_TARGET_PLATFORM_H
 
+#include <cstdlib>
+
 //==============================================================================
 // FUSILLI_PLATFORM_LINUX
 //==============================================================================
@@ -26,5 +28,31 @@
 #if !defined(FUSILLI_PLATFORM_LINUX) && !defined(FUSILLI_PLATFORM_WINDOWS)
 #error Unknown platform.
 #endif // all archs
+
+//==============================================================================
+// Platform-independent environment variable utilities
+//==============================================================================
+
+namespace fusilli {
+
+// Sets an environment variable. Returns 0 on success, non-zero on failure.
+inline int setEnv(const char *name, const char *value) {
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  return _putenv_s(name, value);
+#else
+  return setenv(name, value, 1);
+#endif
+}
+
+// Unsets an environment variable. Returns 0 on success, non-zero on failure.
+inline int unsetEnv(const char *name) {
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  return _putenv_s(name, "");
+#else
+  return unsetenv(name);
+#endif
+}
+
+} // namespace fusilli
 
 #endif // FUSILLI_SUPPORT_TARGET_PLATFORM_H
