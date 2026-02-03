@@ -269,3 +269,26 @@ TEST_CASE("getIreeHipTargetForAmdgpu prefers SKU over architecture",
   }
   // If marketing name is empty or unrecognized, we can't verify this
 }
+
+//===----------------------------------------------------------------------===//
+// Tests for getArchFromRocmAgentEnumerator
+//
+// NOTE: These tests require rocm_agent_enumerator to be installed and
+// accessible.
+//===----------------------------------------------------------------------===//
+
+TEST_CASE("getArchFromRocmAgentEnumerator never returns gfx000",
+          "[backend][rocm-agent]") {
+  // gfx000 is a placeholder that indicates no valid GPU was detected.
+  // The function should filter it out and return the next valid architecture.
+  std::string result = getArchFromRocmAgentEnumerator();
+
+  // The result should never be gfx000
+  REQUIRE(result != "gfx000");
+
+  // If we got a result, it should be a valid gfx architecture
+  if (!result.empty()) {
+    REQUIRE(result.find("gfx") == 0);
+  }
+  // Empty result is acceptable (rocm_agent_enumerator not available)
+}
