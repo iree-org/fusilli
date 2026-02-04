@@ -46,6 +46,11 @@
     REQUIRE(isOk(error));                                                      \
   } while (false)
 
+#define FUSILLI_REQUIRE_ASSIGN_IMPL(errorOr, var, expr)                        \
+  auto errorOr = (expr);                                                       \
+  FUSILLI_REQUIRE_OK(errorOr);                                                 \
+  var = std::move(*errorOr);
+
 // Test side dual to FUSILLI_ASSIGN_OR_RETURN. Unwrap the value from an
 // expression that evaluates to an ErrorOr<T>, and fail the test using Catch2's
 // REQUIRE if the result is an error. The unwrapped value is assigned to the
@@ -63,11 +68,6 @@
 //     FUSILLI_REQUIRE_ASSIGN(auto value, getValue());
 //     REQUIRE(value == 42);
 //   }
-#define FUSILLI_REQUIRE_ASSIGN_IMPL(errorOr, var, expr)                        \
-  auto errorOr = (expr);                                                       \
-  FUSILLI_REQUIRE_OK(errorOr);                                                 \
-  var = std::move(*errorOr);
-
 #define FUSILLI_REQUIRE_ASSIGN(varDecl, expr)                                  \
   FUSILLI_REQUIRE_ASSIGN_IMPL(FUSILLI_ERROR_VAR(_errorOr), varDecl, expr)
 
