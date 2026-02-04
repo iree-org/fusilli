@@ -32,13 +32,12 @@ static std::string generateName(ReductionAttr::Mode mode, DataType type,
       std::format("reduction_{}_dt{}", ReductionAttr::kModeToStr.at(mode),
                   kDataTypeToMlirTypeAsm.at(type));
   name += "_x";
-  for (const auto &d : xDim) {
+  for (const auto &d : xDim)
     name += std::format("_{}", d);
-  }
+
   name += "_y";
-  for (const auto &d : yDim) {
+  for (const auto &d : yDim)
     name += std::format("_{}", d);
-  }
   return name;
 };
 
@@ -151,11 +150,10 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
     // Validate output size and check the first value (d0=0, d1=0)
     REQUIRE(result.size() == ySize);
     int64_t checkIdx = d0 * 16 + d1;
-    if constexpr (std::is_floating_point_v<T>) {
+    if constexpr (std::is_floating_point_v<T>)
       REQUIRE(std::abs(result[checkIdx] - expectedValue) < T(0.01));
-    } else {
+    else
       REQUIRE(result[checkIdx] == expectedValue);
-    }
   };
 
   // Parameterize sample by backend and create device-specific handles

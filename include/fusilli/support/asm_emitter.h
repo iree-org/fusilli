@@ -1330,17 +1330,8 @@ inline std::string ReductionNode::emitNodePreAsm() const {
   const auto &xT = reductionAttr.getX();
   const auto &yT = reductionAttr.getY();
 
-  // Compute which dimensions to reduce
-  // Input and output must have the same rank
-  // Find dimensions where Y is 1 and X is greater than 1 (reduced dimensions)
-  std::vector<int64_t> reductionDims;
-  const auto &xDim = xT->getDim();
-  const auto &yDim = yT->getDim();
-  for (size_t i = 0; i < xDim.size() && i < yDim.size(); ++i) {
-    if (yDim[i] == 1 && xDim[i] > 1) {
-      reductionDims.push_back(static_cast<int64_t>(i));
-    }
-  }
+  // Get which dimensions to reduce (validated in postValidateNode)
+  std::vector<int64_t> reductionDims = getReductionDims();
 
   // Emit the reduction dimension list
   std::ostringstream dimListOss;
