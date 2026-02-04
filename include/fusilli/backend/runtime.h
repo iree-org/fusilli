@@ -256,7 +256,8 @@ inline ErrorObject Graph::createPerGraphSession(const Handle &handle,
   iree_vm_function_t mainFunction;
   FUSILLI_CHECK_ERROR(iree_vm_context_resolve_function(
       context,
-      iree_make_cstring_view(executeAsync ? "module.main$async" : "module.main"),
+      iree_make_cstring_view(executeAsync ? "module.main$async"
+                                          : "module.main"),
       &mainFunction));
 
   iree_string_view_t sizeAttr = iree_vm_function_lookup_attr_by_name(
@@ -267,8 +268,8 @@ inline ErrorObject Graph::createPerGraphSession(const Handle &handle,
     uint64_t size = 0;
     if (iree_string_view_atoi_uint64(sizeAttr, &size)) {
       workspaceSize_ = static_cast<size_t>(size);
-      FUSILLI_LOG_LABEL_ENDL("INFO: Workspace size required: "
-                             << workspaceSize_ << " bytes");
+      FUSILLI_LOG_LABEL_ENDL("INFO: Workspace size required: " << workspaceSize_
+                                                               << " bytes");
     }
   }
 
@@ -284,11 +285,11 @@ inline ErrorObject Graph::createPerGraphSession(const Handle &handle,
 // views at setup to avoid paying the penalty for every `Graph::execute`
 // invocation. Use `iree_runtime_call_reset` to reset the call inputs/outputs
 // if needed.
-inline ErrorObject Graph::execute(
-    const Handle &handle,
-    const std::unordered_map<std::shared_ptr<TensorAttr>,
-                             std::shared_ptr<Buffer>> &variantPack,
-    std::shared_ptr<Buffer> workspace) const {
+inline ErrorObject
+Graph::execute(const Handle &handle,
+               const std::unordered_map<std::shared_ptr<TensorAttr>,
+                                        std::shared_ptr<Buffer>> &variantPack,
+               std::shared_ptr<Buffer> workspace) const {
   FUSILLI_LOG_LABEL_ENDL("INFO: Executing Graph");
   FUSILLI_RETURN_ERROR_IF(session_ == nullptr, ErrorCode::NotCompiled,
                           "Graph must be compiled before being executed");
