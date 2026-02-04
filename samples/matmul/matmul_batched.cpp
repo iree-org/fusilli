@@ -56,13 +56,13 @@ TEST_CASE(
   // Parameterize sample by backend and create device-specific handles.
   std::shared_ptr<Handle> handlePtr;
   SECTION("cpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #endif
   Handle &handle = *handlePtr;
@@ -72,16 +72,18 @@ TEST_CASE(
 
   // Allocate input buffer for A.
   float inputScalar = 1.0f;
-  auto aBuf = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      auto aBuf,
       allocateBufferOfType(handle, aT, DataType::Float, inputScalar));
 
   // Allocate input buffer for B.
-  auto bBuf = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      auto bBuf,
       allocateBufferOfType(handle, bT, DataType::Float, inputScalar));
 
   // Allocate output buffer for C.
-  auto cBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, cT, DataType::Float, 0.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto cBuf, allocateBufferOfType(handle, cT, DataType::Float, 0.0f));
 
   // Create variant pack.
   const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
@@ -143,13 +145,13 @@ TEST_CASE("Batched matrix multiplication with broadcast; A (B, M, K), B (1, K, "
   // Parameterize sample by backend and create device-specific handles.
   std::shared_ptr<Handle> handlePtr;
   SECTION("cpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #endif
   Handle &handle = *handlePtr;
@@ -159,16 +161,18 @@ TEST_CASE("Batched matrix multiplication with broadcast; A (B, M, K), B (1, K, "
 
   // Allocate input buffer for A.
   float inputScalar = 1.0f;
-  auto aBuf = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      auto aBuf,
       allocateBufferOfType(handle, aT, DataType::Float, inputScalar));
 
   // Allocate input buffer for B (single batch, will be broadcasted).
-  auto bBuf = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      auto bBuf,
       allocateBufferOfType(handle, bT, DataType::Float, inputScalar));
 
   // Allocate output buffer for C.
-  auto cBuf = FUSILLI_REQUIRE_UNWRAP(
-      allocateBufferOfType(handle, cT, DataType::Float, 0.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto cBuf, allocateBufferOfType(handle, cT, DataType::Float, 0.0f));
 
   // Create variant pack.
   const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>

@@ -21,26 +21,26 @@ using namespace fusilli;
 
 TEST_CASE("Single Handle creation", "[handle]") {
   SECTION("CPU handle") {
-    Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
   }
 #ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("GPU handle") {
-    Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
   }
   SECTION("GPU handle on device") {
-    Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU, 0));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU, 0));
   }
   SECTION("GPU handle on device with stream") {
-    Handle handle =
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU, 0, 0));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle,
+                           Handle::create(Backend::AMDGPU, 0, 0));
   }
 #endif
 }
 
 TEST_CASE("Multiple Handle creation", "[handle]") {
-  Handle handle1 = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle1, Handle::create(Backend::CPU));
 #ifdef FUSILLI_ENABLE_AMDGPU
-  Handle handle2 = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle2, Handle::create(Backend::AMDGPU));
 #endif
 }
 
