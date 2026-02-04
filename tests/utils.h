@@ -167,6 +167,20 @@ allocateBufferOfType(Handle &handle, const std::shared_ptr<TensorAttr> &tensor,
   }
 }
 
+// Allocates workspace buffer based on the graph's workspace size requirement.
+// Returns nullptr if no workspace is needed (size == 0).
+// This helper is used by tests and samples to simplify workspace allocation.
+inline ErrorOr<std::shared_ptr<Buffer>>
+allocateWorkspace(const Handle &handle, const Graph &graph) {
+  size_t workspaceSize = graph.getWorkspaceSize();
+  if (workspaceSize == 0) {
+    return ok(std::shared_ptr<Buffer>(nullptr));
+  }
+  FUSILLI_ASSIGN_OR_RETURN(auto workspaceBuf,
+                           Buffer::allocateRaw(handle, workspaceSize));
+  return ok(std::make_shared<Buffer>(std::move(workspaceBuf)));
+}
+
 inline TensorAttr createTestTensorAttr(const std::string &name,
                                        std::span<const int64_t> dim) {
 

@@ -192,10 +192,28 @@ public:
   //                     hipMemcpyDeviceToDevice, stream);
   //     hipStreamSynchronize(stream);
   //     doSomethingWith(hostData);
+  //
+  // Workspace Buffer Usage:
+  //   After calling compile(), query getWorkspaceSize() to determine if a
+  //   workspace buffer is needed. If size > 0, allocate using
+  //   Buffer::allocateRaw() and pass it to execute(). The same workspace
+  //   buffer can be reused across multiple execute() calls.
+  //
+  //   Example:
+  //     graph.compile(handle);
+  //     size_t wsSize = graph.getWorkspaceSize();
+  //     std::shared_ptr<Buffer> workspace = nullptr;
+  //     if (wsSize > 0) {
+  //       FUSILLI_ASSIGN_OR_RETURN(auto wsBuf,
+  //                                Buffer::allocateRaw(handle, wsSize));
+  //       workspace = std::make_shared<Buffer>(std::move(wsBuf));
+  //     }
+  //     graph.execute(handle, variantPack, workspace);
   ErrorObject
   execute(const Handle &handle,
           const std::unordered_map<std::shared_ptr<TensorAttr>,
-                                   std::shared_ptr<Buffer>> &variantPack) const;
+                                   std::shared_ptr<Buffer>> &variantPack,
+          std::shared_ptr<Buffer> workspace) const;
 
   // Delete copy constructors, keep default move constructor and destructor.
   Graph(const Graph &) = delete;
@@ -256,6 +274,10 @@ public:
   std::shared_ptr<TensorAttr> pointwise(const std::shared_ptr<TensorAttr> &in0,
                                         const std::shared_ptr<TensorAttr> &in1,
                                         PointwiseAttr &attributes);
+
+  /// Query required workspace buffer size. Only valid after compile().
+  /// Returns 0 if no workspace needed.
+  size_t getWorkspaceSize() const { return workspaceSize_; }
 
   // ASM emitter driver method.
   //
@@ -540,6 +562,10 @@ private:
 
   // This is set after `validate()` is run at least once successfully.
   bool isValidated_ = false;
+
+  // Required workspace buffer size in bytes. Set during createPerGraphSession()
+  // by querying the iree.abi.transients.size.constant attribute.
+  size_t workspaceSize_ = 0;
 
   // IREE runtime session lifetime managed by the `Graph` object
   // (deleted when the `Graph` object goes out of scope).

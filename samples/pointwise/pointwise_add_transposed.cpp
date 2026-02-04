@@ -112,8 +112,11 @@ TEST_CASE("Pointwise add with transposed operand", "[pointwise][graph]") {
           {resultT, resultBuf},
       };
 
+  // Allocate workspace buffer if needed.
+  FUSILLI_REQUIRE_ASSIGN(auto workspace, allocateWorkspace(handle, *graph));
+
   // Execute graph
-  FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack));
+  FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
 
   // Read output buffer and verify against expected result
   std::vector<float> result;

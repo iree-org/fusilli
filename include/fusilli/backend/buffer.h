@@ -41,6 +41,14 @@ public:
   // Definition in `fusilli/backend/runtime.h`.
   static ErrorOr<Buffer> import(iree_hal_buffer_view_t *externalBufferView);
 
+  /// Allocate unstructured buffer for transient/workspace usage.
+  /// This allocates a raw HAL buffer without typed data initialization.
+  /// The buffer is wrapped in a buffer view with shape [sizeInBytes] and i8
+  /// element type for API compatibility.
+  /// Caller must check size > 0 before calling; returns error on zero-size.
+  /// Definition in `fusilli/backend/runtime.h`.
+  static ErrorOr<Buffer> allocateRaw(const Handle &handle, size_t sizeInBytes);
+
   // Reads device buffer by initiating a device-to-host transfer then
   // populating `outData`. Definition in `fusilli/backend/runtime.h`.
   template <typename T>

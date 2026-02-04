@@ -248,11 +248,37 @@ inline ErrorObject Graph::createPerGraphSession(const Handle &handle,
   FUSILLI_CHECK_ERROR(iree_runtime_session_append_bytecode_module_from_file(
       session_.get(), vmfbPath.c_str()));
 
+  // Query required workspace size from the compiled module.
+  // The --iree-torch-externalize-transients flag adds an attribute
+  // "iree.abi.transients.size.constant" with the required buffer size.
+  bool executeAsync = kBackendExecuteAsync.at(handle.getBackend());
+  iree_vm_context_t *context = iree_runtime_session_context(session_.get());
+  iree_vm_function_t mainFunction;
+  FUSILLI_CHECK_ERROR(iree_vm_context_resolve_function(
+      context,
+      iree_make_cstring_view(executeAsync ? "module.main$async" : "module.main"),
+      &mainFunction));
+
+  iree_string_view_t sizeAttr = iree_vm_function_lookup_attr_by_name(
+      &mainFunction, IREE_SV("iree.abi.transients.size.constant"));
+
+  workspaceSize_ = 0;
+  if (!iree_string_view_is_empty(sizeAttr)) {
+    uint64_t size = 0;
+    if (iree_string_view_atoi_uint64(sizeAttr, &size)) {
+      workspaceSize_ = static_cast<size_t>(size);
+      FUSILLI_LOG_LABEL_ENDL("INFO: Workspace size required: "
+                             << workspaceSize_ << " bytes");
+    }
+  }
+
   return ok();
 }
 
 // Executes the graph using IREE runtime. Requires a `variantPack` which is a
 // map from `TensorAttr` to `Buffer` wrapping the `iree_hal_buffer_view_t *`.
+// The `workspace` parameter provides transient storage for intermediate values
+// when required by the compiled module.
 //
 // TODO(#15): Memoize `iree_runtime_call_t` initialization and populate buffer
 // views at setup to avoid paying the penalty for every `Graph::execute`
@@ -261,7 +287,8 @@ inline ErrorObject Graph::createPerGraphSession(const Handle &handle,
 inline ErrorObject Graph::execute(
     const Handle &handle,
     const std::unordered_map<std::shared_ptr<TensorAttr>,
-                             std::shared_ptr<Buffer>> &variantPack) const {
+                             std::shared_ptr<Buffer>> &variantPack,
+    std::shared_ptr<Buffer> workspace) const {
   FUSILLI_LOG_LABEL_ENDL("INFO: Executing Graph");
   FUSILLI_RETURN_ERROR_IF(session_ == nullptr, ErrorCode::NotCompiled,
                           "Graph must be compiled before being executed");
@@ -312,6 +339,28 @@ inline ErrorObject Graph::execute(
                             "Input tensor missing from variantPack");
     FUSILLI_CHECK_ERROR(iree_runtime_call_inputs_push_back_buffer_view(
         &call, *(variantPack.at(input))));
+  }
+
+  // Push workspace buffer. The --iree-torch-externalize-transients flag always
+  // adds a !hal.buffer argument to the generated function signature, even when
+  // no transient storage is needed (size = 0). We must always push a buffer
+  // (or null ref when size = 0) to satisfy the function signature.
+  if (workspaceSize_ > 0) {
+    FUSILLI_RETURN_ERROR_IF(
+        workspace == nullptr, ErrorCode::InvalidArgument,
+        "Workspace buffer required but not provided (size=" +
+            std::to_string(workspaceSize_) + " bytes)");
+    iree_hal_buffer_t *halBuffer = iree_hal_buffer_view_buffer(*workspace);
+    iree_vm_ref_t bufferRef = iree_hal_buffer_retain_ref(halBuffer);
+    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(call.inputs, &bufferRef));
+  } else {
+    // Size is 0 - workspace must be nullptr
+    FUSILLI_RETURN_ERROR_IF(workspace != nullptr, ErrorCode::InvalidArgument,
+                            "Workspace buffer provided but not needed "
+                            "(size=0)");
+    // Push a null ref to satisfy IREE function signature
+    iree_vm_ref_t nullRef = iree_vm_ref_null();
+    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(call.inputs, &nullRef));
   }
 
   // In the asynchronous case, the IREE generated `@main$async` function
@@ -419,6 +468,38 @@ Buffer::import(iree_hal_buffer_view_t *externalBufferView) {
       "Buffer::import failed as externalBufferView* is NULL");
   iree_hal_buffer_view_retain(externalBufferView);
   return ok(Buffer(IreeHalBufferViewUniquePtrType(externalBufferView)));
+}
+
+// Factory: Allocates a raw buffer for workspace/transient usage.
+inline ErrorOr<Buffer> Buffer::allocateRaw(const Handle &handle,
+                                           size_t sizeInBytes) {
+  FUSILLI_LOG_LABEL_ENDL("INFO: Allocating raw device buffer of size "
+                         << sizeInBytes << " bytes");
+  FUSILLI_RETURN_ERROR_IF(sizeInBytes == 0, ErrorCode::RuntimeFailure,
+                          "Buffer::allocateRaw failed: cannot allocate "
+                          "zero-size buffer");
+
+  // Allocate raw buffer using IREE HAL allocator.
+  iree_hal_buffer_t *rawBuffer = nullptr;
+  FUSILLI_CHECK_ERROR(iree_hal_allocator_allocate_buffer(
+      iree_hal_device_allocator(handle.getDevice()),
+      (iree_hal_buffer_params_t){
+          .usage = IREE_HAL_BUFFER_USAGE_DEFAULT,
+          .access = IREE_HAL_MEMORY_ACCESS_ALL,
+          .type = IREE_HAL_MEMORY_TYPE_DEVICE_LOCAL,
+      },
+      sizeInBytes, &rawBuffer));
+
+  // Wrap in buffer view for API compatibility (1D i8 shape).
+  iree_hal_buffer_view_t *bufferView = nullptr;
+  iree_hal_dim_t shape[] = {static_cast<iree_hal_dim_t>(sizeInBytes)};
+  FUSILLI_CHECK_ERROR(iree_hal_buffer_view_create(
+      rawBuffer, IREE_ARRAYSIZE(shape), shape, IREE_HAL_ELEMENT_TYPE_INT_8,
+      IREE_HAL_ENCODING_TYPE_DENSE_ROW_MAJOR, iree_allocator_system(),
+      &bufferView));
+
+  iree_hal_buffer_release(rawBuffer); // buffer view now owns it
+  return ok(Buffer(IreeHalBufferViewUniquePtrType(bufferView)));
 }
 
 // Reads device buffer by initiating a device-to-host transfer and

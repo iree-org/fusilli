@@ -425,8 +425,17 @@ TEST_CASE("Graph `execute`", "[graph]") {
           {Y, yBuf},
       };
 
+  // Query and allocate workspace buffer if needed.
+  size_t workspaceSize = graph->getWorkspaceSize();
+  std::shared_ptr<Buffer> workspace = nullptr;
+  if (workspaceSize > 0) {
+    FUSILLI_REQUIRE_ASSIGN(auto workspaceBuf,
+                           Buffer::allocateRaw(handle, workspaceSize));
+    workspace = std::make_shared<Buffer>(std::move(workspaceBuf));
+  }
+
   // Execute graph.
-  FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack));
+  FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
   REQUIRE(*yBuf != nullptr);
 
   // Make sure input/weight buffers are held until `xBuf` and `yBuf` are alive.
