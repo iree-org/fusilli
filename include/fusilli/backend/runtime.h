@@ -377,6 +377,14 @@ Buffer::allocate(const Handle &handle,
           std::to_string(expectedSize) + ")");
 
   iree_hal_buffer_view_t *rawBufferView = nullptr;
+  iree_hal_buffer_params_t bufferParams = {
+      // Intended usage of this buffer (transfers, dispatches, etc):
+      .usage = IREE_HAL_BUFFER_USAGE_DEFAULT,
+      // Access to allow to this memory:
+      .access = IREE_HAL_MEMORY_ACCESS_ALL,
+      // Where to allocate (host or device):
+      .type = IREE_HAL_MEMORY_TYPE_DEVICE_LOCAL,
+  };
   FUSILLI_CHECK_ERROR(iree_hal_buffer_view_allocate_buffer_copy(
       // IREE HAL device and allocator:
       handle.getDevice(), iree_hal_device_allocator(handle.getDevice()),
@@ -385,15 +393,7 @@ Buffer::allocate(const Handle &handle,
       // Element type:
       getIreeHalElementTypeForT<T>(),
       // Encoding type:
-      IREE_HAL_ENCODING_TYPE_DENSE_ROW_MAJOR,
-      (iree_hal_buffer_params_t){
-          // Intended usage of this buffer (transfers, dispatches, etc):
-          .usage = IREE_HAL_BUFFER_USAGE_DEFAULT,
-          // Access to allow to this memory:
-          .access = IREE_HAL_MEMORY_ACCESS_ALL,
-          // Where to allocate (host or device):
-          .type = IREE_HAL_MEMORY_TYPE_DEVICE_LOCAL,
-      },
+      IREE_HAL_ENCODING_TYPE_DENSE_ROW_MAJOR, bufferParams,
       // The actual heap buffer to wrap or clone and its allocator:
       iree_make_const_byte_span(bufferData.data(),
                                 bufferData.size() * sizeof(T)),

@@ -25,6 +25,7 @@
 #include "fusilli/support/float_types.h"     // IWYU pragma: export
 #include "fusilli/support/logging.h"         // IWYU pragma: export
 #include "fusilli/support/memstream.h"       // IWYU pragma: export
+#include "fusilli/support/process.h"         // IWYU pragma: export
 #include "fusilli/support/python_utils.h"    // IWYU pragma: export
 #include "fusilli/support/target_platform.h" // IWYU pragma: export
 
