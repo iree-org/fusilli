@@ -19,7 +19,6 @@
 #include <memory>
 #include <ostream>
 #include <sstream>
-#include <stdlib.h>
 #include <utility>
 
 using namespace fusilli;
@@ -59,11 +58,11 @@ TEST_CASE("ConditionalStreamer conditioned on isLoggingEnabled", "[logging]") {
 // env variable. So subsequent tests that change the env variable (in
 // the same process) will not affect the stream returned by getStream().
 TEST_CASE("getStream stdout mode", "[logging][.]") {
-  setenv("FUSILLI_LOG_FILE", "stdout", 1);
+  setEnv("FUSILLI_LOG_FILE", "stdout");
   std::ostream &stream = getStream();
   REQUIRE(&stream == &std::cout);
 
-  unsetenv("FUSILLI_LOG_FILE");
+  unsetEnv("FUSILLI_LOG_FILE");
 }
 
 // This test is disabled because getStream() statically initializes
@@ -71,11 +70,11 @@ TEST_CASE("getStream stdout mode", "[logging][.]") {
 // env variable. So subsequent tests that change the env variable (in
 // the same process) will not affect the stream returned by getStream().
 TEST_CASE("getStream stderr mode", "[logging][.]") {
-  setenv("FUSILLI_LOG_FILE", "stderr", 1);
+  setEnv("FUSILLI_LOG_FILE", "stderr");
   std::ostream &stream = getStream();
   REQUIRE(&stream == &std::cerr);
 
-  unsetenv("FUSILLI_LOG_FILE");
+  unsetEnv("FUSILLI_LOG_FILE");
 }
 
 // This test is disabled because getStream() statically initializes
@@ -84,7 +83,7 @@ TEST_CASE("getStream stderr mode", "[logging][.]") {
 // the same process) will not affect the stream returned by getStream().
 TEST_CASE("getStream file mode", "[logging][.]") {
   const char *testFile = "/tmp/test_fusilli_log.txt";
-  setenv("FUSILLI_LOG_FILE", testFile, 1);
+  setEnv("FUSILLI_LOG_FILE", testFile);
   std::ostream &stream = getStream();
   REQUIRE(&stream != &std::cout);
   REQUIRE(&stream != &std::cerr);
@@ -93,7 +92,7 @@ TEST_CASE("getStream file mode", "[logging][.]") {
   REQUIRE(dynamic_cast<std::ofstream *>(&stream));
 
   // Cleanup.
-  unsetenv("FUSILLI_LOG_FILE");
+  unsetEnv("FUSILLI_LOG_FILE");
   std::remove(testFile);
 }
 

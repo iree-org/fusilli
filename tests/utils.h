@@ -17,6 +17,7 @@
 #include <fusilli.h>
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_tostring.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -270,5 +271,33 @@ inline ErrorObject testBinaryPointwiseAsmEmitter(const std::string &graphName,
 }
 
 } // namespace fusilli
+
+// Catch2 StringMaker specializations for Fusilli types.
+// This allows Catch2 to properly display these types in test failure messages.
+namespace Catch {
+
+// StringMaker for half precision floating point (_Float16).
+// Converts half to float for display since half doesn't have native stream
+// operators.
+template <> struct StringMaker<fusilli::half> {
+  static std::string convert(fusilli::half const &value) {
+    // Convert to float for stringification
+    float floatVal = static_cast<float>(value);
+    return StringMaker<float>::convert(floatVal);
+  }
+};
+
+// StringMaker for bfloat16 (__bf16).
+// Converts bf16 to float for display since bf16 doesn't have native stream
+// operators.
+template <> struct StringMaker<fusilli::bf16> {
+  static std::string convert(fusilli::bf16 const &value) {
+    // Convert to float for stringification
+    float floatVal = static_cast<float>(value);
+    return StringMaker<float>::convert(floatVal);
+  }
+};
+
+} // namespace Catch
 
 #endif // FUSILLI_TESTS_UTILS_H

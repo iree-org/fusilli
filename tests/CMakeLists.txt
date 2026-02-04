@@ -95,6 +95,16 @@ add_fusilli_tests(
     libutils
     Catch2::Catch2WithMain)
 
+add_fusilli_tests(
+  PREFIX
+    fusilli_utils_tests
+  SRCS
+    test_utils.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain)
+
 # Keep test_logging.cpp a separate test target as we manipulate logging env vars
 # here which can suppress logs from other tests.
 add_fusilli_tests(
