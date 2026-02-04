@@ -287,8 +287,7 @@ TEST_CASE("getArchFromRocmAgentEnumerator never returns gfx000",
   REQUIRE(result != "gfx000");
 
   // If we got a result, it should be a valid gfx architecture
-  if (!result.empty()) {
+  if (!result.empty())
     REQUIRE(result.find("gfx") == 0);
-  }
   // Empty result is acceptable (rocm_agent_enumerator not available)
 }

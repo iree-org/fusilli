@@ -135,7 +135,7 @@ getGpuSkuFromMarketingName(const std::string &marketingName) {
 inline std::string getGpuMarketingNameFromAmdSmi() {
   std::string cmd = getAmdSmiPath() + " static --gpu 0 --json 2>/dev/null";
 
-  auto outputOrNone = execCommand(cmd.c_str());
+  auto outputOrNone = execCommand(cmd);
   if (!outputOrNone.has_value() || outputOrNone->empty())
     return "";
 

@@ -24,7 +24,7 @@ TEST_CASE("execCommand basic functionality", "[support][process]") {
   }
 
   SECTION("Execute command with multiple lines") {
-    auto result = execCommand("echo -e 'line1\nline2'");
+    auto result = execCommand("printf 'line1\nline2'");
     REQUIRE(result.has_value());
     REQUIRE(result->find("line1") != std::string::npos);
     REQUIRE(result->find("line2") != std::string::npos);
@@ -40,9 +40,9 @@ TEST_CASE("execCommand basic functionality", "[support][process]") {
 TEST_CASE("execCommand error handling", "[support][process]") {
   SECTION("Command that does not exist returns nullopt") {
     auto result = execCommand("nonexistent_command_12345 2>/dev/null");
-    // The command may return an error message or empty depending on shell
-    // behavior, but it shouldn't crash
-    // Note: popen itself succeeds even for invalid commands - the shell runs
+    // popen succeeds even for invalid commands, so we just
+    // verify it doesn't crash and returns a value.
+    REQUIRE(result.has_value());
   }
 
   SECTION("Command with redirect to suppress stderr") {
