@@ -65,13 +65,13 @@ TEST_CASE("Batched matrix multiplication with bias; A (B, M, K), B (B, K, N), "
   // Parameterize sample by backend and create device-specific handles.
   std::shared_ptr<Handle> handlePtr;
   SECTION("cpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #endif
   Handle &handle = *handlePtr;
@@ -81,20 +81,24 @@ TEST_CASE("Batched matrix multiplication with bias; A (B, M, K), B (B, K, N), "
 
   // Allocate input buffer for A.
   float inputScalar = 1.0f;
-  auto aBuf = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      auto aBuf,
       allocateBufferOfType(handle, aT, DataType::Float, inputScalar));
 
   // Allocate input buffer for B.
-  auto bBuf = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      auto bBuf,
       allocateBufferOfType(handle, bT, DataType::Float, inputScalar));
 
   // Allocate bias buffer.
   float biasValue = 2.0f;
-  auto biasBuf = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      auto biasBuf,
       allocateBufferOfType(handle, biasT, DataType::Float, biasValue));
 
   // Allocate output buffer for result.
-  auto resultBuf = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      auto resultBuf,
       allocateBufferOfType(handle, resultT, DataType::Float, 0.0f));
 
   // Create variant pack.
@@ -170,13 +174,13 @@ TEST_CASE("Batched matrix multiplication with broadcast and bias; A (B, M, K), "
   // Parameterize sample by backend and create device-specific handles.
   std::shared_ptr<Handle> handlePtr;
   SECTION("cpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #endif
   Handle &handle = *handlePtr;
@@ -186,20 +190,24 @@ TEST_CASE("Batched matrix multiplication with broadcast and bias; A (B, M, K), "
 
   // Allocate input buffer for A.
   float inputScalar = 1.0f;
-  auto aBuf = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      auto aBuf,
       allocateBufferOfType(handle, aT, DataType::Float, inputScalar));
 
   // Allocate input buffer for B (single batch, will be broadcasted).
-  auto bBuf = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      auto bBuf,
       allocateBufferOfType(handle, bT, DataType::Float, inputScalar));
 
   // Allocate bias buffer.
   float biasValue = 2.0f;
-  auto biasBuf = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      auto biasBuf,
       allocateBufferOfType(handle, biasT, DataType::Float, biasValue));
 
   // Allocate output buffer for result.
-  auto resultBuf = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      auto resultBuf,
       allocateBufferOfType(handle, resultT, DataType::Float, 0.0f));
 
   // Create variant pack.

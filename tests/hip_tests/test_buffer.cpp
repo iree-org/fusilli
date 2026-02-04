@@ -88,7 +88,7 @@ TEST_CASE("Buffer import", "[buffer][hip_tests]") {
   //  correctly.
   // --------------------------------------------------------------------------
 
-  Handle handle = FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
 
   // Pointer to hipMalloc'ed buffer on device.
   void *ptr;
@@ -102,14 +102,14 @@ TEST_CASE("Buffer import", "[buffer][hip_tests]") {
       .fn = testBufferReleaseCallback, .user_data = &didCleanupBuffer};
 
   // Import external buffer using the utility function
-  iree_hal_buffer_view_t *outBufferView =
-      FUSILLI_REQUIRE_UNWRAP(importTo1DBufferView(
-          handle, ptr, bufferSize, elementCount, releaseCallback));
+  FUSILLI_REQUIRE_ASSIGN(iree_hal_buffer_view_t * outBufferView,
+                         importTo1DBufferView(handle, ptr, bufferSize,
+                                              elementCount, releaseCallback));
 
   {
     // Buffer is a RAII type that retains the buffer view.
-    Buffer fusilliBufferResult =
-        FUSILLI_REQUIRE_UNWRAP(fusilli::Buffer::import(outBufferView));
+    FUSILLI_REQUIRE_ASSIGN(Buffer fusilliBufferResult,
+                           fusilli::Buffer::import(outBufferView));
 
     // The IREE buffer view and IREE buffer will now be tied to fusilli Buffer's
     // lifetime.
@@ -152,7 +152,8 @@ TEST_CASE("Buffer read async allocated and populated buffer",
   HIP_REQUIRE_SUCCESS(hipStreamCreate(&stream));
 
   // Create handle.
-  Handle handle = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      Handle handle,
       Handle::create(Backend::AMDGPU, /*deviceId=*/deviceId,
                      /*stream=*/reinterpret_cast<uintptr_t>(stream)));
 
@@ -169,12 +170,13 @@ TEST_CASE("Buffer read async allocated and populated buffer",
   REQUIRE(attributes.device == deviceId);
 
   // Import as IREE hal buffer view.
-  iree_hal_buffer_view_t *bufferView = FUSILLI_REQUIRE_UNWRAP(
+  FUSILLI_REQUIRE_ASSIGN(
+      iree_hal_buffer_view_t * bufferView,
       importTo1DBufferView(handle, devicePtr, bufferSize, elementCount));
 
   // Import as fusilli Buffer
-  Buffer fusilliBuffer =
-      FUSILLI_REQUIRE_UNWRAP(fusilli::Buffer::import(bufferView));
+  FUSILLI_REQUIRE_ASSIGN(Buffer fusilliBuffer,
+                         fusilli::Buffer::import(bufferView));
   iree_hal_buffer_view_release(bufferView);
 
   // Write test data to buffer asynchronously.
