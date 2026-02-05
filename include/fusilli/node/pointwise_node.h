@@ -135,6 +135,7 @@ public:
         if (inTensor->getDim() != outTensor->getDim())
           continue;
         outTensor->setStride(inTensor->getStride());
+        break;
       }
 
       if (outTensor->getStride().empty() && outTensor->isVirtual()) {

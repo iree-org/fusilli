@@ -164,5 +164,5 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
   // int32
   execute(handlePtr, DataType::Int32, int(-50), int(13));
   // fp16
-  execute(handlePtr, DataType::Half, half(-32.5f16), half(2.f16));
+  execute(handlePtr, DataType::Half, half(-32.5f), half(2.f));
 }

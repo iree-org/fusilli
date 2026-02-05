@@ -15,6 +15,7 @@
 #define FUSILLI_SUPPORT_EXTERNAL_TOOLS_H
 
 #include "fusilli/support/python_utils.h"
+#include "fusilli/support/target_platform.h"
 #include <cstdlib>
 #include <string>
 
@@ -67,7 +68,11 @@ inline std::string getIreeCompilerLibPath() {
   }
 
   // Fallback: let the system search for it (may be in LD_LIBRARY_PATH).
+#ifdef FUSILLI_PLATFORM_WINDOWS
+  return std::string("IREECompiler.dll");
+#else
   return std::string("libIREECompiler.so");
+#endif
 }
 
 } // namespace fusilli

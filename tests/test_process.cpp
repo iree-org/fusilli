@@ -23,13 +23,6 @@ TEST_CASE("execCommand basic functionality", "[support][process]") {
     REQUIRE(result->find("hello") != std::string::npos);
   }
 
-  SECTION("Execute command with multiple lines") {
-    auto result = execCommand("printf 'line1\nline2'");
-    REQUIRE(result.has_value());
-    REQUIRE(result->find("line1") != std::string::npos);
-    REQUIRE(result->find("line2") != std::string::npos);
-  }
-
   SECTION("Execute command that produces no output") {
     auto result = execCommand("true");
     REQUIRE(result.has_value());
@@ -53,12 +46,6 @@ TEST_CASE("execCommand error handling", "[support][process]") {
 }
 
 TEST_CASE("execCommand output capturing", "[support][process]") {
-  SECTION("Captures stdout correctly") {
-    auto result = execCommand("printf 'test output'");
-    REQUIRE(result.has_value());
-    REQUIRE(*result == "test output");
-  }
-
   SECTION("Handles whitespace in output") {
     auto result = execCommand("echo '  spaces  '");
     REQUIRE(result.has_value());

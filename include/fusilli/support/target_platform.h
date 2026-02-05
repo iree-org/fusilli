@@ -30,6 +30,16 @@
 #endif // all archs
 
 //==============================================================================
+// Platform-specific macros
+//==============================================================================
+
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+#define FUSILLI_NEWLINE "\r\n"
+#else
+#define FUSILLI_NEWLINE "\n"
+#endif
+
+//==============================================================================
 // Platform-independent environment variable utilities
 //==============================================================================
 

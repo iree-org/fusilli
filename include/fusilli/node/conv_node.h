@@ -44,6 +44,10 @@ inline std::vector<int64_t> getConvInferredOutputShape(
 
   // N (batch dim)
   yDim[0] = xDim[0];
+
+  if (yDim.size() < 2)
+    return yDim;
+
   // K (channel dim)
   yDim[1] = wDim[0];
   // PQ... (spatial dims)

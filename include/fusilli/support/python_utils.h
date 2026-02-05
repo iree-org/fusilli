@@ -14,6 +14,7 @@
 #define FUSILLI_SUPPORT_PYTHON_UTILS_H
 
 #include "fusilli/support/process.h"
+#include "fusilli/support/target_platform.h"
 
 #include <array>
 #include <cstdio>
@@ -33,8 +34,14 @@ inline std::vector<std::string> getPythonSitePackages() {
 
   // Try to get site-packages from Python
   const char *pythonCmd =
-      "python3 -c \"import site; print('\\n'.join(site.getsitepackages()))\" "
+      "python -c \"import site; print('\\n'.join(site.getsitepackages()))\" "
+#ifdef FUSILLI_PLATFORM_WINDOWS
+      "2> NUL";
+#elif defined(FUSILLI_PLATFORM_LINUX)
       "2>/dev/null";
+#else
+#error "unknown platform"
+#endif
 
   auto output = execCommand(pythonCmd);
   if (!output.has_value() || output->empty())
@@ -43,7 +50,7 @@ inline std::vector<std::string> getPythonSitePackages() {
   // Parse the output - one path per line
   std::string path;
   for (char c : *output) {
-    if (c == '\n') {
+    if (c == '\n' || c == '\r') {
       if (!path.empty()) {
         sitePaths.push_back(path);
         path.clear();
@@ -84,14 +91,23 @@ inline std::optional<std::string> findIreeCompilerLib() {
   static std::optional<std::string> libPath;
   if (libPath.has_value())
     return libPath;
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  const char *libRelPath = "iree\\compiler\\_mlir_libs\\IREECompiler.dll";
+  const char *libRelPathUnd = "iree_compiler\\_mlir_libs\\IREECompiler.dll";
+#elif defined(FUSILLI_PLATFORM_LINUX)
+  const char *libRelPath = "iree/compiler/_mlir_libs/libIREECompiler.so";
+  const char *libRelPathUnd = "iree_compiler/_mlir_libs/libIREECompiler.so";
+#else
+#error "unknown platform"
+#endif
 
   // Try the standard pip install location
-  libPath = findInSitePackages("iree/compiler/_mlir_libs/libIREECompiler.so");
+  libPath = findInSitePackages(libRelPath);
   if (libPath.has_value())
     return libPath;
 
   // Try alternative locations
-  libPath = findInSitePackages("iree_compiler/_mlir_libs/libIREECompiler.so");
+  libPath = findInSitePackages(libRelPathUnd);
   return libPath;
 }
 

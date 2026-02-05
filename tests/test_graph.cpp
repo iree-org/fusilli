@@ -295,12 +295,9 @@ TEST_CASE("Graph `compile` recompilations with changed handle", "[graph]") {
   Graph g = testGraph(/*validate=*/true);
 
   // Path to compile command cache file.
-  const char *cacheDir = std::getenv("FUSILLI_CACHE_DIR");
-  if (!cacheDir)
-    cacheDir = std::getenv("HOME");
-  std::filesystem::path cmdPath = std::filesystem::path(cacheDir) / ".cache" /
-                                  "fusilli" / g.getName() /
-                                  "iree-compile-command.txt";
+  auto cacheDir = CacheFile::getCacheDir();
+  std::filesystem::path cmdPath =
+      cacheDir / g.getName() / "iree-compile-command.txt";
 
   FUSILLI_REQUIRE_ASSIGN(Handle cpuHandle, Handle::create(Backend::CPU));
   FUSILLI_REQUIRE_OK(g.compile(cpuHandle, /*remove=*/true));
