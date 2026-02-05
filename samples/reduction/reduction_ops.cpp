@@ -94,10 +94,12 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
       xData[i] = static_cast<T>(i % 100 - 50);
     }
 
-    auto xBuf = std::make_shared<Buffer>(FUSILLI_REQUIRE_UNWRAP(
-        Buffer::allocate(handle, castToSizeT(xT->getPhysicalDim()), xData)));
-    auto yBuf =
-        FUSILLI_REQUIRE_UNWRAP(allocateBufferOfType(handle, yT, dt, initValue));
+    FUSILLI_REQUIRE_ASSIGN(
+        Buffer xBufVal,
+        Buffer::allocate(handle, castToSizeT(xT->getPhysicalDim()), xData));
+    auto xBuf = std::make_shared<Buffer>(std::move(xBufVal));
+    FUSILLI_REQUIRE_ASSIGN(auto yBuf,
+                           allocateBufferOfType(handle, yT, dt, initValue));
     const std::unordered_map<std::shared_ptr<TensorAttr>,
                              std::shared_ptr<Buffer>>
         variantPack = {
@@ -159,13 +161,13 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
   // Parameterize sample by backend and create device-specific handles
   std::shared_ptr<Handle> handlePtr;
   SECTION("cpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::CPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #ifdef FUSILLI_ENABLE_AMDGPU
   SECTION("amdgpu backend") {
-    handlePtr = std::make_shared<Handle>(
-        FUSILLI_REQUIRE_UNWRAP(Handle::create(Backend::AMDGPU)));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+    handlePtr = std::make_shared<Handle>(std::move(handle));
   }
 #endif
 
