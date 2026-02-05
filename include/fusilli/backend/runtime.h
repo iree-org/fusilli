@@ -271,6 +271,17 @@ inline ErrorObject Graph::createPerGraphSession(const Handle &handle,
       FUSILLI_LOG_LABEL_ENDL("INFO: Workspace size required: " << workspaceSize_
                                                                << " bytes");
     }
+  } else {
+    // Check if dynamic transient size function is present. If so, it means
+    // the workspace size is data-dependent and needs to be queried at runtime.
+    // Fusilli doesn't support dynamic transient sizes yet.
+    iree_string_view_t dynamicSizeAttr = iree_vm_function_lookup_attr_by_name(
+        &mainFunction, IREE_SV("iree.abi.transients.size"));
+    FUSILLI_RETURN_ERROR_IF(
+        !iree_string_view_is_empty(dynamicSizeAttr), ErrorCode::NotImplemented,
+        "Dynamic transient sizes are not supported. The compiled module "
+        "requires a data-dependent workspace size that must be queried at "
+        "runtime.");
   }
 
   return ok();
