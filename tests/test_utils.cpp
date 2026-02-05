@@ -19,6 +19,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -161,5 +162,208 @@ TEST_CASE("castToSizeT utility function", "[utils]") {
     REQUIRE(result[1] == 2048);
     REQUIRE(result[2] == 4096);
     REQUIRE(result[3] == 8192);
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// allocateBufferOfType tests
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+// Helper macro for AMDGPU-conditional code.
+#ifdef FUSILLI_ENABLE_AMDGPU
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define AMDGPU_SECTION(code) code
+#else
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define AMDGPU_SECTION(code)
+#endif
+
+// Macro to set up backend-parameterized handle. The test runs once per backend.
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define PARAMETERIZED_BACKEND_HANDLE(handleVar)                                \
+  std::shared_ptr<Handle> handleVar##Ptr;                                      \
+  SECTION("cpu backend") {                                                     \
+    FUSILLI_REQUIRE_ASSIGN(Handle h, Handle::create(Backend::CPU));            \
+    handleVar##Ptr = std::make_shared<Handle>(std::move(h));                   \
+  }                                                                            \
+  AMDGPU_SECTION(SECTION("amdgpu backend") {                                   \
+    FUSILLI_REQUIRE_ASSIGN(Handle h, Handle::create(Backend::AMDGPU));         \
+    handleVar##Ptr = std::make_shared<Handle>(std::move(h));                   \
+  })                                                                           \
+  Handle &handleVar = *handleVar##Ptr
+
+// Helper to create a 2x3 test tensor (volume = 6).
+std::shared_ptr<TensorAttr> createTestTensor2x3(Graph *graph) {
+  std::vector<int64_t> dims = {2, 3};
+  return createTestTensor("test_tensor", dims, graph);
+}
+
+// Templated helper to verify buffer contents match expected data.
+template <typename T>
+void verifyBufferContents(Handle &handle, Buffer &buffer,
+                          const std::vector<T> &expected) {
+  std::vector<T> result;
+  FUSILLI_REQUIRE_OK(buffer.read(handle, result));
+  REQUIRE(result.size() == expected.size());
+  for (size_t i = 0; i < expected.size(); ++i) {
+    REQUIRE(result[i] == expected[i]);
+  }
+}
+
+} // namespace
+
+TEST_CASE("allocateBufferOfType with DataType and initVal", "[utils][buffer]") {
+  PARAMETERIZED_BACKEND_HANDLE(handle);
+
+  auto graph = std::make_shared<Graph>();
+  auto tensor = createTestTensor2x3(graph.get());
+
+  // Test Float allocation.
+  {
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::Float, 5.0f));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<float>(6, 5.0f));
+  }
+
+  // Test Int32 allocation.
+  {
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::Int32, 42.0f));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<int>(6, 42));
+  }
+
+  // Test Half allocation.
+  {
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::Half, 3.5f));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<half>(6, half(3.5f)));
+  }
+
+  // Test BFloat16 allocation.
+  {
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::BFloat16, 2.0f));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<bf16>(6, bf16(2.0f)));
+  }
+
+  // Test Int16 allocation.
+  {
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::Int16, 100.0f));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<int16_t>(6, 100));
+  }
+
+  // Test Int8 allocation.
+  {
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::Int8, 7.0f));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<int8_t>(6, 7));
+  }
+
+  // Test Boolean allocation.
+  {
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::Boolean, 1.0f));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<int8_t>(6, 1));
+  }
+}
+
+TEST_CASE("allocateBufferOfType with null tensor", "[utils][buffer][error]") {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+
+  std::shared_ptr<TensorAttr> nullTensor = nullptr;
+
+  SECTION("DataType overload returns error for null tensor") {
+    ErrorObject result =
+        allocateBufferOfType(handle, nullTensor, DataType::Float, 1.0f);
+    REQUIRE(isError(result));
+    REQUIRE(result.getCode() == ErrorCode::AttributeNotSet);
+  }
+
+  SECTION("templated overload returns error for null tensor") {
+    std::vector<float> data = {1.0f, 2.0f, 3.0f};
+    ErrorObject result = allocateBufferOfType(handle, nullTensor, data);
+    REQUIRE(isError(result));
+    REQUIRE(result.getCode() == ErrorCode::AttributeNotSet);
+  }
+}
+
+TEST_CASE("allocateBufferOfType templated with data vector",
+          "[utils][buffer]") {
+  PARAMETERIZED_BACKEND_HANDLE(handle);
+
+  auto graph = std::make_shared<Graph>();
+  auto tensor = createTestTensor2x3(graph.get());
+
+  // Test float vector.
+  {
+    std::vector<float> data = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+    FUSILLI_REQUIRE_ASSIGN(auto buffer,
+                           allocateBufferOfType(handle, tensor, data));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, data);
+  }
+
+  // Test int vector.
+  {
+    std::vector<int> data = {10, 20, 30, 40, 50, 60};
+    FUSILLI_REQUIRE_ASSIGN(auto buffer,
+                           allocateBufferOfType(handle, tensor, data));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, data);
+  }
+
+  // Test half vector.
+  {
+    std::vector<half> data = {half(1.5f), half(2.5f), half(3.5f),
+                              half(4.5f), half(5.5f), half(6.5f)};
+    FUSILLI_REQUIRE_ASSIGN(auto buffer,
+                           allocateBufferOfType(handle, tensor, data));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, data);
+  }
+
+  // Test bf16 vector.
+  {
+    std::vector<bf16> data = {bf16(1.0f), bf16(2.0f), bf16(3.0f),
+                              bf16(4.0f), bf16(5.0f), bf16(6.0f)};
+    FUSILLI_REQUIRE_ASSIGN(auto buffer,
+                           allocateBufferOfType(handle, tensor, data));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, data);
+  }
+
+  // Test int8_t vector.
+  {
+    std::vector<int8_t> data = {1, 2, 3, 4, 5, 6};
+    FUSILLI_REQUIRE_ASSIGN(auto buffer,
+                           allocateBufferOfType(handle, tensor, data));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, data);
+  }
+
+  // Test int16_t vector.
+  {
+    std::vector<int16_t> data = {100, 200, 300, 400, 500, 600};
+    FUSILLI_REQUIRE_ASSIGN(auto buffer,
+                           allocateBufferOfType(handle, tensor, data));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, data);
   }
 }
