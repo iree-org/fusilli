@@ -28,6 +28,7 @@ if(FUSILLI_SYSTEMS_AMDGPU)
             $<TARGET_FILE:fusilli_benchmark_driver>
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   )
+  set_tests_properties(fusilli_benchmark_runner_tests PROPERTIES TIMEOUT 300)
 endif()
 
 # Add some benchmark configurations for CI coverage.
