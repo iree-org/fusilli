@@ -171,6 +171,23 @@ allocateBufferOfType(Handle &handle, const std::shared_ptr<TensorAttr> &tensor,
   }
 }
 
+// Overload that accepts pre-populated data vector. The element type T is
+// deduced from the vector, avoiding the need for a DataType switch.
+template <typename T>
+inline ErrorOr<std::shared_ptr<Buffer>>
+allocateBufferOfType(Handle &handle, const std::shared_ptr<TensorAttr> &tensor,
+                     const std::vector<T> &data) {
+  FUSILLI_RETURN_ERROR_IF(!tensor, ErrorCode::AttributeNotSet,
+                          "Tensor is not set");
+
+  FUSILLI_ASSIGN_OR_RETURN(
+      auto buffer,
+      Buffer::allocate(handle,
+                       /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
+                       /*bufferData=*/data));
+  return std::make_shared<Buffer>(std::move(buffer));
+}
+
 inline TensorAttr createTestTensorAttr(const std::string &name,
                                        std::span<const int64_t> dim) {
 
