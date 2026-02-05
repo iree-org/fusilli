@@ -163,3 +163,42 @@ TEST_CASE("castToSizeT utility function", "[utils]") {
     REQUIRE(result[3] == 8192);
   }
 }
+
+TEST_CASE("allocateWorkspace helper function", "[utils][workspace]") {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+
+  SECTION("returns nullptr for nullopt") {
+    FUSILLI_REQUIRE_ASSIGN(auto workspace, allocateWorkspace(handle, std::nullopt));
+    REQUIRE(workspace == nullptr);
+  }
+
+  SECTION("returns nullptr for size 0") {
+    FUSILLI_REQUIRE_ASSIGN(auto workspace, allocateWorkspace(handle, 0));
+    REQUIRE(workspace == nullptr);
+  }
+
+  SECTION("allocates buffer for non-zero size") {
+    constexpr size_t bufferSize = 1024;
+    FUSILLI_REQUIRE_ASSIGN(auto workspace, allocateWorkspace(handle, bufferSize));
+    REQUIRE(workspace != nullptr);
+    REQUIRE(*workspace != nullptr);
+
+    // Verify the underlying buffer view has the expected shape (1D i8).
+    iree_hal_buffer_view_t *bufferView = *workspace;
+    REQUIRE(iree_hal_buffer_view_shape_rank(bufferView) == 1);
+    REQUIRE(iree_hal_buffer_view_shape_dim(bufferView, 0) == bufferSize);
+  }
+
+  SECTION("allocates different sizes correctly") {
+    // Small allocation
+    FUSILLI_REQUIRE_ASSIGN(auto small, allocateWorkspace(handle, 64));
+    REQUIRE(small != nullptr);
+    REQUIRE(iree_hal_buffer_view_shape_dim(*small, 0) == 64);
+
+    // Larger allocation (1 MB)
+    constexpr size_t oneMB = size_t{1024} * size_t{1024};
+    FUSILLI_REQUIRE_ASSIGN(auto large, allocateWorkspace(handle, oneMB));
+    REQUIRE(large != nullptr);
+    REQUIRE(iree_hal_buffer_view_shape_dim(*large, 0) == oneMB);
+  }
+}

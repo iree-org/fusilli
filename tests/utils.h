@@ -173,9 +173,9 @@ allocateBufferOfType(Handle &handle, const std::shared_ptr<TensorAttr> &tensor,
 inline ErrorOr<std::shared_ptr<Buffer>>
 allocateWorkspace(const Handle &handle,
                   std::optional<size_t> workspaceSize) {
-  if (!workspaceSize.has_value() || *workspaceSize == 0) {
+  if (!workspaceSize.has_value() || *workspaceSize == 0)
     return ok(std::shared_ptr<Buffer>(nullptr));
-  }
+
   FUSILLI_ASSIGN_OR_RETURN(auto workspaceBuf,
                            Buffer::allocateRaw(handle, *workspaceSize));
   return ok(std::make_shared<Buffer>(std::move(workspaceBuf)));
