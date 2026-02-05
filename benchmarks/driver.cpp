@@ -196,7 +196,8 @@ static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
   }
 
   // Allocate workspace buffer if needed.
-  FUSILLI_ASSIGN_OR_RETURN(auto workspace, allocateWorkspace(handle, graph));
+  FUSILLI_ASSIGN_OR_RETURN(auto workspace,
+                           allocateWorkspace(handle, graph.getWorkspaceSize()));
 
   // Execute graph a few times.
   for (size_t i = 0; i < iter; i++)
@@ -324,7 +325,8 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts, DataType aType,
   }
 
   // Allocate workspace buffer if needed.
-  FUSILLI_ASSIGN_OR_RETURN(auto workspace, allocateWorkspace(handle, graph));
+  FUSILLI_ASSIGN_OR_RETURN(auto workspace,
+                           allocateWorkspace(handle, graph.getWorkspaceSize()));
 
   // Execute graph `iter` times.
   for (size_t i = 0; i < iter; i++)
@@ -443,7 +445,8 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
       };
 
   // Allocate workspace buffer if needed.
-  FUSILLI_ASSIGN_OR_RETURN(auto workspace, allocateWorkspace(handle, graph));
+  FUSILLI_ASSIGN_OR_RETURN(auto workspace,
+                           allocateWorkspace(handle, graph.getWorkspaceSize()));
 
   // Execute graph a few times.
   for (size_t i = 0; i < iter; i++)
@@ -562,7 +565,8 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
       };
 
   // Allocate workspace buffer if needed.
-  FUSILLI_ASSIGN_OR_RETURN(auto workspace, allocateWorkspace(handle, graph));
+  FUSILLI_ASSIGN_OR_RETURN(auto workspace,
+                           allocateWorkspace(handle, graph.getWorkspaceSize()));
 
   // Execute graph a few times.
   for (size_t i = 0; i < iter; i++)

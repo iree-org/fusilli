@@ -96,7 +96,8 @@ TEST_CASE("Convolution fprop; X (NHWC), W (KRSC); 1x1 conv; no padding; relu",
       };
 
   // Allocate workspace buffer if needed.
-  FUSILLI_REQUIRE_ASSIGN(auto workspace, allocateWorkspace(handle, *graph));
+  FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                         allocateWorkspace(handle, graph->getWorkspaceSize()));
 
   // Execute graph once.
   FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));

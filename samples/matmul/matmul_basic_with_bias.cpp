@@ -104,7 +104,7 @@ TEST_CASE("Matrix multiplication with bias; A (M, K), B (K, N), bias (1, N); "
       };
 
   // Allocate workspace buffer if needed.
-  FUSILLI_REQUIRE_ASSIGN(auto workspace, allocateWorkspace(handle, *graph));
+  FUSILLI_REQUIRE_ASSIGN(auto workspace, allocateWorkspace(handle, graph->getWorkspaceSize()));
 
   // Execute graph once.
   FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
@@ -209,7 +209,7 @@ TEST_CASE("Matrix multiplication with bias; A (M, K), B^T (N, K), bias (1, N); "
       };
 
   // Allocate workspace buffer if needed.
-  FUSILLI_REQUIRE_ASSIGN(auto workspace, allocateWorkspace(handle, *graph));
+  FUSILLI_REQUIRE_ASSIGN(auto workspace, allocateWorkspace(handle, graph->getWorkspaceSize()));
 
   // Execute graph once.
   FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
