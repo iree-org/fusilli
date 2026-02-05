@@ -159,6 +159,9 @@ add_fusilli_lit_tests(
     lit/test_matmul_asm_emitter_broadcast_3D.cpp
     lit/test_matmul_asm_emitter_broadcast_4D.cpp
     lit/test_matmul_asm_emitter_noncontiguous.cpp
+    lit/test_reduction_asm_emitter_sum.cpp
+    lit/test_reduction_asm_emitter_min.cpp
+    lit/test_reduction_asm_emitter_max.cpp
   DEPS
     libfusilli
     libutils

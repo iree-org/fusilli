@@ -1293,6 +1293,124 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
 #undef FUSILLI_DECLARE_BINARY_TORCH_EMITTER
 #undef FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER
 
+//===----------------------------------------------------------------------===//
+//
+// ReductionNode ASM Emitter Methods
+//
+//===----------------------------------------------------------------------===//
+
+// Emits ReductionNode's operand names in MLIR assembly format.
+//
+// The unique suffix is included to ensure SSA uniqueness when the same
+// tensor is used by multiple operations in a graph.
+inline std::string ReductionNode::getOperandNamesAsm() const {
+  const auto &x = reductionAttr.getX();
+  std::string suffix = reductionAttr.getName();
+  return x->getValueNameAsm() + "_" + suffix + "_perm";
+}
+
+// Emits ReductionNode's operand types in MLIR assembly format.
+inline std::string ReductionNode::getOperandTypesAsm() const {
+  const auto &x = reductionAttr.getX();
+  return x->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
+}
+
+// Emits ReductionNode's result names in MLIR assembly format.
+inline std::string ReductionNode::getResultNamesAsm() const {
+  return reductionAttr.getY()->getValueNameAsm();
+}
+
+// Emits ReductionNode's result types in MLIR assembly format.
+inline std::string ReductionNode::getResultTypesAsm() const {
+  return reductionAttr.getY()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                                /*useLogicalDims=*/true);
+}
+
+inline std::string ReductionNode::emitNodePreAsm() const {
+  const auto &xT = reductionAttr.getX();
+  const auto &yT = reductionAttr.getY();
+
+  // Get which dimensions to reduce (validated in postValidateNode)
+  std::vector<int64_t> reductionDims = getReductionDims();
+
+  // Emit the reduction dimension list
+  std::ostringstream dimListOss;
+  std::string suffix = reductionAttr.getName();
+  dimListOss << getListOfIntOpsAsm(reductionDims, "reduction_dims", suffix);
+
+  std::string permuteX =
+      getPermuteOpsAsm(xT, "permute_X", suffix, /*isInput=*/true);
+  std::string permuteY =
+      getPermuteOpsAsm(yT, "permute_Y", suffix, /*isInput=*/false);
+
+  switch (reductionAttr.getMode()) {
+  case ReductionAttr::Mode::SUM: {
+    constexpr std::string_view schema = R"(
+    {0}
+    {1}
+    %keepdim_{2} = torch.constant.bool true
+    %dtype_{2} = torch.constant.none
+    {3}_{2}_perm = torch.aten.sum.dim_IntList {4}, %reduction_dims_{2}, %keepdim_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.bool, !torch.none -> {6}
+    {7}
+    )";
+
+    return std::format(schema,
+                       permuteX,             // {0}
+                       dimListOss.str(),     // {1}
+                       suffix,               // {2}
+                       getResultNamesAsm(),  // {3}
+                       getOperandNamesAsm(), // {4}
+                       getOperandTypesAsm(), // {5}
+                       getResultTypesAsm(),  // {6}
+                       permuteY              // {7}
+    );
+  }
+  case ReductionAttr::Mode::MIN: {
+    constexpr std::string_view schema = R"(
+    {0}
+    {1}
+    %keepdim_{2} = torch.constant.bool true
+    {3}_{2}_perm = torch.aten.amin {4}, %reduction_dims_{2}, %keepdim_{2} : {5}, !torch.list<int>, !torch.bool -> {6}
+    {7}
+    )";
+
+    return std::format(schema,
+                       permuteX,             // {0}
+                       dimListOss.str(),     // {1}
+                       suffix,               // {2}
+                       getResultNamesAsm(),  // {3}
+                       getOperandNamesAsm(), // {4}
+                       getOperandTypesAsm(), // {5}
+                       getResultTypesAsm(),  // {6}
+                       permuteY              // {7}
+    );
+  }
+  case ReductionAttr::Mode::MAX: {
+    constexpr std::string_view schema = R"(
+    {0}
+    {1}
+    %keepdim_{2} = torch.constant.bool true
+    {3}_{2}_perm = torch.aten.amax {4}, %reduction_dims_{2}, %keepdim_{2} : {5}, !torch.list<int>, !torch.bool -> {6}
+    {7}
+    )";
+
+    return std::format(schema,
+                       permuteX,             // {0}
+                       dimListOss.str(),     // {1}
+                       suffix,               // {2}
+                       getResultNamesAsm(),  // {3}
+                       getOperandNamesAsm(), // {4}
+                       getOperandTypesAsm(), // {5}
+                       getResultTypesAsm(),  // {6}
+                       permuteY              // {7}
+    );
+  }
+  default:
+    assert(false && "Unsupported reduction mode");
+    return "";
+  }
+}
+
 } // namespace fusilli
 
 #endif // FUSILLI_SUPPORT_ASM_EMITTER_H
