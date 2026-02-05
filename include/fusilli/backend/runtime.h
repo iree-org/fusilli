@@ -248,49 +248,58 @@ inline ErrorObject Graph::createPerGraphSession(const Handle &handle,
   FUSILLI_CHECK_ERROR(iree_runtime_session_append_bytecode_module_from_file(
       session_.get(), vmfbPath.c_str()));
 
-  // Query required workspace size from the compiled module.
-  // The --iree-torch-externalize-transients flag adds an attribute
-  // "iree.abi.transients.size.constant" with the required buffer size
-  // for the constant workspace size case, or an "iree.abi.transients.size"
-  // function for the data-dependent workspace size case. Only the former is
-  // supported by Fusilli at the moment.
+  // Query the required workspace size from the compiled module.
+  FUSILLI_LOG_LABEL_ENDL("INFO: Querying workspace size from compiled module");
+  FUSILLI_ASSIGN_OR_RETURN(workspaceSize_, queryTransientSize(handle));
+
+  return ok();
+}
+
+// Queries the required transient/workspace buffer size from the compiled
+// module. The --iree-torch-externalize-transients compiler flag adds an
+// attribute "iree.abi.transients.size.constant" with the required buffer size
+// for the constant workspace size case, or an "iree.abi.transients.size"
+// function for the data-dependent workspace size case. Only the former is
+// supported by Fusilli at the moment.
+inline ErrorOr<size_t> Graph::queryTransientSize(const Handle &handle) {
+  // Resolve the main function from the compiled module.
   bool executeAsync = kBackendExecuteAsync.at(handle.getBackend());
   iree_vm_context_t *context = iree_runtime_session_context(session_.get());
-  iree_vm_function_t mainFunction;
+  iree_vm_function_t mainFunc;
   FUSILLI_CHECK_ERROR(iree_vm_context_resolve_function(
       context,
       iree_make_cstring_view(executeAsync ? "module.main$async"
                                           : "module.main"),
-      &mainFunction));
+      &mainFunc));
 
-  workspaceSize_ = 0;
-
-  // Query the workspace size from the compiled module.
+  // First check for constant transient size attribute.
   iree_string_view_t sizeAttr = iree_vm_function_lookup_attr_by_name(
-      &mainFunction, IREE_SV("iree.abi.transients.size.constant"));
+      &mainFunc, IREE_SV("iree.abi.transients.size.constant"));
   if (!iree_string_view_is_empty(sizeAttr)) {
-    // First check for constant transient size attribute. If present, it means
-    // the workspace size is constant and can be queried at compile time.
     uint64_t size = 0;
     if (iree_string_view_atoi_uint64(sizeAttr, &size)) {
-      workspaceSize_ = static_cast<size_t>(size);
-      FUSILLI_LOG_LABEL_ENDL("INFO: Workspace size required: " << workspaceSize_
+      FUSILLI_LOG_LABEL_ENDL("INFO: Workspace size required: " << size
                                                                << " bytes");
+      return ok(static_cast<size_t>(size));
     }
-  } else {
-    // Check if dynamic transient size function is present. If so, it means
-    // the workspace size is data-dependent and needs to be queried at runtime.
-    // Fusilli doesn't support dynamic transient sizes yet.
-    iree_string_view_t dynamicSizeAttr = iree_vm_function_lookup_attr_by_name(
-        &mainFunction, IREE_SV("iree.abi.transients.size"));
-    FUSILLI_RETURN_ERROR_IF(
-        !iree_string_view_is_empty(dynamicSizeAttr), ErrorCode::NotImplemented,
-        "Dynamic transient sizes are not supported. The compiled module "
-        "requires a data-dependent workspace size that must be queried at "
-        "runtime.");
   }
 
-  return ok();
+  // Check if dynamic transient size function is present. Fusilli doesn't
+  // support dynamic transient sizes yet.
+  iree_string_view_t dynamicSizeAttr = iree_vm_function_lookup_attr_by_name(
+      &mainFunc, IREE_SV("iree.abi.transients.size"));
+  FUSILLI_RETURN_ERROR_IF(
+      !iree_string_view_is_empty(dynamicSizeAttr), ErrorCode::NotImplemented,
+      "Dynamic workspace sizes are not supported. The compiled module "
+      "requires a data-dependent transient size that must be queried at "
+      "runtime.");
+
+  // No transient size attributes found, no workspace needed.
+  // This is a catch-all for cases where the module was compiled without
+  // the --iree-torch-externalize-transients flag (could be the case for
+  // certain backends).
+  FUSILLI_LOG_LABEL_ENDL("INFO: No workspace allocation required");
+  return ok(static_cast<size_t>(0));
 }
 
 // Executes the graph using IREE runtime. Requires a `variantPack` which is a
