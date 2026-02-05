@@ -426,13 +426,8 @@ TEST_CASE("Graph `execute`", "[graph]") {
       };
 
   // Query and allocate workspace buffer if needed.
-  size_t workspaceSize = graph->getWorkspaceSize();
-  std::shared_ptr<Buffer> workspace = nullptr;
-  if (workspaceSize > 0) {
-    FUSILLI_REQUIRE_ASSIGN(auto workspaceBuf,
-                           Buffer::allocateRaw(handle, workspaceSize));
-    workspace = std::make_shared<Buffer>(std::move(workspaceBuf));
-  }
+  FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                         allocateWorkspace(handle, graph->getWorkspaceSize()));
 
   // Execute graph.
   FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
@@ -457,11 +452,12 @@ TEST_CASE("Graph `execute`", "[graph]") {
     REQUIRE(val == half(128.0f));
 }
 
-TEST_CASE("Graph `getWorkspaceSize` returns 0 before compilation", "[graph]") {
+TEST_CASE("Graph `getWorkspaceSize` returns nullopt before compilation",
+          "[graph]") {
   Graph g = testGraph(/*validate=*/true);
 
-  // Before compilation, workspace size should be 0.
-  REQUIRE(g.getWorkspaceSize() == 0);
+  // Before compilation, workspace size should be nullopt.
+  REQUIRE(!g.getWorkspaceSize().has_value());
 }
 
 TEST_CASE("Graph `getWorkspaceSize` after compilation", "[graph]") {
@@ -485,12 +481,12 @@ TEST_CASE("Graph `getWorkspaceSize` after compilation", "[graph]") {
   FUSILLI_REQUIRE_OK(g.compile(handle, /*remove=*/true));
 
   // After compilation, getWorkspaceSize returns the queried transient size.
-  // For this simple convolution graph without --iree-torch-externalize-transients,
-  // the workspace size should be 0 (no external transients needed).
-  size_t workspaceSize = g.getWorkspaceSize();
+  // It should have a value (not nullopt).
+  auto workspaceSize = g.getWorkspaceSize();
+  REQUIRE(workspaceSize.has_value());
   // The workspace size is implementation-dependent but should be queryable.
   // We just verify it's a valid value (>= 0, which is always true for size_t).
-  REQUIRE(workspaceSize >= 0);
+  REQUIRE(*workspaceSize >= 0);
 }
 
 TEST_CASE("Graph `getWorkspaceSize` consistency across multiple queries",
@@ -501,10 +497,11 @@ TEST_CASE("Graph `getWorkspaceSize` consistency across multiple queries",
   FUSILLI_REQUIRE_OK(g.compile(handle, /*remove=*/true));
 
   // Multiple queries should return the same value.
-  size_t size1 = g.getWorkspaceSize();
-  size_t size2 = g.getWorkspaceSize();
-  size_t size3 = g.getWorkspaceSize();
+  auto size1 = g.getWorkspaceSize();
+  auto size2 = g.getWorkspaceSize();
+  auto size3 = g.getWorkspaceSize();
 
+  REQUIRE(size1.has_value());
   REQUIRE(size1 == size2);
   REQUIRE(size2 == size3);
 }

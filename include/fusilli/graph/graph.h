@@ -275,9 +275,10 @@ public:
                                         const std::shared_ptr<TensorAttr> &in1,
                                         PointwiseAttr &attributes);
 
-  /// Query required workspace buffer size. Only valid after compile().
-  /// Returns 0 if no workspace needed.
-  size_t getWorkspaceSize() const { return workspaceSize_; }
+  /// Query required workspace buffer size.
+  /// Returns std::nullopt if not compiled, 0 if no workspace needed,
+  /// or the required size in bytes.
+  std::optional<size_t> getWorkspaceSize() const { return workspaceSize_; }
 
   // ASM emitter driver method.
   //
@@ -571,7 +572,8 @@ private:
 
   // Required workspace buffer size in bytes. Set during createPerGraphSession()
   // by querying the iree.abi.transients.size.constant attribute.
-  size_t workspaceSize_ = 0;
+  // std::nullopt indicates the graph has not been compiled yet.
+  std::optional<size_t> workspaceSize_ = std::nullopt;
 
   // IREE runtime session lifetime managed by the `Graph` object
   // (deleted when the `Graph` object goes out of scope).

@@ -168,15 +168,16 @@ allocateBufferOfType(Handle &handle, const std::shared_ptr<TensorAttr> &tensor,
 }
 
 // Allocates workspace buffer of the specified size.
-// Returns nullptr if no workspace is needed (size == 0).
+// Returns nullptr if no workspace is needed (size == 0 or nullopt).
 // This helper is used by tests and samples to simplify workspace allocation.
 inline ErrorOr<std::shared_ptr<Buffer>>
-allocateWorkspace(const Handle &handle, size_t workspaceSize) {
-  if (workspaceSize == 0) {
+allocateWorkspace(const Handle &handle,
+                  std::optional<size_t> workspaceSize) {
+  if (!workspaceSize.has_value() || *workspaceSize == 0) {
     return ok(std::shared_ptr<Buffer>(nullptr));
   }
   FUSILLI_ASSIGN_OR_RETURN(auto workspaceBuf,
-                           Buffer::allocateRaw(handle, workspaceSize));
+                           Buffer::allocateRaw(handle, *workspaceSize));
   return ok(std::make_shared<Buffer>(std::move(workspaceBuf)));
 }
 
