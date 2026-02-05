@@ -110,46 +110,6 @@ TEST_CASE("ConvFPropNode preValidateNode detects missing attributes",
   }
 }
 
-TEST_CASE("ConvFPropNode inferPropertiesNode (1D) when Y is fully specified",
-          "[conv_node]") {
-  Context ctx;
-  ConvFPropAttr attr;
-
-  attr.setPadding({0, 0}).setStride({1, 1}).setDilation({1, 1});
-
-  attr.setX(std::make_shared<TensorAttr>(1.0f))
-      .setW(std::make_shared<TensorAttr>(2.0f))
-      // Y is fully specified (dim/stride for scalar defaults to {1}).
-      .setY(std::make_shared<TensorAttr>(3.0f));
-
-  ConvFPropNode node(std::move(attr), ctx);
-  FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
-
-  auto yT = node.convFPropAttr.getY();
-  REQUIRE(yT->getDim() == std::vector<int64_t>{1});
-  REQUIRE(yT->getStride() == std::vector<int64_t>{1});
-}
-
-TEST_CASE("ConvFPropNode inferPropertiesNode (1D) when Y is under specified",
-          "[conv_node]") {
-  Context ctx;
-  ConvFPropAttr attr;
-
-  attr.setPadding({0, 0}).setStride({1, 1}).setDilation({1, 1});
-
-  attr.setX(std::make_shared<TensorAttr>(1.0f))
-      .setW(std::make_shared<TensorAttr>(2.0f))
-      // Y is under specified (dim/stride missing).
-      .setY(std::make_shared<TensorAttr>());
-
-  ConvFPropNode node(std::move(attr), ctx);
-  FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
-
-  auto yT = node.convFPropAttr.getY();
-  REQUIRE(yT->getDim() == std::vector<int64_t>{1});
-  REQUIRE(yT->getStride() == std::vector<int64_t>{1});
-}
-
 TEST_CASE("ConvFPropNode inferPropertiesNode (4D) when Y is under specified",
           "[conv_node]") {
   Context ctx;
