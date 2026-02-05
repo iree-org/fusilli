@@ -403,10 +403,9 @@ Graph::execute(const Handle &handle,
       FUSILLI_CHECK_ERROR(iree_hal_fence_create(
           kDummyFenceCapacity, iree_allocator_system(), &waitFence));
 
-      iree_vm_ref_t waitFenceRef = iree_hal_fence_retain_ref(waitFence);
+      iree_vm_ref_t waitFenceRef = iree_hal_fence_move_ref(waitFence);
       FUSILLI_CHECK_ERROR(
           iree_vm_list_push_ref_move(call.inputs, &waitFenceRef));
-      iree_vm_ref_release(&waitFenceRef);
     }
     // Create dummy signal fence (tells downstream consumers that kernel has
     // ran) that's already completed.
@@ -415,10 +414,9 @@ Graph::execute(const Handle &handle,
       FUSILLI_CHECK_ERROR(iree_hal_fence_create(
           kDummyFenceCapacity, iree_allocator_system(), &signalFence));
 
-      iree_vm_ref_t signalFenceRef = iree_hal_fence_retain_ref(signalFence);
+      iree_vm_ref_t signalFenceRef = iree_hal_fence_move_ref(signalFence);
       FUSILLI_CHECK_ERROR(
           iree_vm_list_push_ref_move(call.inputs, &signalFenceRef));
-      iree_vm_ref_release(&signalFenceRef);
     }
   }
 
