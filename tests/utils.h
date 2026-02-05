@@ -182,7 +182,9 @@ allocateBufferOfType(Handle &handle, const std::shared_ptr<TensorAttr> &tensor,
 
   FUSILLI_ASSIGN_OR_RETURN(
       auto buffer,
-      Buffer::allocate(handle, castToSizeT(tensor->getPhysicalDim()), data));
+      Buffer::allocate(handle,
+                       /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
+                       /*bufferData=*/data));
   return std::make_shared<Buffer>(std::move(buffer));
 }
 
