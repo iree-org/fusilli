@@ -380,38 +380,23 @@ TEST_CASE("Graph `execute`", "[graph]") {
   auto [graph, X, W, Y] = buildNewGraph(handle);
 
   // Allocate input buffer.
-  FUSILLI_REQUIRE_ASSIGN(
-      Buffer xBuffer,
-      Buffer::allocate(
-          handle,
-          /*bufferShape=*/castToSizeT({n, c, h, w}),
-          /*bufferData=*/std::vector<half>(n * c * h * w, half(1.0f))));
-  auto xBuf = std::make_shared<Buffer>(std::move(xBuffer));
   // xBuf is a shared_ptr<Buffer> and *xBuf is the de-referenced Buffer obj.
   // Hence checking `*xBuf != nullptr` might seem weird at first, but due to
   // the implicit automatic cast from `Buffer` -> `iree_hal_buffer_view_t *`,
   // `*xBuf != nullptr` simply checks that the underlying raw
   // `iree_hal_buffer_view_t *` is not NULL which is what we expect.
+  FUSILLI_REQUIRE_ASSIGN(auto xBuf,
+                         allocateBufferOfType(handle, X, DataType::Half, 1.0f));
   REQUIRE(*xBuf != nullptr);
 
   // Allocate weight buffer.
-  FUSILLI_REQUIRE_ASSIGN(
-      Buffer wBuffer,
-      Buffer::allocate(
-          handle,
-          /*bufferShape=*/castToSizeT({k, c, r, s}),
-          /*bufferData=*/std::vector<half>(k * c * r * s, half(1.0f))));
-  auto wBuf = std::make_shared<Buffer>(std::move(wBuffer));
+  FUSILLI_REQUIRE_ASSIGN(auto wBuf,
+                         allocateBufferOfType(handle, W, DataType::Half, 1.0f));
   REQUIRE(*wBuf != nullptr);
 
   // Allocate output buffer.
-  FUSILLI_REQUIRE_ASSIGN(
-      Buffer yBuffer,
-      Buffer::allocate(
-          handle,
-          /*bufferShape=*/castToSizeT({n, k, h, w}),
-          /*bufferData=*/std::vector<half>(n * k * h * w, half(0.0f))));
-  auto yBuf = std::make_shared<Buffer>(std::move(yBuffer));
+  FUSILLI_REQUIRE_ASSIGN(auto yBuf,
+                         allocateBufferOfType(handle, Y, DataType::Half, 0.0f));
   REQUIRE(*yBuf != nullptr);
 
   // Create variant pack.

@@ -90,14 +90,10 @@ TEST_CASE("Pointwise add with transposed operand", "[pointwise][graph]") {
   auto [graph, aT, bT, resultT] = buildNewGraph(handle);
 
   // Allocate input buffers and initialize with input data
-  FUSILLI_REQUIRE_ASSIGN(
-      Buffer aBuffer,
-      Buffer::allocate(handle, castToSizeT(aT->getPhysicalDim()), inputData));
-  auto aBuf = std::make_shared<Buffer>(std::move(aBuffer));
-  FUSILLI_REQUIRE_ASSIGN(
-      Buffer bBuffer,
-      Buffer::allocate(handle, castToSizeT(bT->getPhysicalDim()), inputData));
-  auto bBuf = std::make_shared<Buffer>(std::move(bBuffer));
+  FUSILLI_REQUIRE_ASSIGN(auto aBuf,
+                         allocateBufferOfType(handle, aT, inputData));
+  FUSILLI_REQUIRE_ASSIGN(auto bBuf,
+                         allocateBufferOfType(handle, bT, inputData));
 
   // Allocate output buffer
   FUSILLI_REQUIRE_ASSIGN(

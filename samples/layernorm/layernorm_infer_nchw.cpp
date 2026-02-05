@@ -77,10 +77,8 @@ TEST_CASE("Layer normalization; inference mode; NCHW layout; no bias/scale",
       layernorm_utils::generateIOTensorsForInferForward(n, c, h, w, 1.f, 0.f,
                                                         eps);
 
-  FUSILLI_REQUIRE_ASSIGN(
-      Buffer xBuffer,
-      Buffer::allocate(handle, castToSizeT(xT->getPhysicalDim()), inputVals));
-  auto xBuf = std::make_shared<Buffer>(std::move(xBuffer));
+  FUSILLI_REQUIRE_ASSIGN(auto xBuf,
+                         allocateBufferOfType(handle, xT, inputVals));
   FUSILLI_REQUIRE_ASSIGN(
       auto yBuf, allocateBufferOfType(handle, yT, DataType::Float, 0.0f));
 
