@@ -250,7 +250,10 @@ inline ErrorObject Graph::createPerGraphSession(const Handle &handle,
 
   // Query required workspace size from the compiled module.
   // The --iree-torch-externalize-transients flag adds an attribute
-  // "iree.abi.transients.size.constant" with the required buffer size.
+  // "iree.abi.transients.size.constant" with the required buffer size
+  // for the constant workspace size case, or an "iree.abi.transients.size"
+  // function for the data-dependent workspace size case. Only the former is
+  // supported by Fusilli at the moment.
   bool executeAsync = kBackendExecuteAsync.at(handle.getBackend());
   iree_vm_context_t *context = iree_runtime_session_context(session_.get());
   iree_vm_function_t mainFunction;
@@ -260,11 +263,14 @@ inline ErrorObject Graph::createPerGraphSession(const Handle &handle,
                                           : "module.main"),
       &mainFunction));
 
+  workspaceSize_ = 0;
+
+  // Query the workspace size from the compiled module.
   iree_string_view_t sizeAttr = iree_vm_function_lookup_attr_by_name(
       &mainFunction, IREE_SV("iree.abi.transients.size.constant"));
-
-  workspaceSize_ = 0;
   if (!iree_string_view_is_empty(sizeAttr)) {
+    // First check for constant transient size attribute. If present, it means
+    // the workspace size is constant and can be queried at compile time.
     uint64_t size = 0;
     if (iree_string_view_atoi_uint64(sizeAttr, &size)) {
       workspaceSize_ = static_cast<size_t>(size);
