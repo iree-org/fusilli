@@ -63,20 +63,12 @@ TEST_CASE("Convolution wgrad; DY/X (NHWC), DW (KRSC); 1x1; no padding; "
     return std::make_tuple(graph, dyT, xT, dwT);
   };
 
-  // Parameterize sample by backend and create device-specific handles.
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
+  // Create handle for the target backend.
 #ifdef FUSILLI_ENABLE_AMDGPU
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+#else
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
 #endif
-  REQUIRE(handlePtr != nullptr);
-  Handle &handle = *handlePtr;
 
   auto [graph, dyT, xT, dwT] = buildNewGraph(handle);
 

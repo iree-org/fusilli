@@ -48,9 +48,8 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
   const auto mode = GENERATE(ReductionAttr::Mode::SUM, ReductionAttr::Mode::MIN,
                              ReductionAttr::Mode::MAX);
 
-  auto execute = [&]<typename T>(const std::shared_ptr<Handle> &handlePtr,
-                                 DataType dt, T initValue) {
-    auto buildNewGraph = [&](const Handle &handle) {
+  auto execute = [&]<typename T>(Handle &handle, DataType dt, T initValue) {
+    auto buildNewGraph = [&](Handle &handleArg) {
       // Create graph
       auto graph = std::make_shared<Graph>();
       graph->setName(generateName(mode, dt, xDims, yDims));
@@ -75,12 +74,10 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
       FUSILLI_REQUIRE_OK(graph->validate());
 
       // Compile
-      FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+      FUSILLI_REQUIRE_OK(graph->compile(handleArg, /*remove=*/true));
 
       return std::make_tuple(graph, xT, yT);
     };
-
-    Handle &handle = *handlePtr;
     auto [graph, xT, yT] = buildNewGraph(handle);
 
     // Calculate total input size
@@ -155,17 +152,11 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
       REQUIRE(result[checkIdx] == expectedValue);
   };
 
-  // Parameterize sample by backend and create device-specific handles
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
+  // Create handle for the target backend.
 #ifdef FUSILLI_ENABLE_AMDGPU
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+#else
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
 #endif
 
   // Determine initial value based on reduction mode
@@ -183,10 +174,10 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
   };
 
   // int32
-  execute(handlePtr, DataType::Int32, getInitValue.template operator()<int>());
+  execute(handle, DataType::Int32, getInitValue.template operator()<int>());
   // fp16
-  execute(handlePtr, DataType::Half, getInitValue.template operator()<half>());
+  execute(handle, DataType::Half, getInitValue.template operator()<half>());
   // fp32
-  execute(handlePtr, DataType::Float,
+  execute(handle, DataType::Float,
           getInitValue.template operator()<float>());
 }

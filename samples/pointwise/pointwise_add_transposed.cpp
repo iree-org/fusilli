@@ -37,20 +37,14 @@ TEST_CASE("Pointwise add with transposed operand", "[pointwise][graph]") {
   };
   // clang-format on
 
-  // Parameterize sample by backend and create device-specific handles
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
+  // Create handle for the target backend.
 #ifdef FUSILLI_ENABLE_AMDGPU
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
+#else
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
 #endif
 
-  auto buildNewGraph = [&](const Handle &handle) {
+  auto buildNewGraph = [&](const Handle &handleArg) {
     // Create graph
     auto graph = std::make_shared<Graph>();
     graph->setName("pointwise_add_transposed");
@@ -80,12 +74,11 @@ TEST_CASE("Pointwise add with transposed operand", "[pointwise][graph]") {
     FUSILLI_REQUIRE_OK(graph->validate());
 
     // Compile
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handleArg, /*remove=*/true));
 
     return std::make_tuple(graph, aT, bT, resultT);
   };
 
-  Handle &handle = *handlePtr;
   // Build graph for the given handle (device), validate and compile it.
   auto [graph, aT, bT, resultT] = buildNewGraph(handle);
 
