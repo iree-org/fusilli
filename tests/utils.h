@@ -170,8 +170,8 @@ allocateBufferOfType(Handle &handle, const std::shared_ptr<TensorAttr> &tensor,
 // Allocates workspace buffer of the specified size.
 // Returns nullptr if no workspace is needed (size == 0).
 // This helper is used by tests and samples to simplify workspace allocation.
-inline ErrorOr<std::shared_ptr<Buffer>> allocateWorkspace(const Handle &handle,
-                                                          size_t workspaceSize) {
+inline ErrorOr<std::shared_ptr<Buffer>>
+allocateWorkspace(const Handle &handle, size_t workspaceSize) {
   if (workspaceSize == 0) {
     return ok(std::shared_ptr<Buffer>(nullptr));
   }

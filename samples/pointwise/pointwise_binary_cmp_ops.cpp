@@ -106,7 +106,8 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
         };
 
     // Allocate workspace buffer if needed.
-    FUSILLI_REQUIRE_ASSIGN(auto workspace, allocateWorkspace(handle, graph->getWorkspaceSize()));
+    FUSILLI_REQUIRE_ASSIGN(
+        auto workspace, allocateWorkspace(handle, graph->getWorkspaceSize()));
 
     // Execute graph once.
     FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));

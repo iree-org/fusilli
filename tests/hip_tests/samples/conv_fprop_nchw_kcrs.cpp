@@ -97,7 +97,8 @@ TEST_CASE("Convolution fprop with hip stream; X (NCHW), W (KCRS); 1x1 conv; no "
       };
 
   // Allocate workspace buffer if needed.
-  FUSILLI_REQUIRE_ASSIGN(auto workspace, allocateWorkspace(handle, graph.getWorkspaceSize()));
+  FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                         allocateWorkspace(handle, graph.getWorkspaceSize()));
 
   // Execute graph once.
   FUSILLI_REQUIRE_OK(graph.execute(handle, variantPack, workspace));
