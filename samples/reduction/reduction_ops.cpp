@@ -94,10 +94,7 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
       xData[i] = static_cast<T>(i % 100 - 50);
     }
 
-    FUSILLI_REQUIRE_ASSIGN(
-        Buffer xBufVal,
-        Buffer::allocate(handle, castToSizeT(xT->getPhysicalDim()), xData));
-    auto xBuf = std::make_shared<Buffer>(std::move(xBufVal));
+    FUSILLI_REQUIRE_ASSIGN(auto xBuf, allocateBufferOfType(handle, xT, xData));
     FUSILLI_REQUIRE_ASSIGN(auto yBuf,
                            allocateBufferOfType(handle, yT, dt, initValue));
     const std::unordered_map<std::shared_ptr<TensorAttr>,

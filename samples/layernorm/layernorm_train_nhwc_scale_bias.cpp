@@ -84,10 +84,8 @@ TEST_CASE("Layer normalization; training mode; NHWC layout; scale, bias",
       layernorm_utils::generateIOTensorsForTrainForward(n, c, h, w, scale, bias,
                                                         eps);
 
-  FUSILLI_REQUIRE_ASSIGN(
-      Buffer xBuffer,
-      Buffer::allocate(handle, castToSizeT(xT->getPhysicalDim()), inputVals));
-  auto xBuf = std::make_shared<Buffer>(std::move(xBuffer));
+  FUSILLI_REQUIRE_ASSIGN(auto xBuf,
+                         allocateBufferOfType(handle, xT, inputVals));
   FUSILLI_REQUIRE_ASSIGN(
       auto sBuf, allocateBufferOfType(handle, sT, DataType::Float, scale));
   FUSILLI_REQUIRE_ASSIGN(
