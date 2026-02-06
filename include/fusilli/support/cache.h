@@ -29,7 +29,7 @@
 #include <system_error>
 #include <utility>
 
-#if defined(FUSILLI_PLATFORM_WINDOWS)
+#ifdef FUSILLI_PLATFORM_WINDOWS
 #define WIN32_LEAN_AND_MEAN
 #include <KnownFolders.h>
 #include <shlobj.h>
@@ -121,7 +121,7 @@ public:
       cacheDir = std::wstring(cacheDirStr.begin(), cacheDirStr.end());
     }
 
-#if defined(FUSILLI_PLATFORM_WINDOWS)
+#ifdef FUSILLI_PLATFORM_WINDOWS
     if (cacheDir.empty()) {
       PWSTR pathBuf = nullptr;
       HRESULT hr =

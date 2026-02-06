@@ -23,12 +23,14 @@
 #include "fusilli/support/target_platform.h"
 #include <string>
 
-#if defined(FUSILLI_PLATFORM_WINDOWS)
+#ifdef FUSILLI_PLATFORM_WINDOWS
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
-#else
+#elif defined(FUSILLI_PLATFORM_LINUX)
 #include <dlfcn.h>
+#else
+#error "Unsupported platform"
 #endif
 
 namespace fusilli {
@@ -95,7 +97,7 @@ public:
       assert(isOk(err) && "Error closing library during load");
     }
 
-#if defined(FUSILLI_PLATFORM_WINDOWS)
+#ifdef FUSILLI_PLATFORM_WINDOWS
     handle_ = LoadLibraryExA(path.c_str(), nullptr, 0);
     if (!handle_) {
       DWORD errorCode = GetLastError();
@@ -140,7 +142,7 @@ public:
       return error(ErrorCode::InternalError, "Library not loaded");
     }
 
-#if defined(FUSILLI_PLATFORM_WINDOWS)
+#ifdef FUSILLI_PLATFORM_WINDOWS
     void *sym = reinterpret_cast<void *>(GetProcAddress(handle_, name));
     if (!sym) {
       DWORD errorCode = GetLastError();
@@ -186,7 +188,7 @@ public:
   /// Safe to call multiple times or on an unloaded library.
   ErrorObject close() {
     if (handle_) {
-#if defined(FUSILLI_PLATFORM_WINDOWS)
+#ifdef FUSILLI_PLATFORM_WINDOWS
       FreeLibrary(handle_);
 #elif defined(FUSILLI_PLATFORM_LINUX)
       dlclose(handle_);
@@ -202,7 +204,7 @@ public:
   bool isLoaded() const { return handle_ != nullptr; }
 
 private:
-#if defined(FUSILLI_PLATFORM_WINDOWS)
+#ifdef FUSILLI_PLATFORM_WINDOWS
   HMODULE handle_ = nullptr;
 #elif defined(FUSILLI_PLATFORM_LINUX)
   void *handle_ = nullptr;

@@ -33,7 +33,7 @@ inline std::vector<std::string> getPythonSitePackages() {
   std::vector<std::string> sitePaths;
 
   // Try to get site-packages from Python.
-#if defined(FUSILLI_PLATFORM_WINDOWS)
+#ifdef FUSILLI_PLATFORM_WINDOWS
   const char *pythonCmd =
       "python -c \"import site; print('\\n'.join(site.getsitepackages()))\" "
       "2> NUL";
@@ -94,7 +94,7 @@ inline std::optional<std::string> findIreeCompilerLib() {
   static std::optional<std::string> libPath;
   if (libPath.has_value())
     return libPath;
-#if defined(FUSILLI_PLATFORM_WINDOWS)
+#ifdef FUSILLI_PLATFORM_WINDOWS
   const char *libRelPath = "iree\\compiler\\_mlir_libs\\IREECompiler.dll";
   const char *libRelPathUnd = "iree_compiler\\_mlir_libs\\IREECompiler.dll";
 #elif defined(FUSILLI_PLATFORM_LINUX)
