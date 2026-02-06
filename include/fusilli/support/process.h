@@ -28,7 +28,7 @@ namespace fusilli {
 struct PopenDeleter {
   void operator()(FILE *fp) const {
     if (fp)
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
       _pclose(fp);
 #else
       pclose(fp);
@@ -41,9 +41,9 @@ inline std::optional<std::string> execCommand(const std::string &cmd) {
   std::array<char, 128> buffer;
   std::string result;
 
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
   FILE *opened = _popen(cmd.c_str(), "r");
-#elif FUSILLI_PLATFORM_LINUX
+#elif defined(FUSILLI_PLATFORM_LINUX)
   FILE *opened = popen(cmd.c_str(), "r");
 #else
 #error "Unsupported platform"
