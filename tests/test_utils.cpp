@@ -309,7 +309,7 @@ TEST_CASE("allocateBufferOfType templated with data vector",
 }
 
 TEST_CASE("allocateBufferOfType with null tensor", "[utils][buffer][error]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   std::shared_ptr<TensorAttr> nullTensor = nullptr;
 

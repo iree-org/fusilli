@@ -100,7 +100,7 @@ TEST_CASE("Buffer errors", "[buffer]") {
 
   SECTION("Reading into a non-empty vector") {
     // Reading into a non-empty vector should fail.
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
     // Allocate a buffer of shape [2, 3] with all elements set to 1.0f (float).
     std::vector<float> data(6, 0.0f);
@@ -124,7 +124,7 @@ TEST_CASE("Buffer errors", "[buffer]") {
   }
 
   SECTION("Buffer allocation with mismatched data size") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
     // Test case 1: bufferData has more elements than bufferShape expects.
     std::vector<float> tooMuchData(10, 1.0f);
@@ -148,7 +148,7 @@ TEST_CASE("Buffer errors", "[buffer]") {
   }
 
   SECTION("Buffer allocation with zero dimension") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
     // Test case 1: bufferShape with a zero dimension.
     std::vector<float> someData(5, 1.0f);
