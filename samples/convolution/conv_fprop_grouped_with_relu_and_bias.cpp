@@ -103,7 +103,7 @@ TEST_CASE("Convolution fprop; X (NHWC), W (KRSC); 1x1 conv; no "
   FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack));
 
   // Calculate expected output value.
-  constexpr half expected = std::max(
+  const half expected = std::max(
       static_cast<float>(fc * r * s) * inputScalar * inputScalar + inputScalar,
       0.0f);
 

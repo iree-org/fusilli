@@ -14,6 +14,7 @@
 #define FUSILLI_SUPPORT_PYTHON_UTILS_H
 
 #include "fusilli/support/process.h"
+#include "fusilli/support/target_platform.h"
 
 #include <array>
 #include <cstdio>
@@ -31,19 +32,30 @@ namespace fusilli {
 inline std::vector<std::string> getPythonSitePackages() {
   std::vector<std::string> sitePaths;
 
-  // Try to get site-packages from Python
+  // Try to get site-packages from Python.
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  const char *pythonCmd =
+      "python -c \"import site; print('\\n'.join(site.getsitepackages()))\" "
+      "2> NUL";
+#elif defined(FUSILLI_PLATFORM_LINUX)
   const char *pythonCmd =
       "python3 -c \"import site; print('\\n'.join(site.getsitepackages()))\" "
       "2>/dev/null";
+#else
+#error "unknown platform"
+#endif
 
   auto output = execCommand(pythonCmd);
   if (!output.has_value() || output->empty())
     return sitePaths;
 
-  // Parse the output - one path per line
+  // Parse the output - one path per line.
+  // Handle both \n and \r for cross-platform compatibility.
   std::string path;
   for (char c : *output) {
-    if (c == '\n') {
+    // Strip out any trailing newlines or carriage returns, and split on
+    // newlines.
+    if (c == '\n' || c == '\r') {
       if (!path.empty()) {
         sitePaths.push_back(path);
         path.clear();
@@ -75,7 +87,7 @@ findInSitePackages(const std::string &relativePathPattern) {
   return std::nullopt;
 }
 
-// Searches for libIREECompiler.so in Python site-packages.
+// Searches for the IREE compiler library in Python site-packages.
 // Specifically looks in the iree/compiler/_mlir_libs/ subdirectory
 // where it's typically installed by pip.
 inline std::optional<std::string> findIreeCompilerLib() {
@@ -84,14 +96,23 @@ inline std::optional<std::string> findIreeCompilerLib() {
   static std::optional<std::string> libPath;
   if (libPath.has_value())
     return libPath;
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  const char *libRelPath = "iree\\compiler\\_mlir_libs\\IREECompiler.dll";
+  const char *libRelPathUnd = "iree_compiler\\_mlir_libs\\IREECompiler.dll";
+#elif defined(FUSILLI_PLATFORM_LINUX)
+  const char *libRelPath = "iree/compiler/_mlir_libs/libIREECompiler.so";
+  const char *libRelPathUnd = "iree_compiler/_mlir_libs/libIREECompiler.so";
+#else
+#error "unknown platform"
+#endif
 
   // Try the standard pip install location
-  libPath = findInSitePackages("iree/compiler/_mlir_libs/libIREECompiler.so");
+  libPath = findInSitePackages(libRelPath);
   if (libPath.has_value())
     return libPath;
 
   // Try alternative locations
-  libPath = findInSitePackages("iree_compiler/_mlir_libs/libIREECompiler.so");
+  libPath = findInSitePackages(libRelPathUnd);
   return libPath;
 }
 

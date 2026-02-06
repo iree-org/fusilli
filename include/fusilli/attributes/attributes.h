@@ -33,6 +33,10 @@ namespace fusilli {
 //
 // These are used to populate metadata (e.g. data types) from the context,
 // as well as have the macros auto-generate getters/setters for inputs/outputs.
+//
+// NOTE: `unordered_map` iteration order is non-deterministic. When iterating
+// over inputs/outputs, prefer using the typed getters (e.g. getIN_0(),
+// getIN_1(), ...) for deterministic ordering.
 template <typename DerivedT> class AttributesCRTP {
 public:
   DataType computeDataType = DataType::NotSet;

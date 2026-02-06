@@ -19,6 +19,7 @@
 #include "fusilli/support/external_tools.h"
 #include "fusilli/support/extras.h"
 #include "fusilli/support/logging.h"
+#include "fusilli/support/target_platform.h"
 
 #include <cstdlib>
 #include <sstream>
@@ -117,7 +118,11 @@ public:
         [&](const std::string &arg) { cmdss << arg; },
         // between_fn:
         [&] { cmdss << " "; });
+#ifdef FUSILLI_PLATFORM_WINDOWS
+    return cmdss.str() + "\r\n";
+#else
     return cmdss.str() + "\n";
+#endif
   }
 
   // Writes the command to the specified cache file.

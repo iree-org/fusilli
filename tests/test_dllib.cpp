@@ -11,6 +11,14 @@
 #include <cmath>
 #include <utility>
 
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+constexpr const char *kLibName = "msvcrt.dll";
+#elif defined(FUSILLI_PLATFORM_LINUX)
+constexpr const char *kLibName = "libm.so.6";
+#else
+#error "unknown platform"
+#endif
+
 using namespace fusilli;
 
 // TODO(#126): Add Windows tests once we have a Windows CI environment.
@@ -23,7 +31,7 @@ TEST_CASE("DynamicLibrary load and close libm", "[dllib]") {
   DynamicLibrary lib;
 
   // libm should be available on all Linux systems.
-  ErrorObject loadErr = lib.load("libm.so.6");
+  ErrorObject loadErr = lib.load(kLibName);
   REQUIRE(isOk(loadErr));
   REQUIRE(lib.isLoaded());
 
@@ -35,7 +43,7 @@ TEST_CASE("DynamicLibrary load and close libm", "[dllib]") {
 TEST_CASE("DynamicLibrary getSymbol", "[dllib]") {
   DynamicLibrary lib;
 
-  ErrorObject loadErr = lib.load("libm.so.6");
+  ErrorObject loadErr = lib.load(kLibName);
   REQUIRE(isOk(loadErr));
 
   // Get the cos function from libm.
@@ -59,7 +67,7 @@ TEST_CASE("DynamicLibrary getSymbol", "[dllib]") {
 TEST_CASE("DynamicLibrary getSymbol not found", "[dllib]") {
   DynamicLibrary lib;
 
-  ErrorObject loadErr = lib.load("libm.so.6");
+  ErrorObject loadErr = lib.load(kLibName);
   REQUIRE(isOk(loadErr));
 
   // Try to get a symbol that doesn't exist.
@@ -98,7 +106,7 @@ TEST_CASE("DynamicLibrary close without load", "[dllib]") {
 TEST_CASE("DynamicLibrary double close", "[dllib]") {
   DynamicLibrary lib;
 
-  ErrorObject loadErr = lib.load("libm.so.6");
+  ErrorObject loadErr = lib.load(kLibName);
   REQUIRE(isOk(loadErr));
 
   ErrorObject closeErr = lib.close();
@@ -113,7 +121,7 @@ TEST_CASE("DynamicLibrary double close", "[dllib]") {
 
 TEST_CASE("DynamicLibrary move constructor", "[dllib]") {
   DynamicLibrary lib1;
-  ErrorObject loadErr = lib1.load("libm.so.6");
+  ErrorObject loadErr = lib1.load(kLibName);
   REQUIRE(isOk(loadErr));
 
   // Move construct lib2 from lib1.
@@ -134,7 +142,7 @@ TEST_CASE("DynamicLibrary move constructor", "[dllib]") {
 
 TEST_CASE("DynamicLibrary move assignment", "[dllib]") {
   DynamicLibrary lib1;
-  ErrorObject loadErr = lib1.load("libm.so.6");
+  ErrorObject loadErr = lib1.load(kLibName);
   REQUIRE(isOk(loadErr));
 
   // Move assign lib1 to lib2.
@@ -156,11 +164,11 @@ TEST_CASE("DynamicLibrary move assignment", "[dllib]") {
 
 TEST_CASE("DynamicLibrary move assignment closes existing", "[dllib]") {
   DynamicLibrary lib1;
-  ErrorObject loaded1 = lib1.load("libm.so.6");
+  ErrorObject loaded1 = lib1.load(kLibName);
   REQUIRE(isOk(loaded1));
 
   DynamicLibrary lib2;
-  ErrorObject loaded2 = lib2.load("libm.so.6");
+  ErrorObject loaded2 = lib2.load(kLibName);
   REQUIRE(isOk(loaded2));
 
   // Move assign lib1 to lib2, which should close lib2's existing library.
@@ -172,7 +180,7 @@ TEST_CASE("DynamicLibrary move assignment closes existing", "[dllib]") {
 
 TEST_CASE("DynamicLibrary self move assignment", "[dllib]") {
   DynamicLibrary lib;
-  ErrorObject loadErr = lib.load("libm.so.6");
+  ErrorObject loadErr = lib.load(kLibName);
   REQUIRE(isOk(loadErr));
 
   // Self-move should be safe (no-op).
@@ -186,7 +194,7 @@ TEST_CASE("DynamicLibrary destructor closes library", "[dllib]") {
   void *handle = nullptr;
   {
     DynamicLibrary lib;
-    ErrorObject loadErr = lib.load("libm.so.6");
+    ErrorObject loadErr = lib.load(kLibName);
     REQUIRE(isOk(loadErr));
     // lib goes out of scope here, destructor should close the library.
   }
@@ -197,11 +205,11 @@ TEST_CASE("DynamicLibrary destructor closes library", "[dllib]") {
 TEST_CASE("DynamicLibrary reload", "[dllib]") {
   DynamicLibrary lib;
 
-  ErrorObject loaded1 = lib.load("libm.so.6");
+  ErrorObject loaded1 = lib.load(kLibName);
   REQUIRE(isOk(loaded1));
 
   // Loading again should close the old library and load a new one.
-  ErrorObject loaded2 = lib.load("libm.so.6");
+  ErrorObject loaded2 = lib.load(kLibName);
   REQUIRE(isOk(loaded2));
   REQUIRE(lib.isLoaded());
   // Note: handle might be the same or different depending on the loader.

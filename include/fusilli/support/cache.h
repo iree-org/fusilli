@@ -14,6 +14,7 @@
 #define FUSILLI_SUPPORT_CACHE_H
 
 #include "fusilli/support/logging.h"
+#include "fusilli/support/target_platform.h"
 
 #include <algorithm>
 #include <cassert>
@@ -27,6 +28,13 @@
 #include <string>
 #include <system_error>
 #include <utility>
+
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+#define WIN32_LEAN_AND_MEAN
+#include <KnownFolders.h>
+#include <shlobj.h>
+#include <windows.h>
+#endif
 
 namespace fusilli {
 
@@ -101,6 +109,46 @@ public:
     return ok(CacheFile(path, /*remove=*/false));
   }
 
+  static std::filesystem::path getCacheDir() {
+    // Defaults to "${HOME}/.cache/fusilli" but having it set via
+    // ${FUSILLI_CACHE_DIR} to "/tmp" helps bypass permission issues on
+    // the GitHub Actions CI runners as well as for LIT tests that rely
+    // on dumping/reading intermediate compilation artifacts to/from disk.
+    const char *cacheDirEnv = std::getenv("FUSILLI_CACHE_DIR");
+    std::wstring cacheDir;
+    if (cacheDirEnv) {
+      std::string cacheDirStr(cacheDirEnv);
+      cacheDir = std::wstring(cacheDirStr.begin(), cacheDirStr.end());
+    }
+
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+    if (cacheDir.empty()) {
+      PWSTR pathBuf = nullptr;
+      HRESULT hr =
+          SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, NULL, &pathBuf);
+      if (SUCCEEDED(hr)) {
+        std::string cacheDirStr = std::filesystem::path(pathBuf).string();
+        cacheDir = std::wstring(cacheDirStr.begin(), cacheDirStr.end());
+      }
+      if (pathBuf)
+        CoTaskMemFree(pathBuf);
+    }
+    return std::filesystem::path(cacheDir) / "fusilli";
+#elif defined(FUSILLI_PLATFORM_LINUX)
+    if (cacheDir.empty()) {
+      const char *home = std::getenv("HOME");
+      if (home) {
+        std::string cacheDirStr(home);
+        cacheDir = std::wstring(cacheDirStr.begin(), cacheDirStr.end());
+      }
+    }
+    return std::filesystem::path(cacheDir) / ".cache" / "fusilli";
+#else
+#error "Unsupported platform location"
+    return std::filesystem::path("");
+#endif
+  }
+
   // Utility method to build the path to cache file given `graphName` and
   // `fileName`.
   //
@@ -121,15 +169,8 @@ public:
     if (sanitizedGraphName.empty())
       sanitizedGraphName = "unnamed_graph";
 
-    // Defaults to "${HOME}/.cache/fusilli" but having it set via
-    // ${FUSILLI_CACHE_DIR} to "/tmp" helps bypass permission issues on
-    // the GitHub Actions CI runners as well as for LIT tests that rely
-    // on dumping/reading intermediate compilation artifacts to/from disk.
-    const char *cacheDir = std::getenv("FUSILLI_CACHE_DIR");
-    if (!cacheDir)
-      cacheDir = std::getenv("HOME");
-    return std::filesystem::path(cacheDir) / ".cache" / "fusilli" /
-           sanitizedGraphName / fileName;
+    std::filesystem::path cacheDir = getCacheDir();
+    return cacheDir / sanitizedGraphName / fileName;
   }
 
   // Move constructors.
@@ -172,7 +213,7 @@ public:
 
   // Write to cache file.
   ErrorObject write(const std::string &content) {
-    std::ofstream file(path);
+    std::ofstream file(path, std::ios::out | std::ios::binary);
     FUSILLI_RETURN_ERROR_IF(!file.is_open(), ErrorCode::FileSystemFailure,
                             "Failed to open file: " + path.string());
 

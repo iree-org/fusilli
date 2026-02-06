@@ -213,9 +213,9 @@ TEST_CASE("BFloat16 handles special values", "[BFloat16]") {
     REQUIRE(std::abs(result - 1e30f) / 1e30f < 0.01f);
   }
 
-  SECTION("small values preserved") {
-    BFloat16 small(1e-30f);
-    float result = small.toFloat();
+  SECTION("smallest values preserved") {
+    BFloat16 smallest(1e-30f);
+    float result = smallest.toFloat();
     // Should be close (within BFloat16 precision)
     REQUIRE(std::abs(result - 1e-30f) / 1e-30f < 0.01f);
   }

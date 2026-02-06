@@ -86,7 +86,7 @@ TEST_CASE(
   FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack));
 
   // Calculate expected output value.
-  constexpr half expected =
+  const half expected =
       static_cast<float>(fc * r * s) * inputScalar * inputScalar;
 
   // Read output buffers.

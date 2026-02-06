@@ -23,12 +23,14 @@
 #include "fusilli/support/target_platform.h"
 #include <string>
 
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
-#else
+#elif defined(FUSILLI_PLATFORM_LINUX)
 #include <dlfcn.h>
+#else
+#error "Unsupported platform"
 #endif
 
 namespace fusilli {
@@ -95,7 +97,7 @@ public:
       assert(isOk(err) && "Error closing library during load");
     }
 
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
     handle_ = LoadLibraryExA(path.c_str(), nullptr, 0);
     if (!handle_) {
       DWORD errorCode = GetLastError();
@@ -114,7 +116,7 @@ public:
       }
       return error(ErrorCode::FileSystemFailure, errMsg);
     }
-#elif FUSILLI_PLATFORM_LINUX
+#elif defined(FUSILLI_PLATFORM_LINUX)
     // Use dlmopen with LM_ID_NEWLM to load in a new namespace for isolation. We
     // use a separate namespace to force reinitialization if another library
     // loaded and shutdown already.
@@ -140,7 +142,7 @@ public:
       return error(ErrorCode::InternalError, "Library not loaded");
     }
 
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
     void *sym = reinterpret_cast<void *>(GetProcAddress(handle_, name));
     if (!sym) {
       DWORD errorCode = GetLastError();
@@ -159,7 +161,7 @@ public:
       }
       return error(ErrorCode::InternalError, errMsg);
     }
-#elif FUSILLI_PLATFORM_LINUX
+#elif defined(FUSILLI_PLATFORM_LINUX)
     // Clear any existing error.
     dlerror();
 
@@ -186,9 +188,9 @@ public:
   /// Safe to call multiple times or on an unloaded library.
   ErrorObject close() {
     if (handle_) {
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
       FreeLibrary(handle_);
-#elif FUSILLI_PLATFORM_LINUX
+#elif defined(FUSILLI_PLATFORM_LINUX)
       dlclose(handle_);
 #else
 #error Unsupported platform
@@ -202,9 +204,9 @@ public:
   bool isLoaded() const { return handle_ != nullptr; }
 
 private:
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
   HMODULE handle_ = nullptr;
-#elif FUSILLI_PLATFORM_LINUX
+#elif defined(FUSILLI_PLATFORM_LINUX)
   void *handle_ = nullptr;
 #else
 #error Unsupported platform
