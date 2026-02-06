@@ -64,6 +64,8 @@
 
 #include <fusilli.h>
 
+#include "utils.h"
+
 #include <cstdint>
 #include <iostream>
 #include <memory>
@@ -105,11 +107,7 @@ static ErrorObject testConvAsmEmitterXNchwWKcrs(const std::string &mode) {
   }
 
   if (mode == "stats") {
-#ifdef FUSILLI_ENABLE_AMDGPU
-    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::AMDGPU));
-#else
-    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
-#endif
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(kDefaultBackend));
     FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
     FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
                                              CachedAssetsType::Statistics));

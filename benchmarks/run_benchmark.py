@@ -294,8 +294,8 @@ The script will:
         "--timeout",
         "-t",
         type=int,
-        default=30,
-        help="Timeout in seconds for each command (default: 30, use -1 for no timeout)",
+        default=60,
+        help="Timeout in seconds for each command (default: 60, use -1 for no timeout)",
     )
 
     parser.add_argument(

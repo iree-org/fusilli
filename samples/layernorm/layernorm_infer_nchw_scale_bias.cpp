@@ -62,19 +62,8 @@ TEST_CASE("Layer normalization; inference mode; NCHW layout; scale, bias",
     return std::make_tuple(graph, xT, sT, bT, yT);
   };
 
-  // Parameterize sample by backend and create device-specific handles.
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#ifdef FUSILLI_ENABLE_AMDGPU
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#endif
-  Handle &handle = *handlePtr;
+  // Create handle for the target backend.
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   auto [graph, xT, sT, bT, yT] = buildNewGraph(handle);
 

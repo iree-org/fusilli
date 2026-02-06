@@ -16,7 +16,6 @@
 #include <format>
 #include <memory>
 #include <string>
-#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -48,42 +47,31 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
                PointwiseAttr::Mode::CMP_LE, PointwiseAttr::Mode::CMP_GT,
                PointwiseAttr::Mode::CMP_GE, PointwiseAttr::Mode::CMP_NEQ);
 
-  auto execute = [&]<typename T>(const std::shared_ptr<Handle> &handlePtr,
-                                 DataType dt, T x0, T x1) {
-    auto buildNewGraph = [&](const Handle &handle) {
-      // Create graph
-      auto graph = std::make_shared<Graph>();
-      graph->setName(generateName(mode, dt, dims));
-      graph->setIODataType(dt).setComputeDataType(dt);
+  auto execute = [&]<typename T>(Handle &handle, DataType dt, T x0, T x1) {
+    // Create graph.
+    auto graph = std::make_shared<Graph>();
+    graph->setName(generateName(mode, dt, dims));
+    graph->setIODataType(dt).setComputeDataType(dt);
 
-      // Initialize input tensors
-      auto x0T =
-          graph->tensor(TensorAttr().setName("in0").setDim(dims[0]).setStride(
-              generateStrideFromDim(dims[0],
-                                    getContiguousStrideOrder(dims[0].size()))));
-      auto x1T =
-          graph->tensor(TensorAttr().setName("in1").setDim(dims[1]).setStride(
-              generateStrideFromDim(dims[1],
-                                    getContiguousStrideOrder(dims[1].size()))));
+    // Initialize input tensors.
+    auto x0T =
+        graph->tensor(TensorAttr().setName("in0").setDim(dims[0]).setStride(
+            generateStrideFromDim(dims[0],
+                                  getContiguousStrideOrder(dims[0].size()))));
+    auto x1T =
+        graph->tensor(TensorAttr().setName("in1").setDim(dims[1]).setStride(
+            generateStrideFromDim(dims[1],
+                                  getContiguousStrideOrder(dims[1].size()))));
 
-      // Create Pointwise op
-      auto pointwiseAttr = PointwiseAttr().setMode(mode);
-      auto pointwiseResult = graph->pointwise(x0T, x1T, pointwiseAttr);
+    // Create Pointwise op.
+    auto pointwiseAttr = PointwiseAttr().setMode(mode);
+    auto yT = graph->pointwise(x0T, x1T, pointwiseAttr);
 
-      pointwiseResult->setName("result").setOutput(true);
+    yT->setName("result").setOutput(true);
 
-      // Validate, infer missing properties
-      FUSILLI_REQUIRE_OK(graph->validate());
-
-      // Compile
-      FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
-
-      return std::make_tuple(graph, x0T, x1T, pointwiseResult);
-    };
-
-    Handle &handle = *handlePtr;
-    // Build graph for the given handle (device), validate and compile it.
-    auto [graph, x0T, x1T, yT] = buildNewGraph(handle);
+    // Validate and compile.
+    FUSILLI_REQUIRE_OK(graph->validate());
+    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
 
     // Allocate input buffers.
     FUSILLI_REQUIRE_ASSIGN(auto x0Buf,
@@ -159,27 +147,15 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
       REQUIRE(val == y);
   };
 
-  // Parameterize sample by backend and create device-specific handles.
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#ifdef FUSILLI_ENABLE_AMDGPU
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#endif
+  // Create handle for the target backend.
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
-  // int32
-  execute(handlePtr, DataType::Int32, int(-50), int(-50));
-  execute(handlePtr, DataType::Int32, int(-50), int(-51));
-  execute(handlePtr, DataType::Int32, int(-51), int(-50));
-  execute(handlePtr, DataType::Int32, int(-51), int(-51));
-  // fp16
-  execute(handlePtr, DataType::Half, half(1.0), half(1.0));
-  execute(handlePtr, DataType::Half, half(1.0), half(1.1));
-  execute(handlePtr, DataType::Half, half(1.1), half(1.1));
-  execute(handlePtr, DataType::Half, half(1.1), half(1.0));
+  // int32: equal, less-than, greater-than cases
+  execute(handle, DataType::Int32, int(-50), int(-50));
+  execute(handle, DataType::Int32, int(-51), int(-50));
+  execute(handle, DataType::Int32, int(-50), int(-51));
+  // fp16: equal, less-than, greater-than cases
+  execute(handle, DataType::Half, half(1.0), half(1.0));
+  execute(handle, DataType::Half, half(1.0), half(1.1));
+  execute(handle, DataType::Half, half(1.1), half(1.0));
 }

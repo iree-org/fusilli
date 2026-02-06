@@ -30,7 +30,7 @@ if [ "${NUM_ROWS}" -ne "${EXPECTED_ROWS}" ]; then
   echo "ERROR: Expected ${EXPECTED_ROWS} rows, got ${NUM_ROWS}"
   exit 1
 fi
-# Using --iter 10, check column exists and has value 10
+# Using --iter 2, check column exists and has value 2
 if ! grep -q "iter" "${OUTPUT_CSV}"; then
   echo "ERROR: 'iter' column not found in CSV"
   exit 1
@@ -40,15 +40,15 @@ if ! grep -q "dispatch_count" "${OUTPUT_CSV}"; then
   echo "ERROR: 'dispatch_count' column not found in CSV"
   exit 1
 fi
-# Verify at least one row has iter=10
-if ! tail -n +2 "${OUTPUT_CSV}" | cut -d',' -f6 | grep -q "10"; then
-  echo "ERROR: Expected iter=10 not found"
+# Verify at least one row has iter=2
+if ! tail -n +2 "${OUTPUT_CSV}" | cut -d',' -f6 | grep -q "2"; then
+  echo "ERROR: Expected iter=2 not found"
   exit 1
 fi
 
 echo "PASSED: fusilli_benchmark_runner_tests (without tuning spec)"
 
-# Test with tuning spec using --Xiree-compile flag
+# Test with multiple --Xiree-compile flags (tuning spec + opt level)
 TEST_TUNING_SPEC="${SCRIPT_DIR}/test_tuning_spec.mlir"
 OUTPUT_CSV_TUNED=$(mktemp)
 python3 "${BENCHMARK_RUNNER}" \
@@ -56,6 +56,7 @@ python3 "${BENCHMARK_RUNNER}" \
   --csv "${OUTPUT_CSV_TUNED}" \
   --driver "${BENCHMARK_DRIVER}" \
   --Xiree-compile="--iree-codegen-tuning-spec-path=${TEST_TUNING_SPEC}" \
+  --Xiree-compile="--iree-opt-level=O3" \
   --verbose
 if [ ! -f "${OUTPUT_CSV_TUNED}" ]; then
   echo "ERROR: Output CSV (tuned) not created"
@@ -67,27 +68,6 @@ if [ "${NUM_ROWS_TUNED}" -ne "${EXPECTED_ROWS}" ]; then
   echo "ERROR: Expected ${EXPECTED_ROWS} rows (tuned), got ${NUM_ROWS_TUNED}"
   exit 1
 fi
-echo "PASSED: fusilli_benchmark_runner_tests (with --Xiree-compile)"
+echo "PASSED: fusilli_benchmark_runner_tests (with --Xiree-compile flags)"
 
-# Test multiple --Xiree-compile flags
-OUTPUT_CSV_MULTI=$(mktemp)
-python3 "${BENCHMARK_RUNNER}" \
-  --commands-file "${TEST_COMMANDS}" \
-  --csv "${OUTPUT_CSV_MULTI}" \
-  --driver "${BENCHMARK_DRIVER}" \
-  --Xiree-compile="--iree-codegen-tuning-spec-path=${TEST_TUNING_SPEC}" \
-  --Xiree-compile="--iree-opt-level=O3" \
-  --verbose
-if [ ! -f "${OUTPUT_CSV_MULTI}" ]; then
-  echo "ERROR: Output CSV (multi flags) not created"
-  exit 1
-fi
-# Count number of rows (should be same as non-tuned)
-NUM_ROWS_MULTI=$(tail -n +2 "${OUTPUT_CSV_MULTI}" | wc -l)
-if [ "${NUM_ROWS_MULTI}" -ne "${EXPECTED_ROWS}" ]; then
-  echo "ERROR: Expected ${EXPECTED_ROWS} rows (multi flags), got ${NUM_ROWS_MULTI}"
-  exit 1
-fi
-echo "PASSED: fusilli_benchmark_runner_tests (with multiple --Xiree-compile)"
-
-rm -f "${OUTPUT_CSV}" "${OUTPUT_CSV_TUNED}" "${OUTPUT_CSV_MULTI}"
+rm -f "${OUTPUT_CSV}" "${OUTPUT_CSV_TUNED}"

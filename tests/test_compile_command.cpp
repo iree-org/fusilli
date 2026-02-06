@@ -189,7 +189,7 @@ TEST_CASE("CompileCommand::toString format", "[CompileCommand]") {
 
 TEST_CASE("CompileCommand::writeTo", "[CompileCommand]") {
   // Create test handle.
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Create temporary cache files.
   FUSILLI_REQUIRE_ASSIGN(
@@ -221,7 +221,7 @@ TEST_CASE("CompileCommand::writeTo", "[CompileCommand]") {
 
 TEST_CASE("CompileCommand::getArgs", "[CompileCommand]") {
   // Create test handle.
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Create temporary cache files.
   FUSILLI_REQUIRE_ASSIGN(
@@ -257,7 +257,7 @@ TEST_CASE("CompileCommand::getArgs", "[CompileCommand]") {
 
 TEST_CASE("CompileCommand round-trip serialization", "[CompileCommand]") {
   // Create test handle.
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Create temporary cache files.
   FUSILLI_REQUIRE_ASSIGN(

@@ -84,6 +84,14 @@ inline std::vector<size_t> castToSizeT(const std::vector<int64_t> &input) {
 
 namespace fusilli {
 
+// Default backend for samples and tests based on compile-time configuration.
+// AMDGPU is preferred when available, otherwise falls back to CPU.
+#ifdef FUSILLI_ENABLE_AMDGPU
+constexpr Backend kDefaultBackend = Backend::AMDGPU;
+#else
+constexpr Backend kDefaultBackend = Backend::CPU;
+#endif
+
 // Helper to create a simple MLIR module for testing.
 inline std::string getSimpleMLIRModule() {
   return R"mlir(
@@ -235,11 +243,7 @@ inline ErrorObject testUnaryPointwiseAsmEmitter(const std::string &graphName,
   }
 
   if (mode == "stats") {
-#ifdef FUSILLI_ENABLE_AMDGPU
-    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::AMDGPU));
-#else
-    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
-#endif
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(kDefaultBackend));
     FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
     FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
                                              CachedAssetsType::Statistics));
@@ -277,11 +281,7 @@ inline ErrorObject testBinaryPointwiseAsmEmitter(const std::string &graphName,
   }
 
   if (mode == "stats") {
-#ifdef FUSILLI_ENABLE_AMDGPU
-    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::AMDGPU));
-#else
-    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
-#endif
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(kDefaultBackend));
     FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
     FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
                                              CachedAssetsType::Statistics));

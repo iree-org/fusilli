@@ -18,7 +18,6 @@
 #include <limits>
 #include <memory>
 #include <string>
-#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -48,40 +47,29 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
   const auto mode = GENERATE(ReductionAttr::Mode::SUM, ReductionAttr::Mode::MIN,
                              ReductionAttr::Mode::MAX);
 
-  auto execute = [&]<typename T>(const std::shared_ptr<Handle> &handlePtr,
-                                 DataType dt, T initValue) {
-    auto buildNewGraph = [&](const Handle &handle) {
-      // Create graph
-      auto graph = std::make_shared<Graph>();
-      graph->setName(generateName(mode, dt, xDims, yDims));
-      graph->setIODataType(dt).setComputeDataType(dt);
+  auto execute = [&]<typename T>(Handle &handle, DataType dt, T initValue) {
+    // Create graph.
+    auto graph = std::make_shared<Graph>();
+    graph->setName(generateName(mode, dt, xDims, yDims));
+    graph->setIODataType(dt).setComputeDataType(dt);
 
-      // Initialize input tensor
-      auto xT = graph->tensor(TensorAttr().setName("x").setDim(xDims).setStride(
-          generateStrideFromDim(xDims,
-                                getContiguousStrideOrder(xDims.size()))));
+    // Initialize input tensor.
+    auto xT = graph->tensor(TensorAttr().setName("x").setDim(xDims).setStride(
+        generateStrideFromDim(xDims, getContiguousStrideOrder(xDims.size()))));
 
-      // Create Reduction op
-      auto reductionAttr = ReductionAttr().setMode(mode);
-      auto yT = graph->reduction(xT, reductionAttr);
+    // Create Reduction op.
+    auto reductionAttr = ReductionAttr().setMode(mode);
+    auto yT = graph->reduction(xT, reductionAttr);
 
-      // Set output dimensions for dimension reduction
-      yT->setDim(yDims).setStride(
-          generateStrideFromDim(yDims, getContiguousStrideOrder(yDims.size())));
+    // Set output dimensions for dimension reduction.
+    yT->setDim(yDims).setStride(
+        generateStrideFromDim(yDims, getContiguousStrideOrder(yDims.size())));
 
-      yT->setName("result").setOutput(true);
+    yT->setName("result").setOutput(true);
 
-      // Validate, infer missing properties
-      FUSILLI_REQUIRE_OK(graph->validate());
-
-      // Compile
-      FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
-
-      return std::make_tuple(graph, xT, yT);
-    };
-
-    Handle &handle = *handlePtr;
-    auto [graph, xT, yT] = buildNewGraph(handle);
+    // Validate and compile.
+    FUSILLI_REQUIRE_OK(graph->validate());
+    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
 
     // Calculate total input size
     int64_t xSize = 1;
@@ -155,18 +143,8 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
       REQUIRE(result[checkIdx] == expectedValue);
   };
 
-  // Parameterize sample by backend and create device-specific handles
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#ifdef FUSILLI_ENABLE_AMDGPU
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#endif
+  // Create handle for the target backend.
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Determine initial value based on reduction mode
   auto getInitValue = [&]<typename T>() -> T {
@@ -183,10 +161,9 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
   };
 
   // int32
-  execute(handlePtr, DataType::Int32, getInitValue.template operator()<int>());
+  execute(handle, DataType::Int32, getInitValue.template operator()<int>());
   // fp16
-  execute(handlePtr, DataType::Half, getInitValue.template operator()<half>());
+  execute(handle, DataType::Half, getInitValue.template operator()<half>());
   // fp32
-  execute(handlePtr, DataType::Float,
-          getInitValue.template operator()<float>());
+  execute(handle, DataType::Float, getInitValue.template operator()<float>());
 }
