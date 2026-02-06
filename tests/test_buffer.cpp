@@ -11,7 +11,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <iree/runtime/api.h>
 
-#include <memory>
 #include <utility>
 #include <vector>
 

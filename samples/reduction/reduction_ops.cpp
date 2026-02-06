@@ -18,7 +18,6 @@
 #include <limits>
 #include <memory>
 #include <string>
-#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -49,36 +48,28 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
                              ReductionAttr::Mode::MAX);
 
   auto execute = [&]<typename T>(Handle &handle, DataType dt, T initValue) {
-    auto buildNewGraph = [&](Handle &handleArg) {
-      // Create graph
-      auto graph = std::make_shared<Graph>();
-      graph->setName(generateName(mode, dt, xDims, yDims));
-      graph->setIODataType(dt).setComputeDataType(dt);
+    // Create graph.
+    auto graph = std::make_shared<Graph>();
+    graph->setName(generateName(mode, dt, xDims, yDims));
+    graph->setIODataType(dt).setComputeDataType(dt);
 
-      // Initialize input tensor
-      auto xT = graph->tensor(TensorAttr().setName("x").setDim(xDims).setStride(
-          generateStrideFromDim(xDims,
-                                getContiguousStrideOrder(xDims.size()))));
+    // Initialize input tensor.
+    auto xT = graph->tensor(TensorAttr().setName("x").setDim(xDims).setStride(
+        generateStrideFromDim(xDims, getContiguousStrideOrder(xDims.size()))));
 
-      // Create Reduction op
-      auto reductionAttr = ReductionAttr().setMode(mode);
-      auto yT = graph->reduction(xT, reductionAttr);
+    // Create Reduction op.
+    auto reductionAttr = ReductionAttr().setMode(mode);
+    auto yT = graph->reduction(xT, reductionAttr);
 
-      // Set output dimensions for dimension reduction
-      yT->setDim(yDims).setStride(
-          generateStrideFromDim(yDims, getContiguousStrideOrder(yDims.size())));
+    // Set output dimensions for dimension reduction.
+    yT->setDim(yDims).setStride(
+        generateStrideFromDim(yDims, getContiguousStrideOrder(yDims.size())));
 
-      yT->setName("result").setOutput(true);
+    yT->setName("result").setOutput(true);
 
-      // Validate, infer missing properties
-      FUSILLI_REQUIRE_OK(graph->validate());
-
-      // Compile
-      FUSILLI_REQUIRE_OK(graph->compile(handleArg, /*remove=*/true));
-
-      return std::make_tuple(graph, xT, yT);
-    };
-    auto [graph, xT, yT] = buildNewGraph(handle);
+    // Validate and compile.
+    FUSILLI_REQUIRE_OK(graph->validate());
+    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
 
     // Calculate total input size
     int64_t xSize = 1;
