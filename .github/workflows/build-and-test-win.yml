@@ -10,8 +10,12 @@ on:
   workflow_call:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build-and-test-win:
+    name: "Build & Test :: cpu_msvc_windows"
     runs-on: azure-windows-scale
     env:
       BASE_BUILD_DIR_POWERSHELL: B:\tmpbuild
@@ -37,11 +41,13 @@ jobs:
       - name: "Installing Python packages"
         run: |
           python3 -m venv .venv
-          .venv/Scripts/activate.bat
+          .venv\Scripts\Activate.ps1
 
           python3 -m pip install --upgrade pip
           python3 -m pip install lit filecheck
           python3 -m pip install --find-links https://iree.dev/pip-release-links.html iree-base-compiler==3.11.0rc20260203
+
+          echo "${{ github.workspace }}\.venv\Scripts" >> $env:GITHUB_PATH
 
       - name: "Configuring MSVC"
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
@@ -53,11 +59,11 @@ jobs:
           refreshenv
       - name: "Building Fusilli"
         run: |
-          cmake -S . -B ${{ env.BUILD_DIR_POWERSHELL}} -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B ${{ env.BUILD_DIR_POWERSHELL}} -G Ninja -DCMAKE_BUILD_TYPE=Release -DFUSILLI_ENABLE_LOGGING=ON -DFUSILLI_SYSTEMS_AMDGPU=OFF
           cmake --build ${{ env.BUILD_DIR_POWERSHELL}} --config Release --target all
-      - name: "Running Fusilli tests"
+      - name: "Running Fusilli tests (libIREECompiler CAPI)"
         run: |
-          ctest --test-dir ${{ env.BUILD_DIR_POWERSHELL}} --output-on-failure
+          ctest --test-dir ${{ env.BUILD_DIR_POWERSHELL}} --output-on-failure --extra-verbose --timeout 120
       - name: "Clean up build dir"
         if: always()
         run: if (Test-Path -Path "$Env:BUILD_DIR_POWERSHELL") {Remove-Item -Path "$Env:BUILD_DIR_POWERSHELL" -Recurse -Force}
