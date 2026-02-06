@@ -53,7 +53,8 @@ inline std::vector<std::string> getPythonSitePackages() {
   // Handle both \n and \r for cross-platform compatibility.
   std::string path;
   for (char c : *output) {
-    // Strip out any trailing newlines or carriage returns, and split on newlines.
+    // Strip out any trailing newlines or carriage returns, and split on
+    // newlines.
     if (c == '\n' || c == '\r') {
       if (!path.empty()) {
         sitePaths.push_back(path);
