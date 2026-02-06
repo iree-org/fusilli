@@ -53,6 +53,8 @@
 
 #include <fusilli.h>
 
+#include "utils.h"
+
 #include <cstdint>
 #include <iostream>
 #include <memory>

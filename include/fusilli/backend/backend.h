@@ -42,14 +42,6 @@ enum class Backend : uint8_t {
   AMDGPU,
 };
 
-// Default backend for samples and tests based on compile-time configuration.
-// AMDGPU is preferred when available, otherwise falls back to CPU.
-#ifdef FUSILLI_ENABLE_AMDGPU
-constexpr Backend kDefaultBackend = Backend::AMDGPU;
-#else
-constexpr Backend kDefaultBackend = Backend::CPU;
-#endif
-
 static const std::unordered_map<Backend, std::string> kBackendToStr = {
     {Backend::CPU, "CPU"},
     {Backend::AMDGPU, "AMDGPU"},

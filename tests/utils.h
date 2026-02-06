@@ -84,6 +84,14 @@ inline std::vector<size_t> castToSizeT(const std::vector<int64_t> &input) {
 
 namespace fusilli {
 
+// Default backend for samples and tests based on compile-time configuration.
+// AMDGPU is preferred when available, otherwise falls back to CPU.
+#ifdef FUSILLI_ENABLE_AMDGPU
+constexpr Backend kDefaultBackend = Backend::AMDGPU;
+#else
+constexpr Backend kDefaultBackend = Backend::CPU;
+#endif
+
 // Helper to create a simple MLIR module for testing.
 inline std::string getSimpleMLIRModule() {
   return R"mlir(
