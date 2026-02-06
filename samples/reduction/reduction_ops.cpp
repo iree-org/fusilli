@@ -178,6 +178,5 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
   // fp16
   execute(handle, DataType::Half, getInitValue.template operator()<half>());
   // fp32
-  execute(handle, DataType::Float,
-          getInitValue.template operator()<float>());
+  execute(handle, DataType::Float, getInitValue.template operator()<float>());
 }
