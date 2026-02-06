@@ -8,7 +8,7 @@
 // RUN: %{TEST_EXE} | FileCheck %s --check-prefix=TORCH-CHECK
 // RUN: %{TEST_EXE} | iree-compile - --compile-to=input | \
 // RUN:             FileCheck %s --check-prefix=LINALG-CHECK
-// RUN: %{TEST_EXE} stats | FileCheck %s --check-prefix=CPU-STATS-CHECK
+// RUN: %{TEST_EXE} stats | FileCheck %s --check-prefix=%{BACKEND}-STATS-CHECK
 
 // clang-format off
 //
@@ -127,7 +127,7 @@ testConvDgradAsmEmitterDyNhwcDxNhwc(const std::string &mode) {
   }
 
   if (mode == "stats") {
-    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(kDefaultBackend));
     FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
     FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
                                              CachedAssetsType::Statistics));
