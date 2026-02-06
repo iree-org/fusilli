@@ -49,11 +49,7 @@ TEST_CASE("Matrix multiplication; A (M, K), B (K, N); basic matmul",
   };
 
   // Create handle for the target backend.
-#ifdef FUSILLI_ENABLE_AMDGPU
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-#else
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-#endif
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Build graph for the given handle (device), validate and compile it.
   auto [graph, aT, bT, cT] = buildNewGraph(handle);
@@ -126,11 +122,7 @@ TEST_CASE(
   };
 
   // Create handle for the target backend.
-#ifdef FUSILLI_ENABLE_AMDGPU
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-#else
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-#endif
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Build graph for the given handle (device), validate and compile it.
   auto [graph, aT, bT, cT] = buildNewGraph(handle);

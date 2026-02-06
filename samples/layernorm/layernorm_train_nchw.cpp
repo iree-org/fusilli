@@ -60,11 +60,7 @@ TEST_CASE("Layer normalization; training mode; NCHW layout; no bias/scale",
   };
 
   // Create handle for the target backend.
-#ifdef FUSILLI_ENABLE_AMDGPU
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-#else
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-#endif
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   auto [graph, xT, yT, mT, vT] = buildNewGraph(handle);
 

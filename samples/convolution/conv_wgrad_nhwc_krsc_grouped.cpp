@@ -60,11 +60,7 @@ TEST_CASE("Convolution wgrad; DY/X (NHWC), DW (KRSC); 1x1; no padding; grouped",
   };
 
   // Create handle for the target backend.
-#ifdef FUSILLI_ENABLE_AMDGPU
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-#else
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-#endif
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   auto [graph, dyT, xT, dwT] = buildNewGraph(handle);
 

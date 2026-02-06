@@ -38,11 +38,7 @@ TEST_CASE("Pointwise add with transposed operand", "[pointwise][graph]") {
   // clang-format on
 
   // Create handle for the target backend.
-#ifdef FUSILLI_ENABLE_AMDGPU
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-#else
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-#endif
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   auto buildNewGraph = [&](const Handle &handleArg) {
     // Create graph

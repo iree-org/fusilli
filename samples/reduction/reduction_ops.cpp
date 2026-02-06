@@ -144,11 +144,7 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
   };
 
   // Create handle for the target backend.
-#ifdef FUSILLI_ENABLE_AMDGPU
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-#else
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-#endif
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Determine initial value based on reduction mode
   auto getInitValue = [&]<typename T>() -> T {

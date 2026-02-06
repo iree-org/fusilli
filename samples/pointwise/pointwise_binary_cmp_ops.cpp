@@ -148,11 +148,7 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
   };
 
   // Create handle for the target backend.
-#ifdef FUSILLI_ENABLE_AMDGPU
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-#else
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-#endif
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // int32: equal, less-than, greater-than cases
   execute(handle, DataType::Int32, int(-50), int(-50));
