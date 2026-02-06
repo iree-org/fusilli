@@ -29,7 +29,8 @@
 #include <system_error>
 #include <utility>
 
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+#define WIN32_LEAN_AND_MEAN
 #include <KnownFolders.h>
 #include <shlobj.h>
 #include <windows.h>
@@ -113,24 +114,34 @@ public:
     // ${FUSILLI_CACHE_DIR} to "/tmp" helps bypass permission issues on
     // the GitHub Actions CI runners as well as for LIT tests that rely
     // on dumping/reading intermediate compilation artifacts to/from disk.
-    const char *cacheDirC = std::getenv("FUSILLI_CACHE_DIR");
-    std::string cacheDir;
-    if (cacheDirC)
-      cacheDir = std::string(cacheDirC);
+    const char *cacheDirEnv = std::getenv("FUSILLI_CACHE_DIR");
+    std::wstring cacheDir;
+    if (cacheDirEnv) {
+      std::string cacheDirStr(cacheDirEnv);
+      cacheDir = std::wstring(cacheDirStr.begin(), cacheDirStr.end());
+    }
 
 #if defined(FUSILLI_PLATFORM_WINDOWS)
     if (cacheDir.empty()) {
-      PWSTR pathBuf;
+      PWSTR pathBuf = nullptr;
       HRESULT hr =
           SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, NULL, &pathBuf);
       if (SUCCEEDED(hr)) {
-        cacheDir = std::filesystem::path(pathBuf).string();
+        std::string cacheDirStr = std::filesystem::path(pathBuf).string();
+        cacheDir = std::wstring(cacheDirStr.begin(), cacheDirStr.end());
       }
+      if (pathBuf)
+        CoTaskMemFree(pathBuf);
     }
     return std::filesystem::path(cacheDir) / "fusilli";
 #elif defined(FUSILLI_PLATFORM_LINUX)
-    if (cacheDir.empty())
-      cacheDir = std::getenv("HOME");
+    if (cacheDir.empty()) {
+      const char *home = std::getenv("HOME");
+      if (home) {
+        std::string cacheDirStr(home);
+        cacheDir = std::wstring(cacheDirStr.begin(), cacheDirStr.end());
+      }
+    }
     return std::filesystem::path(cacheDir) / ".cache" / "fusilli";
 #else
 #error "Unsupported platform location"

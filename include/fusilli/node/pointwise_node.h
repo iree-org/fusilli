@@ -115,11 +115,15 @@ public:
 
     const auto &outTensor = pointwiseAttr.getOUT_0();
     if (outTensor->getDim().empty()) {
-      // Collect all input shapes
+      // Collect all input shapes using explicit getters for deterministic
+      // iteration order.
       std::vector<std::vector<int64_t>> inputShapes;
-      for (const auto &[_, inTensor] : pointwiseAttr.inputs)
+      for (const auto &inTensor :
+           {pointwiseAttr.getIN_0(), pointwiseAttr.getIN_1(),
+            pointwiseAttr.getIN_2()}) {
         if (inTensor)
           inputShapes.push_back(inTensor->getDim());
+      }
 
       FUSILLI_ASSIGN_OR_RETURN(auto broadcastShape,
                                computeBroadcastShape(inputShapes));
@@ -128,8 +132,10 @@ public:
 
     if (outTensor->getStride().empty()) {
       // Try to set the stride from an input shape that matches the output
-      // shape.
-      for (const auto &[_, inTensor] : pointwiseAttr.inputs) {
+      // shape. Use explicit getters for deterministic iteration order.
+      for (const auto &inTensor :
+           {pointwiseAttr.getIN_0(), pointwiseAttr.getIN_1(),
+            pointwiseAttr.getIN_2()}) {
         if (!inTensor)
           continue;
         if (inTensor->getDim() != outTensor->getDim())

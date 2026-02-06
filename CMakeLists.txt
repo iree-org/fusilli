@@ -34,8 +34,7 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if (MSVC)
-	add_compile_options(/bigobj)
-	add_compile_options(/DWIN32_LEAN_AND_MEAN)
+  add_compile_options(/bigobj)
 endif()
 
 # Includes

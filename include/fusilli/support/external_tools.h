@@ -68,9 +68,9 @@ inline std::string getIreeCompilerLibPath() {
   }
 
   // Fallback: let the system search for it (may be in LD_LIBRARY_PATH).
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
   return std::string("IREECompiler.dll");
-#else
+#elif defined(FUSILLI_PLATFORM_LINUX)
   return std::string("libIREECompiler.so");
 #endif
 }

@@ -118,7 +118,11 @@ public:
         [&](const std::string &arg) { cmdss << arg; },
         // between_fn:
         [&] { cmdss << " "; });
-    return cmdss.str() + FUSILLI_NEWLINE;
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+    return cmdss.str() + "\r\n";
+#else
+    return cmdss.str() + "\n";
+#endif
   }
 
   // Writes the command to the specified cache file.

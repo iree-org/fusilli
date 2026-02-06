@@ -18,7 +18,6 @@
 #include "fusilli/attributes/tensor_attributes.h"
 
 #include <cstdint>
-#include <map>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -87,8 +86,8 @@ public:
   };
 #undef FUSILLI_POINTWISE_DECLARE
 
-  std::map<InputNames, std::shared_ptr<TensorAttr>> inputs;
-  std::map<OutputNames, std::shared_ptr<TensorAttr>> outputs;
+  std::unordered_map<InputNames, std::shared_ptr<TensorAttr>> inputs;
+  std::unordered_map<OutputNames, std::shared_ptr<TensorAttr>> outputs;
 
   // Setters:
   FUSILLI_GENERIC_INPUT_TENSOR_SETTER(PointwiseAttr, InputNames, IN_0)
