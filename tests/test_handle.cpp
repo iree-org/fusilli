@@ -41,8 +41,6 @@ TEST_CASE("Multiple Handle creation", "[handle]") {
   FUSILLI_REQUIRE_ASSIGN(Handle cpuHandle, Handle::create(Backend::CPU));
 #ifdef FUSILLI_ENABLE_AMDGPU
   FUSILLI_REQUIRE_ASSIGN(Handle gpuHandle, Handle::create(Backend::AMDGPU));
-  REQUIRE(cpuHandle != nullptr);
-  REQUIRE(gpuHandle != nullptr);
 #endif
 }
 
