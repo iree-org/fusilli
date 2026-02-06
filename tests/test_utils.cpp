@@ -186,11 +186,7 @@ void verifyBufferContents(Handle &handle, Buffer &buffer,
 } // namespace
 
 TEST_CASE("allocateBufferOfType with DataType and initVal", "[utils][buffer]") {
-#ifdef FUSILLI_ENABLE_AMDGPU
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-#else
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-#endif
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   auto graph = std::make_shared<Graph>();
   auto tensor =
@@ -255,11 +251,7 @@ TEST_CASE("allocateBufferOfType with DataType and initVal", "[utils][buffer]") {
 
 TEST_CASE("allocateBufferOfType templated with data vector",
           "[utils][buffer]") {
-#ifdef FUSILLI_ENABLE_AMDGPU
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-#else
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-#endif
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   auto graph = std::make_shared<Graph>();
   auto tensor =
@@ -317,7 +309,7 @@ TEST_CASE("allocateBufferOfType templated with data vector",
 }
 
 TEST_CASE("allocateBufferOfType with null tensor", "[utils][buffer][error]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   std::shared_ptr<TensorAttr> nullTensor = nullptr;
 

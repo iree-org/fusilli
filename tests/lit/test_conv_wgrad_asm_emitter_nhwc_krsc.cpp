@@ -8,7 +8,7 @@
 // RUN: %{TEST_EXE} | FileCheck %s --check-prefix=TORCH-CHECK
 // RUN: %{TEST_EXE} | iree-compile - --compile-to=input | \
 // RUN:             FileCheck %s --check-prefix=LINALG-CHECK
-// RUN: %{TEST_EXE} stats | FileCheck %s --check-prefix=CPU-STATS-CHECK
+// RUN: %{TEST_EXE} stats | FileCheck %s --check-prefix=%{BACKEND}-STATS-CHECK
 
 // clang-format off
 //
@@ -78,12 +78,14 @@
 // LINALG-CHECK:      %[[OUTT:.+]] = hal.tensor.alias wait(%[[ARG3]]) => %[[GEN]] : tensor<256x128x1x1xf32> to %[[ARG0]] : !hal.buffer_view
 // LINALG-CHECK:      %{{.+}} = hal.tensor.barrier join(%[[OUTT]] : tensor<256x128x1x1xf32>) => %[[ARG4]] : !hal.fence
 //
-// AMDGPU-STATS-CHECK: "dispatch-count": 1
+// AMDGPU-STATS-CHECK: "dispatch-count": 2
 // CPU-STATS-CHECK: "dispatch-count": 1
 //
 // clang-format on
 
 #include <fusilli.h>
+
+#include "utils.h"
 
 #include <cstdint>
 #include <iostream>
@@ -126,7 +128,7 @@ static ErrorObject testConvWgradAsmEmitterDyNhwcXNhwc(const std::string &mode) {
   }
 
   if (mode == "stats") {
-    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(kDefaultBackend));
     FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
     FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
                                              CachedAssetsType::Statistics));

@@ -107,6 +107,8 @@
 
 #include <fusilli.h>
 
+#include "utils.h"
+
 #include <cstdint>
 #include <iostream>
 #include <memory>
@@ -159,7 +161,7 @@ testConvAsmEmitterXNhwcWKrscWithRelu(const std::string &mode) {
   }
 
   if (mode == "stats") {
-    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(kDefaultBackend));
     FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
     FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
                                              CachedAssetsType::Statistics));

@@ -215,7 +215,7 @@ TEST_CASE("Graph `getCompiledArtifact` cache generation and invalidation",
 TEST_CASE("Graph `getCompiledArtifact` should not read cached items from "
           "other/previous Graph instances",
           "[graph]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   std::string generatedAsm;
   {
@@ -256,7 +256,7 @@ TEST_CASE("Graph `getCompiledArtifact` should not read cached items from "
 }
 
 TEST_CASE("Graph `getCompiledArtifact` invalid input IR", "[graph]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   std::string graphName;
   {
     Graph g;
@@ -276,7 +276,7 @@ TEST_CASE("Graph `getCompiledArtifact` invalid input IR", "[graph]") {
 }
 
 TEST_CASE("Graph `compile` method fails without validation", "[graph]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   Graph g = testGraph(/*validate=*/false);
 
@@ -365,19 +365,8 @@ TEST_CASE("Graph `execute`", "[graph]") {
     return std::make_tuple(graph, xT, wT, yT);
   };
 
-  // Parameterize by backend and create device-specific handles.
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#ifdef FUSILLI_ENABLE_AMDGPU
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#endif
-  Handle &handle = *handlePtr;
+  // Create handle for the target backend.
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Build graph for the given handle (device), validate and compile it.
   auto [graph, X, W, Y] = buildNewGraph(handle);
