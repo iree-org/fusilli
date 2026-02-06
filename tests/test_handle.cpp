@@ -67,7 +67,7 @@ TEST_CASE("Multi-threaded Handle creation", "[handle][thread]") {
       // Wait at the barrier until all threads reach this point.
       startBarrier.arrive_and_wait();
       // Create the handle.
-      auto handleOrError = Handle::create(Backend::CPU);
+      auto handleOrError = Handle::create(kDefaultBackend);
       if (isError(handleOrError)) {
         creationFailed.store(true);
         return;
@@ -83,48 +83,6 @@ TEST_CASE("Multi-threaded Handle creation", "[handle][thread]") {
   REQUIRE(!creationFailed.load());
   REQUIRE(handles.size() == kNumThreads);
 }
-
-#ifdef FUSILLI_ENABLE_AMDGPU
-TEST_CASE("Multi-threaded Handle creation AMDGPU", "[handle][thread][amdgpu]") {
-  constexpr int kNumThreads = 32;
-
-  std::vector<std::thread> threads;
-  threads.reserve(kNumThreads);
-
-  std::vector<Handle> handles;
-  handles.reserve(kNumThreads);
-
-  // Create a barrier to force threads to start simultaneously.
-  std::barrier startBarrier(kNumThreads);
-
-  // Atomic flag to track failures during handle creation.
-  std::atomic<bool> creationFailed{false};
-
-  // Mutex for pushing to handles in a thread-safe manner.
-  std::mutex handlesMutex;
-
-  for (size_t i = 0; i < kNumThreads; ++i) {
-    threads.emplace_back([&]() {
-      // Wait at the barrier until all threads reach this point.
-      startBarrier.arrive_and_wait();
-      // Create the handle for AMDGPU backend.
-      auto handleOrError = Handle::create(Backend::AMDGPU);
-      if (isError(handleOrError)) {
-        creationFailed.store(true);
-        return;
-      }
-      std::lock_guard<std::mutex> lock(handlesMutex);
-      handles.push_back(std::move(*handleOrError));
-    });
-  }
-  // Wait for all threads to finish.
-  for (auto &t : threads)
-    t.join();
-
-  REQUIRE(!creationFailed.load());
-  REQUIRE(handles.size() == kNumThreads);
-}
-#endif
 
 TEST_CASE("Handle creation with deviceId and stream, CPU backend should fail",
           "[handle]") {
