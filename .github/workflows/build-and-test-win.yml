@@ -15,6 +15,7 @@ permissions:
 
 jobs:
   build-and-test-win:
+    # TODO: Check if we can use a windows runner with and AMD GPU for testing.
     name: "Build & Test :: cpu_msvc_windows"
     runs-on: azure-windows-scale
     env:
@@ -24,16 +25,12 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: true
-      # TODO(#18813): Remove this. Environment setup needs to happen on runners, not in workflows.
       - name: "Create build dir"
         run: |
           $buildDir = "$env:BASE_BUILD_DIR_POWERSHELL\"
           echo "BUILD_DIR_POWERSHELL=$buildDir" >> $env:GITHUB_ENV
           mkdir "$buildDir"
           Write-Host "Generated Build Directory: $buildDir"
-          $bashBuildDir = $buildDir -replace '\\', '/' -replace '^B:', '/b'
-          echo  "BUILD_DIR_BASH=$bashBuildDir" >> $env:GITHUB_ENV
-          Write-Host "Converted Build Directory For Bash: $bashBuildDir"
       - name: "Setting up Python"
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
@@ -63,6 +60,10 @@ jobs:
           cmake --build ${{ env.BUILD_DIR_POWERSHELL}} --config Release --target all
       - name: "Running Fusilli tests (libIREECompiler CAPI)"
         run: |
+          ctest --test-dir ${{ env.BUILD_DIR_POWERSHELL}} --output-on-failure --extra-verbose --timeout 120
+      - name: "Running Fusilli tests (iree-compile CLI)"
+        run: |
+          $env:FUSILLI_COMPILE_BACKEND_USE_CLI = "1"
           ctest --test-dir ${{ env.BUILD_DIR_POWERSHELL}} --output-on-failure --extra-verbose --timeout 120
       - name: "Clean up build dir"
         if: always()
