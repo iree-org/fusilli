@@ -68,8 +68,7 @@ findDeviceBuffer(int64_t uid, const hipdnnPluginDeviceBuffer_t *deviceBuffers,
 
 // LOG_API_SUCCESS from hipDNN, but deducing the enclosing function rather than
 // passing the function name.
-#define LOG_API_SUCCESS_AUTO(format, ...)                                      \
-  LOG_API_SUCCESS(__func__, format, __VA_ARGS__)
+#define LOG_API_SUCCESS_AUTO(msg) LOG_API_SUCCESS(__func__, msg)
 
 // Unwrap the value returned from an expression that evaluates to a
 // fusilli::ErrorOr. In the unhappy path set plugin error manager last error to

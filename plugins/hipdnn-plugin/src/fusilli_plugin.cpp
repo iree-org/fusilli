@@ -11,9 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// hipDNN logging expects COMPONENT_NAME to be defined
-#define COMPONENT_NAME FUSILLI_PLUGIN_NAME
-
 #include <flatbuffers/flatbuffers.h>
 #include <flatbuffers/vector.h>
 #include <fusilli.h>
@@ -30,6 +27,7 @@
 #include <hipdnn_plugin_sdk/PluginApi.h>
 #include <hipdnn_plugin_sdk/PluginApiDataTypes.h>
 #include <hipdnn_plugin_sdk/PluginHelpers.hpp>
+#include <hipdnn_plugin_sdk/PluginLogging.hpp>
 #include <iree/hal/buffer.h>
 #include <iree/hal/buffer_view.h>
 
@@ -65,32 +63,32 @@ extern "C" {
 // ----------------------------------------------------------------------
 
 hipdnnPluginStatus_t hipdnnPluginGetName(const char **name) {
-  LOG_API_ENTRY("name_ptr={:p}", static_cast<void *>(name));
+  LOG_API_ENTRY("name_ptr=" << static_cast<void *>(name));
   FUSILLI_PLUGIN_CHECK_NULL(name);
 
   *name = FUSILLI_PLUGIN_NAME;
 
-  LOG_API_SUCCESS_AUTO("pluginName={}", *name);
+  LOG_API_SUCCESS_AUTO("pluginName=" << *name);
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
 hipdnnPluginStatus_t hipdnnPluginGetVersion(const char **version) {
-  LOG_API_ENTRY("version_ptr={:p}", static_cast<void *>(version));
+  LOG_API_ENTRY("version_ptr=" << static_cast<void *>(version));
   FUSILLI_PLUGIN_CHECK_NULL(version);
 
   *version = fusilliPluginVersion;
 
-  LOG_API_SUCCESS_AUTO("version={}", *version);
+  LOG_API_SUCCESS_AUTO("version=" << *version);
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
 hipdnnPluginStatus_t hipdnnPluginGetType(hipdnnPluginType_t *type) {
-  LOG_API_ENTRY("type_ptr={:p}", static_cast<void *>(type));
+  LOG_API_ENTRY("type_ptr=" << static_cast<void *>(type));
   FUSILLI_PLUGIN_CHECK_NULL(type);
 
   *type = HIPDNN_PLUGIN_TYPE_ENGINE;
 
-  LOG_API_SUCCESS_AUTO("type={}", *type);
+  LOG_API_SUCCESS_AUTO("type=" << *type);
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
@@ -107,7 +105,7 @@ hipdnnPluginStatus_t hipdnnPluginSetLoggingCallback(hipdnnCallback_t callback) {
 
   hipdnn::logging::initializeCallbackLogging(FUSILLI_PLUGIN_NAME, callback);
 
-  LOG_API_SUCCESS_AUTO("{}", "logging callback initialized");
+  LOG_API_SUCCESS_AUTO("logging callback initialized");
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
@@ -119,9 +117,9 @@ hipdnnPluginStatus_t hipdnnPluginSetLoggingCallback(hipdnnCallback_t callback) {
 hipdnnPluginStatus_t hipdnnEnginePluginGetAllEngineIds(int64_t *engineIds,
                                                        uint32_t maxEngines,
                                                        uint32_t *numEngines) {
-  LOG_API_ENTRY("engineIds={:p}, maxEngines={}, numEngines={:p}",
-                static_cast<void *>(engineIds), maxEngines,
-                static_cast<void *>(numEngines));
+  LOG_API_ENTRY("engineIds=" << static_cast<void *>(engineIds)
+                             << ", maxEngines=" << maxEngines << ", numEngines="
+                             << static_cast<void *>(numEngines));
   FUSILLI_PLUGIN_CHECK_NULL(numEngines);
   if (maxEngines != 0) {
     FUSILLI_PLUGIN_CHECK_NULL(engineIds);
@@ -137,13 +135,13 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetAllEngineIds(int64_t *engineIds,
     engineIds[0] = FUSILLI_PLUGIN_ENGINE_ID;
   }
 
-  LOG_API_SUCCESS_AUTO("numEngines={}", *numEngines);
+  LOG_API_SUCCESS_AUTO("numEngines=" << *numEngines);
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
 hipdnnPluginStatus_t
 hipdnnEnginePluginCreate(hipdnnEnginePluginHandle_t *handle) {
-  LOG_API_ENTRY("handle_ptr={:p}", static_cast<void *>(handle));
+  LOG_API_ENTRY("handle_ptr=" << static_cast<void *>(handle));
   FUSILLI_PLUGIN_CHECK_NULL(handle);
 
   // Get device id.
@@ -153,26 +151,26 @@ hipdnnEnginePluginCreate(hipdnnEnginePluginHandle_t *handle) {
   // Create handle.
   *handle = new HipdnnEnginePluginHandle(deviceId);
 
-  LOG_API_SUCCESS_AUTO("createdHandle={:p}", static_cast<void *>(*handle));
+  LOG_API_SUCCESS_AUTO("createdHandle=" << static_cast<void *>(*handle));
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
 hipdnnPluginStatus_t
 hipdnnEnginePluginDestroy(hipdnnEnginePluginHandle_t handle) {
-  LOG_API_ENTRY("handle={:p}", static_cast<void *>(handle));
+  LOG_API_ENTRY("handle=" << static_cast<void *>(handle));
   FUSILLI_PLUGIN_CHECK_NULL(handle);
 
   delete handle;
 
-  LOG_API_SUCCESS_AUTO("", "");
+  LOG_API_SUCCESS_AUTO("");
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
 hipdnnPluginStatus_t
 hipdnnEnginePluginSetStream(hipdnnEnginePluginHandle_t handle,
                             hipStream_t stream) {
-  LOG_API_ENTRY("handle={:p}, stream_id={:p}", static_cast<void *>(handle),
-                static_cast<void *>(stream));
+  LOG_API_ENTRY("handle=" << static_cast<void *>(handle)
+                          << ", stream_id=" << static_cast<void *>(stream));
   FUSILLI_PLUGIN_CHECK_NULL(handle);
 
   // Get device associated with stream.
@@ -192,18 +190,18 @@ hipdnnEnginePluginSetStream(hipdnnEnginePluginHandle_t handle,
   // Set stream, it will be used to create fusilli::Handle later.
   handle->setStream(stream);
 
-  LOG_API_SUCCESS_AUTO("", "");
+  LOG_API_SUCCESS_AUTO("");
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
 hipdnnPluginStatus_t hipdnnEnginePluginGetApplicableEngineIds(
     hipdnnEnginePluginHandle_t handle, const hipdnnPluginConstData_t *opGraph,
     int64_t *engineIds, uint32_t maxEngines, uint32_t *numEngines) {
-  LOG_API_ENTRY("handle={:p}, opGraph={:p}, engineIds={:p}, maxEngines={}, "
-                "numEngines={:p}",
-                static_cast<void *>(handle), static_cast<const void *>(opGraph),
-                static_cast<void *>(engineIds), maxEngines,
-                static_cast<void *>(numEngines));
+  LOG_API_ENTRY("handle=" << static_cast<void *>(handle)
+                          << ", opGraph=" << static_cast<const void *>(opGraph)
+                          << ", engineIds=" << static_cast<void *>(engineIds)
+                          << ", maxEngines=" << maxEngines << ", numEngines="
+                          << static_cast<void *>(numEngines));
   FUSILLI_PLUGIN_CHECK_NULL(handle);
   FUSILLI_PLUGIN_CHECK_NULL(opGraph);
   if (maxEngines != 0) {
@@ -213,11 +211,11 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetApplicableEngineIds(
 
   *numEngines = 0;
   if (maxEngines < 1) {
-    HIPDNN_LOG_INFO(
-        "Maximum number of engines reached ({}), ignoring additional "
-        "engines, numEngines count: {}",
-        maxEngines, *numEngines);
-    LOG_API_SUCCESS_AUTO("numEngines={}", *numEngines);
+    HIPDNN_PLUGIN_LOG_INFO(
+        "Maximum number of engines reached ("
+        << maxEngines
+        << "), ignoring additional engines, numEngines count: " << *numEngines);
+    LOG_API_SUCCESS_AUTO("numEngines=" << *numEngines);
     return HIPDNN_PLUGIN_STATUS_SUCCESS;
   }
 
@@ -230,7 +228,7 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetApplicableEngineIds(
               ConvolutionFwdAttributes,
           hipdnn_data_sdk::data_objects::NodeAttributes::PointwiseAttributes,
           hipdnn_data_sdk::data_objects::NodeAttributes::MatmulAttributes})) {
-    HIPDNN_LOG_INFO(
+    HIPDNN_PLUGIN_LOG_INFO(
         "Fusilli only supports conv_fprop, pointwise, and matmul nodes");
     return HIPDNN_PLUGIN_STATUS_SUCCESS;
   }
@@ -241,7 +239,8 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetApplicableEngineIds(
                            ConvolutionFwdAttributes &&
       firstNodeType !=
           hipdnn_data_sdk::data_objects::NodeAttributes::MatmulAttributes) {
-    HIPDNN_LOG_INFO("Fusilli requires first node to be conv_fprop or matmul");
+    HIPDNN_PLUGIN_LOG_INFO(
+        "Fusilli requires first node to be conv_fprop or matmul");
     return HIPDNN_PLUGIN_STATUS_SUCCESS;
   }
 
@@ -256,8 +255,8 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetApplicableEngineIds(
     // equality.
     if (!std::ranges::equal(*convFwdAttrs->pre_padding(),
                             *convFwdAttrs->post_padding())) { // C++ 20
-      HIPDNN_LOG_INFO("Fusilli plan builder requires symmetric "
-                      "padding for conv_fprop nodes.");
+      HIPDNN_PLUGIN_LOG_INFO("Fusilli plan builder requires symmetric "
+                             "padding for conv_fprop nodes.");
       return HIPDNN_PLUGIN_STATUS_SUCCESS;
     }
   }
@@ -269,7 +268,7 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetApplicableEngineIds(
     // future code changes.
     if (node.attributes_type() !=
         hipdnn_data_sdk::data_objects::NodeAttributes::PointwiseAttributes) {
-      HIPDNN_LOG_INFO(
+      HIPDNN_PLUGIN_LOG_INFO(
           "Fusilli only supports conv_fprop, pointwise, and matmul nodes");
       return HIPDNN_PLUGIN_STATUS_SUCCESS;
     }
@@ -280,8 +279,8 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetApplicableEngineIds(
     hipdnn_data_sdk::data_objects::PointwiseMode mode =
         pointwiseAttrs->operation();
     if (fusilli::isError(hipDnnPointwiseModeToFusilliMode(mode))) {
-      HIPDNN_LOG_INFO("Fusilli doesn't currently support pointwise Mode {}",
-                      mode);
+      HIPDNN_PLUGIN_LOG_INFO("Fusilli doesn't currently support pointwise Mode "
+                             << mode);
       return HIPDNN_PLUGIN_STATUS_SUCCESS;
     }
   }
@@ -290,7 +289,7 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetApplicableEngineIds(
   engineIds[0] = FUSILLI_PLUGIN_ENGINE_ID;
   *numEngines = 1;
 
-  LOG_API_SUCCESS_AUTO("numEngines={}", *numEngines);
+  LOG_API_SUCCESS_AUTO("numEngines=" << *numEngines);
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
@@ -329,10 +328,10 @@ hipdnnEnginePluginGetEngineDetails(hipdnnEnginePluginHandle_t handle,
   // hipdnnEnginePluginDestroyExecutionContext -> cleans up execution context.
   // ----------------------------------------------------------------------
 
-  LOG_API_ENTRY("handle={:p}, engineId={}, opGraph={:p}, engineDetails={:p}",
-                static_cast<void *>(handle), engineId,
-                static_cast<const void *>(opGraph),
-                static_cast<void *>(engineDetails));
+  LOG_API_ENTRY(
+      "handle=" << static_cast<void *>(handle) << ", engineId=" << engineId
+                << ", opGraph=" << static_cast<const void *>(opGraph)
+                << ", engineDetails=" << static_cast<void *>(engineDetails));
   FUSILLI_PLUGIN_CHECK_NULL(handle);
   FUSILLI_PLUGIN_CHECK_NULL(opGraph);
   FUSILLI_PLUGIN_CHECK_NULL(engineDetails);
@@ -360,7 +359,7 @@ hipdnnEnginePluginGetEngineDetails(hipdnnEnginePluginHandle_t handle,
   handle->storeEngineDetailsBuffer(engineDetails->ptr,
                                    std::move(detachedBuffer));
 
-  LOG_API_SUCCESS_AUTO("engineDetails->ptr={:p}", engineDetails->ptr);
+  LOG_API_SUCCESS_AUTO("engineDetails->ptr=" << engineDetails->ptr);
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
@@ -370,8 +369,8 @@ hipdnnEnginePluginDestroyEngineDetails(hipdnnEnginePluginHandle_t handle,
   // See comment in hipdnnEnginePluginGetEngineDetails for more about how this
   // function fits into the flow.
 
-  LOG_API_ENTRY("handle={:p}, engineDetails={:p}", static_cast<void *>(handle),
-                static_cast<void *>(engineDetails));
+  LOG_API_ENTRY("handle=" << static_cast<void *>(handle) << ", engineDetails="
+                          << static_cast<void *>(engineDetails));
   FUSILLI_PLUGIN_CHECK_NULL(handle);
   FUSILLI_PLUGIN_CHECK_NULL(engineDetails);
   FUSILLI_PLUGIN_CHECK_NULL(engineDetails->ptr);
@@ -381,7 +380,7 @@ hipdnnEnginePluginDestroyEngineDetails(hipdnnEnginePluginHandle_t handle,
   engineDetails->ptr = nullptr;
   engineDetails->size = 0;
 
-  LOG_API_SUCCESS_AUTO("engineDetails->ptr={:p}", engineDetails->ptr);
+  LOG_API_SUCCESS_AUTO("engineDetails->ptr=" << engineDetails->ptr);
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
@@ -391,9 +390,10 @@ hipdnnEnginePluginGetWorkspaceSize(hipdnnEnginePluginHandle_t handle,
                                    const hipdnnPluginConstData_t *opGraph,
                                    size_t *workspaceSize) {
   LOG_API_ENTRY(
-      "handle={:p}, engineConfig={:p}, opGraph={:p}, workspaceSize={:p}",
-      static_cast<void *>(handle), static_cast<const void *>(engineConfig),
-      static_cast<const void *>(opGraph), static_cast<void *>(workspaceSize));
+      "handle=" << static_cast<void *>(handle)
+                << ", engineConfig=" << static_cast<const void *>(engineConfig)
+                << ", opGraph=" << static_cast<const void *>(opGraph)
+                << ", workspaceSize=" << static_cast<void *>(workspaceSize));
   FUSILLI_PLUGIN_CHECK_NULL(handle);
   FUSILLI_PLUGIN_CHECK_NULL(engineConfig);
   FUSILLI_PLUGIN_CHECK_NULL(opGraph);
@@ -405,7 +405,7 @@ hipdnnEnginePluginGetWorkspaceSize(hipdnnEnginePluginHandle_t handle,
   // space rather than a runtime allocated scratch space.
   *workspaceSize = 0;
 
-  LOG_API_SUCCESS_AUTO("workspaceSize={}", *workspaceSize);
+  LOG_API_SUCCESS_AUTO("workspaceSize=" << *workspaceSize);
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
@@ -417,11 +417,11 @@ hipdnnPluginStatus_t hipdnnEnginePluginCreateExecutionContext(
   // See comment in hipdnnEnginePluginGetEngineDetails for more about how this
   // function fits into the flow.
 
-  LOG_API_ENTRY(
-      "handle={:p}, engineConfig={:p}, opGraph={:p}, executionContext={:p}",
-      static_cast<void *>(handle), static_cast<const void *>(engineConfig),
-      static_cast<const void *>(opGraph),
-      static_cast<void *>(executionContext));
+  LOG_API_ENTRY("handle=" << static_cast<void *>(handle) << ", engineConfig="
+                          << static_cast<const void *>(engineConfig)
+                          << ", opGraph=" << static_cast<const void *>(opGraph)
+                          << ", executionContext="
+                          << static_cast<void *>(executionContext));
   FUSILLI_PLUGIN_CHECK_NULL(handle);
   FUSILLI_PLUGIN_CHECK_NULL(engineConfig);
   FUSILLI_PLUGIN_CHECK_NULL(opGraph);
@@ -453,23 +453,23 @@ hipdnnPluginStatus_t hipdnnEnginePluginCreateExecutionContext(
   *executionContext = new HipdnnEnginePluginExecutionContext(
       FUSILLI_PLUGIN_TRY(importAndCompile(opGraph)));
 
-  LOG_API_SUCCESS_AUTO("created_execution_context={:p}",
-                       static_cast<void *>(*executionContext));
+  LOG_API_SUCCESS_AUTO(
+      "created_execution_context=" << static_cast<void *>(*executionContext));
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
 hipdnnPluginStatus_t hipdnnEnginePluginDestroyExecutionContext(
     hipdnnEnginePluginHandle_t handle,
     hipdnnEnginePluginExecutionContext_t executionContext) {
-  LOG_API_ENTRY("handle={:p}, executionContext={:p}",
-                static_cast<void *>(handle),
-                static_cast<void *>(executionContext));
+  LOG_API_ENTRY("handle=" << static_cast<void *>(handle)
+                          << ", executionContext="
+                          << static_cast<void *>(executionContext));
   FUSILLI_PLUGIN_CHECK_NULL(handle);
   FUSILLI_PLUGIN_CHECK_NULL(executionContext);
 
   delete executionContext;
 
-  LOG_API_SUCCESS_AUTO("", "destroyed executionContext");
+  LOG_API_SUCCESS_AUTO("destroyed executionContext");
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
@@ -477,10 +477,10 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetWorkspaceSizeFromExecutionContext(
     hipdnnEnginePluginHandle_t handle,
     hipdnnEnginePluginExecutionContext_t executionContext,
     size_t *workspaceSize) {
-  LOG_API_ENTRY("handle={:p}, executionContext={:p}, workspaceSize={:p}",
-                static_cast<void *>(handle),
-                static_cast<void *>(executionContext),
-                static_cast<void *>(workspaceSize));
+  LOG_API_ENTRY(
+      "handle=" << static_cast<void *>(handle) << ", executionContext="
+                << static_cast<void *>(executionContext)
+                << ", workspaceSize=" << static_cast<void *>(workspaceSize));
   FUSILLI_PLUGIN_CHECK_NULL(handle);
   FUSILLI_PLUGIN_CHECK_NULL(executionContext);
   FUSILLI_PLUGIN_CHECK_NULL(workspaceSize);
@@ -491,7 +491,7 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetWorkspaceSizeFromExecutionContext(
   // space rather than a runtime allocated scratch space.
   *workspaceSize = 0;
 
-  LOG_API_SUCCESS_AUTO("workspaceSize={}", *workspaceSize);
+  LOG_API_SUCCESS_AUTO("workspaceSize=" << *workspaceSize);
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
@@ -503,11 +503,12 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
   // See comment in hipdnnEnginePluginGetEngineDetails for more about how this
   // function fits into the flow.
 
-  LOG_API_ENTRY(
-      "handle={:p}, executionContext={:p}, workspace={:p}, deviceBuffers={:p}, "
-      "numDeviceBuffers={}",
-      static_cast<void *>(handle), static_cast<void *>(executionContext),
-      workspace, static_cast<const void *>(deviceBuffers), numDeviceBuffers);
+  LOG_API_ENTRY("handle=" << static_cast<void *>(handle)
+                          << ", executionContext="
+                          << static_cast<void *>(executionContext)
+                          << ", workspace=" << workspace << ", deviceBuffers="
+                          << static_cast<const void *>(deviceBuffers)
+                          << ", numDeviceBuffers=" << numDeviceBuffers);
   FUSILLI_PLUGIN_CHECK_NULL(handle);
   FUSILLI_PLUGIN_CHECK_NULL(executionContext);
   FUSILLI_PLUGIN_CHECK_NULL(deviceBuffers);
@@ -604,7 +605,7 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
   FUSILLI_PLUGIN_CHECK_ERROR(executionContext->graph.execute(
       FUSILLI_PLUGIN_TRY(handle->getFusilliHandle()), variantPack));
 
-  LOG_API_SUCCESS_AUTO("{}", "executed graph");
+  LOG_API_SUCCESS_AUTO("executed graph");
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
