@@ -1,0 +1,111 @@
+# Copyright 2025 Advanced Micro Devices, Inc.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+name: CI - Linux x64 (Ubuntu 24.04)
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test-linux:
+    name: "Build & Test :: ${{ matrix.name }}"
+    runs-on: ${{ matrix.runs-on }}
+    defaults:
+      run:
+        # --noprofile skips loading ~/.bash_profile
+        # --norc      skips loading ~/.bashrc
+        # -exo pipefail:
+        #   -e exit immediately if any command fails
+        #   -x print each command before executing
+        #   -o pipefail ensure pipeline fails if any command in it fails
+        # {0} github actions placeholder for the command to run
+        shell: bash --noprofile --norc -exo pipefail {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        name: ["gfx942_clang22_release", "cpu_clang18_debug", "gfx942_clang22_debug", "cpu_gcc13_codecov"]
+        include:
+          - name: gfx942_clang22_release
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Release
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: cpu_clang18_debug
+            runs-on: azure-linux-scale
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-18
+              -DCMAKE_CXX_COMPILER=clang++-18
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=OFF
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: gfx942_clang22_debug
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_LOGGING=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+          - name: cpu_gcc13_codecov
+            runs-on: azure-linux-scale
+            cmake-options:
+              -DCMAKE_C_COMPILER=gcc-13
+              -DCMAKE_CXX_COMPILER=g++-13
+              -DFUSILLI_CODE_COVERAGE=ON
+              -DFUSILLI_SYSTEMS_AMDGPU=OFF
+              -DFUSILLI_ENABLE_CLANG_TIDY=ON
+
+    steps:
+    - name: Checkout fusilli
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+    - name: Build fusilli
+      run: |
+        build_tools/docker/exec_docker_ci.sh \
+        bash -c "cmake -GNinja -S. -Bbuild \
+                   -DIREE_SOURCE_DIR=/workspace/.cache/docker/iree \
+                   ${{ matrix.cmake-options }} && \
+                 cmake --build build --target all"
+
+    - name: Test fusilli (libIREECompiler CAPI)
+      if: ${{ matrix.name != 'cpu_gcc13_codecov' }}
+      run: |
+        build_tools/docker/exec_docker_ci.sh \
+        bash -c "ctest --test-dir build --output-on-failure --extra-verbose --timeout 120 -j \$(nproc) && \
+                 tests/test_cache_empty.sh"
+
+    - name: Test fusilli (iree-compile CLI)
+      if: ${{ matrix.name != 'cpu_gcc13_codecov' }}
+      run: |
+        build_tools/docker/exec_docker_ci.sh \
+        bash -c "FUSILLI_COMPILE_BACKEND_USE_CLI=1 ctest --test-dir build --output-on-failure --extra-verbose --timeout 120 -j \$(nproc) && \
+                 tests/test_cache_empty.sh"
+
+    - name: Run code coverage
+      if: ${{ matrix.name == 'cpu_gcc13_codecov' }}
+      run: |
+        build_tools/docker/exec_docker_ci.sh \
+        bash -c "ctest --test-dir build -T test -T coverage --timeout 120 && \
+                 lcov --capture --directory build --output-file build/coverage.info && \
+                 lcov --remove build/coverage.info '/usr/*' '*/iree/*' --output-file build/coverage.info && \
+                 genhtml build/coverage.info --output-directory coverage_report"
+
+    - name: Upload code coverage report
+      if: ${{ matrix.name == 'cpu_gcc13_codecov' }}
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: coverage-report
+        path: ${{ github.workspace }}/coverage_report

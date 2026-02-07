@@ -116,7 +116,7 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
         int64_t inIdx = ((d0 * 16 + d1) * 8 + d2) * 8 + d3;
         switch (mode) {
         case ReductionAttr::Mode::SUM:
-          expectedValue += xData[inIdx];
+          expectedValue = expectedValue + xData[inIdx];
           break;
         case ReductionAttr::Mode::MIN:
           expectedValue = std::min(expectedValue, xData[inIdx]);
