@@ -1,23 +1,22 @@
-# Copyright 2025 Advanced Micro Devices, Inc.
+# Copyright 2026 Advanced Micro Devices, Inc.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions.
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-name: Flake test - fusilli
+# TODO: Temporary workflow to bisect GPU numerical flake. Remove after.
+
+name: Flake test (GPU) - fusilli
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 permissions:
   contents: read
 
 env:
   # Configure the number of times to run each test to detect flakes
-  FLAKE_TEST_ITERATIONS: 20
+  FLAKE_TEST_ITERATIONS: 1000
 
 concurrency:
   # A PR number if a pull request and otherwise the commit hash. This cancels
@@ -41,7 +40,7 @@ jobs:
           echo "iterations=${ITERATIONS}" >> $GITHUB_OUTPUT
           echo "Generated iterations: ${ITERATIONS}"
 
-  flake-test:
+  flake-test-gpu-dispatch:
     name: "${{ matrix.name }} - iteration ${{ matrix.iteration }}"
     needs: setup
     runs-on: ${{ matrix.runs-on }}
@@ -58,18 +57,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: ["cpu_clang18_debug", "gfx942_clang22_debug"]
+        name: ["gfx942_clang22_debug"]
         iteration: ${{ fromJson(needs.setup.outputs.iterations) }}
         include:
-          - name: cpu_clang18_debug
-            runs-on: azure-linux-scale
-            cmake-options:
-              -DCMAKE_C_COMPILER=clang-18
-              -DCMAKE_CXX_COMPILER=clang++-18
-              -DCMAKE_BUILD_TYPE=Debug
-              -DFUSILLI_ENABLE_LOGGING=ON
-              -DFUSILLI_SYSTEMS_AMDGPU=OFF
-              -DFUSILLI_ENABLE_CLANG_TIDY=OFF
           - name: gfx942_clang22_debug
             runs-on: linux-mi325-1gpu-ossci-iree-org
             cmake-options:
@@ -92,34 +82,9 @@ jobs:
                    ${{ matrix.cmake-options }} && \
                  cmake --build build --target all"
 
-    - name: Test fusilli (libIREECompiler CAPI)
+    - name: Test fusilli
       run: |
         build_tools/docker/exec_docker_ci.sh \
-        bash -c "ctest --test-dir build --output-on-failure --extra-verbose --timeout 120 -j 8 && \
+        bash -c "ctest --test-dir build --output-on-failure --timeout 120 -j 8 \
+                   -R 'fusilli_conv_samples_conv_fprop_with_relu|fusilli_graph_tests_test_graph|fusilli_conv_samples_conv_fprop_nchw_kcrs_grouped|fusilli_layernorm_samples_layernorm_train_nhwc_scale_bias|fusilli_pointwise_samples_pointwise_binary_ops|fusilli_pointwise_samples_pointwise_unary_ops' && \
                  tests/test_cache_empty.sh"
-
-    - name: Test fusilli (iree-compile CLI)
-      run: |
-        build_tools/docker/exec_docker_ci.sh \
-        bash -c "FUSILLI_COMPILE_BACKEND_USE_CLI=1 ctest --test-dir build --output-on-failure --extra-verbose --timeout 120 -j 8 && \
-                 tests/test_cache_empty.sh"
-
-  # Depends on all other jobs to provide an aggregate job status.
-  flake_test_summary:
-    if: always()
-    runs-on: ubuntu-24.04
-    needs:
-      - setup
-      - flake-test
-    steps:
-      - name: Getting failed jobs
-        run: |
-          echo '${{ toJson(needs) }}'
-          FAILED_JOBS="$(echo '${{ toJson(needs) }}' \
-            | jq --raw-output \
-            'map_values(select(.result!="success" and .result!="skipped")) | keys | join(",")' \
-          )"
-          if [[ "${FAILED_JOBS}" != "" ]]; then
-            echo "The following jobs failed: ${FAILED_JOBS}"
-            exit 1
-          fi
