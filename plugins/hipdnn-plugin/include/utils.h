@@ -72,28 +72,30 @@ findDeviceBuffer(int64_t uid, const hipdnnPluginDeviceBuffer_t *deviceBuffers,
 
 // Unwrap the value returned from an expression that evaluates to a
 // fusilli::ErrorOr. In the unhappy path set plugin error manager last error to
-//  HIPDNN_PLUGIN_STATUS_INTERNAL_ERROR and return said error from the enclosing
-//  scope.
+// HIPDNN_PLUGIN_STATUS_INTERNAL_ERROR and return said error from the enclosing
+// scope.
 //
 // Usage:
 //   fusilli::ErrorOr<std::string> getString();
 //
 //   hipdnnPluginStatus_t processString() {
 //     // Either gets the string or returns error.
-//     std::string str = FUSILLI_PLUGIN_TRY(getString());
+//     FUSILLI_PLUGIN_ASSIGN_OR_RETURN(std::string str, getString());
 //     doSomethingImportant(str);
 //     return HIPDNN_PLUGIN_STATUS_SUCCESS;
 //   }
-#define FUSILLI_PLUGIN_TRY(expr)                                               \
-  ({                                                                           \
-    auto errorOr = (expr);                                                     \
-    if (fusilli::isError(errorOr)) {                                           \
-      return hipdnn_plugin_sdk::PluginLastErrorManager::setLastError(          \
-          HIPDNN_PLUGIN_STATUS_INTERNAL_ERROR,                                 \
-          fusilli::ErrorObject(errorOr).getMessage());                         \
-    }                                                                          \
-    std ::move(*errorOr);                                                      \
-  })
+#define FUSILLI_PLUGIN_ASSIGN_OR_RETURN_IMPL(errorOr, var, expr)               \
+  auto errorOr = (expr);                                                       \
+  if (fusilli::isError(errorOr)) {                                             \
+    return hipdnn_plugin_sdk::PluginLastErrorManager::setLastError(            \
+        HIPDNN_PLUGIN_STATUS_INTERNAL_ERROR,                                   \
+        fusilli::ErrorObject(errorOr).getMessage());                           \
+  }                                                                            \
+  var = std::move(*errorOr);
+
+#define FUSILLI_PLUGIN_ASSIGN_OR_RETURN(varDecl, expr)                         \
+  FUSILLI_PLUGIN_ASSIGN_OR_RETURN_IMPL(FUSILLI_ERROR_VAR(_errorOr), varDecl,   \
+                                       expr)
 
 template <typename T> fusilli::ErrorObject convertToErrorObject(T &&error) {
   using DecayT = std::decay_t<T>;
