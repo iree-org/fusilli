@@ -23,6 +23,7 @@
 #include <hipdnn_data_sdk/flatbuffer_utilities/FlatbufferTypeHelpers.hpp>
 #include <hipdnn_data_sdk/flatbuffer_utilities/GraphWrapper.hpp>
 #include <hipdnn_data_sdk/logging/Logger.hpp>
+#include <hipdnn_data_sdk/utilities/EngineNames.hpp>
 #include <hipdnn_plugin_sdk/EnginePluginApi.h>
 #include <hipdnn_plugin_sdk/PluginApi.h>
 #include <hipdnn_plugin_sdk/PluginApiDataTypes.h>
@@ -66,7 +67,7 @@ hipdnnPluginStatus_t hipdnnPluginGetName(const char **name) {
   LOG_API_ENTRY("name_ptr=" << static_cast<void *>(name));
   FUSILLI_PLUGIN_CHECK_NULL(name);
 
-  *name = FUSILLI_PLUGIN_NAME;
+  *name = hipdnn_data_sdk::utilities::FUSILLI_ENGINE_NAME;
 
   LOG_API_SUCCESS_AUTO("pluginName=" << *name);
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
@@ -103,7 +104,8 @@ hipdnnPluginStatus_t hipdnnPluginSetLoggingCallback(hipdnnCallback_t callback) {
   // No LOG_API_ENTRY as logging won't be wired up yet.
   FUSILLI_PLUGIN_CHECK_NULL(callback);
 
-  hipdnn::logging::initializeCallbackLogging(FUSILLI_PLUGIN_NAME, callback);
+  hipdnn::logging::initializeCallbackLogging(
+      hipdnn_data_sdk::utilities::FUSILLI_ENGINE_NAME, callback);
 
   LOG_API_SUCCESS_AUTO("logging callback initialized");
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
@@ -132,7 +134,7 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetAllEngineIds(int64_t *engineIds,
   *numEngines = 1;
 
   if (maxEngines >= 1) {
-    engineIds[0] = FUSILLI_PLUGIN_ENGINE_ID;
+    engineIds[0] = hipdnn_data_sdk::utilities::FUSILLI_ENGINE_ID;
   }
 
   LOG_API_SUCCESS_AUTO("numEngines=" << *numEngines);
@@ -286,7 +288,7 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetApplicableEngineIds(
   }
 
   // Graph passes all checks, the fusilli engine is applicable.
-  engineIds[0] = FUSILLI_PLUGIN_ENGINE_ID;
+  engineIds[0] = hipdnn_data_sdk::utilities::FUSILLI_ENGINE_ID;
   *numEngines = 1;
 
   LOG_API_SUCCESS_AUTO("numEngines=" << *numEngines);
@@ -336,7 +338,7 @@ hipdnnEnginePluginGetEngineDetails(hipdnnEnginePluginHandle_t handle,
   FUSILLI_PLUGIN_CHECK_NULL(opGraph);
   FUSILLI_PLUGIN_CHECK_NULL(engineDetails);
 
-  if (engineId != FUSILLI_PLUGIN_ENGINE_ID) {
+  if (engineId != hipdnn_data_sdk::utilities::FUSILLI_ENGINE_ID) {
     return hipdnn_plugin_sdk::PluginLastErrorManager::setLastError(
         HIPDNN_PLUGIN_STATUS_BAD_PARAM, "unexpected engine id");
   }
@@ -430,7 +432,8 @@ hipdnnPluginStatus_t hipdnnEnginePluginCreateExecutionContext(
   // Ensure that config contains expected engine id.
   hipdnn_plugin_sdk::EngineConfigWrapper engineConfigWrapper(
       engineConfig->ptr, engineConfig->size);
-  if (engineConfigWrapper.engineId() != FUSILLI_PLUGIN_ENGINE_ID) {
+  if (engineConfigWrapper.engineId() !=
+      hipdnn_data_sdk::utilities::FUSILLI_ENGINE_ID) {
     return hipdnn_plugin_sdk::PluginLastErrorManager::setLastError(
         HIPDNN_PLUGIN_STATUS_BAD_PARAM, "unexpected engine id");
   }

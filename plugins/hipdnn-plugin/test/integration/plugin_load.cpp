@@ -76,7 +76,8 @@ TEST(IntegrationTests, PluginLoad) {
   EXPECT_EQ(loadedPlugins.size(), 1);
 
   // Check that fusilli plugin did load.
-  auto expectedPath = pluginPath / std::format("lib{}.so", FUSILLI_PLUGIN_NAME);
+  auto expectedPath =
+      pluginPath / std::format("lib{}.so", FUSILLI_PLUGIN_TARGET);
   EXPECT_TRUE(std::ranges::any_of(
       loadedPlugins, [&expectedPath](const std::string &loadedPluginPath) {
         return std::filesystem::canonical(loadedPluginPath) ==
