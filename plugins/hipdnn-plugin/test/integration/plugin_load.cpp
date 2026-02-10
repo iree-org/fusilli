@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <format>
 #include <string>
 
 using hipdnn_data_sdk::utilities::getCurrentExecutableDirectory;
