@@ -387,7 +387,8 @@ struct IreeHalBufferViewDeleter {
 // Aliases for IREE runtime types with custom deleters.
 using IreeRuntimeInstanceSharedPtrType =
     std::shared_ptr<iree_runtime_instance_t>;
-using IreeHalDeviceSharedPtrType = std::shared_ptr<iree_hal_device_t>;
+using IreeHalDeviceUniquePtrType =
+    std::unique_ptr<iree_hal_device_t, IreeHalDeviceDeleter>;
 using IreeRuntimeSessionUniquePtrType =
     std::unique_ptr<iree_runtime_session_t, IreeRuntimeSessionDeleter>;
 using IreeHalBufferViewUniquePtrType =

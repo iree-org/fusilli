@@ -24,9 +24,6 @@ add_fusilli_plugin_test(
     hipdnn_data_sdk
     hipdnn_test_sdk
     Threads::Threads
-  COMPILE_DEFS
-    FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
-    FUSILLI_PLUGIN_ENGINE_ID=${FUSILLI_PLUGIN_ENGINE_ID}
 )
 
 # Graph import tests
