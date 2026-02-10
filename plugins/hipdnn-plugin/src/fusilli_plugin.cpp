@@ -453,8 +453,10 @@ hipdnnPluginStatus_t hipdnnEnginePluginCreateExecutionContext(
     return fusilli::ok(std::move(graphImport));
   };
 
-  *executionContext = new HipdnnEnginePluginExecutionContext(
-      FUSILLI_PLUGIN_TRY(importAndCompile(opGraph)));
+  FUSILLI_PLUGIN_ASSIGN_OR_RETURN(auto importedGraph,
+                                  importAndCompile(opGraph));
+  *executionContext =
+      new HipdnnEnginePluginExecutionContext(std::move(importedGraph));
 
   LOG_API_SUCCESS_AUTO(
       "created_execution_context=" << static_cast<void *>(*executionContext));
@@ -517,8 +519,10 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
   FUSILLI_PLUGIN_CHECK_NULL(deviceBuffers);
 
   // Params and allocators hoisted out of loop below.
-  iree_hal_allocator_t *deviceAllocator = iree_hal_device_allocator(
-      FUSILLI_PLUGIN_TRY(handle->getFusilliHandle()).get());
+  FUSILLI_PLUGIN_ASSIGN_OR_RETURN(auto fusilliHandle,
+                                  handle->getFusilliHandle());
+  iree_hal_allocator_t *deviceAllocator =
+      iree_hal_device_allocator(fusilliHandle.get());
   iree_allocator_t ireeHostAllocator = iree_allocator_system();
   iree_hal_buffer_params_t bufferParams = {
       .usage = IREE_HAL_BUFFER_USAGE_DEFAULT,
@@ -549,7 +553,8 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
       variantPack;
   for (auto &[uid, tensorAttr] : executionContext->uidToFusilliTensorAttr) {
     // 1. Find associated buffer.
-    hipdnnPluginDeviceBuffer_t hipMallocedBuffer = FUSILLI_PLUGIN_TRY(
+    FUSILLI_PLUGIN_ASSIGN_OR_RETURN(
+        hipdnnPluginDeviceBuffer_t hipMallocedBuffer,
         findDeviceBuffer(uid, deviceBuffers, numDeviceBuffers));
 
     // 2.1. Import external buffer into IREE runtime. This isn't allocating a
@@ -574,6 +579,9 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
         iree_hal_buffer_release_callback_null(), &importedBuffer));
 
     // 2.2. Create a buffer view for external buffer.
+    FUSILLI_PLUGIN_ASSIGN_OR_RETURN(
+        auto elementType,
+        fusilliDataTypeToIreeHalDataType(tensorAttr->getDataType()));
     iree_hal_buffer_view_t *outBufferView = nullptr;
     FUSILLI_PLUGIN_CHECK_ERROR(iree_hal_buffer_view_create(
         /*buffer=*/importedBuffer,
@@ -581,9 +589,7 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
         /*shape=*/
         reinterpret_cast<const iree_hal_dim_t *>(
             tensorAttr->getPhysicalDim().data()),
-        /*element_type=*/
-        FUSILLI_PLUGIN_TRY(
-            fusilliDataTypeToIreeHalDataType(tensorAttr->getDataType())),
+        /*element_type=*/elementType,
         /*encoding_type=*/IREE_HAL_ENCODING_TYPE_DENSE_ROW_MAJOR,
         /*host_allocator=*/ireeHostAllocator,
         /*out_buffer_view=*/&outBufferView));
@@ -596,8 +602,10 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
     // 2.3. Create fusilli::Buffer from buffer view. Buffer::import is a RAII
     // type that retains the buffer view, incrementing its reference count, on
     // construction and releases the buffer view on destruction.
-    variantPack[tensorAttr] = std::make_shared<fusilli::Buffer>(
-        FUSILLI_PLUGIN_TRY(fusilli::Buffer::import(outBufferView)));
+    FUSILLI_PLUGIN_ASSIGN_OR_RETURN(auto fusilliBuffer,
+                                    fusilli::Buffer::import(outBufferView));
+    variantPack[tensorAttr] =
+        std::make_shared<fusilli::Buffer>(std::move(fusilliBuffer));
 
     // Release our reference to buffer view. The buffer view and buffer will
     // (now) be tied to fusilli::Buffer's lifetime as it holds the only
@@ -605,8 +613,8 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
     iree_hal_buffer_view_release(outBufferView);
   }
 
-  FUSILLI_PLUGIN_CHECK_ERROR(executionContext->graph.execute(
-      FUSILLI_PLUGIN_TRY(handle->getFusilliHandle()), variantPack));
+  FUSILLI_PLUGIN_CHECK_ERROR(
+      executionContext->graph.execute(fusilliHandle, variantPack));
 
   LOG_API_SUCCESS_AUTO("executed graph");
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
