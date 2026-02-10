@@ -138,7 +138,7 @@ TEST(TestFusilliPluginApi, Logging) {
 TEST(TestFusilliPluginApi, GetNameSuccess) {
   const char *name = nullptr;
   EXPECT_EQ(hipdnnPluginGetName(&name), HIPDNN_PLUGIN_STATUS_SUCCESS);
-  EXPECT_STREQ(name, FUSILLI_PLUGIN_NAME);
+  EXPECT_STREQ(name, hipdnn_data_sdk::utilities::FUSILLI_ENGINE_NAME);
 }
 
 TEST(TestFusilliPluginApi, GetNameNullptr) {

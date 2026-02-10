@@ -19,7 +19,7 @@ add_fusilli_plugin_test(
     Threads::Threads
   COMPILE_DEFS
     FUSILLI_PLUGIN_PATH="../${FUSILLI_PLUGIN_RELATIVE_PATH}"
-    FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
+    FUSILLI_PLUGIN_TARGET="${FUSILLI_PLUGIN_TARGET}"
 )
 
 add_fusilli_plugin_test(
@@ -34,7 +34,6 @@ add_fusilli_plugin_test(
     Threads::Threads
   COMPILE_DEFS
     FUSILLI_PLUGIN_PATH="../${FUSILLI_PLUGIN_RELATIVE_PATH}"
-    FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
 )
 
 add_fusilli_plugin_test(
@@ -50,7 +49,6 @@ add_fusilli_plugin_test(
     Threads::Threads
   COMPILE_DEFS
     FUSILLI_PLUGIN_PATH="../${FUSILLI_PLUGIN_RELATIVE_PATH}"
-    FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
 )
 
 add_fusilli_plugin_test(
@@ -65,7 +63,6 @@ add_fusilli_plugin_test(
     Threads::Threads
   COMPILE_DEFS
     FUSILLI_PLUGIN_PATH="../${FUSILLI_PLUGIN_RELATIVE_PATH}"
-    FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
 )
 
 add_fusilli_plugin_test(
@@ -81,7 +78,6 @@ add_fusilli_plugin_test(
     Threads::Threads
   COMPILE_DEFS
     FUSILLI_PLUGIN_PATH="../${FUSILLI_PLUGIN_RELATIVE_PATH}"
-    FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
 )
 
 add_fusilli_plugin_test(
@@ -97,7 +93,6 @@ add_fusilli_plugin_test(
     Threads::Threads
   COMPILE_DEFS
     FUSILLI_PLUGIN_PATH="../${FUSILLI_PLUGIN_RELATIVE_PATH}"
-    FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
 )
 
 add_fusilli_plugin_test(
@@ -113,5 +108,4 @@ add_fusilli_plugin_test(
     Threads::Threads
   COMPILE_DEFS
     FUSILLI_PLUGIN_PATH="../${FUSILLI_PLUGIN_RELATIVE_PATH}"
-    FUSILLI_PLUGIN_NAME="${FUSILLI_PLUGIN_NAME}"
 )

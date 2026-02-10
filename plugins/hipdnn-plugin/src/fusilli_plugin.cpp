@@ -67,7 +67,7 @@ hipdnnPluginStatus_t hipdnnPluginGetName(const char **name) {
   LOG_API_ENTRY("name_ptr=" << static_cast<void *>(name));
   FUSILLI_PLUGIN_CHECK_NULL(name);
 
-  *name = FUSILLI_PLUGIN_NAME;
+  *name = hipdnn_data_sdk::utilities::FUSILLI_ENGINE_NAME;
 
   LOG_API_SUCCESS_AUTO("pluginName=" << *name);
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
@@ -104,7 +104,8 @@ hipdnnPluginStatus_t hipdnnPluginSetLoggingCallback(hipdnnCallback_t callback) {
   // No LOG_API_ENTRY as logging won't be wired up yet.
   FUSILLI_PLUGIN_CHECK_NULL(callback);
 
-  hipdnn::logging::initializeCallbackLogging(FUSILLI_PLUGIN_NAME, callback);
+  hipdnn::logging::initializeCallbackLogging(
+      hipdnn_data_sdk::utilities::FUSILLI_ENGINE_NAME, callback);
 
   LOG_API_SUCCESS_AUTO("logging callback initialized");
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
