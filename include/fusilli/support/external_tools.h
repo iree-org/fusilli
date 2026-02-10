@@ -45,7 +45,7 @@ inline std::string getRocmAgentEnumeratorPath() {
 #elif defined(FUSILLI_PLATFORM_LINUX)
   return std::string("rocm_agent_enumerator");
 #else
-#error "unkonwn platform"
+#error "unknown platform"
 #endif
 }
 
