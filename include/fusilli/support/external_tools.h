@@ -39,14 +39,14 @@ inline std::string getRocmAgentEnumeratorPath() {
     return std::string(envPath);
   }
 
-  // Let shell search for it.
-  #if defined(FUSILLI_PLATFORM_WINDOWS)
-    return std::string("rocm-sdk targets");
-  #elif defined(FUSILLI_PLATFORM_LINUX)
+// Let shell search for it.
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  return std::string("rocm-sdk targets");
+#elif defined(FUSILLI_PLATFORM_LINUX)
   return std::string("rocm_agent_enumerator");
-  #else
-  #error "Unkonwn platform"
-  #endif
+#else
+#error "Unkonwn platform"
+#endif
   return std::string("");
 }
 
