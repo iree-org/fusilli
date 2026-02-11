@@ -64,7 +64,7 @@ struct MatmulOptions {
 static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
                                       DataType convIOType, int64_t iter,
                                       int64_t deviceId, bool dump) {
-#ifdef FUSILLI_ENABLE_AMDGPU
+#if defined(FUSILLI_ENABLE_AMDGPU)
   FUSILLI_ASSIGN_OR_RETURN(Handle handle,
                            Handle::create(Backend::AMDGPU, deviceId));
 #else
@@ -206,7 +206,7 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts, DataType aType,
                                    DataType bType, DataType outType,
                                    DataType biasType, int64_t iter,
                                    int64_t deviceId, bool dump) {
-#ifdef FUSILLI_ENABLE_AMDGPU
+#if defined(FUSILLI_ENABLE_AMDGPU)
   FUSILLI_ASSIGN_OR_RETURN(Handle handle,
                            Handle::create(Backend::AMDGPU, deviceId));
 #else
@@ -330,7 +330,7 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts, DataType aType,
 static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
                                       DataType convIOType, int64_t iter,
                                       int64_t deviceId, bool dump) {
-#ifdef FUSILLI_ENABLE_AMDGPU
+#if defined(FUSILLI_ENABLE_AMDGPU)
   FUSILLI_ASSIGN_OR_RETURN(Handle handle,
                            Handle::create(Backend::AMDGPU, deviceId));
 #else
@@ -446,7 +446,7 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
 static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
                                       DataType convIOType, int64_t iter,
                                       int64_t deviceId, bool dump) {
-#ifdef FUSILLI_ENABLE_AMDGPU
+#if defined(FUSILLI_ENABLE_AMDGPU)
   FUSILLI_ASSIGN_OR_RETURN(Handle handle,
                            Handle::create(Backend::AMDGPU, deviceId));
 #else

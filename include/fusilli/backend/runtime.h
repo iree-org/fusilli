@@ -129,7 +129,7 @@ inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
 // Hide some of the IREE HAL HIP driver symbols to avoid linking errors
 // when building Fusilli without AMDGPU support (which disables IREE HAL
 // HIP driver from being built).
-#ifdef FUSILLI_ENABLE_AMDGPU
+#if defined(FUSILLI_ENABLE_AMDGPU)
   // Device parms.
   iree_hal_hip_device_params_t params;
   setDefaultIreeHalHipDeviceParams(&params);

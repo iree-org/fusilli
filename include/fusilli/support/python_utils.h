@@ -42,7 +42,7 @@ inline std::vector<std::string> getPythonSitePackages() {
       "python3 -c \"import site; print('\\n'.join(site.getsitepackages()))\" "
       "2>/dev/null";
 #else
-#error "unknown platform"
+#error "Unsupported platform"
 #endif
 
   auto output = execCommand(pythonCmd);
@@ -103,7 +103,7 @@ inline std::optional<std::string> findIreeCompilerLib() {
   const char *libRelPath = "iree/compiler/_mlir_libs/libIREECompiler.so";
   const char *libRelPathUnd = "iree_compiler/_mlir_libs/libIREECompiler.so";
 #else
-#error "unknown platform"
+#error "Unsupported platform"
 #endif
 
   // Try the standard pip install location
