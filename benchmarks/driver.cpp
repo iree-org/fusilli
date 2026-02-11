@@ -58,6 +58,18 @@ struct MatmulOptions {
 };
 
 //===---------------------------------------------------------------------===//
+// Helpers
+//===---------------------------------------------------------------------===//
+
+static std::pair<std::vector<int64_t>, std::vector<int64_t>>
+getBiasDimsAndStride(int64_t spatialDim, int64_t k) {
+  auto biasDims = (spatialDim == 2) ? std::vector<int64_t>{1, k, 1, 1}
+                                    : std::vector<int64_t>{1, k, 1, 1, 1};
+  auto biasStride = std::vector<int64_t>(biasDims.size(), 1);
+  return {std::move(biasDims), std::move(biasStride)};
+}
+
+//===---------------------------------------------------------------------===//
 // Benchmark functions
 //===---------------------------------------------------------------------===//
 
@@ -101,15 +113,6 @@ static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
   auto convDilation = (opts.s == 2)
                           ? std::vector<int64_t>{opts.l, opts.j}
                           : std::vector<int64_t>{opts.m, opts.l, opts.j};
-  auto biasDims = (opts.s == 2) ? std::vector<int64_t>{1, opts.k, 1, 1}
-                                : std::vector<int64_t>{1, opts.k, 1, 1, 1};
-  auto biasStride =
-      (opts.imageLayout == "NCHW" || opts.imageLayout == "NCDHW")
-          ? generateStrideFromDim(biasDims,
-                                  getContiguousStrideOrder(biasDims.size()))
-          : generateStrideFromDim(biasDims,
-                                  getChannelsLastStrideOrder(biasDims.size()));
-
   // Build graph for the given handle (device), validate and compile it.
   Graph graph;
 
@@ -156,6 +159,7 @@ static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
 
   std::shared_ptr<TensorAttr> bT;
   if (opts.bias) {
+    auto [biasDims, biasStride] = getBiasDimsAndStride(opts.s, opts.k);
     bT = graph.tensor(TensorAttr()
                           .setName("bias")
                           .setDim(biasDims)
@@ -357,15 +361,6 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
   auto convDilation = (opts.s == 2)
                           ? std::vector<int64_t>{opts.l, opts.j}
                           : std::vector<int64_t>{opts.m, opts.l, opts.j};
-  auto biasDims = (opts.s == 2) ? std::vector<int64_t>{1, opts.k, 1, 1}
-                                : std::vector<int64_t>{1, opts.k, 1, 1, 1};
-  auto biasStride =
-      (opts.outputLayout == "NCHW" || opts.outputLayout == "NCDHW")
-          ? generateStrideFromDim(biasDims,
-                                  getContiguousStrideOrder(biasDims.size()))
-          : generateStrideFromDim(biasDims,
-                                  getChannelsLastStrideOrder(biasDims.size()));
-
   // Calculate output dimensions (DY shape) using the same inference as forward
   auto dyDims = getConvInferredOutputShape(xDims, wDims, convDilation,
                                            convPadding, convStride);
@@ -416,6 +411,7 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
 
   std::shared_ptr<TensorAttr> dbT;
   if (opts.bias) {
+    auto [biasDims, biasStride] = getBiasDimsAndStride(opts.s, opts.k);
     auto reductionAttr = ReductionAttr()
                              .setMode(ReductionAttr::Mode::SUM)
                              .setName("bias_reduction");
@@ -500,15 +496,6 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
   auto convDilation = (opts.s == 2)
                           ? std::vector<int64_t>{opts.l, opts.j}
                           : std::vector<int64_t>{opts.m, opts.l, opts.j};
-  auto biasDims = (opts.s == 2) ? std::vector<int64_t>{1, opts.k, 1, 1}
-                                : std::vector<int64_t>{1, opts.k, 1, 1, 1};
-  auto biasStride =
-      (opts.outputLayout == "NCHW" || opts.outputLayout == "NCDHW")
-          ? generateStrideFromDim(biasDims,
-                                  getContiguousStrideOrder(biasDims.size()))
-          : generateStrideFromDim(biasDims,
-                                  getChannelsLastStrideOrder(biasDims.size()));
-
   // Calculate output dimensions (DY shape) using the same inference as forward
   auto dyDims = getConvInferredOutputShape(xDims, wDims, convDilation,
                                            convPadding, convStride);
@@ -559,6 +546,7 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
 
   std::shared_ptr<TensorAttr> dbT;
   if (opts.bias) {
+    auto [biasDims, biasStride] = getBiasDimsAndStride(opts.s, opts.k);
     auto reductionAttr = ReductionAttr()
                              .setMode(ReductionAttr::Mode::SUM)
                              .setName("bias_reduction");
