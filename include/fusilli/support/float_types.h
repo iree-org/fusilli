@@ -89,7 +89,7 @@ struct BFloat16 {
 // Half precision floating point types.
 // On Windows, use portable struct implementations with uint16_t storage.
 // On other platforms, use compiler extensions for native support.
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
 using half = Float16;
 using bf16 = BFloat16;
 #elif defined(FUSILLI_PLATFORM_LINUX)

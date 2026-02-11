@@ -151,7 +151,7 @@ TEST_CASE("Graph asm_emitter requires validation to be run first", "[graph]") {
 TEST_CASE("Graph `getCompiledArtifact` cache generation and invalidation",
           "[graph]") {
   FUSILLI_REQUIRE_ASSIGN(Handle cpuHandle, Handle::create(Backend::CPU));
-#ifdef FUSILLI_ENABLE_AMDGPU
+#if defined(FUSILLI_ENABLE_AMDGPU)
   FUSILLI_REQUIRE_ASSIGN(Handle gpuHandle, Handle::create(Backend::AMDGPU));
 #endif
 
@@ -173,7 +173,7 @@ TEST_CASE("Graph `getCompiledArtifact` cache generation and invalidation",
   REQUIRE(reCompiled.has_value());
   REQUIRE(!reCompiled.value());
 
-#ifdef FUSILLI_ENABLE_AMDGPU
+#if defined(FUSILLI_ENABLE_AMDGPU)
   // Cache should miss based on different handle / device / compile command.
   reCompiled = std::nullopt;
   FUSILLI_REQUIRE_OK(g.getCompiledArtifact(gpuHandle, generatedAsm,
@@ -309,7 +309,7 @@ TEST_CASE("Graph `compile` recompilations with changed handle", "[graph]") {
   std::getline(cpuCmdFile, cpuCmd);
   REQUIRE(!cpuCmd.empty());
 
-#ifdef FUSILLI_ENABLE_AMDGPU
+#if defined(FUSILLI_ENABLE_AMDGPU)
   FUSILLI_REQUIRE_ASSIGN(Handle gpuHandle, Handle::create(Backend::AMDGPU));
   FUSILLI_REQUIRE_OK(g.compile(gpuHandle, /*remove=*/true));
 

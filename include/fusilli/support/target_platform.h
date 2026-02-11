@@ -26,7 +26,7 @@
 #endif // _WIN32 || _WIN64
 
 #if !defined(FUSILLI_PLATFORM_LINUX) && !defined(FUSILLI_PLATFORM_WINDOWS)
-#error Unknown platform.
+#error "Unsupported platform"
 #endif // all archs
 
 //==============================================================================
@@ -37,7 +37,7 @@ namespace fusilli {
 
 // Sets an environment variable. Returns 0 on success, non-zero on failure.
 inline int setEnv(const char *name, const char *value) {
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
   return _putenv_s(name, value);
 #else
   return setenv(name, value, 1);
@@ -46,7 +46,7 @@ inline int setEnv(const char *name, const char *value) {
 
 // Unsets an environment variable. Returns 0 on success, non-zero on failure.
 inline int unsetEnv(const char *name) {
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
   return _putenv_s(name, "");
 #else
   return unsetenv(name);

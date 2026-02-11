@@ -24,9 +24,9 @@
 #include <optional>
 #include <string>
 
-#if FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
 #include <windows.h>
-#elif FUSILLI_PLATFORM_LINUX
+#elif defined(FUSILLI_PLATFORM_LINUX)
 #else
 #error "MemStream is only implemented for Windows and Linux platforms."
 #endif
@@ -49,7 +49,7 @@ namespace fusilli {
 //
 class MemStream {
 public:
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
   // Windows implementation using a temporary file.
   MemStream() : stream_(nullptr), tempFilePath_() {
     // Create a temporary file.
@@ -127,7 +127,7 @@ private:
   FILE *stream_;
   std::string tempFilePath_;
 
-#elif FUSILLI_PLATFORM_LINUX
+#elif defined(FUSILLI_PLATFORM_LINUX)
   // Linux/POSIX implementation using open_memstream.
   MemStream() : buffer_(nullptr), size_(0), stream_(nullptr) {
     stream_ = open_memstream(&buffer_, &size_);

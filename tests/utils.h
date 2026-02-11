@@ -86,7 +86,7 @@ namespace fusilli {
 
 // Default backend for samples and tests based on compile-time configuration.
 // AMDGPU is preferred when available, otherwise falls back to CPU.
-#ifdef FUSILLI_ENABLE_AMDGPU
+#if defined(FUSILLI_ENABLE_AMDGPU)
 constexpr Backend kDefaultBackend = Backend::AMDGPU;
 #else
 constexpr Backend kDefaultBackend = Backend::CPU;
