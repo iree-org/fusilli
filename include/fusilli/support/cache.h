@@ -133,7 +133,7 @@ public:
         CoTaskMemFree(pathBuf);
     }
     return std::filesystem::path(cacheDir) / "fusilli";
-#elif defined(FUSILLI_PLATFORM_LINUX)
+#else
     if (cacheDir.empty()) {
       const char *home = std::getenv("HOME");
       if (home) {
@@ -142,8 +142,6 @@ public:
       }
     }
     return std::filesystem::path(cacheDir) / ".cache" / "fusilli";
-#else
-#error "Unsupported platform"
 #endif
   }
 

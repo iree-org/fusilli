@@ -21,14 +21,13 @@
 
 #include "fusilli/support/logging.h"
 #include "fusilli/support/target_platform.h"
+
 #include <string>
 
 #if defined(FUSILLI_PLATFORM_WINDOWS)
 #include <windows.h>
-#elif defined(FUSILLI_PLATFORM_LINUX)
-#include <dlfcn.h>
 #else
-#error "Unsupported platform"
+#include <dlfcn.h>
 #endif
 
 namespace fusilli {
@@ -114,7 +113,7 @@ public:
       }
       return error(ErrorCode::FileSystemFailure, errMsg);
     }
-#elif defined(FUSILLI_PLATFORM_LINUX)
+#else
     // Use dlmopen with LM_ID_NEWLM to load in a new namespace for isolation. We
     // use a separate namespace to force reinitialization if another library
     // loaded and shutdown already.
@@ -123,8 +122,6 @@ public:
       const char *err = dlerror();
       return error(ErrorCode::FileSystemFailure, err ? err : "Unknown error");
     }
-#else
-#error "Unsupported platform"
 #endif
 
     return ok();
@@ -159,7 +156,7 @@ public:
       }
       return error(ErrorCode::InternalError, errMsg);
     }
-#elif defined(FUSILLI_PLATFORM_LINUX)
+#else
     // Clear any existing error.
     dlerror();
 
@@ -174,8 +171,6 @@ public:
       }
       return error(ErrorCode::InternalError, errMsg);
     }
-#else
-#error "Unsupported platform"
 #endif
 
     return ok(reinterpret_cast<T>(sym));
@@ -188,10 +183,8 @@ public:
     if (handle_) {
 #if defined(FUSILLI_PLATFORM_WINDOWS)
       FreeLibrary(handle_);
-#elif defined(FUSILLI_PLATFORM_LINUX)
-      dlclose(handle_);
 #else
-#error "Unsupported platform"
+      dlclose(handle_);
 #endif
       handle_ = nullptr;
     }
@@ -204,10 +197,8 @@ public:
 private:
 #if defined(FUSILLI_PLATFORM_WINDOWS)
   HMODULE handle_ = nullptr;
-#elif defined(FUSILLI_PLATFORM_LINUX)
-  void *handle_ = nullptr;
 #else
-#error "Unsupported platform"
+  void *handle_ = nullptr;
 #endif
 };
 
