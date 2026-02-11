@@ -126,7 +126,7 @@ public:
       return error(ErrorCode::FileSystemFailure, err ? err : "Unknown error");
     }
 #else
-#error Unsupported platform
+#error "Unsupported platform"
 #endif
 
     return ok();
@@ -177,7 +177,7 @@ public:
       return error(ErrorCode::InternalError, errMsg);
     }
 #else
-#error Unsupported platform
+#error "Unsupported platform"
 #endif
 
     return ok(reinterpret_cast<T>(sym));
@@ -193,7 +193,7 @@ public:
 #elif defined(FUSILLI_PLATFORM_LINUX)
       dlclose(handle_);
 #else
-#error Unsupported platform
+#error "Unsupported platform"
 #endif
       handle_ = nullptr;
     }
@@ -209,7 +209,7 @@ private:
 #elif defined(FUSILLI_PLATFORM_LINUX)
   void *handle_ = nullptr;
 #else
-#error Unsupported platform
+#error "Unsupported platform"
 #endif
 };
 

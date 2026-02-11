@@ -144,7 +144,7 @@ public:
     }
     return std::filesystem::path(cacheDir) / ".cache" / "fusilli";
 #else
-#error "Unsupported platform location"
+#error "Unsupported platform"
     return std::filesystem::path("");
 #endif
   }
