@@ -73,7 +73,7 @@ TEST_CASE("CompileContext::createSession with CPU backend",
   SUCCEED("Session created successfully");
 }
 
-#ifdef FUSILLI_ENABLE_AMDGPU
+#if defined(FUSILLI_ENABLE_AMDGPU)
 TEST_CASE("CompileContext::createSession with AMDGPU backend",
           "[CompileContext][CompileSession]") {
   // Get the shared compiler context.
@@ -282,7 +282,7 @@ TEST_CASE("CompileSession move semantics", "[CompileSession]") {
   SUCCEED("Move semantics work correctly");
 }
 
-#ifdef FUSILLI_ENABLE_AMDGPU
+#if defined(FUSILLI_ENABLE_AMDGPU)
 TEST_CASE("CompileSession::compile with AMDGPU backend",
           "[CompileSession][integration][amdgpu]") {
   // Get the shared compiler context and create a session for AMDGPU.
