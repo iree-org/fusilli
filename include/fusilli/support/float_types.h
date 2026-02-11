@@ -92,7 +92,7 @@ struct BFloat16 {
 #if defined(FUSILLI_PLATFORM_WINDOWS)
 using half = Float16;
 using bf16 = BFloat16;
-#elif defined(FUSILLI_PLATFORM_LINUX)
+#else
 // https://clang.llvm.org/docs/LanguageExtensions.html#half-precision-floating-point
 // These should be supported by GCC as well.
 // TODO(#14): When on C++23, switch to using `std::float16_t`
@@ -100,8 +100,6 @@ using bf16 = BFloat16;
 // https://en.cppreference.com/w/cpp/types/floating-point.html
 using half = _Float16;
 using bf16 = __bf16;
-#else
-#error "Unsupported platform"
 #endif
 
 } // namespace fusilli

@@ -33,8 +33,20 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if (MSVC)
-  add_compile_options(/bigobj)
+if(MSVC)
+  add_compile_options(
+    # Increase max sections in obj files to 2^32 for large translation units
+    # https://learn.microsoft.com/en-us/cpp/build/reference/bigobj-increase-number-of-sections-in-dot-obj-file
+    /bigobj
+
+    # Exclude rarely-used Windows APIs (crypto, DDE, shell) for faster builds
+    # https://learn.microsoft.com/en-us/windows/win32/winprog/using-the-windows-headers
+    /DWIN32_LEAN_AND_MEAN
+
+    # Prevent windows.h from defining min/max macros that conflict with STL
+    # https://stackoverflow.com/a/4914108
+    /DNOMINMAX
+  )
 endif()
 
 # Includes

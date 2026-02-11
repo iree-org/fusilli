@@ -37,12 +37,10 @@ inline std::vector<std::string> getPythonSitePackages() {
   const char *pythonCmd =
       "python -c \"import site; print('\\n'.join(site.getsitepackages()))\" "
       "2> NUL";
-#elif defined(FUSILLI_PLATFORM_LINUX)
+#else
   const char *pythonCmd =
       "python3 -c \"import site; print('\\n'.join(site.getsitepackages()))\" "
       "2>/dev/null";
-#else
-#error "Unsupported platform"
 #endif
 
   auto output = execCommand(pythonCmd);
@@ -99,11 +97,9 @@ inline std::optional<std::string> findIreeCompilerLib() {
 #if defined(FUSILLI_PLATFORM_WINDOWS)
   const char *libRelPath = "iree\\compiler\\_mlir_libs\\IREECompiler.dll";
   const char *libRelPathUnd = "iree_compiler\\_mlir_libs\\IREECompiler.dll";
-#elif defined(FUSILLI_PLATFORM_LINUX)
+#else
   const char *libRelPath = "iree/compiler/_mlir_libs/libIREECompiler.so";
   const char *libRelPathUnd = "iree_compiler/_mlir_libs/libIREECompiler.so";
-#else
-#error "Unsupported platform"
 #endif
 
   // Try the standard pip install location
