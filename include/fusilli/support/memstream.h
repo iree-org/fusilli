@@ -26,9 +26,6 @@
 
 #if defined(FUSILLI_PLATFORM_WINDOWS)
 #include <windows.h>
-#elif defined(FUSILLI_PLATFORM_LINUX)
-#else
-#error "MemStream is only implemented for Windows and Linux platforms."
 #endif
 
 namespace fusilli {
