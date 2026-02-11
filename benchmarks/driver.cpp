@@ -29,8 +29,8 @@ const auto kIsNonNegativeInteger =
     CLI::Range(int64_t{0}, std::numeric_limits<int64_t>::max());
 const auto kIsPositiveInteger =
     CLI::Range(int64_t{1}, std::numeric_limits<int64_t>::max());
-const auto kIsNonNegativeDouble =
-    CLI::Range(double{0}, std::numeric_limits<double>::max());
+const auto kIsPositiveDouble = CLI::Range(std::numeric_limits<double>::min(),
+                                          std::numeric_limits<double>::max());
 const auto kIsValidLayout =
     CLI::IsMember({"NCH", "NHC", "NCHW", "NHWC", "NCDHW", "NDHWC"});
 const auto kIsValidDataType = CLI::IsMember({"f32", "f16", "bf16"});
@@ -82,13 +82,16 @@ getBiasDimsAndStride(int64_t spatialDim, int64_t k) {
 }
 
 static std::vector<int64_t>
-generateStrideFromLayout(const std::vector<int64_t> &dims,
-                         const std::string &layout) {
-  // Layout has been already validated in the CLI parser.
-  if (layout == "NCH" || layout == "NCHW" || layout == "NCDHW") {
-    return generateStrideFromDim(dims, getContiguousStrideOrder(dims.size()));
+parseDimensionsFromString(const std::string &dimStr) {
+  std::vector<int64_t> dims;
+  size_t start = 0, end;
+  while ((end = dimStr.find('x', start)) != std::string::npos) {
+    dims.push_back(std::stoll(dimStr.substr(start, end - start)));
+    start = end + 1;
   }
-  return generateStrideFromDim(dims, getChannelsLastStrideOrder(dims.size()));
+  if (start < dimStr.size())
+    dims.push_back(std::stoll(dimStr.substr(start)));
+  return dims;
 }
 
 //===---------------------------------------------------------------------===//
@@ -116,8 +119,10 @@ static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
   auto wDims = (opts.s == 2)
                    ? std::vector<int64_t>{opts.k, fc, opts.y, opts.x}
                    : std::vector<int64_t>{opts.k, fc, opts.z, opts.y, opts.x};
-  auto xStride = generateStrideFromLayout(xDims, opts.imageLayout);
-  auto wStride = generateStrideFromLayout(wDims, opts.filterLayout);
+  FUSILLI_ASSIGN_OR_RETURN(auto xStride,
+                           generateStrideFromLayout(xDims, opts.imageLayout));
+  FUSILLI_ASSIGN_OR_RETURN(auto wStride,
+                           generateStrideFromLayout(wDims, opts.filterLayout));
   auto convStride = (opts.s == 2)
                         ? std::vector<int64_t>{opts.u, opts.v}
                         : std::vector<int64_t>{opts.t, opts.u, opts.v};
@@ -215,7 +220,7 @@ static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
   }
 
   // Execute graph a few times.
-  for (size_t i = 0; i < iter; i++)
+  for (size_t i = 0; i < iter; ++i)
     FUSILLI_CHECK_ERROR(graph.execute(handle, variantPack));
 
   return ok();
@@ -256,9 +261,12 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
   auto dyDims = getConvInferredOutputShape(xDims, wDims, convDilation,
                                            convPadding, convStride);
 
-  auto xStride = generateStrideFromLayout(xDims, opts.imageLayout);
-  auto dyStride = generateStrideFromLayout(dyDims, opts.outputLayout);
-  auto wStride = generateStrideFromLayout(wDims, opts.filterLayout);
+  FUSILLI_ASSIGN_OR_RETURN(auto xStride,
+                           generateStrideFromLayout(xDims, opts.imageLayout));
+  FUSILLI_ASSIGN_OR_RETURN(auto dyStride,
+                           generateStrideFromLayout(dyDims, opts.outputLayout));
+  FUSILLI_ASSIGN_OR_RETURN(auto wStride,
+                           generateStrideFromLayout(wDims, opts.filterLayout));
 
   // Build graph for the given handle (device), validate and compile it.
   Graph graph;
@@ -339,7 +347,7 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
   }
 
   // Execute graph a few times.
-  for (size_t i = 0; i < iter; i++)
+  for (size_t i = 0; i < iter; ++i)
     FUSILLI_CHECK_ERROR(graph.execute(handle, variantPack));
 
   return ok();
@@ -380,9 +388,12 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
   auto dyDims = getConvInferredOutputShape(xDims, wDims, convDilation,
                                            convPadding, convStride);
 
-  auto xStride = generateStrideFromLayout(xDims, opts.imageLayout);
-  auto dyStride = generateStrideFromLayout(dyDims, opts.outputLayout);
-  auto wStride = generateStrideFromLayout(wDims, opts.filterLayout);
+  FUSILLI_ASSIGN_OR_RETURN(auto xStride,
+                           generateStrideFromLayout(xDims, opts.imageLayout));
+  FUSILLI_ASSIGN_OR_RETURN(auto dyStride,
+                           generateStrideFromLayout(dyDims, opts.outputLayout));
+  FUSILLI_ASSIGN_OR_RETURN(auto wStride,
+                           generateStrideFromLayout(wDims, opts.filterLayout));
 
   // Build graph for the given handle (device), validate and compile it.
   Graph graph;
@@ -463,17 +474,17 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
   }
 
   // Execute graph a few times.
-  for (size_t i = 0; i < iter; i++)
+  for (size_t i = 0; i < iter; ++i)
     FUSILLI_CHECK_ERROR(graph.execute(handle, variantPack));
 
   return ok();
 }
 
-static ErrorObject benchmarLayerNormFwd(const LayerNormOptions &opts,
-                                        const std::vector<int64_t> &dims,
-                                        const std::string &layout,
-                                        DataType layernormIOType, int64_t iter,
-                                        int64_t deviceId, bool dump) {
+static ErrorObject benchmarkLayerNormFwd(const LayerNormOptions &opts,
+                                         const std::vector<int64_t> &dims,
+                                         const std::string &layout,
+                                         DataType layernormIOType, int64_t iter,
+                                         int64_t deviceId, bool dump) {
 #ifdef FUSILLI_ENABLE_AMDGPU
   FUSILLI_ASSIGN_OR_RETURN(Handle handle,
                            Handle::create(Backend::AMDGPU, deviceId));
@@ -485,7 +496,8 @@ static ErrorObject benchmarLayerNormFwd(const LayerNormOptions &opts,
   const bool isTrainingForward = opts.forw == 2;
 
   auto xDims = dims;
-  auto xStride = generateStrideFromLayout(xDims, layout);
+  FUSILLI_ASSIGN_OR_RETURN(auto xStride,
+                           generateStrideFromLayout(xDims, layout));
 
   auto yDims = xDims;
   auto yStride = xStride;
@@ -567,7 +579,7 @@ static ErrorObject benchmarLayerNormFwd(const LayerNormOptions &opts,
     variantPack.insert({vT, vBuf});
   }
   // Execute graph `iter` times.
-  for (size_t i = 0; i < iter; i++)
+  for (size_t i = 0; i < iter; ++i)
     FUSILLI_CHECK_ERROR(graph.execute(handle, variantPack));
 
   return ok();
@@ -692,7 +704,7 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts, DataType aType,
   }
 
   // Execute graph `iter` times.
-  for (size_t i = 0; i < iter; i++)
+  for (size_t i = 0; i < iter; ++i)
     FUSILLI_CHECK_ERROR(graph.execute(handle, variantPack));
 
   return ok();
@@ -799,15 +811,17 @@ static CLI::App *registerConvOptions(CLI::App &mainApp, ConvOptions &convOpts) {
 // Register LayerNorm options to CLI app
 static CLI::App *registerLayerNormOptions(CLI::App &mainApp,
                                           LayerNormOptions &layerNormOpts) {
+  // LayerNorm flags are kept in sync with MIOpen's LayerNormDriver:
+  // https://github.com/ROCm/rocm-libraries/blob/db0544fb61f2c7bd5a86dce98d4963420c1c741a/projects/miopen/driver/layernorm_driver.hpp#L386
   CLI::App *layerNormApp = mainApp.add_subcommand(
       "layernorm", "Fusilli Benchmark Layer Normalization");
 
   // layerNormApp CLI Options - bind to LayerNormOptions members
   layerNormApp
-      ->add_option("--input", layerNormOpts.input, "Input tensor dimensions")
+      ->add_option("--input,-X", layerNormOpts.input, "Input tensor dimensions")
       ->required();
   layerNormApp
-      ->add_option("--type", layerNormOpts.type,
+      ->add_option("--type,-t", layerNormOpts.type,
                    "LayerNorm data type (f32, f16, bf16)")
       ->required()
       ->check(kIsValidDataType);
@@ -815,20 +829,20 @@ static CLI::App *registerLayerNormOptions(CLI::App &mainApp,
       ->add_option("--forw,-F", layerNormOpts.forw,
                    "Kind of kernel to run: 1 - inference forward, 2 training "
                    "forward. By default, 1 is used")
-      ->default_val(1)
+      ->required()
       ->check(CLI::IsMember({1, 2}));
   layerNormApp
-      ->add_option("--mode", layerNormOpts.mode,
+      ->add_option("--mode,-m", layerNormOpts.mode,
                    "Elementwise affine mode (0), weight and bias mode (1). By "
                    "default, 0 is used.")
       ->default_val(0)
       ->check(CLI::IsMember({0, 1}));
   layerNormApp
-      ->add_option("--layout", layerNormOpts.layout, "Input/Output layout")
+      ->add_option("--layout,-l", layerNormOpts.layout, "Input/Output layout")
       ->check(kIsValidLayout);
   layerNormApp
-      ->add_option("--eps", layerNormOpts.eps, "Epsilon, 1e-5 by default")
-      ->check(kIsNonNegativeDouble);
+      ->add_option("--eps,-e", layerNormOpts.eps, "Epsilon, 1e-5 by default")
+      ->check(kIsPositiveDouble);
 
   return layerNormApp;
 }
@@ -949,29 +963,20 @@ static ErrorObject runLayerNormBenchmark(const LayerNormOptions &layerNormOpts,
                                          int64_t iter, int64_t deviceId,
                                          bool dump) {
   // Parse dimensions string into vector
-  auto dims = [&layerNormOpts]() {
-    const auto &dimStr = layerNormOpts.input;
-    std::vector<int64_t> dims;
-    size_t start = 0, end;
-    while ((end = dimStr.find('x', start)) != std::string::npos) {
-      dims.push_back(std::stoll(dimStr.substr(start, end - start)));
-      start = end + 1;
-    }
-    // Push last (or only) dimension
-    if (start < dimStr.size())
-      dims.push_back(std::stoll(dimStr.substr(start)));
-    return dims;
-  }();
+  auto dims = parseDimensionsFromString(layerNormOpts.input);
   FUSILLI_RETURN_ERROR_IF(std::any_of(dims.begin(), dims.end(),
                                       [](int64_t dim) { return dim <= 0; }),
                           ErrorCode::InvalidArgument,
                           "Invalid input dimensions: they must be positive");
+  FUSILLI_RETURN_ERROR_IF(dims.size() < 2, ErrorCode::InvalidArgument,
+                          "Input dimensions must have at least 2 dimensions");
 
   // Validate layout
   auto layout = layerNormOpts.layout;
   if (layout.empty()) {
     // Initialize by default if it's missed
-    layout = dims.size() == 3   ? std::string("NCH")
+    layout = dims.size() == 2   ? std::string("NC")
+             : dims.size() == 3 ? std::string("NCH")
              : dims.size() == 4 ? std::string("NCHW")
                                 : std::string("NCDHW");
   }
@@ -982,8 +987,8 @@ static ErrorObject runLayerNormBenchmark(const LayerNormOptions &layerNormOpts,
   // Parse data type strings using direct map lookup
   DataType type = kMlirTypeAsmToDataType.at(layerNormOpts.type);
 
-  ErrorObject status = benchmarLayerNormFwd(layerNormOpts, dims, layout, type,
-                                            iter, deviceId, dump);
+  ErrorObject status = benchmarkLayerNormFwd(layerNormOpts, dims, layout, type,
+                                             iter, deviceId, dump);
 
   FUSILLI_CHECK_ERROR(status);
 

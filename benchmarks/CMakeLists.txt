@@ -142,7 +142,7 @@ add_fusilli_benchmark(
 # Layer normalization benchmarks
 # Inference forward (F=1) benchmarks
 
-# TODO: iree/#23339
+# TODO(iree-org/iree#23339)
 # add_fusilli_benchmark(
 #   NAME fusilli_benchmark_layernorm_infer_nchw_fp32_single_batch
 #   DRIVER fusilli_benchmark_driver
@@ -163,6 +163,14 @@ add_fusilli_benchmark(
   ARGS
     --device 0 --iter 10 layernorm --input 16x128x64x32 -F 1 --type f16 --layout NHWC
 )
+
+# TODO (iree-org/iree#23340)
+# add_fusilli_benchmark(
+#   NAME fusilli_benchmark_layernorm_infer_nhwc_bf16_scale_bias_small_channel
+#   DRIVER fusilli_benchmark_driver
+#   ARGS
+#     --device 0 --iter 10 layernorm --input 2x3x128x128 -F 1 --type bf16 --layout NHWC --mode 1
+# )
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_layernorm_infer_nhwc_bf16_scale_bias
@@ -188,17 +196,39 @@ add_fusilli_benchmark(
 
 # 3D input benchmarks (NCH format)
 add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_infer_3d_fp32
+  NAME fusilli_benchmark_layernorm_infer_nch_fp32
   DRIVER fusilli_benchmark_driver
   ARGS
     --device 0 --iter 10 layernorm --input 16x128x256 -F 1 --type f32
 )
 
 add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_train_3d_bf16_scale_bias
+  NAME fusilli_benchmark_layernorm_train_nch_bf16_scale_bias
   DRIVER fusilli_benchmark_driver
   ARGS
     --device 0 --iter 10 layernorm --input 16x128x256 -F 2 --type bf16 --mode 1
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_train_nhc_bf16_scale_bias
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128x256 -F 2 --type bf16 --layout NHC --mode 1
+)
+
+# 2D input benchmarks (NC format)
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_infer_2d_fp32
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128 -F 1 --type f32
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_train_2d_f16_scale_bias
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128 -F 2 --type f16 --mode 1
 )
 
 # Matrix multiplication benchmarks

@@ -218,6 +218,29 @@ generateStrideFromDim(const std::vector<int64_t> &dim,
   return stride;
 }
 
+// Generates a stride vector from tensor dimensions and a named layout string.
+// For channels-last layouts ("NHC", "NHWC", "NDHWC"), strides are computed so
+// that the channel dimension (C) is the fastest-changing (innermost) in memory.
+// For contiguous layouts ("N", "NC", "NCH", "NCHW", "NCDHW"), strides follow
+// the default contiguous (channels-first) order.
+// Returns an error for any unrecognized layout string.
+inline ErrorOr<std::vector<int64_t>>
+generateStrideFromLayout(const std::vector<int64_t> &dims,
+                         const std::string &layout) {
+  FUSILLI_RETURN_ERROR_IF(
+      dims.size() != layout.size(), ErrorCode::InvalidArgument,
+      "Invalid input dimensions and layout: they must have the same rank");
+  if (layout == "NHC" || layout == "NHWC" || layout == "NDHWC") {
+    return ok(
+        generateStrideFromDim(dims, getChannelsLastStrideOrder(dims.size())));
+  } else if (layout == "N" || layout == "NC" || layout == "NCH" ||
+             layout == "NCHW" || layout == "NCDHW") {
+    return ok(
+        generateStrideFromDim(dims, getContiguousStrideOrder(dims.size())));
+  }
+  return error(ErrorCode::InvalidArgument, "Invalid layout string: " + layout);
+}
+
 // Generates permute order to preserve the layout of a contiguous tensor.
 // For a 4D tensor, this would return {0, 1, 2, 3} to preserve the NCHW
 // layout. This is effectively used for a no-op permute.
