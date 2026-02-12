@@ -162,6 +162,12 @@ class ConvFpropParameterizedTest
     : public ::testing::TestWithParam<ConvTestCase> {};
 
 TEST_P(ConvFpropParameterizedTest, Correctness) {
+  const ::testing::TestInfo *const test_info =
+      ::testing::UnitTest::GetInstance()->current_test_info();
+
+  // Get the name of the individual test
+  const char *test_name = test_info->name();
+
   const ConvTestCase &tc = GetParam();
 
   // Skip tests with known bugs (must be before handle creation)
@@ -238,7 +244,7 @@ TEST_P(ConvFpropParameterizedTest, Correctness) {
 
   // Create graph
   auto graph = std::make_shared<graph::Graph>();
-  graph->set_name("conv_parameterized_test");
+  graph->set_name(test_name);
   graph->set_io_data_type(DataType_t::FLOAT)
       .set_compute_data_type(DataType_t::FLOAT);
 
