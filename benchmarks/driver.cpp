@@ -113,6 +113,7 @@ static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
   auto convDilation = (opts.s == 2)
                           ? std::vector<int64_t>{opts.l, opts.j}
                           : std::vector<int64_t>{opts.m, opts.l, opts.j};
+
   // Build graph for the given handle (device), validate and compile it.
   Graph graph;
 
@@ -361,6 +362,7 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
   auto convDilation = (opts.s == 2)
                           ? std::vector<int64_t>{opts.l, opts.j}
                           : std::vector<int64_t>{opts.m, opts.l, opts.j};
+
   // Calculate output dimensions (DY shape) using the same inference as forward
   auto dyDims = getConvInferredOutputShape(xDims, wDims, convDilation,
                                            convPadding, convStride);
@@ -496,6 +498,7 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
   auto convDilation = (opts.s == 2)
                           ? std::vector<int64_t>{opts.l, opts.j}
                           : std::vector<int64_t>{opts.m, opts.l, opts.j};
+
   // Calculate output dimensions (DY shape) using the same inference as forward
   auto dyDims = getConvInferredOutputShape(xDims, wDims, convDilation,
                                            convPadding, convStride);
