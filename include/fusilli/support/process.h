@@ -43,10 +43,8 @@ inline std::optional<std::string> execCommand(const std::string &cmd) {
 
 #if defined(FUSILLI_PLATFORM_WINDOWS)
   FILE *opened = _popen(cmd.c_str(), "r");
-#elif defined(FUSILLI_PLATFORM_LINUX)
-  FILE *opened = popen(cmd.c_str(), "r");
 #else
-#error "Unsupported platform"
+  FILE *opened = popen(cmd.c_str(), "r");
 #endif
   std::unique_ptr<FILE, PopenDeleter> pipe(opened);
   if (!pipe)

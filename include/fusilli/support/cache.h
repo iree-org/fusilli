@@ -30,7 +30,6 @@
 #include <utility>
 
 #if defined(FUSILLI_PLATFORM_WINDOWS)
-#define WIN32_LEAN_AND_MEAN
 #include <KnownFolders.h>
 #include <shlobj.h>
 #include <windows.h>
@@ -134,7 +133,7 @@ public:
         CoTaskMemFree(pathBuf);
     }
     return std::filesystem::path(cacheDir) / "fusilli";
-#elif defined(FUSILLI_PLATFORM_LINUX)
+#else
     if (cacheDir.empty()) {
       const char *home = std::getenv("HOME");
       if (home) {
@@ -143,9 +142,6 @@ public:
       }
     }
     return std::filesystem::path(cacheDir) / ".cache" / "fusilli";
-#else
-#error "Unsupported platform location"
-    return std::filesystem::path("");
 #endif
   }
 

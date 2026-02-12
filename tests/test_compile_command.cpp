@@ -95,7 +95,7 @@ TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {
   std::filesystem::remove_all(input.path.parent_path());
 }
 
-#ifdef FUSILLI_ENABLE_AMDGPU
+#if defined(FUSILLI_ENABLE_AMDGPU)
 TEST_CASE("CompileCommand::build with AMDGPU backend", "[CompileCommand]") {
   // Create test handle for AMDGPU backend.
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));

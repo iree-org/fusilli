@@ -66,7 +66,9 @@
 // LINALG-CHECK:      %[[OUTT:.+]] = linalg.transpose ins(%[[OUT]] : tensor<16x256x1x64x32xf32>) outs(%{{.+}} : tensor<16x64x1x32x256xf32>) permutation = [0, 3, 2, 4, 1]
 // LINALG-CHECK:      %{{.+}} = hal.tensor.alias wait(%{{.+}}) => %[[OUTT]] : tensor<16x64x1x32x256xf32> to %[[ARG0]] : !hal.buffer_view
 //
+// AMDGPU-STATS-CHECK: "transient-memory-size": 0
 // AMDGPU-STATS-CHECK: "dispatch-count": 1
+// CPU-STATS-CHECK: "transient-memory-size": 0
 // CPU-STATS-CHECK: "dispatch-count": 1
 //
 // clang-format on

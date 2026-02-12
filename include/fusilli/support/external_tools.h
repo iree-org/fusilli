@@ -39,8 +39,12 @@ inline std::string getRocmAgentEnumeratorPath() {
     return std::string(envPath);
   }
 
-  // Let shell search for it.
+// Let shell search for it.
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  return std::string("rocm-sdk targets");
+#else
   return std::string("rocm_agent_enumerator");
+#endif
 }
 
 inline std::string getAmdSmiPath() {
@@ -70,10 +74,8 @@ inline std::string getIreeCompilerLibPath() {
   // Fallback: let the system search for it (may be in LD_LIBRARY_PATH).
 #if defined(FUSILLI_PLATFORM_WINDOWS)
   return std::string("IREECompiler.dll");
-#elif defined(FUSILLI_PLATFORM_LINUX)
-  return std::string("libIREECompiler.so");
 #else
-#error "Unsupported platform"
+  return std::string("libIREECompiler.so");
 #endif
 }
 

@@ -13,10 +13,8 @@
 
 #if defined(FUSILLI_PLATFORM_WINDOWS)
 constexpr const char *kLibName = "msvcrt.dll";
-#elif defined(FUSILLI_PLATFORM_LINUX)
-constexpr const char *kLibName = "libm.so.6";
 #else
-#error "unknown platform"
+constexpr const char *kLibName = "libm.so.6";
 #endif
 
 using namespace fusilli;

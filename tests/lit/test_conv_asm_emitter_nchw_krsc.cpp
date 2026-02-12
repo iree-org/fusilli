@@ -57,7 +57,9 @@
 // LINALG-CHECK:      %[[OUT:.+]] = linalg.conv_2d_nchw_fchw {dilations = dense<1> : vector<2xi64>, strides = dense<1> : vector<2xi64>} ins(%[[BUF1]], %[[BUF2]] : tensor<16x128x64x32xf32>, tensor<256x128x1x1xf32>) outs(%{{.+}} : tensor<16x256x64x32xf32>) -> tensor<16x256x64x32xf32>
 // LINALG-CHECK:      %{{.+}} = hal.tensor.alias wait(%{{.+}}) => %[[OUT]] : tensor<16x256x64x32xf32> to %[[ARG0]] : !hal.buffer_view
 //
+// AMDGPU-STATS-CHECK: "transient-memory-size": 0
 // AMDGPU-STATS-CHECK: "dispatch-count": 1
+// CPU-STATS-CHECK: "transient-memory-size": 0
 // CPU-STATS-CHECK: "dispatch-count": 1
 //
 // clang-format on

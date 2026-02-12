@@ -41,7 +41,9 @@
 // LINALG-CHECK:      %[[OUT:.+]] = linalg.batch_matmul ins(%[[A]], %[[B]] : tensor<16x64x128xf32>, tensor<16x128x256xf32>) outs(%{{.+}} : tensor<16x64x256xf32>) -> tensor<16x64x256xf32>
 // LINALG-CHECK:      %{{.+}} = hal.tensor.alias wait(%{{.+}}) => %[[OUT]] : tensor<16x64x256xf32> to %[[ARG0]] : !hal.buffer_view
 //
+// AMDGPU-STATS-CHECK: "transient-memory-size": 0
 // AMDGPU-STATS-CHECK: "dispatch-count": 1
+// CPU-STATS-CHECK: "transient-memory-size": 0
 // CPU-STATS-CHECK: "dispatch-count": 1
 //
 // clang-format on
