@@ -58,6 +58,18 @@ struct MatmulOptions {
 };
 
 //===---------------------------------------------------------------------===//
+// Helpers
+//===---------------------------------------------------------------------===//
+
+static std::pair<std::vector<int64_t>, std::vector<int64_t>>
+getBiasDimsAndStride(int64_t spatialDim, int64_t k) {
+  auto biasDims = (spatialDim == 2) ? std::vector<int64_t>{1, k, 1, 1}
+                                    : std::vector<int64_t>{1, k, 1, 1, 1};
+  auto biasStride = std::vector<int64_t>(biasDims.size(), 1);
+  return {std::move(biasDims), std::move(biasStride)};
+}
+
+//===---------------------------------------------------------------------===//
 // Benchmark functions
 //===---------------------------------------------------------------------===//
 
@@ -101,14 +113,6 @@ static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
   auto convDilation = (opts.s == 2)
                           ? std::vector<int64_t>{opts.l, opts.j}
                           : std::vector<int64_t>{opts.m, opts.l, opts.j};
-  auto biasDims = (opts.s == 2) ? std::vector<int64_t>{1, opts.k, 1, 1}
-                                : std::vector<int64_t>{1, opts.k, 1, 1, 1};
-  auto biasStride =
-      (opts.imageLayout == "NCHW" || opts.imageLayout == "NCDHW")
-          ? generateStrideFromDim(biasDims,
-                                  getContiguousStrideOrder(biasDims.size()))
-          : generateStrideFromDim(biasDims,
-                                  getChannelsLastStrideOrder(biasDims.size()));
 
   // Build graph for the given handle (device), validate and compile it.
   Graph graph;
@@ -156,6 +160,7 @@ static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
 
   std::shared_ptr<TensorAttr> bT;
   if (opts.bias) {
+    auto [biasDims, biasStride] = getBiasDimsAndStride(opts.s, opts.k);
     bT = graph.tensor(TensorAttr()
                           .setName("bias")
                           .setDim(biasDims)
@@ -382,13 +387,14 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
   Graph graph;
 
   // Set unique name to prevent concurrent invocations from polluting cache.
-  auto graphName = std::format(
-      "benchmark_conv_wgrad_n{}_c{}_d{}_h{}_w{}_g{}_k{"
-      "}_z{}_y{}_x{}_t{}_u{}_v{}_o{}"
-      "_p{}_q{}_m{}_l{}_j{}_S{}_I{}_O{}_F{}",
-      opts.n, opts.c, opts.d, opts.h, opts.w, opts.g, opts.k, opts.z, opts.y,
-      opts.x, opts.t, opts.u, opts.v, opts.o, opts.p, opts.q, opts.m, opts.l,
-      opts.j, opts.s, opts.imageLayout, opts.outputLayout, opts.filterLayout);
+  auto graphName = std::format("benchmark_conv_wgrad_n{}_c{}_d{}_h{}_w{}_g{}_k{"
+                               "}_z{}_y{}_x{}_t{}_u{}_v{}_o{}"
+                               "_p{}_q{}_m{}_l{}_j{}_S{}_I{}_O{}_F{}_bias{}",
+                               opts.n, opts.c, opts.d, opts.h, opts.w, opts.g,
+                               opts.k, opts.z, opts.y, opts.x, opts.t, opts.u,
+                               opts.v, opts.o, opts.p, opts.q, opts.m, opts.l,
+                               opts.j, opts.s, opts.imageLayout,
+                               opts.outputLayout, opts.filterLayout, opts.bias);
   graph.setName(graphName);
 
   graph.setIODataType(DataType::Float)
@@ -404,6 +410,19 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
                              .setDim(xDims)
                              .setStride(xStride)
                              .setDataType(convIOType));
+
+  std::shared_ptr<TensorAttr> dbT;
+  if (opts.bias) {
+    auto [biasDims, biasStride] = getBiasDimsAndStride(opts.s, opts.k);
+    auto reductionAttr = ReductionAttr()
+                             .setMode(ReductionAttr::Mode::SUM)
+                             .setName("bias_reduction");
+    dbT = graph.reduction(dyT, reductionAttr);
+    dbT->setDim(biasDims)
+        .setStride(biasStride)
+        .setOutput(true)
+        .setDataType(convIOType);
+  }
 
   auto convAttr = ConvWGradAttr()
                       .setStride(convStride)
@@ -435,6 +454,12 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
           {xT, xBuf},
           {dwT, dwBuf},
       };
+
+  if (opts.bias) {
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto dbBuf, allocateBufferOfType(handle, dbT, convIOType, 0.0f));
+    variantPack.insert({dbT, dbBuf});
+  }
 
   // Execute graph a few times.
   for (size_t i = 0; i < iter; i++)
@@ -498,13 +523,14 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
   Graph graph;
 
   // Set unique name to prevent concurrent invocations from polluting cache.
-  auto graphName = std::format(
-      "benchmark_conv_dgrad_n{}_c{}_d{}_h{}_w{}_g{}_k{"
-      "}_z{}_y{}_x{}_t{}_u{}_v{}_o{}"
-      "_p{}_q{}_m{}_l{}_j{}_S{}_I{}_O{}_F{}",
-      opts.n, opts.c, opts.d, opts.h, opts.w, opts.g, opts.k, opts.z, opts.y,
-      opts.x, opts.t, opts.u, opts.v, opts.o, opts.p, opts.q, opts.m, opts.l,
-      opts.j, opts.s, opts.imageLayout, opts.outputLayout, opts.filterLayout);
+  auto graphName = std::format("benchmark_conv_dgrad_n{}_c{}_d{}_h{}_w{}_g{}_k{"
+                               "}_z{}_y{}_x{}_t{}_u{}_v{}_o{}"
+                               "_p{}_q{}_m{}_l{}_j{}_S{}_I{}_O{}_F{}_bias{}",
+                               opts.n, opts.c, opts.d, opts.h, opts.w, opts.g,
+                               opts.k, opts.z, opts.y, opts.x, opts.t, opts.u,
+                               opts.v, opts.o, opts.p, opts.q, opts.m, opts.l,
+                               opts.j, opts.s, opts.imageLayout,
+                               opts.outputLayout, opts.filterLayout, opts.bias);
   graph.setName(graphName);
 
   graph.setIODataType(DataType::Float)
@@ -520,6 +546,19 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
                              .setDim(wDims)
                              .setStride(wStride)
                              .setDataType(convIOType));
+
+  std::shared_ptr<TensorAttr> dbT;
+  if (opts.bias) {
+    auto [biasDims, biasStride] = getBiasDimsAndStride(opts.s, opts.k);
+    auto reductionAttr = ReductionAttr()
+                             .setMode(ReductionAttr::Mode::SUM)
+                             .setName("bias_reduction");
+    dbT = graph.reduction(dyT, reductionAttr);
+    dbT->setDim(biasDims)
+        .setStride(biasStride)
+        .setOutput(true)
+        .setDataType(convIOType);
+  }
 
   auto convAttr = ConvDGradAttr()
                       .setStride(convStride)
@@ -551,6 +590,12 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
           {wT, wBuf},
           {dxT, dxBuf},
       };
+
+  if (opts.bias) {
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto dbBuf, allocateBufferOfType(handle, dbT, convIOType, 0.0f));
+    variantPack.insert({dbT, dbBuf});
+  }
 
   // Execute graph a few times.
   for (size_t i = 0; i < iter; i++)
@@ -652,8 +697,7 @@ static CLI::App *registerConvOptions(CLI::App &mainApp, ConvOptions &convOpts) {
   auto *f2 = convApp->add_flag("--bf16", convOpts.bf16, "Run bf16 convolution");
   // Can't specify both flags.
   f1->excludes(f2);
-  convApp->add_flag("--bias,-b", convOpts.bias,
-                    "Run with bias (only for mode=1)");
+  convApp->add_flag("--bias,-b", convOpts.bias, "Run with bias");
 
   return convApp;
 }
@@ -742,12 +786,6 @@ static ErrorObject runConvBenchmark(const ConvOptions &convOpts, int64_t iter,
   FUSILLI_RETURN_ERROR_IF(
       convOpts.c % convOpts.g != 0 || convOpts.k % convOpts.g != 0,
       ErrorCode::InvalidArgument, "Detected invalid group count.");
-
-  // Validate bias flag only works with forward mode
-  FUSILLI_RETURN_ERROR_IF(convOpts.bias && convOpts.mode != 1,
-                          ErrorCode::InvalidArgument,
-                          "Bias flag (--bias) is only supported for forward "
-                          "convolution (mode=1).");
 
   DataType convIOType;
   if (convOpts.fp16)
