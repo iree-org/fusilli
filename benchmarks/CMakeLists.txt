@@ -140,95 +140,78 @@ add_fusilli_benchmark(
 )
 
 # Layer normalization benchmarks
-# Inference forward (F=1) benchmarks
-
 # TODO(iree-org/iree#23339)
 # add_fusilli_benchmark(
-#   NAME fusilli_benchmark_layernorm_infer_nchw_fp32_single_batch
+#   NAME fusilli_benchmark_layernorm_nchw_fp32_single_batch
 #   DRIVER fusilli_benchmark_driver
 #   ARGS
 #     --device 0 --iter 10 layernorm --input 1x128x64x32 -F 1 --type f32 --layout NCHW
 # )
 
 add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_infer_nchw_fp32
+  NAME fusilli_benchmark_layernorm_nchw_fp32
   DRIVER fusilli_benchmark_driver
   ARGS
     --device 0 --iter 10 layernorm --input 16x128x64x32 -F 1 --type f32 --layout NCHW
 )
 
 add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_infer_nhwc_fp16
+  NAME fusilli_benchmark_layernorm_nhwc_fp16
   DRIVER fusilli_benchmark_driver
   ARGS
     --device 0 --iter 10 layernorm --input 16x128x64x32 -F 1 --type f16 --layout NHWC
 )
 
-# TODO (iree-org/iree#23340)
+# TODO(iree-org/iree#23340)
 # add_fusilli_benchmark(
-#   NAME fusilli_benchmark_layernorm_infer_nhwc_bf16_scale_bias_small_channel
+#   NAME fusilli_benchmark_layernorm_nhwc_bf16_scale_bias_small_channel
 #   DRIVER fusilli_benchmark_driver
 #   ARGS
 #     --device 0 --iter 10 layernorm --input 2x3x128x128 -F 1 --type bf16 --layout NHWC --mode 1
 # )
 
 add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_infer_nhwc_bf16_scale_bias
+  NAME fusilli_benchmark_layernorm_nhwc_bf16_scale_bias
   DRIVER fusilli_benchmark_driver
   ARGS
     --device 0 --iter 10 layernorm --input 16x128x64x32 -F 1 --type bf16 --layout NHWC --mode 1
 )
 
-# Training forward (F=2) benchmarks
-add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_train_nchw_bf16
-  DRIVER fusilli_benchmark_driver
-  ARGS
-    --device 0 --iter 10 layernorm --input 16x128x64x32 -F 2 --type bf16 --layout NCHW
-)
-
-add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_train_nhwc_fp16_scale_bias
-  DRIVER fusilli_benchmark_driver
-  ARGS
-    --device 0 --iter 10 layernorm --input 16x128x64x32 -F 2 --type f16 --layout NHWC --mode 1
-)
-
 # 3D input benchmarks (NCH format)
 add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_infer_nch_fp32
+  NAME fusilli_benchmark_layernorm_nch_fp32
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 layernorm --input 16x128x256 -F 1 --type f32
+    --device 0 --iter 10 layernorm --input 16x128x256 -F 1 --type f32 --layout NCH
 )
 
 add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_train_nch_bf16_scale_bias
+  NAME fusilli_benchmark_layernorm_nch_bf16_scale_bias
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 layernorm --input 16x128x256 -F 2 --type bf16 --mode 1
+    --device 0 --iter 10 layernorm --input 16x128x256 -F 1 --type f16 --layout NCH --mode 1
 )
 
 add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_train_nhc_bf16_scale_bias
+  NAME fusilli_benchmark_layernorm_nhc_bf16_scale_bias
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 layernorm --input 16x128x256 -F 2 --type bf16 --layout NHC --mode 1
+    --device 0 --iter 10 layernorm --input 16x128x256 -F 1 --type bf16 --layout NHC --mode 1
 )
 
 # 2D input benchmarks (NC format)
 add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_infer_2d_fp32
+  NAME fusilli_benchmark_layernorm_nc_fp32
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 layernorm --input 16x128 -F 1 --type f32
+    --device 0 --iter 10 layernorm --input 16x128 -F 1 --type f32 --layout NC
 )
 
 add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_train_2d_f16_scale_bias
+  NAME fusilli_benchmark_layernorm_nc_f16_scale_bias
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 layernorm --input 16x128 -F 2 --type f16 --mode 1
+    --device 0 --iter 10 layernorm --input 16x128 -F 1 --type f16 --layout NC --mode 1
 )
 
 # Matrix multiplication benchmarks

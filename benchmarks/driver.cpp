@@ -29,10 +29,13 @@ const auto kIsNonNegativeInteger =
     CLI::Range(int64_t{0}, std::numeric_limits<int64_t>::max());
 const auto kIsPositiveInteger =
     CLI::Range(int64_t{1}, std::numeric_limits<int64_t>::max());
+// Note: for floating-point types, `std::numeric_limits<T>::min()` is the
+// smallest *positive normalized* value. For integers, `min()` is the most
+// negative value.
 const auto kIsPositiveDouble = CLI::Range(std::numeric_limits<double>::min(),
                                           std::numeric_limits<double>::max());
 const auto kIsValidLayout =
-    CLI::IsMember({"NCH", "NHC", "NCHW", "NHWC", "NCDHW", "NDHWC"});
+    CLI::IsMember({"NC", "NCH", "NHC", "NCHW", "NHWC", "NCDHW", "NDHWC"});
 const auto kIsValidDataType = CLI::IsMember({"f32", "f16", "bf16"});
 
 //===---------------------------------------------------------------------===//
@@ -295,8 +298,8 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
                              .setDim(xDims)
                              .setStride(xStride)
                              .setDataType(convIOType));
-  std::shared_ptr<TensorAttr> dbT;
 
+  std::shared_ptr<TensorAttr> dbT;
   if (opts.bias) {
     auto [biasDims, biasStride] = getBiasDimsAndStride(opts.s, opts.k);
     auto reductionAttr = ReductionAttr()
@@ -482,30 +485,26 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
 
 static ErrorObject benchmarkLayerNormFwd(const LayerNormOptions &opts,
                                          const std::vector<int64_t> &dims,
-                                         const std::string &layout,
                                          DataType layernormIOType, int64_t iter,
                                          int64_t deviceId, bool dump) {
-#ifdef FUSILLI_ENABLE_AMDGPU
+#if defined(FUSILLI_ENABLE_AMDGPU)
   FUSILLI_ASSIGN_OR_RETURN(Handle handle,
                            Handle::create(Backend::AMDGPU, deviceId));
 #else
   FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
 #endif
 
+  constexpr NormFwdPhase phase = NormFwdPhase::TRAINING;
   const bool withScaleBias = opts.mode == 1;
-  const bool isTrainingForward = opts.forw == 2;
 
   auto xDims = dims;
   FUSILLI_ASSIGN_OR_RETURN(auto xStride,
-                           generateStrideFromLayout(xDims, layout));
-
-  auto yDims = xDims;
-  auto yStride = xStride;
+                           generateStrideFromLayout(xDims, opts.layout));
 
   Graph graph;
   auto graphName = std::format(
       "benchmark_layernorm_input{}_forw{}_layout{}_type{}_mode{}_eps{}",
-      opts.input, opts.forw, layout, opts.type, opts.mode, opts.eps);
+      opts.input, opts.forw, opts.layout, opts.type, opts.mode, opts.eps);
   graph.setName(graphName);
 
   graph.setIODataType(DataType::Float)
@@ -527,19 +526,14 @@ static ErrorObject benchmarkLayerNormFwd(const LayerNormOptions &opts,
 
   auto epsilonT = graph.tensor(TensorAttr(opts.eps));
 
-  NormFwdPhase phase =
-      isTrainingForward ? NormFwdPhase::TRAINING : NormFwdPhase::INFERENCE;
-
   auto layernormAttr =
       LayernormAttr().setForwardPhase(phase).setEpsilon(epsilonT).setName(
           "layernorm_fwd");
 
   auto [yT, mT, vT] = graph.layernorm(xT, sT, bT, layernormAttr);
   yT->setName("y").setDataType(layernormIOType).setOutput(true);
-  if (isTrainingForward) {
-    mT->setName("mean").setDataType(layernormIOType).setOutput(true);
-    vT->setName("inv_variance").setDataType(layernormIOType).setOutput(true);
-  }
+  mT->setName("mean").setDataType(layernormIOType).setOutput(true);
+  vT->setName("inv_variance").setDataType(layernormIOType).setOutput(true);
 
   // Validate, infer missing properties
   FUSILLI_CHECK_ERROR(graph.validate());
@@ -552,13 +546,14 @@ static ErrorObject benchmarkLayerNormFwd(const LayerNormOptions &opts,
       auto xBuf, allocateBufferOfType(handle, xT, layernormIOType, 1.0f));
   FUSILLI_ASSIGN_OR_RETURN(
       auto yBuf, allocateBufferOfType(handle, yT, layernormIOType, 0.0f));
+  FUSILLI_ASSIGN_OR_RETURN(
+      auto mBuf, allocateBufferOfType(handle, mT, layernormIOType, 0.0f));
+  FUSILLI_ASSIGN_OR_RETURN(
+      auto vBuf, allocateBufferOfType(handle, vT, layernormIOType, 0.0f));
 
   // Create variant pack.
   std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
-      variantPack = {
-          {xT, xBuf},
-          {yT, yBuf},
-      };
+      variantPack = {{xT, xBuf}, {yT, yBuf}, {mT, mBuf}, {vT, vBuf}};
 
   if (withScaleBias) {
     FUSILLI_ASSIGN_OR_RETURN(
@@ -568,15 +563,6 @@ static ErrorObject benchmarkLayerNormFwd(const LayerNormOptions &opts,
     FUSILLI_ASSIGN_OR_RETURN(
         auto bBuf, allocateBufferOfType(handle, bT, layernormIOType, 1.0f));
     variantPack.insert({bT, bBuf});
-  }
-
-  if (isTrainingForward) {
-    FUSILLI_ASSIGN_OR_RETURN(
-        auto mBuf, allocateBufferOfType(handle, mT, layernormIOType, 0.0f));
-    variantPack.insert({mT, mBuf});
-    FUSILLI_ASSIGN_OR_RETURN(
-        auto vBuf, allocateBufferOfType(handle, vT, layernormIOType, 0.0f));
-    variantPack.insert({vT, vBuf});
   }
   // Execute graph `iter` times.
   for (size_t i = 0; i < iter; ++i)
@@ -818,7 +804,9 @@ static CLI::App *registerLayerNormOptions(CLI::App &mainApp,
 
   // layerNormApp CLI Options - bind to LayerNormOptions members
   layerNormApp
-      ->add_option("--input,-X", layerNormOpts.input, "Input tensor dimensions")
+      ->add_option(
+          "--input,-X", layerNormOpts.input,
+          "Input tensor dimensions. The shapes with rank 1 to 5 are supported.")
       ->required();
   layerNormApp
       ->add_option("--type,-t", layerNormOpts.type,
@@ -826,11 +814,12 @@ static CLI::App *registerLayerNormOptions(CLI::App &mainApp,
       ->required()
       ->check(kIsValidDataType);
   layerNormApp
-      ->add_option("--forw,-F", layerNormOpts.forw,
-                   "Kind of kernel to run: 1 - inference forward, 2 training "
-                   "forward. By default, 1 is used")
+      ->add_option(
+          "--forw,-F", layerNormOpts.forw,
+          "Kind of kernel to run: 1 - forward (training mode). Currently, "
+          "only one kernel type is supported.")
       ->required()
-      ->check(CLI::IsMember({1, 2}));
+      ->check(CLI::IsMember({1}));
   layerNormApp
       ->add_option("--mode,-m", layerNormOpts.mode,
                    "Elementwise affine mode (0), weight and bias mode (1). By "
@@ -839,9 +828,11 @@ static CLI::App *registerLayerNormOptions(CLI::App &mainApp,
       ->check(CLI::IsMember({0, 1}));
   layerNormApp
       ->add_option("--layout,-l", layerNormOpts.layout, "Input/Output layout")
+      ->required()
       ->check(kIsValidLayout);
   layerNormApp
       ->add_option("--eps,-e", layerNormOpts.eps, "Epsilon, 1e-5 by default")
+      ->default_val(1e-5f)
       ->check(kIsPositiveDouble);
 
   return layerNormApp;
@@ -968,27 +959,20 @@ static ErrorObject runLayerNormBenchmark(const LayerNormOptions &layerNormOpts,
                                       [](int64_t dim) { return dim <= 0; }),
                           ErrorCode::InvalidArgument,
                           "Invalid input dimensions: they must be positive");
-  FUSILLI_RETURN_ERROR_IF(dims.size() < 2, ErrorCode::InvalidArgument,
-                          "Input dimensions must have at least 2 dimensions");
+  FUSILLI_RETURN_ERROR_IF(dims.size() < 2 || dims.size() > 5,
+                          ErrorCode::InvalidArgument,
+                          "Input dimensions must have rank between 2 and 5");
 
   // Validate layout
-  auto layout = layerNormOpts.layout;
-  if (layout.empty()) {
-    // Initialize by default if it's missed
-    layout = dims.size() == 2   ? std::string("NC")
-             : dims.size() == 3 ? std::string("NCH")
-             : dims.size() == 4 ? std::string("NCHW")
-                                : std::string("NCDHW");
-  }
   FUSILLI_RETURN_ERROR_IF(
-      dims.size() != layout.size(), ErrorCode::InvalidArgument,
-      "Invalid input dimensions and layout: they must have the same rank");
+      dims.size() != layerNormOpts.layout.size(), ErrorCode::InvalidArgument,
+      "Input dimensions and layout must have the same rank");
 
   // Parse data type strings using direct map lookup
   DataType type = kMlirTypeAsmToDataType.at(layerNormOpts.type);
 
-  ErrorObject status = benchmarkLayerNormFwd(layerNormOpts, dims, layout, type,
-                                             iter, deviceId, dump);
+  ErrorObject status =
+      benchmarkLayerNormFwd(layerNormOpts, dims, type, iter, deviceId, dump);
 
   FUSILLI_CHECK_ERROR(status);
 

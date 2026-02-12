@@ -558,37 +558,36 @@ TEST_CASE("generateStrideFromLayout", "[TensorAttr utils]") {
 
   SECTION("Contiguous layouts") {
     SECTION("1D") {
-      auto result = generateStrideFromLayout({10}, "N");
-      FUSILLI_REQUIRE_OK(result);
-      REQUIRE(*result == std::vector<int64_t>({1}));
+      FUSILLI_REQUIRE_ASSIGN(auto result, generateStrideFromLayout({10}, "N"));
+      REQUIRE(result == std::vector<int64_t>({1}));
     }
     SECTION("2D") {
-      auto result = generateStrideFromLayout({10, 3}, "NC");
-      FUSILLI_REQUIRE_OK(result);
-      REQUIRE(*result == std::vector<int64_t>({3, 1}));
+      FUSILLI_REQUIRE_ASSIGN(auto result,
+                             generateStrideFromLayout({10, 3}, "NC"));
+      REQUIRE(result == std::vector<int64_t>({3, 1}));
     }
     SECTION("4D") {
-      auto result = generateStrideFromLayout({10, 3, 12, 12}, "NCHW");
-      FUSILLI_REQUIRE_OK(result);
-      REQUIRE(*result == std::vector<int64_t>({432, 144, 12, 1}));
+      FUSILLI_REQUIRE_ASSIGN(auto result,
+                             generateStrideFromLayout({10, 3, 12, 12}, "NCHW"));
+      REQUIRE(result == std::vector<int64_t>({432, 144, 12, 1}));
     }
   }
 
   SECTION("Channels-last layouts") {
     SECTION("3D") {
-      auto result = generateStrideFromLayout({10, 3, 12}, "NHC");
-      FUSILLI_REQUIRE_OK(result);
-      REQUIRE(*result == std::vector<int64_t>({36, 1, 3}));
+      FUSILLI_REQUIRE_ASSIGN(auto result,
+                             generateStrideFromLayout({10, 3, 12}, "NHC"));
+      REQUIRE(result == std::vector<int64_t>({36, 1, 3}));
     }
     SECTION("4D") {
-      auto result = generateStrideFromLayout({10, 3, 12, 12}, "NHWC");
-      FUSILLI_REQUIRE_OK(result);
-      REQUIRE(*result == std::vector<int64_t>({432, 1, 36, 3}));
+      FUSILLI_REQUIRE_ASSIGN(auto result,
+                             generateStrideFromLayout({10, 3, 12, 12}, "NHWC"));
+      REQUIRE(result == std::vector<int64_t>({432, 1, 36, 3}));
     }
     SECTION("5D") {
-      auto result = generateStrideFromLayout({2, 3, 4, 5, 6}, "NDHWC");
-      FUSILLI_REQUIRE_OK(result);
-      REQUIRE(*result == std::vector<int64_t>({360, 1, 90, 18, 3}));
+      FUSILLI_REQUIRE_ASSIGN(
+          auto result, generateStrideFromLayout({2, 3, 4, 5, 6}, "NDHWC"));
+      REQUIRE(result == std::vector<int64_t>({360, 1, 90, 18, 3}));
     }
   }
 }
