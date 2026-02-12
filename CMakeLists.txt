@@ -168,7 +168,6 @@ file(GLOB_RECURSE FUSILLI_HEADERS
 target_sources(libfusilli INTERFACE
   FILE_SET fusilli_headers TYPE HEADERS # file sets require lowercase name
   BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
-            ${CMAKE_CURRENT_BINARY_DIR}/include
   FILES ${FUSILLI_HEADERS}
 )
 

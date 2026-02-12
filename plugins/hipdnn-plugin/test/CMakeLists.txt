@@ -16,10 +16,10 @@ add_fusilli_plugin_test(
     test_fusilli_plugin_api.cpp
     utils.h
   DEPS
+    hip::host
     fusilli_plugin # Link plugin .so directly
     fusilli::fusilli
     GTest::gtest_main
-    hip::host
     hipdnn_plugin_sdk
     hipdnn_data_sdk
     hipdnn_test_sdk
