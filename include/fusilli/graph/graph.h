@@ -215,7 +215,7 @@ public:
   execute(const Handle &handle,
           const std::unordered_map<std::shared_ptr<TensorAttr>,
                                    std::shared_ptr<Buffer>> &variantPack,
-          std::shared_ptr<Buffer> workspace) const;
+          const std::shared_ptr<Buffer> &workspace) const;
 
   // Delete copy constructors, keep default move constructor and destructor.
   Graph(const Graph &) = delete;

@@ -257,7 +257,7 @@ inline ErrorObject
 Graph::execute(const Handle &handle,
                const std::unordered_map<std::shared_ptr<TensorAttr>,
                                         std::shared_ptr<Buffer>> &variantPack,
-               std::shared_ptr<Buffer> workspace) const {
+               const std::shared_ptr<Buffer> &workspace) const {
   FUSILLI_LOG_LABEL_ENDL("INFO: Executing Graph");
   FUSILLI_RETURN_ERROR_IF(session_ == nullptr, ErrorCode::NotCompiled,
                           "Graph must be compiled before being executed");
