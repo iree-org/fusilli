@@ -329,10 +329,11 @@ Graph::execute(const Handle &handle,
     iree_vm_ref_t bufferRef = iree_hal_buffer_retain_ref(halBuffer);
     FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(call.inputs, &bufferRef));
   } else {
-    // Size is 0 - workspace must be nullptr
-    FUSILLI_RETURN_ERROR_IF(workspace != nullptr, ErrorCode::InvalidArgument,
-                            "Workspace buffer provided but not needed "
-                            "(size=0)");
+    // Size is 0 - no workspace needed. Accept (and ignore) a non-null
+    // workspace buffer for caller convenience.
+    if (workspace != nullptr)
+      FUSILLI_LOG_LABEL_ENDL("WARNING: Workspace buffer provided but not "
+                             "needed (size=0), ignoring");
     // Push a null ref to satisfy IREE function signature
     iree_vm_ref_t nullRef = iree_vm_ref_null();
     FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(call.inputs, &nullRef));
