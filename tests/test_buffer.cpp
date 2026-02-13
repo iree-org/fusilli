@@ -186,6 +186,12 @@ TEST_CASE("Buffer::allocateRaw for workspace buffers", "[buffer]") {
   REQUIRE(iree_hal_buffer_view_element_type(bufferView) ==
           IREE_HAL_ELEMENT_TYPE_INT_8);
 
+  // Verify the underlying HAL buffer byte length matches the requested size.
+  // Graph::execute relies on this property to validate workspace buffer sizes.
+  iree_hal_buffer_t *halBuffer = iree_hal_buffer_view_buffer(bufferView);
+  REQUIRE(halBuffer != nullptr);
+  REQUIRE(iree_hal_buffer_byte_length(halBuffer) >= bufferSize);
+
   // Test move semantics.
   Buffer movedBuf = std::move(buf);
   REQUIRE(movedBuf != nullptr);

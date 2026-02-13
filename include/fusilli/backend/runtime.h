@@ -320,6 +320,12 @@ Graph::execute(const Handle &handle,
         "Workspace buffer required but not provided (size=" +
             std::to_string(*workspaceSize_) + " bytes)");
     iree_hal_buffer_t *halBuffer = iree_hal_buffer_view_buffer(*workspace);
+    FUSILLI_RETURN_ERROR_IF(
+        iree_hal_buffer_byte_length(halBuffer) < *workspaceSize_,
+        ErrorCode::InvalidArgument,
+        "Workspace buffer too small: provided " +
+            std::to_string(iree_hal_buffer_byte_length(halBuffer)) +
+            " bytes, required " + std::to_string(*workspaceSize_) + " bytes");
     iree_vm_ref_t bufferRef = iree_hal_buffer_retain_ref(halBuffer);
     FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(call.inputs, &bufferRef));
   } else {
