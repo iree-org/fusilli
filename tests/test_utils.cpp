@@ -329,7 +329,7 @@ TEST_CASE("allocateBufferOfType with null tensor", "[utils][buffer][error]") {
 }
 
 TEST_CASE("allocateWorkspace helper function", "[utils][workspace]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   SECTION("returns nullptr for nullopt") {
     FUSILLI_REQUIRE_ASSIGN(auto workspace,

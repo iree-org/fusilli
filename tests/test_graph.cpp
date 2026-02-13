@@ -432,19 +432,7 @@ TEST_CASE("Graph `getWorkspaceSize` returns nullopt before compilation",
 }
 
 TEST_CASE("Graph `getWorkspaceSize` after compilation", "[graph]") {
-  // Parameterize by backend.
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#if defined(FUSILLI_ENABLE_AMDGPU)
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#endif
-  Handle &handle = *handlePtr;
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   Graph g = testGraph(/*validate=*/true);
 
@@ -462,7 +450,7 @@ TEST_CASE("Graph `getWorkspaceSize` after compilation", "[graph]") {
 
 TEST_CASE("Graph `getWorkspaceSize` consistency across multiple queries",
           "[graph]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   Graph g = testGraph(/*validate=*/true);
   FUSILLI_REQUIRE_OK(g.compile(handle, /*remove=*/true));

@@ -170,19 +170,7 @@ TEST_CASE("Buffer errors", "[buffer]") {
 }
 
 TEST_CASE("Buffer::allocateRaw for workspace buffers", "[buffer]") {
-  // Parameterize by backend and create device-specific handles.
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#if defined(FUSILLI_ENABLE_AMDGPU)
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#endif
-  Handle &handle = *handlePtr;
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Allocate a raw buffer of 1024 bytes.
   constexpr size_t bufferSize = 1024;
@@ -205,7 +193,7 @@ TEST_CASE("Buffer::allocateRaw for workspace buffers", "[buffer]") {
 }
 
 TEST_CASE("Buffer::allocateRaw with various sizes", "[buffer]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Test small allocation (1 byte).
   FUSILLI_REQUIRE_ASSIGN(Buffer smallBuf, Buffer::allocateRaw(handle, 1));
@@ -221,7 +209,7 @@ TEST_CASE("Buffer::allocateRaw with various sizes", "[buffer]") {
 
 TEST_CASE("Buffer::allocateRaw errors", "[buffer]") {
   SECTION("Zero-size allocation") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
     // Allocating a zero-size buffer should fail.
     ErrorObject status = Buffer::allocateRaw(handle, 0);
