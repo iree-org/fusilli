@@ -463,7 +463,6 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
           {dwT, dwBuf},
       };
 
-
   if (opts.bias) {
     FUSILLI_ASSIGN_OR_RETURN(
         auto dbBuf, allocateBufferOfType(handle, dbT, convIOType, 0.0f));
@@ -603,7 +602,6 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
           {wT, wBuf},
           {dxT, dxBuf},
       };
-
 
   if (opts.bias) {
     FUSILLI_ASSIGN_OR_RETURN(

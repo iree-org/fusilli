@@ -185,7 +185,6 @@ void verifyBufferContents(Handle &handle, Buffer &buffer,
 
 } // namespace
 
-
 TEST_CASE("allocateBufferOfType with DataType and initVal", "[utils][buffer]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
@@ -333,7 +332,8 @@ TEST_CASE("allocateWorkspace helper function", "[utils][workspace]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
 
   SECTION("returns nullptr for nullopt") {
-    FUSILLI_REQUIRE_ASSIGN(auto workspace, allocateWorkspace(handle, std::nullopt));
+    FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                           allocateWorkspace(handle, std::nullopt));
     REQUIRE(workspace == nullptr);
   }
 
@@ -344,7 +344,8 @@ TEST_CASE("allocateWorkspace helper function", "[utils][workspace]") {
 
   SECTION("allocates buffer for non-zero size") {
     constexpr size_t bufferSize = 1024;
-    FUSILLI_REQUIRE_ASSIGN(auto workspace, allocateWorkspace(handle, bufferSize));
+    FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                           allocateWorkspace(handle, bufferSize));
     REQUIRE(workspace != nullptr);
     REQUIRE(*workspace != nullptr);
 
