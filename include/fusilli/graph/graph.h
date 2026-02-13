@@ -280,9 +280,9 @@ public:
   std::shared_ptr<TensorAttr> reduction(const std::shared_ptr<TensorAttr> &x,
                                         ReductionAttr &attributes);
 
-  /// Query required workspace buffer size.
-  /// Returns std::nullopt if not compiled, 0 if no workspace needed,
-  /// or the required size in bytes.
+  // Query required workspace buffer size.
+  // Returns std::nullopt if not compiled, 0 if no workspace needed,
+  // or the required size in bytes.
   std::optional<size_t> getWorkspaceSize() const { return workspaceSize_; }
 
   // ASM emitter driver method.

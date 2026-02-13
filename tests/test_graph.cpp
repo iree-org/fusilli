@@ -440,12 +440,10 @@ TEST_CASE("Graph `getWorkspaceSize` after compilation", "[graph]") {
   FUSILLI_REQUIRE_OK(g.compile(handle, /*remove=*/true));
 
   // After compilation, getWorkspaceSize returns the queried transient size.
-  // It should have a value (not nullopt).
+  // It should have a value (not nullopt). The actual size is
+  // implementation-dependent.
   auto workspaceSize = g.getWorkspaceSize();
   REQUIRE(workspaceSize.has_value());
-  // The workspace size is implementation-dependent but should be queryable.
-  // We just verify it's a valid value (>= 0, which is always true for size_t).
-  REQUIRE(*workspaceSize >= 0);
 }
 
 TEST_CASE("Graph `getWorkspaceSize` consistency across multiple queries",
