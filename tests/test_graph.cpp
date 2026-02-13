@@ -438,7 +438,7 @@ TEST_CASE("Graph `getWorkspaceSize` after compilation", "[graph]") {
     FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
     handlePtr = std::make_shared<Handle>(std::move(handle));
   }
-#ifdef FUSILLI_ENABLE_AMDGPU
+#if defined(FUSILLI_ENABLE_AMDGPU)
   SECTION("amdgpu backend") {
     FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
     handlePtr = std::make_shared<Handle>(std::move(handle));
