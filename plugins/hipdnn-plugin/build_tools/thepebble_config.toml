@@ -9,4 +9,4 @@ hip_run_id = "19089392286"
 hipdnn_git_ref = "develop"
 
 # IREE git tag
-iree_git_tag = "iree-3.11.0rc20260203"
+iree_git_tag = "iree-3.11.0rc20260212"
