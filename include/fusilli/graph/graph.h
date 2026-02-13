@@ -19,6 +19,7 @@
 #include "fusilli/attributes/layernorm_attributes.h"
 #include "fusilli/attributes/matmul_attributes.h"
 #include "fusilli/attributes/pointwise_attributes.h"
+#include "fusilli/attributes/reduction_attributes.h"
 #include "fusilli/attributes/tensor_attributes.h"
 #include "fusilli/attributes/types.h"
 #include "fusilli/backend/backend.h"
@@ -32,6 +33,7 @@
 #include "fusilli/node/matmul_node.h"
 #include "fusilli/node/node.h"
 #include "fusilli/node/pointwise_node.h"
+#include "fusilli/node/reduction_node.h"
 #include "fusilli/support/cache.h"
 #include "fusilli/support/external_tools.h"
 #include "fusilli/support/extras.h"
@@ -105,14 +107,14 @@ public:
     FUSILLI_ASSIGN_OR_RETURN(std::string generatedAsm, emitAsm());
 
     // Compile using IREE compiler or reuse cached artifact.
-    FUSILLI_ASSIGN_OR_RETURN(std::string vmfbPath,
+    FUSILLI_ASSIGN_OR_RETURN(auto vmfbPath,
                              getCompiledArtifact(handle, generatedAsm, remove));
 
-    FUSILLI_LOG_LABEL_ENDL("INFO: Compiled Graph cached at \"" + vmfbPath +
-                           "\"");
+    FUSILLI_LOG_LABEL_ENDL("INFO: Compiled Graph cached at \"" +
+                           vmfbPath.string() + "\"");
 
     // Create per-graph IREE runtime session and load the compiled artifact.
-    FUSILLI_CHECK_ERROR(createPerGraphSession(handle, vmfbPath));
+    FUSILLI_CHECK_ERROR(createPerGraphSession(handle, vmfbPath.string()));
 
     return ok();
   }
@@ -274,6 +276,9 @@ public:
   std::shared_ptr<TensorAttr> pointwise(const std::shared_ptr<TensorAttr> &in0,
                                         const std::shared_ptr<TensorAttr> &in1,
                                         PointwiseAttr &attributes);
+
+  std::shared_ptr<TensorAttr> reduction(const std::shared_ptr<TensorAttr> &x,
+                                        ReductionAttr &attributes);
 
   /// Query required workspace buffer size.
   /// Returns std::nullopt if not compiled, 0 if no workspace needed,
@@ -841,6 +846,34 @@ Graph::pointwise(const std::shared_ptr<TensorAttr> &in0,
       std::make_unique<PointwiseNode>(std::move(pointwiseAttr), context));
 
   return out;
+}
+
+// Create a ReductionNode, populate it with the specified attributes, create
+// output tensors and add the node to the graph's sub nodes.
+inline std::shared_ptr<TensorAttr>
+Graph::reduction(const std::shared_ptr<TensorAttr> &x,
+                 ReductionAttr &reductionAttr) {
+  // Populate names when not set.
+  if (reductionAttr.getName().empty())
+    reductionAttr.setName("reduction_" + std::to_string(subNodes_.size()));
+  if (x && x->getName().empty())
+    x->setName(reductionAttr.getName() + "_X");
+
+  FUSILLI_LOG_LABEL_ENDL("INFO: Adding ReductionNode '"
+                         << reductionAttr.getName() << "' to Graph");
+
+  // Set inputs.
+  reductionAttr.setX(x);
+
+  // Set outputs.
+  auto y = outputTensor(reductionAttr.getName() + "_Y");
+  reductionAttr.setY(y);
+
+  // Create node and add to Graph's subNodes_.
+  subNodes_.emplace_back(
+      std::make_unique<ReductionNode>(std::move(reductionAttr), context));
+
+  return y;
 }
 
 } // namespace fusilli

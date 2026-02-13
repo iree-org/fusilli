@@ -13,6 +13,9 @@
 #ifndef FUSILLI_SUPPORT_PYTHON_UTILS_H
 #define FUSILLI_SUPPORT_PYTHON_UTILS_H
 
+#include "fusilli/support/process.h"
+#include "fusilli/support/target_platform.h"
+
 #include <array>
 #include <cstdio>
 #include <filesystem>
@@ -24,47 +27,33 @@
 
 namespace fusilli {
 
-// Custom deleter for FILE* from popen
-struct PopenDeleter {
-  void operator()(FILE *fp) const {
-    if (fp)
-      pclose(fp);
-  }
-};
-
-// Executes a shell command and returns the output as a string.
-inline std::optional<std::string> execCommand(const std::string &cmd) {
-  std::array<char, 128> buffer;
-  std::string result;
-
-  std::unique_ptr<FILE, PopenDeleter> pipe(popen(cmd.c_str(), "r"));
-  if (!pipe)
-    return std::nullopt;
-
-  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
-    result += buffer.data();
-
-  return result;
-}
-
 // Gets the list of Python site-packages directories.
 // Returns a vector of paths where Python packages are installed.
 inline std::vector<std::string> getPythonSitePackages() {
   std::vector<std::string> sitePaths;
 
-  // Try to get site-packages from Python
+  // Try to get site-packages from Python.
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  const char *pythonCmd =
+      "python -c \"import site; print('\\n'.join(site.getsitepackages()))\" "
+      "2> NUL";
+#else
   const char *pythonCmd =
       "python3 -c \"import site; print('\\n'.join(site.getsitepackages()))\" "
       "2>/dev/null";
+#endif
 
   auto output = execCommand(pythonCmd);
   if (!output.has_value() || output->empty())
     return sitePaths;
 
-  // Parse the output - one path per line
+  // Parse the output - one path per line.
+  // Handle both \n and \r for cross-platform compatibility.
   std::string path;
   for (char c : *output) {
-    if (c == '\n') {
+    // Strip out any trailing newlines or carriage returns, and split on
+    // newlines.
+    if (c == '\n' || c == '\r') {
       if (!path.empty()) {
         sitePaths.push_back(path);
         path.clear();
@@ -96,7 +85,7 @@ findInSitePackages(const std::string &relativePathPattern) {
   return std::nullopt;
 }
 
-// Searches for libIREECompiler.so in Python site-packages.
+// Searches for the IREE compiler library in Python site-packages.
 // Specifically looks in the iree/compiler/_mlir_libs/ subdirectory
 // where it's typically installed by pip.
 inline std::optional<std::string> findIreeCompilerLib() {
@@ -105,14 +94,21 @@ inline std::optional<std::string> findIreeCompilerLib() {
   static std::optional<std::string> libPath;
   if (libPath.has_value())
     return libPath;
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  const char *libRelPath = "iree\\compiler\\_mlir_libs\\IREECompiler.dll";
+  const char *libRelPathUnd = "iree_compiler\\_mlir_libs\\IREECompiler.dll";
+#else
+  const char *libRelPath = "iree/compiler/_mlir_libs/libIREECompiler.so";
+  const char *libRelPathUnd = "iree_compiler/_mlir_libs/libIREECompiler.so";
+#endif
 
   // Try the standard pip install location
-  libPath = findInSitePackages("iree/compiler/_mlir_libs/libIREECompiler.so");
+  libPath = findInSitePackages(libRelPath);
   if (libPath.has_value())
     return libPath;
 
   // Try alternative locations
-  libPath = findInSitePackages("iree_compiler/_mlir_libs/libIREECompiler.so");
+  libPath = findInSitePackages(libRelPathUnd);
   return libPath;
 }
 

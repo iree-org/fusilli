@@ -89,6 +89,7 @@ add_fusilli_tests(
     test_dllib.cpp
     test_float_types.cpp
     test_memstream.cpp
+    test_process.cpp
     test_ssa_validation.cpp
   DEPS
     libfusilli
@@ -158,6 +159,9 @@ add_fusilli_lit_tests(
     lit/test_matmul_asm_emitter_broadcast_3D.cpp
     lit/test_matmul_asm_emitter_broadcast_4D.cpp
     lit/test_matmul_asm_emitter_noncontiguous.cpp
+    lit/test_reduction_asm_emitter_sum.cpp
+    lit/test_reduction_asm_emitter_min.cpp
+    lit/test_reduction_asm_emitter_max.cpp
   DEPS
     libfusilli
     libutils

@@ -26,7 +26,7 @@
 #endif // _WIN32 || _WIN64
 
 #if !defined(FUSILLI_PLATFORM_LINUX) && !defined(FUSILLI_PLATFORM_WINDOWS)
-#error Unknown platform.
+#error "Unsupported platform"
 #endif // all archs
 
 //==============================================================================

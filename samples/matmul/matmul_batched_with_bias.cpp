@@ -62,19 +62,8 @@ TEST_CASE("Batched matrix multiplication with bias; A (B, M, K), B (B, K, N), "
     return std::make_tuple(graph, aT, bT, biasT, resultT);
   };
 
-  // Parameterize sample by backend and create device-specific handles.
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#ifdef FUSILLI_ENABLE_AMDGPU
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#endif
-  Handle &handle = *handlePtr;
+  // Create handle for the target backend.
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Build graph for the given handle (device), validate and compile it.
   auto [graph, aT, bT, biasT, resultT] = buildNewGraph(handle);
@@ -175,19 +164,8 @@ TEST_CASE("Batched matrix multiplication with broadcast and bias; A (B, M, K), "
     return std::make_tuple(graph, aT, bT, biasT, resultT);
   };
 
-  // Parameterize sample by backend and create device-specific handles.
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#ifdef FUSILLI_ENABLE_AMDGPU
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#endif
-  Handle &handle = *handlePtr;
+  // Create handle for the target backend.
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Build graph for the given handle (device), validate and compile it.
   auto [graph, aT, bT, biasT, resultT] = buildNewGraph(handle);

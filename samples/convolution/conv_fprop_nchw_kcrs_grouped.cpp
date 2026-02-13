@@ -58,19 +58,8 @@ TEST_CASE(
     return std::make_tuple(graph, xT, wT, yT);
   };
 
-  // Parameterize sample by backend and create device-specific handles.
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#ifdef FUSILLI_ENABLE_AMDGPU
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#endif
-  Handle &handle = *handlePtr;
+  // Create handle for the target backend.
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Build graph for the given handle (device), validate and compile it.
   auto [graph, xT, wT, yT] = buildNewGraph(handle);
@@ -101,7 +90,7 @@ TEST_CASE(
   FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
 
   // Calculate expected output value.
-  constexpr half expected =
+  const half expected =
       static_cast<float>(fc * r * s) * inputScalar * inputScalar;
 
   // Read output buffers.

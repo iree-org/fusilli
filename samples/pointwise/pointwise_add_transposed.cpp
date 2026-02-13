@@ -37,20 +37,10 @@ TEST_CASE("Pointwise add with transposed operand", "[pointwise][graph]") {
   };
   // clang-format on
 
-  // Parameterize sample by backend and create device-specific handles
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#ifdef FUSILLI_ENABLE_AMDGPU
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#endif
+  // Create handle for the target backend.
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
-  auto buildNewGraph = [&](const Handle &handle) {
+  auto buildNewGraph = [&](const Handle &handleArg) {
     // Create graph
     auto graph = std::make_shared<Graph>();
     graph->setName("pointwise_add_transposed");
@@ -80,24 +70,19 @@ TEST_CASE("Pointwise add with transposed operand", "[pointwise][graph]") {
     FUSILLI_REQUIRE_OK(graph->validate());
 
     // Compile
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handleArg, /*remove=*/true));
 
     return std::make_tuple(graph, aT, bT, resultT);
   };
 
-  Handle &handle = *handlePtr;
   // Build graph for the given handle (device), validate and compile it.
   auto [graph, aT, bT, resultT] = buildNewGraph(handle);
 
   // Allocate input buffers and initialize with input data
-  FUSILLI_REQUIRE_ASSIGN(
-      Buffer aBuffer,
-      Buffer::allocate(handle, castToSizeT(aT->getPhysicalDim()), inputData));
-  auto aBuf = std::make_shared<Buffer>(std::move(aBuffer));
-  FUSILLI_REQUIRE_ASSIGN(
-      Buffer bBuffer,
-      Buffer::allocate(handle, castToSizeT(bT->getPhysicalDim()), inputData));
-  auto bBuf = std::make_shared<Buffer>(std::move(bBuffer));
+  FUSILLI_REQUIRE_ASSIGN(auto aBuf,
+                         allocateBufferOfType(handle, aT, inputData));
+  FUSILLI_REQUIRE_ASSIGN(auto bBuf,
+                         allocateBufferOfType(handle, bT, inputData));
 
   // Allocate output buffer
   FUSILLI_REQUIRE_ASSIGN(

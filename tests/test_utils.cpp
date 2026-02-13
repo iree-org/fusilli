@@ -19,6 +19,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -161,6 +162,170 @@ TEST_CASE("castToSizeT utility function", "[utils]") {
     REQUIRE(result[1] == 2048);
     REQUIRE(result[2] == 4096);
     REQUIRE(result[3] == 8192);
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// allocateBufferOfType tests
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+// Templated helper to verify buffer contents match expected data.
+template <typename T>
+void verifyBufferContents(Handle &handle, Buffer &buffer,
+                          const std::vector<T> &expected) {
+  std::vector<T> result;
+  FUSILLI_REQUIRE_OK(buffer.read(handle, result));
+  REQUIRE(result.size() == expected.size());
+  for (size_t i = 0; i < expected.size(); ++i) {
+    REQUIRE(result[i] == expected[i]);
+  }
+}
+
+} // namespace
+
+
+TEST_CASE("allocateBufferOfType with DataType and initVal", "[utils][buffer]") {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+
+  auto graph = std::make_shared<Graph>();
+  auto tensor =
+      createTestTensor("test_tensor", std::vector<int64_t>{2, 3}, graph.get());
+
+  SECTION("Float allocation") {
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::Float, 5.0f));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<float>(6, 5.0f));
+  }
+
+  SECTION("Int32 allocation") {
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::Int32, 42.0f));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<int>(6, 42));
+  }
+
+  SECTION("Half allocation") {
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::Half, 3.5f));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<half>(6, half(3.5f)));
+  }
+
+  SECTION("BFloat16 allocation") {
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::BFloat16, 2.0f));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<bf16>(6, bf16(2.0f)));
+  }
+
+  SECTION("Int16 allocation") {
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::Int16, 100.0f));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<int16_t>(6, 100));
+  }
+
+  SECTION("Int8 allocation") {
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::Int8, 7.0f));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<int8_t>(6, 7));
+  }
+
+  SECTION("Boolean allocation") {
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::Boolean, 1.0f));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<int8_t>(6, 1));
+  }
+}
+
+TEST_CASE("allocateBufferOfType templated with data vector",
+          "[utils][buffer]") {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+
+  auto graph = std::make_shared<Graph>();
+  auto tensor =
+      createTestTensor("test_tensor", std::vector<int64_t>{2, 3}, graph.get());
+
+  SECTION("float vector") {
+    std::vector<float> data = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+    FUSILLI_REQUIRE_ASSIGN(auto buffer,
+                           allocateBufferOfType(handle, tensor, data));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, data);
+  }
+
+  SECTION("int vector") {
+    std::vector<int> data = {10, 20, 30, 40, 50, 60};
+    FUSILLI_REQUIRE_ASSIGN(auto buffer,
+                           allocateBufferOfType(handle, tensor, data));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, data);
+  }
+
+  SECTION("half vector") {
+    std::vector<half> data = {half(1.5f), half(2.5f), half(3.5f),
+                              half(4.5f), half(5.5f), half(6.5f)};
+    FUSILLI_REQUIRE_ASSIGN(auto buffer,
+                           allocateBufferOfType(handle, tensor, data));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, data);
+  }
+
+  SECTION("bf16 vector") {
+    std::vector<bf16> data = {bf16(1.0f), bf16(2.0f), bf16(3.0f),
+                              bf16(4.0f), bf16(5.0f), bf16(6.0f)};
+    FUSILLI_REQUIRE_ASSIGN(auto buffer,
+                           allocateBufferOfType(handle, tensor, data));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, data);
+  }
+
+  SECTION("int8_t vector") {
+    std::vector<int8_t> data = {1, 2, 3, 4, 5, 6};
+    FUSILLI_REQUIRE_ASSIGN(auto buffer,
+                           allocateBufferOfType(handle, tensor, data));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, data);
+  }
+
+  SECTION("int16_t vector") {
+    std::vector<int16_t> data = {100, 200, 300, 400, 500, 600};
+    FUSILLI_REQUIRE_ASSIGN(auto buffer,
+                           allocateBufferOfType(handle, tensor, data));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, data);
+  }
+}
+
+TEST_CASE("allocateBufferOfType with null tensor", "[utils][buffer][error]") {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+
+  std::shared_ptr<TensorAttr> nullTensor = nullptr;
+
+  SECTION("DataType overload returns error for null tensor") {
+    ErrorObject result =
+        allocateBufferOfType(handle, nullTensor, DataType::Float, 1.0f);
+    REQUIRE(isError(result));
+    REQUIRE(result.getCode() == ErrorCode::AttributeNotSet);
+  }
+
+  SECTION("templated overload returns error for null tensor") {
+    std::vector<float> data = {1.0f, 2.0f, 3.0f};
+    ErrorObject result = allocateBufferOfType(handle, nullTensor, data);
+    REQUIRE(isError(result));
+    REQUIRE(result.getCode() == ErrorCode::AttributeNotSet);
   }
 }
 

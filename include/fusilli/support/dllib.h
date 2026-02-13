@@ -21,11 +21,10 @@
 
 #include "fusilli/support/logging.h"
 #include "fusilli/support/target_platform.h"
+
 #include <string>
 
-#ifdef FUSILLI_PLATFORM_WINDOWS
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
+#if defined(FUSILLI_PLATFORM_WINDOWS)
 #include <windows.h>
 #else
 #include <dlfcn.h>
@@ -95,7 +94,7 @@ public:
       assert(isOk(err) && "Error closing library during load");
     }
 
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
     handle_ = LoadLibraryExA(path.c_str(), nullptr, 0);
     if (!handle_) {
       DWORD errorCode = GetLastError();
@@ -114,7 +113,7 @@ public:
       }
       return error(ErrorCode::FileSystemFailure, errMsg);
     }
-#elif FUSILLI_PLATFORM_LINUX
+#else
     // Use dlmopen with LM_ID_NEWLM to load in a new namespace for isolation. We
     // use a separate namespace to force reinitialization if another library
     // loaded and shutdown already.
@@ -123,8 +122,6 @@ public:
       const char *err = dlerror();
       return error(ErrorCode::FileSystemFailure, err ? err : "Unknown error");
     }
-#else
-#error Unsupported platform
 #endif
 
     return ok();
@@ -140,7 +137,7 @@ public:
       return error(ErrorCode::InternalError, "Library not loaded");
     }
 
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
     void *sym = reinterpret_cast<void *>(GetProcAddress(handle_, name));
     if (!sym) {
       DWORD errorCode = GetLastError();
@@ -159,7 +156,7 @@ public:
       }
       return error(ErrorCode::InternalError, errMsg);
     }
-#elif FUSILLI_PLATFORM_LINUX
+#else
     // Clear any existing error.
     dlerror();
 
@@ -174,8 +171,6 @@ public:
       }
       return error(ErrorCode::InternalError, errMsg);
     }
-#else
-#error Unsupported platform
 #endif
 
     return ok(reinterpret_cast<T>(sym));
@@ -186,12 +181,10 @@ public:
   /// Safe to call multiple times or on an unloaded library.
   ErrorObject close() {
     if (handle_) {
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
       FreeLibrary(handle_);
-#elif FUSILLI_PLATFORM_LINUX
-      dlclose(handle_);
 #else
-#error Unsupported platform
+      dlclose(handle_);
 #endif
       handle_ = nullptr;
     }
@@ -202,12 +195,10 @@ public:
   bool isLoaded() const { return handle_ != nullptr; }
 
 private:
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
   HMODULE handle_ = nullptr;
-#elif FUSILLI_PLATFORM_LINUX
-  void *handle_ = nullptr;
 #else
-#error Unsupported platform
+  void *handle_ = nullptr;
 #endif
 };
 

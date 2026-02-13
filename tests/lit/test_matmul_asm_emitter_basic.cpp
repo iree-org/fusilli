@@ -38,12 +38,16 @@
 // LINALG-CHECK:      %[[OUT:.+]] = linalg.matmul ins(%[[A]], %[[B]] : tensor<64x128xf32>, tensor<128x256xf32>) outs(%{{.+}} : tensor<64x256xf32>) -> tensor<64x256xf32>
 // LINALG-CHECK:      %{{.+}} = hal.tensor.alias wait(%{{.+}}) => %[[OUT]] : tensor<64x256xf32> to %[[ARG0]] : !hal.buffer_view
 //
+// AMDGPU-STATS-CHECK: "transient-memory-size": 0
 // AMDGPU-STATS-CHECK: "dispatch-count": 1
+// CPU-STATS-CHECK: "transient-memory-size": 0
 // CPU-STATS-CHECK: "dispatch-count": 1
 //
 // clang-format on
 
 #include <fusilli.h>
+
+#include "utils.h"
 
 #include <cstdint>
 #include <iostream>
@@ -78,11 +82,7 @@ static ErrorObject testMatmulAsmEmitterBasic(const std::string &mode) {
   }
 
   if (mode == "stats") {
-#ifdef FUSILLI_ENABLE_AMDGPU
-    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::AMDGPU));
-#else
-    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
-#endif
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(kDefaultBackend));
     FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
     FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
                                              CachedAssetsType::Statistics));

@@ -35,16 +35,14 @@ struct Float16 {
   constexpr Float16() {}
 
   // Construct from float (handles double via implicit conversion)
-  constexpr Float16(float f) : data(iree_math_f32_to_f16(f)) {}
+  Float16(float f) : data(iree_math_f32_to_f16(f)) {}
 
   // Convert to float
-  [[nodiscard]] constexpr float toFloat() const {
-    return iree_math_f16_to_f32(data);
-  }
+  [[nodiscard]] float toFloat() const { return iree_math_f16_to_f32(data); }
 
   // Implicit conversion to float for seamless interoperability
   // Arithmetic and comparisons work through this conversion
-  [[nodiscard]] constexpr operator float() const { return toFloat(); }
+  [[nodiscard]] operator float() const { return toFloat(); }
 
   [[nodiscard]] static constexpr Float16 fromBits(uint16_t bits) {
     Float16 result;
@@ -69,16 +67,14 @@ struct BFloat16 {
   constexpr BFloat16() {}
 
   // Construct from float (handles double via implicit conversion)
-  constexpr BFloat16(float f) : data(iree_math_f32_to_bf16(f)) {}
+  BFloat16(float f) : data(iree_math_f32_to_bf16(f)) {}
 
   // Convert to float
-  [[nodiscard]] constexpr float toFloat() const {
-    return iree_math_bf16_to_f32(data);
-  }
+  [[nodiscard]] float toFloat() const { return iree_math_bf16_to_f32(data); }
 
   // Implicit conversion to float for seamless interoperability
   // Arithmetic and comparisons work through this conversion
-  [[nodiscard]] constexpr operator float() const { return toFloat(); }
+  [[nodiscard]] operator float() const { return toFloat(); }
 
   [[nodiscard]] static constexpr BFloat16 fromBits(uint16_t bits) {
     BFloat16 result;
@@ -93,7 +89,7 @@ struct BFloat16 {
 // Half precision floating point types.
 // On Windows, use portable struct implementations with uint16_t storage.
 // On other platforms, use compiler extensions for native support.
-#ifdef FUSILLI_PLATFORM_WINDOWS
+#if defined(FUSILLI_PLATFORM_WINDOWS)
 using half = Float16;
 using bf16 = BFloat16;
 #else

@@ -15,6 +15,7 @@
 #define FUSILLI_SUPPORT_EXTERNAL_TOOLS_H
 
 #include "fusilli/support/python_utils.h"
+#include "fusilli/support/target_platform.h"
 #include <cstdlib>
 #include <string>
 
@@ -38,8 +39,12 @@ inline std::string getRocmAgentEnumeratorPath() {
     return std::string(envPath);
   }
 
-  // Let shell search for it.
+// Let shell search for it.
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  return std::string("rocm-sdk targets");
+#else
   return std::string("rocm_agent_enumerator");
+#endif
 }
 
 inline std::string getAmdSmiPath() {
@@ -67,7 +72,11 @@ inline std::string getIreeCompilerLibPath() {
   }
 
   // Fallback: let the system search for it (may be in LD_LIBRARY_PATH).
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  return std::string("IREECompiler.dll");
+#else
   return std::string("libIREECompiler.so");
+#endif
 }
 
 } // namespace fusilli

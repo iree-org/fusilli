@@ -11,26 +11,14 @@
 #include <catch2/catch_test_macros.hpp>
 #include <iree/runtime/api.h>
 
-#include <memory>
 #include <utility>
 #include <vector>
 
 using namespace fusilli;
 
 TEST_CASE("Buffer allocation, move semantics and lifetime", "[buffer]") {
-  // Parameterize by backend and create device-specific handles.
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#ifdef FUSILLI_ENABLE_AMDGPU
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#endif
-  Handle &handle = *handlePtr;
+  // Create handle for the target backend.
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Allocate a buffer of shape [2, 3] with all elements set to 1.0f (float).
   std::vector<float> data(6, 1.0f);
@@ -60,19 +48,8 @@ TEST_CASE("Buffer allocation, move semantics and lifetime", "[buffer]") {
 }
 
 TEST_CASE("Buffer import and lifetimes", "[buffer]") {
-  // Parameterize by backend and create device-specific handles.
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#ifdef FUSILLI_ENABLE_AMDGPU
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#endif
-  Handle &handle = *handlePtr;
+  // Create handle for the target backend.
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Allocate a buffer of shape [2, 3] with all elements set to half(1.0f).
   std::vector<half> data(6, half(1.0f));
@@ -123,7 +100,7 @@ TEST_CASE("Buffer errors", "[buffer]") {
 
   SECTION("Reading into a non-empty vector") {
     // Reading into a non-empty vector should fail.
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
     // Allocate a buffer of shape [2, 3] with all elements set to 1.0f (float).
     std::vector<float> data(6, 0.0f);
@@ -147,7 +124,7 @@ TEST_CASE("Buffer errors", "[buffer]") {
   }
 
   SECTION("Buffer allocation with mismatched data size") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
     // Test case 1: bufferData has more elements than bufferShape expects.
     std::vector<float> tooMuchData(10, 1.0f);
@@ -171,7 +148,7 @@ TEST_CASE("Buffer errors", "[buffer]") {
   }
 
   SECTION("Buffer allocation with zero dimension") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
     // Test case 1: bufferShape with a zero dimension.
     std::vector<float> someData(5, 1.0f);

@@ -1,0 +1,70 @@
+# Copyright 2026 Advanced Micro Devices, Inc.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+name: CI - Windows x64 MSVC
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test-win:
+    # TODO: Check if we can use a windows runner with and AMD GPU for testing.
+    name: "Build & Test :: cpu_msvc_windows"
+    runs-on: azure-windows-scale
+    env:
+      BASE_BUILD_DIR_POWERSHELL: B:\tmpbuild
+    steps:
+      - name: "Checking out repository"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: true
+      - name: "Create build dir"
+        run: |
+          $buildDir = "$env:BASE_BUILD_DIR_POWERSHELL\"
+          echo "BUILD_DIR_POWERSHELL=$buildDir" >> $env:GITHUB_ENV
+          mkdir "$buildDir"
+          Write-Host "Generated Build Directory: $buildDir"
+      - name: "Setting up Python"
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.11"
+      - name: "Installing Python packages"
+        run: |
+          python3 -m venv .venv
+          .venv\Scripts\Activate.ps1
+
+          python3 -m pip install --upgrade pip
+          python3 -m pip install lit filecheck
+          python3 -m pip install --find-links https://iree.dev/pip-release-links.html iree-base-compiler==3.11.0rc20260203
+
+          echo "${{ github.workspace }}\.venv\Scripts" >> $env:GITHUB_PATH
+
+      - name: "Configuring MSVC"
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+      - name: "Installing Fusilli requirements"
+        run: |
+          choco install cmake
+          choco install ninja
+          Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1
+          refreshenv
+      - name: "Building Fusilli"
+        run: |
+          cmake -S . -B ${{ env.BUILD_DIR_POWERSHELL}} -G Ninja -DCMAKE_BUILD_TYPE=Release -DFUSILLI_ENABLE_LOGGING=ON -DFUSILLI_SYSTEMS_AMDGPU=OFF
+          cmake --build ${{ env.BUILD_DIR_POWERSHELL}} --config Release --target all
+      - name: "Running Fusilli tests (libIREECompiler CAPI)"
+        run: |
+          ctest --test-dir ${{ env.BUILD_DIR_POWERSHELL}} --output-on-failure --extra-verbose --timeout 120
+      - name: "Running Fusilli tests (iree-compile CLI)"
+        run: |
+          $env:FUSILLI_COMPILE_BACKEND_USE_CLI = "1"
+          ctest --test-dir ${{ env.BUILD_DIR_POWERSHELL}} --output-on-failure --extra-verbose --timeout 120
+      - name: "Clean up build dir"
+        if: always()
+        run: if (Test-Path -Path "$Env:BUILD_DIR_POWERSHELL") {Remove-Item -Path "$Env:BUILD_DIR_POWERSHELL" -Recurse -Force}

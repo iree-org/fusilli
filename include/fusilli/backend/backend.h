@@ -17,6 +17,7 @@
 #include "fusilli/attributes/types.h"
 #include "fusilli/support/external_tools.h"
 #include "fusilli/support/logging.h"
+#include "fusilli/support/process.h"
 
 #include <iree/hal/drivers/hip/api.h>
 #include <iree/runtime/api.h>
@@ -134,16 +135,11 @@ getGpuSkuFromMarketingName(const std::string &marketingName) {
 inline std::string getGpuMarketingNameFromAmdSmi() {
   std::string cmd = getAmdSmiPath() + " static --gpu 0 --json 2>/dev/null";
 
-  FILE *pipe = popen(cmd.c_str(), "r");
-  if (!pipe)
+  auto outputOrNone = execCommand(cmd);
+  if (!outputOrNone.has_value() || outputOrNone->empty())
     return "";
 
-  // Read entire output into a string.
-  std::string output;
-  char buffer[4096];
-  while (fgets(buffer, sizeof(buffer), pipe) != nullptr)
-    output += buffer;
-  pclose(pipe);
+  std::string output = std::move(*outputOrNone);
 
   // Simple JSON parsing: find "market_name": "value"
   const std::string key = "\"market_name\":";
@@ -169,27 +165,19 @@ inline std::string getGpuMarketingNameFromAmdSmi() {
 inline std::string getArchFromRocmAgentEnumerator() {
   auto cmd = getRocmAgentEnumeratorPath();
 
-  FILE *pipe = popen(cmd.c_str(), "r");
-  if (!pipe)
+  auto outputOrNone = execCommand(cmd);
+  if (!outputOrNone.has_value() || outputOrNone->empty())
     return "";
 
-  char buffer[1024];
+  std::istringstream stream(std::move(*outputOrNone));
   std::string target;
-  while (true) {
-    char *line = fgets(buffer, sizeof(buffer), pipe);
-    if (line == nullptr) {
-      target = "";
-      break;
-    }
-
-    target = std::string(line);
-    if (target == "gfx000\n")
-      continue;
+  while (std::getline(stream, target)) {
     target.erase(target.find_last_not_of(" \n\r\t") + 1);
+    if (target == "gfx000")
+      continue;
     break;
   }
 
-  pclose(pipe);
   return target;
 }
 
@@ -401,7 +389,8 @@ struct IreeHalBufferViewDeleter {
 // Aliases for IREE runtime types with custom deleters.
 using IreeRuntimeInstanceSharedPtrType =
     std::shared_ptr<iree_runtime_instance_t>;
-using IreeHalDeviceSharedPtrType = std::shared_ptr<iree_hal_device_t>;
+using IreeHalDeviceUniquePtrType =
+    std::unique_ptr<iree_hal_device_t, IreeHalDeviceDeleter>;
 using IreeRuntimeSessionUniquePtrType =
     std::unique_ptr<iree_runtime_session_t, IreeRuntimeSessionDeleter>;
 using IreeHalBufferViewUniquePtrType =

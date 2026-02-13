@@ -93,9 +93,26 @@ TEST_CASE("ReductionNode postValidateNode detects rank mismatch",
     FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
     auto status = node.postValidateNode();
     REQUIRE(isError(status));
-    REQUIRE(status.getCode() == ErrorCode::AttributeNotSet);
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
             "Reduction input and output must have the same rank");
+  }
+
+  SECTION("Invalid reduction dimension - not 1") {
+    ReductionAttr attr;
+    attr.setMode(ReductionAttr::Mode::SUM);
+    auto x = std::make_shared<TensorAttr>();
+    x->setDim({2, 3, 4, 5}); // 4D tensor
+    auto y = std::make_shared<TensorAttr>();
+    y->setDim({2, 3, 4, 2}); // Invalid: dim[3] is 2, not 1 or 5
+    attr.setX(x).setY(y);
+    ReductionNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+    auto status = node.postValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
   }
 }
 
@@ -131,13 +148,13 @@ TEST_CASE("ReductionNode with SUM mode", "[reduction_node]") {
   ReductionAttr attr;
   attr.setMode(ReductionAttr::Mode::SUM);
 
-  int64_t n = 16, c = 256, h = 64, w = 32;
+  int64_t d0 = 16, d1 = 256, d2 = 64, d3 = 32;
 
   auto x = std::make_shared<TensorAttr>();
-  x->setDim({n, c, h, w}).setStride({c * h * w, h * w, w, 1});
+  x->setDim({d0, d1, d2, d3}).setStride({d1 * d2 * d3, d2 * d3, d3, 1});
 
   auto y = std::make_shared<TensorAttr>();
-  y->setDim({n, c, 1, 1}).setStride({c, 1, 1, 1});
+  y->setDim({d0, d1, 1, 1}).setStride({d1, 1, 1, 1});
 
   attr.setX(x).setY(y);
 
@@ -153,10 +170,10 @@ TEST_CASE("ReductionNode with MAX mode full tensor reduction",
   ReductionAttr attr;
   attr.setMode(ReductionAttr::Mode::MAX);
 
-  int64_t n = 16, c = 256, h = 64, w = 32;
+  int64_t d0 = 16, d1 = 256, d2 = 64, d3 = 32;
 
   auto x = std::make_shared<TensorAttr>();
-  x->setDim({n, c, h, w}).setStride({c * h * w, h * w, w, 1});
+  x->setDim({d0, d1, d2, d3}).setStride({d1 * d2 * d3, d2 * d3, d3, 1});
 
   auto y = std::make_shared<TensorAttr>();
   // Full reduction - all dimensions become 1

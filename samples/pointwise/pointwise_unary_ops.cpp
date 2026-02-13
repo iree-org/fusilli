@@ -43,9 +43,8 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       GENERATE(PointwiseAttr::Mode::CEIL, PointwiseAttr::Mode::RELU_FWD,
                PointwiseAttr::Mode::SIGMOID_FWD, PointwiseAttr::Mode::TANH_FWD);
 
-  auto execute = [&]<typename T>(const std::shared_ptr<Handle> &handlePtr,
-                                 DataType dt, T x) {
-    auto buildNewGraph = [&](const Handle &handle) {
+  auto execute = [&]<typename T>(Handle &handle, DataType dt, T x) {
+    auto buildNewGraph = [&](Handle &handleArg) {
       // Create graph
       auto graph = std::make_shared<Graph>();
       graph->setName(generateName(mode, dt, dim));
@@ -65,12 +64,10 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       FUSILLI_REQUIRE_OK(graph->validate());
 
       // Compile
-      FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+      FUSILLI_REQUIRE_OK(graph->compile(handleArg, /*remove=*/true));
 
       return std::make_tuple(graph, xT, pointwiseResult);
     };
-
-    Handle &handle = *handlePtr;
     // Build graph for the given handle (device), validate and compile it.
     auto [graph, xT, yT] = buildNewGraph(handle);
 
@@ -151,21 +148,11 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       REQUIRE(isClose(val, y));
   };
 
-  // Parameterize sample by backend and create device-specific handles.
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#ifdef FUSILLI_ENABLE_AMDGPU
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#endif
+  // Create handle for the target backend.
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // int32
-  execute(handlePtr, DataType::Int32, int(-128));
+  execute(handle, DataType::Int32, int(-128));
   // fp16
-  execute(handlePtr, DataType::Half, half(3.14));
+  execute(handle, DataType::Half, half(3.14));
 }

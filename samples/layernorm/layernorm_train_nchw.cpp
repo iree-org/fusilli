@@ -59,19 +59,8 @@ TEST_CASE("Layer normalization; training mode; NCHW layout; no bias/scale",
     return std::make_tuple(graph, xT, yT, mT, vT);
   };
 
-  // Parameterize sample by backend and create device-specific handles.
-  std::shared_ptr<Handle> handlePtr;
-  SECTION("cpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#ifdef FUSILLI_ENABLE_AMDGPU
-  SECTION("amdgpu backend") {
-    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-    handlePtr = std::make_shared<Handle>(std::move(handle));
-  }
-#endif
-  Handle &handle = *handlePtr;
+  // Create handle for the target backend.
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   auto [graph, xT, yT, mT, vT] = buildNewGraph(handle);
 
@@ -79,10 +68,8 @@ TEST_CASE("Layer normalization; training mode; NCHW layout; no bias/scale",
       layernorm_utils::generateIOTensorsForTrainForward(n, c, h, w, 1.f, 0.f,
                                                         eps);
 
-  FUSILLI_REQUIRE_ASSIGN(
-      Buffer xBuffer,
-      Buffer::allocate(handle, castToSizeT(xT->getPhysicalDim()), inputVals));
-  auto xBuf = std::make_shared<Buffer>(std::move(xBuffer));
+  FUSILLI_REQUIRE_ASSIGN(auto xBuf,
+                         allocateBufferOfType(handle, xT, inputVals));
   FUSILLI_REQUIRE_ASSIGN(
       auto yBuf, allocateBufferOfType(handle, yT, DataType::Float, 0.0f));
   FUSILLI_REQUIRE_ASSIGN(

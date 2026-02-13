@@ -75,10 +75,22 @@
 // which is compatible with `iree_hal_dim_t` and fixes narrowing conversion
 // warnings.
 inline std::vector<size_t> castToSizeT(const std::vector<int64_t> &input) {
-  return std::vector<size_t>(input.begin(), input.end());
+  std::vector<size_t> sizes;
+  sizes.reserve(input.size());
+  for (auto val : input)
+    sizes.push_back(static_cast<size_t>(val));
+  return sizes;
 }
 
 namespace fusilli {
+
+// Default backend for samples and tests based on compile-time configuration.
+// AMDGPU is preferred when available, otherwise falls back to CPU.
+#if defined(FUSILLI_ENABLE_AMDGPU)
+constexpr Backend kDefaultBackend = Backend::AMDGPU;
+#else
+constexpr Backend kDefaultBackend = Backend::CPU;
+#endif
 
 // Helper to create a simple MLIR module for testing.
 inline std::string getSimpleMLIRModule() {
@@ -167,6 +179,23 @@ allocateBufferOfType(Handle &handle, const std::shared_ptr<TensorAttr> &tensor,
   }
 }
 
+// Overload that accepts pre-populated data vector. The element type T is
+// deduced from the vector, avoiding the need for a DataType switch.
+template <typename T>
+inline ErrorOr<std::shared_ptr<Buffer>>
+allocateBufferOfType(Handle &handle, const std::shared_ptr<TensorAttr> &tensor,
+                     const std::vector<T> &data) {
+  FUSILLI_RETURN_ERROR_IF(!tensor, ErrorCode::AttributeNotSet,
+                          "Tensor is not set");
+
+  FUSILLI_ASSIGN_OR_RETURN(
+      auto buffer,
+      Buffer::allocate(handle,
+                       /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
+                       /*bufferData=*/data));
+  return std::make_shared<Buffer>(std::move(buffer));
+}
+
 // Allocates workspace buffer of the specified size.
 // Returns nullptr if no workspace is needed (size == 0 or nullopt).
 // This helper is used by tests and samples to simplify workspace allocation.
@@ -228,11 +257,7 @@ inline ErrorObject testUnaryPointwiseAsmEmitter(const std::string &graphName,
   }
 
   if (mode == "stats") {
-#ifdef FUSILLI_ENABLE_AMDGPU
-    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::AMDGPU));
-#else
-    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
-#endif
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(kDefaultBackend));
     FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
     FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
                                              CachedAssetsType::Statistics));
@@ -270,11 +295,7 @@ inline ErrorObject testBinaryPointwiseAsmEmitter(const std::string &graphName,
   }
 
   if (mode == "stats") {
-#ifdef FUSILLI_ENABLE_AMDGPU
-    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::AMDGPU));
-#else
-    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
-#endif
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(kDefaultBackend));
     FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
     FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
                                              CachedAssetsType::Statistics));

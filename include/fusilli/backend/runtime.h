@@ -44,7 +44,6 @@
 #include <iree/runtime/api.h>
 
 #include <cstdint>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -62,7 +61,7 @@ namespace fusilli {
 // Create static singleton IREE runtime instance shared across handles/threads.
 inline ErrorOr<IreeRuntimeInstanceSharedPtrType>
 Handle::createSharedInstance() {
-  // Mutex for thread-safe initialization of the shared instance.
+  // Mutex for thread-safe initialization of weakInstance.
   static std::mutex instanceMutex;
 
   // Static weak_ptr to the IREE runtime instance ensures that the
@@ -73,7 +72,9 @@ Handle::createSharedInstance() {
   // static variable goes out of scope upon program termination.
   static std::weak_ptr<iree_runtime_instance_t> weakInstance;
 
-  // Serialize access to the weak_ptr check-then-create logic.
+  // If multiple threads simultaneously request a handle, they will
+  // race into `createSharedInstance()` but only one will succeed in
+  // creating the instance, and others will use it.
   std::lock_guard<std::mutex> lock(instanceMutex);
 
   // Try to get the shared_ptr from the weak_ptr (if it exists).
@@ -105,38 +106,15 @@ Handle::createSharedInstance() {
 inline ErrorObject Handle::createCPUDevice() {
   FUSILLI_LOG_LABEL_ENDL("INFO: Creating per-handle IREE HAL device");
 
-  // Mutex for thread-safe access to the shared CPU device.
-  static std::mutex cpuDeviceMutex;
+  iree_hal_device_t *rawDevice = nullptr;
+  FUSILLI_CHECK_ERROR(iree_runtime_instance_try_create_default_device(
+      instance_.get(), iree_make_cstring_view(kHalDriver.at(backend_)),
+      &rawDevice));
 
-  // Static weak_ptr to the CPU device ensures that the device is only
-  // created once and shared across all CPU handles. This is necessary
-  // because IREE's local-task driver typically provides a single default
-  // device. The device is released when the last handle using it goes
-  // out of scope.
-  static std::weak_ptr<iree_hal_device_t> weakCpuDevice;
+  // Wrap the raw device ptr with a unique_ptr and custom deleter
+  // for lifetime management.
+  device_ = IreeHalDeviceUniquePtrType(rawDevice);
 
-  // Serialize access to the weak_ptr check-then-create logic.
-  std::lock_guard<std::mutex> lock(cpuDeviceMutex);
-
-  // Try to get the shared_ptr from the weak_ptr (if it exists).
-  IreeHalDeviceSharedPtrType sharedDevice = weakCpuDevice.lock();
-
-  // If weak_ptr expired, create a new CPU device.
-  if (sharedDevice == nullptr) {
-    FUSILLI_LOG_LABEL_ENDL("INFO: Creating shared CPU device");
-    iree_hal_device_t *rawDevice = nullptr;
-    FUSILLI_CHECK_ERROR(iree_runtime_instance_try_create_default_device(
-        instance_.get(), iree_make_cstring_view(kHalDriver.at(backend_)),
-        &rawDevice));
-
-    // Wrap the raw device ptr with a shared_ptr and custom deleter
-    // for lifetime management.
-    sharedDevice =
-        IreeHalDeviceSharedPtrType(rawDevice, IreeHalDeviceDeleter());
-    weakCpuDevice = sharedDevice;
-  }
-
-  device_ = sharedDevice;
   return ok();
 }
 
@@ -151,37 +129,7 @@ inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
 // Hide some of the IREE HAL HIP driver symbols to avoid linking errors
 // when building Fusilli without AMDGPU support (which disables IREE HAL
 // HIP driver from being built).
-#ifdef FUSILLI_ENABLE_AMDGPU
-  // Mutex for thread-safe access to the GPU device cache.
-  static std::mutex gpuDeviceMutex;
-
-  // Cache key for AMDGPU devices: (deviceId, stream) pair.
-  // Devices with the same configuration are shared across handles.
-  using GpuDeviceKey = std::pair<int, uintptr_t>;
-  static std::map<GpuDeviceKey, std::weak_ptr<iree_hal_device_t>>
-      gpuDeviceCache;
-
-  // Serialize access to the cache check-then-create logic.
-  std::lock_guard<std::mutex> lock(gpuDeviceMutex);
-
-  // Clean up all expired entries while we hold the lock.
-  std::erase_if(gpuDeviceCache, // C++20
-                [](const auto &entry) { return entry.second.expired(); });
-
-  GpuDeviceKey key{deviceId, stream};
-
-  // Try to get an existing device from the cache.
-  if (auto it = gpuDeviceCache.find(key); it != gpuDeviceCache.end()) {
-    // Entry exists and is valid (we just cleaned expired ones).
-    FUSILLI_LOG_LABEL_ENDL("INFO: Reusing cached AMDGPU device");
-    // Lock the weak_ptr to get a shared_ptr and assign to device_.
-    device_ = it->second.lock();
-    return ok();
-  }
-
-  // Create a new device since none exists in cache for this configuration.
-  FUSILLI_LOG_LABEL_ENDL("INFO: Creating new AMDGPU device");
-
+#if defined(FUSILLI_ENABLE_AMDGPU)
   // Device parms.
   iree_hal_hip_device_params_t params;
   setDefaultIreeHalHipDeviceParams(&params);
@@ -201,14 +149,9 @@ inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
       driver, HIP_DEVICE_ID_TO_IREE_DEVICE_ID(deviceId), /*param_count=*/0,
       /*params=*/nullptr, iree_allocator_system(), &rawDevice));
 
-  // Wrap the raw device ptr with a shared_ptr and custom deleter
+  // Wrap the raw device ptr with a unique_ptr and custom deleter
   // for lifetime management.
-  IreeHalDeviceSharedPtrType sharedDevice(rawDevice, IreeHalDeviceDeleter());
-
-  // Cache the device for future handles with the same configuration.
-  gpuDeviceCache[key] = sharedDevice;
-
-  device_ = sharedDevice;
+  device_ = IreeHalDeviceUniquePtrType(rawDevice);
   return ok();
 #else
   return ErrorObject(ErrorCode::InternalError,
@@ -451,6 +394,14 @@ Buffer::allocate(const Handle &handle,
           std::to_string(expectedSize) + ")");
 
   iree_hal_buffer_view_t *rawBufferView = nullptr;
+  iree_hal_buffer_params_t bufferParams = {
+      // Intended usage of this buffer (transfers, dispatches, etc):
+      .usage = IREE_HAL_BUFFER_USAGE_DEFAULT,
+      // Access to allow to this memory:
+      .access = IREE_HAL_MEMORY_ACCESS_ALL,
+      // Where to allocate (host or device):
+      .type = IREE_HAL_MEMORY_TYPE_DEVICE_LOCAL,
+  };
   FUSILLI_CHECK_ERROR(iree_hal_buffer_view_allocate_buffer_copy(
       // IREE HAL device and allocator:
       handle.getDevice(), iree_hal_device_allocator(handle.getDevice()),
@@ -459,15 +410,7 @@ Buffer::allocate(const Handle &handle,
       // Element type:
       getIreeHalElementTypeForT<T>(),
       // Encoding type:
-      IREE_HAL_ENCODING_TYPE_DENSE_ROW_MAJOR,
-      (iree_hal_buffer_params_t){
-          // Intended usage of this buffer (transfers, dispatches, etc):
-          .usage = IREE_HAL_BUFFER_USAGE_DEFAULT,
-          // Access to allow to this memory:
-          .access = IREE_HAL_MEMORY_ACCESS_ALL,
-          // Where to allocate (host or device):
-          .type = IREE_HAL_MEMORY_TYPE_DEVICE_LOCAL,
-      },
+      IREE_HAL_ENCODING_TYPE_DENSE_ROW_MAJOR, bufferParams,
       // The actual heap buffer to wrap or clone and its allocator:
       iree_make_const_byte_span(bufferData.data(),
                                 bufferData.size() * sizeof(T)),
