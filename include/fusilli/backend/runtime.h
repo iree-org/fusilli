@@ -448,14 +448,14 @@ inline ErrorOr<Buffer> Buffer::allocateRaw(const Handle &handle,
 
   // Allocate raw buffer using IREE HAL allocator.
   iree_hal_buffer_t *rawBuffer = nullptr;
+  iree_hal_buffer_params_t bufferParams = {
+      .usage = IREE_HAL_BUFFER_USAGE_DEFAULT,
+      .access = IREE_HAL_MEMORY_ACCESS_ALL,
+      .type = IREE_HAL_MEMORY_TYPE_DEVICE_LOCAL,
+  };
   FUSILLI_CHECK_ERROR(iree_hal_allocator_allocate_buffer(
-      iree_hal_device_allocator(handle.getDevice()),
-      (iree_hal_buffer_params_t){
-          .usage = IREE_HAL_BUFFER_USAGE_DEFAULT,
-          .access = IREE_HAL_MEMORY_ACCESS_ALL,
-          .type = IREE_HAL_MEMORY_TYPE_DEVICE_LOCAL,
-      },
-      sizeInBytes, &rawBuffer));
+      iree_hal_device_allocator(handle.getDevice()), bufferParams, sizeInBytes,
+      &rawBuffer));
 
   // Wrap in buffer view for API compatibility (1D i8 shape).
   iree_hal_buffer_view_t *bufferView = nullptr;

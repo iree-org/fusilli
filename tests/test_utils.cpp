@@ -357,14 +357,14 @@ TEST_CASE("allocateWorkspace helper function", "[utils][workspace]") {
 
   SECTION("allocates different sizes correctly") {
     // Small allocation
-    FUSILLI_REQUIRE_ASSIGN(auto small, allocateWorkspace(handle, 64));
-    REQUIRE(small != nullptr);
-    REQUIRE(iree_hal_buffer_view_shape_dim(*small, 0) == 64);
+    FUSILLI_REQUIRE_ASSIGN(auto smallBuf, allocateWorkspace(handle, 64));
+    REQUIRE(smallBuf != nullptr);
+    REQUIRE(iree_hal_buffer_view_shape_dim(*smallBuf, 0) == 64);
 
     // Larger allocation (1 MB)
     constexpr size_t oneMB = size_t{1024} * size_t{1024};
-    FUSILLI_REQUIRE_ASSIGN(auto large, allocateWorkspace(handle, oneMB));
-    REQUIRE(large != nullptr);
-    REQUIRE(iree_hal_buffer_view_shape_dim(*large, 0) == oneMB);
+    FUSILLI_REQUIRE_ASSIGN(auto largeBuf, allocateWorkspace(handle, oneMB));
+    REQUIRE(largeBuf != nullptr);
+    REQUIRE(iree_hal_buffer_view_shape_dim(*largeBuf, 0) == oneMB);
   }
 }
