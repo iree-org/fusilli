@@ -203,11 +203,11 @@ public:
   //
   //   Example:
   //     graph.compile(handle);
-  //     size_t wsSize = graph.getWorkspaceSize();
+  //     auto wsSize = graph.getWorkspaceSize();
   //     std::shared_ptr<Buffer> workspace = nullptr;
-  //     if (wsSize > 0) {
+  //     if (wsSize.value_or(0) > 0) {
   //       FUSILLI_ASSIGN_OR_RETURN(auto wsBuf,
-  //                                Buffer::allocateRaw(handle, wsSize));
+  //                                Buffer::allocateRaw(handle, *wsSize));
   //       workspace = std::make_shared<Buffer>(std::move(wsBuf));
   //     }
   //     graph.execute(handle, variantPack, workspace);
