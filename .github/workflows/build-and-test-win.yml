@@ -42,7 +42,7 @@ jobs:
 
           python3 -m pip install --upgrade pip
           python3 -m pip install lit filecheck
-          python3 -m pip install --find-links https://iree.dev/pip-release-links.html iree-base-compiler==3.11.0rc20260203
+          python3 -m pip install --find-links https://iree.dev/pip-release-links.html iree-base-compiler==3.11.0rc20260212
 
           echo "${{ github.workspace }}\.venv\Scripts" >> $env:GITHUB_PATH
 
