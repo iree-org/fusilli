@@ -361,7 +361,7 @@ private:
   // module. Returns the size in bytes, or 0 if no transients are needed.
   // Returns an error if the module requires dynamic transient sizes.
   // Definition in `fusilli/backend/runtime.h`.
-  ErrorOr<size_t> queryTransientSize(const Handle &handle);
+  ErrorOr<size_t> queryTransientSize();
 
   // Create compiled artifacts from graph writing results to the cache. Set
   // `remove = true` to remove cache files when returned `CachedAssets` lifetime

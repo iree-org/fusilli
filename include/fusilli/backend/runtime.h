@@ -193,7 +193,7 @@ inline ErrorObject Graph::createPerGraphSession(const Handle &handle,
 
   // Query the required workspace size from the compiled module.
   FUSILLI_LOG_LABEL_ENDL("INFO: Querying workspace size from compiled module");
-  FUSILLI_ASSIGN_OR_RETURN(workspaceSize_, queryTransientSize(handle));
+  FUSILLI_ASSIGN_OR_RETURN(workspaceSize_, queryTransientSize());
 
   return ok();
 }
@@ -204,16 +204,15 @@ inline ErrorObject Graph::createPerGraphSession(const Handle &handle,
 // for the constant workspace size case, or an "iree.abi.transients.size"
 // function for the data-dependent workspace size case. Only the former is
 // supported by Fusilli at the moment.
-inline ErrorOr<size_t> Graph::queryTransientSize(const Handle &handle) {
-  // Resolve the main function from the compiled module.
-  bool executeAsync = kBackendExecuteAsync.at(handle.getBackend());
+inline ErrorOr<size_t> Graph::queryTransientSize() {
+  // Always resolve the async function for attribute queries. The
+  // iree.abi.transients.size.constant attribute is stored in the
+  // iree.reflection dict on the @main$async entry point. The sync wrapper
+  // @main is auto-generated and does not carry reflection attributes.
   iree_vm_context_t *context = iree_runtime_session_context(session_.get());
   iree_vm_function_t mainFunc;
   FUSILLI_CHECK_ERROR(iree_vm_context_resolve_function(
-      context,
-      iree_make_cstring_view(executeAsync ? "module.main$async"
-                                          : "module.main"),
-      &mainFunc));
+      context, iree_make_cstring_view("module.main$async"), &mainFunc));
 
   // First check for constant transient size attribute.
   iree_string_view_t sizeAttr = iree_vm_function_lookup_attr_by_name(
