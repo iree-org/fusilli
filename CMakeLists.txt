@@ -98,10 +98,11 @@ message(STATUS "  - Host")
 ################################################################################
 
 # Version pins for dependencies.
+# IREE_GIT_TAG is read from version.json (single source of truth).
 # Prefer to keep the IREE_GIT_TAG synced with the python-installed IREE version.
 # At a minimum, the compiler from those packages must be compatible with the
 # runtime at this source ref.
-set(IREE_GIT_TAG "iree-3.11.0rc20260212")
+string(JSON IREE_GIT_TAG GET ${VERSION_JSON_STRING} iree-version)
 set(IREE_SOURCE_DIR "" CACHE FILEPATH "Path to IREE source")
 
 # Set IREE build flags.

@@ -108,6 +108,14 @@ def get_fusilli_dir() -> Path:
     return Path(__file__).parent.parent.parent.parent
 
 
+def get_iree_git_tag() -> str:
+    """Read IREE version from the root version.json (single source of truth)."""
+    version_json = get_fusilli_dir() / "version.json"
+    with open(version_json) as f:
+        data = json.load(f)
+    return data["iree-version"]
+
+
 def get_plugin_dir() -> Path:
     """Get the hipdnn-plugin directory."""
     # ThePebble.py is in fusilli/plugins/hipdnn-plugin/build_tools/
@@ -441,15 +449,13 @@ def build_fusilli_plugin():
 
 def test_fusilli_plugin():
     """Run test_fusilli_plugin.py from TheRock."""
-    config = load_config()
-
     # The test script expects THEROCK_BIN_DIR to point to the bin/ directory
     bin_dir = INSTALL_DIR / "bin"
 
     # Create iree_tag_for_pip.txt.
     # TheRock/iree-libs/post_hook_fusilli-plugin.cmake would create this file
     # when building in TheRock.
-    iree_tag = config["versions"]["iree_git_tag"]
+    iree_tag = get_iree_git_tag()
     # Convert tag like "iree-3.10.0rc20251210" to pip version "3.10.0rc20251210"
     pip_version = iree_tag.replace("iree-", "")
     iree_tag_file = bin_dir / "fusilli_plugin_test_infra" / "iree_tag_for_pip.txt"
@@ -519,10 +525,10 @@ def main():
         setup_therock(versions["therock_git_ref"])
         install_hip(versions["hip_run_id"])
         build_hipdnn(versions["hipdnn_git_ref"])
-        setup_iree(versions["iree_git_tag"])
+        setup_iree(get_iree_git_tag())
         build_fusilli()
         generate_cmake_user_presets()
-        generate_local_environment_setup(versions["iree_git_tag"])
+        generate_local_environment_setup(get_iree_git_tag())
 
         # Copy config to cache for validation checks
         config_src = Path(__file__).parent / "thepebble_config.toml"

@@ -35,6 +35,11 @@ jobs:
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.11"
+      - name: "Reading IREE version"
+        run: |
+          $json = Get-Content version.json | ConvertFrom-Json
+          $ireeVersion = $json.'iree-version' -replace '^iree-', ''
+          echo "IREE_VERSION=$ireeVersion" >> $env:GITHUB_ENV
       - name: "Installing Python packages"
         run: |
           python3 -m venv .venv
@@ -42,7 +47,7 @@ jobs:
 
           python3 -m pip install --upgrade pip
           python3 -m pip install lit filecheck
-          python3 -m pip install --find-links https://iree.dev/pip-release-links.html iree-base-compiler==3.11.0rc20260212
+          python3 -m pip install --find-links https://iree.dev/pip-release-links.html iree-base-compiler==${{ env.IREE_VERSION }}
 
           echo "${{ github.workspace }}\.venv\Scripts" >> $env:GITHUB_PATH
 
