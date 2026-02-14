@@ -7,14 +7,14 @@
 //===----------------------------------------------------------------------===//
 //
 // This file contains the inline definitions for all the wrapper code around
-// IREE runtime C-APIs to create and manage instances, devices, sessions and
-// calls.
+// IREE VM/HAL C-APIs to create and manage VM instances, HAL devices, VM
+// contexts and function invocations.
 //
-// Here's a rough mapping of Fusilli constructs to IREE runtime constructs
+// Here's a rough mapping of Fusilli constructs to IREE constructs
 // (based on scope and lifetime):
 //
-//  - Group of `Handle`s manage the IREE runtime instance lifetime.
-//    An instance is shared across handles/threads/sessions and released
+//  - Group of `Handle`s manage the IREE VM instance lifetime.
+//    An instance is shared across handles/threads/contexts and released
 //    when the last handle goes out of scope.
 //  - `Handle` manages IREE HAL device lifetime. Handles may be shared
 //    by multiple graphs (as long as they intend to run on the same device).
@@ -22,7 +22,7 @@
 //    HAL device) created. Graphs running on the same physical devices should
 //    reuse the same handle (hence logical HAL device). The device is released
 //    when the handle holding it goes out of scope.
-//  - `Graph` manages IREE runtime session lifetime. A session holds state on
+//  - `Graph` manages IREE VM context lifetime. A context holds state on
 //    the HAL device and the loaded VM modules.
 //  - `Buffer` manages IREE HAL buffer view lifetime. The buffer view is
 //    released when the `Buffer` object holding it goes out of scope.
@@ -39,9 +39,14 @@
 #include "fusilli/graph/graph.h"
 #include "fusilli/support/logging.h"
 
+#include <iree/hal/api.h>
 #include <iree/hal/drivers/hip/api.h>
+#include <iree/hal/drivers/init.h>
+#include <iree/io/file_contents.h>
+#include <iree/modules/hal/module.h>
 #include <iree/modules/hal/types.h>
-#include <iree/runtime/api.h>
+#include <iree/vm/api.h>
+#include <iree/vm/bytecode/module.h>
 
 #include <cstdint>
 #include <memory>
@@ -58,19 +63,35 @@ namespace fusilli {
 //
 //===----------------------------------------------------------------------===//
 
-// Create static singleton IREE runtime instance shared across handles/threads.
-inline ErrorOr<IreeRuntimeInstanceSharedPtrType>
-Handle::createSharedInstance() {
+// Register HAL drivers once in the global driver registry. The global
+// registry persists for the entire process lifetime, so drivers must only
+// be registered once even if all VM instances are destroyed and recreated.
+inline ErrorObject registerHalDriversOnce() {
+  static std::once_flag driversRegistered;
+  static iree_status_t registrationStatus = iree_ok_status();
+  std::call_once(driversRegistered, []() {
+    registrationStatus = iree_hal_register_all_available_drivers(
+        iree_hal_driver_registry_default());
+  });
+  FUSILLI_CHECK_ERROR(registrationStatus);
+  return ok();
+}
+
+// Create static singleton IREE VM instance shared across handles/threads.
+inline ErrorOr<IreeVmInstanceSharedPtrType> Handle::createSharedInstance() {
   // Mutex for thread-safe initialization of weakInstance.
   static std::mutex instanceMutex;
 
-  // Static weak_ptr to the IREE runtime instance ensures that the
+  // Static weak_ptr to the IREE VM instance ensures that the
   // instance is only created once and shared across all handles
   // without prolonging its lifetime till program termination. This
   // allows the instance to be released when the last handle owning
   // it goes out of scope, as opposed to hogging on to it until the
   // static variable goes out of scope upon program termination.
-  static std::weak_ptr<iree_runtime_instance_t> weakInstance;
+  static std::weak_ptr<iree_vm_instance_t> weakInstance;
+
+  // Register HAL drivers in the global registry (idempotent via call_once).
+  FUSILLI_CHECK_ERROR(registerHalDriversOnce());
 
   // If multiple threads simultaneously request a handle, they will
   // race into `createSharedInstance()` but only one will succeed in
@@ -78,24 +99,23 @@ Handle::createSharedInstance() {
   std::lock_guard<std::mutex> lock(instanceMutex);
 
   // Try to get the shared_ptr from the weak_ptr (if it exists).
-  IreeRuntimeInstanceSharedPtrType sharedInstance = weakInstance.lock();
+  IreeVmInstanceSharedPtrType sharedInstance = weakInstance.lock();
 
   // If weak_ptr expired, it means no handles are alive and holding the
   // instance, so create a new instance.
   if (sharedInstance == nullptr) {
-    FUSILLI_LOG_LABEL_ENDL("INFO: Creating shared IREE runtime instance");
-    iree_runtime_instance_options_t opts;
-    iree_runtime_instance_options_initialize(&opts);
-    iree_runtime_instance_options_use_all_available_drivers(&opts);
+    FUSILLI_LOG_LABEL_ENDL("INFO: Creating shared IREE VM instance");
+    iree_vm_instance_t *rawInstance = nullptr;
+    FUSILLI_CHECK_ERROR(iree_vm_instance_create(
+        IREE_VM_TYPE_CAPACITY_DEFAULT, iree_allocator_system(), &rawInstance));
 
-    iree_runtime_instance_t *rawInstance = nullptr;
-    FUSILLI_CHECK_ERROR(iree_runtime_instance_create(
-        &opts, iree_allocator_system(), &rawInstance));
+    // Register HAL types with the VM instance.
+    FUSILLI_CHECK_ERROR(iree_hal_module_register_all_types(rawInstance));
 
     // Wrap the raw instance ptr with a shared_ptr and custom deleter
     // for lifetime management.
-    sharedInstance = IreeRuntimeInstanceSharedPtrType(
-        rawInstance, IreeRuntimeInstanceDeleter());
+    sharedInstance =
+        IreeVmInstanceSharedPtrType(rawInstance, IreeVmInstanceDeleter());
 
     weakInstance = sharedInstance;
   }
@@ -106,10 +126,19 @@ Handle::createSharedInstance() {
 inline ErrorObject Handle::createCPUDevice() {
   FUSILLI_LOG_LABEL_ENDL("INFO: Creating per-handle IREE HAL device");
 
+  // Create a driver from the global driver registry.
+  iree_hal_driver_t *driver = nullptr;
+  FUSILLI_CHECK_ERROR(iree_hal_driver_registry_try_create(
+      iree_hal_driver_registry_default(),
+      iree_make_cstring_view(kHalDriver.at(backend_)), iree_allocator_system(),
+      &driver));
+
+  // Create the default device from the driver.
   iree_hal_device_t *rawDevice = nullptr;
-  FUSILLI_CHECK_ERROR(iree_runtime_instance_try_create_default_device(
-      instance_.get(), iree_make_cstring_view(kHalDriver.at(backend_)),
-      &rawDevice));
+  iree_status_t status = iree_hal_driver_create_default_device(
+      driver, iree_allocator_system(), &rawDevice);
+  iree_hal_driver_release(driver);
+  FUSILLI_CHECK_ERROR(status);
 
   // Wrap the raw device ptr with a unique_ptr and custom deleter
   // for lifetime management.
@@ -167,66 +196,124 @@ inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
 //
 //===----------------------------------------------------------------------===//
 
-// Create IREE runtime session for this graph and load the compiled artifact.
-inline ErrorObject Graph::createPerGraphSession(const Handle &handle,
+// Create IREE VM context for this graph and load the compiled artifact.
+inline ErrorObject Graph::createPerGraphContext(const Handle &handle,
                                                 const std::string &vmfbPath) {
-  // Create a session even if one was created earlier, since the handle
+  // Create a context even if one was created earlier, since the handle
   // (hence device) might have changed and we might be re-compiling the graph
   // for the new device.
-  FUSILLI_LOG_LABEL_ENDL("INFO: Creating per-graph IREE runtime session");
-  iree_runtime_session_options_t opts;
-  iree_runtime_session_options_initialize(&opts);
+  FUSILLI_LOG_LABEL_ENDL("INFO: Creating per-graph IREE VM context");
+  iree_allocator_t allocator = iree_allocator_system();
 
-  iree_runtime_session_t *rawSession = nullptr;
-  FUSILLI_CHECK_ERROR(iree_runtime_session_create_with_device(
-      handle.getInstance(), &opts, handle.getDevice(),
-      iree_runtime_instance_host_allocator(handle.getInstance()), &rawSession));
+  iree_vm_context_t *rawContext = nullptr;
+  FUSILLI_CHECK_ERROR(iree_vm_context_create(
+      handle.getInstance(), IREE_VM_CONTEXT_FLAG_NONE, allocator, &rawContext));
 
-  // Wrap the raw session ptr with a unique_ptr and custom deleter
+  // Create HAL module and register it with the context.
+  {
+    iree_hal_device_t *device = handle.getDevice();
+    iree_vm_module_t *halModule = nullptr;
+    FUSILLI_CHECK_ERROR(iree_hal_module_create(
+        handle.getInstance(), iree_hal_module_device_policy_default(),
+        /*device_count=*/1, &device, IREE_HAL_MODULE_FLAG_NONE,
+        iree_hal_module_debug_sink_null(), allocator, &halModule));
+    iree_status_t status = iree_vm_context_register_modules(
+        rawContext, /*module_count=*/1, &halModule);
+    iree_vm_module_release(halModule);
+    FUSILLI_CHECK_ERROR(status);
+  }
+
+  // Read the VMFB file and create a bytecode module from it.
+  FUSILLI_LOG_LABEL_ENDL("INFO: Loading bytecode module into IREE VM context");
+  {
+    iree_io_file_contents_t *fileContents = nullptr;
+    FUSILLI_CHECK_ERROR(iree_io_file_contents_read(
+        iree_make_cstring_view(vmfbPath.c_str()), allocator, &fileContents));
+
+    iree_vm_module_t *bytecodeModule = nullptr;
+    iree_status_t status = iree_vm_bytecode_module_create(
+        handle.getInstance(), IREE_VM_BYTECODE_MODULE_FLAG_NONE,
+        fileContents->const_buffer,
+        iree_io_file_contents_deallocator(fileContents), allocator,
+        &bytecodeModule);
+    if (!iree_status_is_ok(status)) {
+      iree_io_file_contents_free(fileContents);
+      FUSILLI_CHECK_ERROR(status);
+    }
+    // File contents ownership transferred to bytecode module on success.
+
+    status = iree_vm_context_register_modules(rawContext, /*module_count=*/1,
+                                              &bytecodeModule);
+    iree_vm_module_release(bytecodeModule);
+    FUSILLI_CHECK_ERROR(status);
+  }
+
+  // Wrap the raw context ptr with a unique_ptr and custom deleter
   // for lifetime management.
-  session_ = IreeRuntimeSessionUniquePtrType(rawSession);
+  context_ = IreeVmContextUniquePtrType(rawContext);
 
-  // Load the vmfb into the session.
-  FUSILLI_LOG_LABEL_ENDL("INFO: Loading module in IREE runtime session");
-  FUSILLI_CHECK_ERROR(iree_runtime_session_append_bytecode_module_from_file(
-      session_.get(), vmfbPath.c_str()));
+  // Resolve and cache the function handle for `module.main` or
+  // `module.main$async`.
+  bool executeAsync = kBackendExecuteAsync.at(handle.getBackend());
+  iree_vm_function_t function;
+  FUSILLI_CHECK_ERROR(iree_vm_context_resolve_function(
+      context_.get(),
+      iree_make_cstring_view(executeAsync ? "module.main$async"
+                                          : "module.main"),
+      &function));
+  function_ = function;
 
   return ok();
 }
 
-// Executes the graph using IREE runtime. Requires a `variantPack` which is a
-// map from `TensorAttr` to `Buffer` wrapping the `iree_hal_buffer_view_t *`.
-//
-// TODO(#15): Memoize `iree_runtime_call_t` initialization and populate buffer
-// views at setup to avoid paying the penalty for every `Graph::execute`
-// invocation. Use `iree_runtime_call_reset` to reset the call inputs/outputs
-// if needed.
+// Executes the graph using IREE VM invocation. Requires a `variantPack` which
+// is a map from `TensorAttr` to `Buffer` wrapping the
+// `iree_hal_buffer_view_t *`.
 inline ErrorObject Graph::execute(
     const Handle &handle,
     const std::unordered_map<std::shared_ptr<TensorAttr>,
                              std::shared_ptr<Buffer>> &variantPack) const {
   FUSILLI_LOG_LABEL_ENDL("INFO: Executing Graph");
-  FUSILLI_RETURN_ERROR_IF(session_ == nullptr, ErrorCode::NotCompiled,
+  FUSILLI_RETURN_ERROR_IF(context_ == nullptr, ErrorCode::NotCompiled,
                           "Graph must be compiled before being executed");
+  FUSILLI_RETURN_ERROR_IF(!function_.has_value(), ErrorCode::NotCompiled,
+                          "Graph function not resolved");
 
   if (!kBackendExecuteAsync.contains(handle.getBackend())) // C++ 20
     return ErrorObject(ErrorCode::InternalError,
                        "Graph::execute got an unknown backend");
   bool executeAsync = kBackendExecuteAsync.at(handle.getBackend());
 
-  // Call `module.main` for synchronous execution and `module.main$async` for
-  // asynchronous execution.
-  iree_runtime_call_t call;
-  FUSILLI_CHECK_ERROR(iree_runtime_call_initialize_by_name(
-      session_.get(),
-      iree_make_cstring_view(executeAsync ? "module.main$async"
-                                          : "module.main"),
-      &call));
+  iree_allocator_t allocator = iree_allocator_system();
+
+  // Count the number of input arguments to size the input list.
+  iree_host_size_t inputCount = 0;
+  for (const auto &output : fullGraphOutputsSorted_)
+    if (!output->isVirtual())
+      inputCount++;
+  for (const auto &input : fullGraphInputsSorted_)
+    if (!input->isScalar())
+      inputCount++;
+  if (executeAsync)
+    inputCount += 2; // wait fence + signal fence
+
+  // Create input and output lists.
+  iree_vm_list_t *inputs = nullptr;
+  FUSILLI_CHECK_ERROR(iree_vm_list_create(iree_vm_make_undefined_type_def(),
+                                          inputCount, allocator, &inputs));
+  iree_vm_list_t *outputs = nullptr;
+  iree_status_t status =
+      iree_vm_list_create(iree_vm_make_undefined_type_def(),
+                          /*initial_capacity=*/0, allocator, &outputs);
+  if (!iree_status_is_ok(status)) {
+    iree_vm_list_release(inputs);
+    FUSILLI_CHECK_ERROR(status);
+  }
 
   // Populate output buffers.
   for (const auto &output : fullGraphOutputsSorted_) {
     // Virtual tensors are internal to the function (intermediate outputs) and
-    // aren't exposed in the runtime call's signature.
+    // aren't exposed in the call's signature.
     if (output->isVirtual()) {
       FUSILLI_RETURN_ERROR_IF(variantPack.contains(output),
                               ErrorCode::VariantPackError,
@@ -236,8 +323,10 @@ inline ErrorObject Graph::execute(
     FUSILLI_RETURN_ERROR_IF(!variantPack.contains(output), // C++20
                             ErrorCode::VariantPackError,
                             "Output tensor missing from variantPack");
-    FUSILLI_CHECK_ERROR(iree_runtime_call_inputs_push_back_buffer_view(
-        &call, *(variantPack.at(output))));
+    iree_vm_ref_t ref = {0};
+    FUSILLI_CHECK_ERROR(iree_vm_ref_wrap_assign(
+        *(variantPack.at(output)), iree_hal_buffer_view_type(), &ref));
+    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_retain(inputs, &ref));
   }
 
   // Populate input buffers.
@@ -253,8 +342,10 @@ inline ErrorObject Graph::execute(
     FUSILLI_RETURN_ERROR_IF(!variantPack.contains(input), // C++20
                             ErrorCode::VariantPackError,
                             "Input tensor missing from variantPack");
-    FUSILLI_CHECK_ERROR(iree_runtime_call_inputs_push_back_buffer_view(
-        &call, *(variantPack.at(input))));
+    iree_vm_ref_t ref = {0};
+    FUSILLI_CHECK_ERROR(iree_vm_ref_wrap_assign(
+        *(variantPack.at(input)), iree_hal_buffer_view_type(), &ref));
+    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_retain(inputs, &ref));
   }
 
   // In the asynchronous case, the IREE generated `@main$async` function
@@ -267,32 +358,34 @@ inline ErrorObject Graph::execute(
     // that's already completed.
     {
       iree_hal_fence_t *waitFence;
-      FUSILLI_CHECK_ERROR(iree_hal_fence_create(
-          kDummyFenceCapacity, iree_allocator_system(), &waitFence));
+      FUSILLI_CHECK_ERROR(
+          iree_hal_fence_create(kDummyFenceCapacity, allocator, &waitFence));
 
       iree_vm_ref_t waitFenceRef = iree_hal_fence_retain_ref(waitFence);
-      FUSILLI_CHECK_ERROR(
-          iree_vm_list_push_ref_move(call.inputs, &waitFenceRef));
+      FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputs, &waitFenceRef));
       iree_vm_ref_release(&waitFenceRef);
     }
     // Create dummy signal fence (tells downstream consumers that kernel has
     // ran) that's already completed.
     {
       iree_hal_fence_t *signalFence;
-      FUSILLI_CHECK_ERROR(iree_hal_fence_create(
-          kDummyFenceCapacity, iree_allocator_system(), &signalFence));
+      FUSILLI_CHECK_ERROR(
+          iree_hal_fence_create(kDummyFenceCapacity, allocator, &signalFence));
 
       iree_vm_ref_t signalFenceRef = iree_hal_fence_retain_ref(signalFence);
-      FUSILLI_CHECK_ERROR(
-          iree_vm_list_push_ref_move(call.inputs, &signalFenceRef));
+      FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputs, &signalFenceRef));
       iree_vm_ref_release(&signalFenceRef);
     }
   }
 
-  // Invoke call.
-  FUSILLI_CHECK_ERROR(iree_runtime_call_invoke(&call, /*flags=*/0));
+  // Invoke the function.
+  status =
+      iree_vm_invoke(context_.get(), *function_, IREE_VM_INVOCATION_FLAG_NONE,
+                     /*policy=*/nullptr, inputs, outputs, allocator);
+  iree_vm_list_release(inputs);
+  iree_vm_list_release(outputs);
+  FUSILLI_CHECK_ERROR(status);
 
-  iree_runtime_call_deinitialize(&call);
   return ok();
 }
 

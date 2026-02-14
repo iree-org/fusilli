@@ -93,8 +93,8 @@ public:
     return ok();
   }
 
-  // Compiles the graph using IREE compiler and sets up the IREE runtime
-  // session context for future g->execute calls.
+  // Compiles the graph using IREE compiler and sets up the IREE VM
+  // context for future g->execute calls.
   //
   // Set `remove = true` to remove compilation artifacts (cache files) when
   // this `Graph` instance goes out of scope.
@@ -113,8 +113,8 @@ public:
     FUSILLI_LOG_LABEL_ENDL("INFO: Compiled Graph cached at \"" +
                            vmfbPath.string() + "\"");
 
-    // Create per-graph IREE runtime session and load the compiled artifact.
-    FUSILLI_CHECK_ERROR(createPerGraphSession(handle, vmfbPath.string()));
+    // Create per-graph IREE VM context and load the compiled artifact.
+    FUSILLI_CHECK_ERROR(createPerGraphContext(handle, vmfbPath.string()));
 
     return ok();
   }
@@ -331,7 +331,7 @@ public:
 
 private:
   // Definition in `fusilli/backend/runtime.h`.
-  ErrorObject createPerGraphSession(const Handle &handle,
+  ErrorObject createPerGraphContext(const Handle &handle,
                                     const std::string &vmfbPath);
 
   // Create compiled artifacts from graph writing results to the cache. Set
@@ -546,9 +546,13 @@ private:
   // This is set after `validate()` is run at least once successfully.
   bool isValidated_ = false;
 
-  // IREE runtime session lifetime managed by the `Graph` object
+  // IREE VM context lifetime managed by the `Graph` object
   // (deleted when the `Graph` object goes out of scope).
-  IreeRuntimeSessionUniquePtrType session_;
+  IreeVmContextUniquePtrType context_;
+
+  // Memoized function handle resolved during context creation.
+  // Avoids repeated function lookup on every execute() call.
+  std::optional<iree_vm_function_t> function_;
 
   // Cache set by `getCompiledArtifact()`.
   //

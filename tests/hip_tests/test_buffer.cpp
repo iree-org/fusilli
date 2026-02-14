@@ -14,7 +14,6 @@
 
 #include <iree/base/status.h>
 #include <iree/hal/api.h>
-#include <iree/runtime/api.h>
 
 #include <cstdint>
 #include <cstdio>
