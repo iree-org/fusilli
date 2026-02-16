@@ -227,16 +227,16 @@ TEST_CASE("getGpuMarketingNameFromAmdSmi returns string or empty",
 }
 
 //===----------------------------------------------------------------------===//
-// Tests for getIreeHipTargetForAmdgpu
+// Tests for getIreeRocmTargetForAmdgpu
 //
 // NOTE: These tests require either amd-smi or rocm_agent_enumerator
 // to be installed and accessible.
 //===----------------------------------------------------------------------===//
 
-TEST_CASE("getIreeHipTargetForAmdgpu returns valid target or empty",
-          "[backend][hip-target]") {
+TEST_CASE("getIreeRocmTargetForAmdgpu returns valid target or empty",
+          "[backend][rocm-target]") {
   // This test verifies the function doesn't crash and returns a valid result.
-  std::string result = getIreeHipTargetForAmdgpu();
+  std::string result = getIreeRocmTargetForAmdgpu();
 
   // Result should either be empty (no tools available) or a valid target
   if (!result.empty()) {
@@ -253,11 +253,11 @@ TEST_CASE("getIreeHipTargetForAmdgpu returns valid target or empty",
   // Empty result is also acceptable (no tools available)
 }
 
-TEST_CASE("getIreeHipTargetForAmdgpu prefers SKU over architecture",
-          "[backend][hip-target]") {
+TEST_CASE("getIreeRocmTargetForAmdgpu prefers SKU over architecture",
+          "[backend][rocm-target]") {
   // Get both the marketing name and the final target
   std::string marketingName = getGpuMarketingNameFromAmdSmi();
-  std::string target = getIreeHipTargetForAmdgpu();
+  std::string target = getIreeRocmTargetForAmdgpu();
 
   // If we got a marketing name that maps to a known SKU,
   // the target should be that SKU, not an architecture

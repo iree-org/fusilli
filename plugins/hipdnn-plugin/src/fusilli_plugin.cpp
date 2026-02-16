@@ -104,7 +104,7 @@ hipdnnPluginStatus_t hipdnnPluginSetLoggingCallback(hipdnnCallback_t callback) {
   // No LOG_API_ENTRY as logging won't be wired up yet.
   FUSILLI_PLUGIN_CHECK_NULL(callback);
 
-  hipdnn::logging::initializeCallbackLogging(
+  hipdnn_plugin_sdk::logging::initializeCallbackLogging(
       hipdnn_data_sdk::utilities::FUSILLI_ENGINE_NAME, callback);
 
   LOG_API_SUCCESS_AUTO("logging callback initialized");
