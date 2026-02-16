@@ -92,8 +92,12 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
             {yT, yBuf},
         };
 
+    // Allocate workspace buffer if needed.
+    FUSILLI_REQUIRE_ASSIGN(
+        auto workspace, allocateWorkspace(handle, graph->getWorkspaceSize()));
+
     // Execute graph once
-    FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack));
+    FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
 
     // Calculate expected output
     int64_t ySize = 1;

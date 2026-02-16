@@ -327,3 +327,44 @@ TEST_CASE("allocateBufferOfType with null tensor", "[utils][buffer][error]") {
     REQUIRE(result.getCode() == ErrorCode::AttributeNotSet);
   }
 }
+
+TEST_CASE("allocateWorkspace helper function", "[utils][workspace]") {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+
+  SECTION("returns nullptr for nullopt") {
+    FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                           allocateWorkspace(handle, std::nullopt));
+    REQUIRE(workspace == nullptr);
+  }
+
+  SECTION("returns nullptr for size 0") {
+    FUSILLI_REQUIRE_ASSIGN(auto workspace, allocateWorkspace(handle, 0));
+    REQUIRE(workspace == nullptr);
+  }
+
+  SECTION("allocates buffer for non-zero size") {
+    constexpr size_t bufferSize = 1024;
+    FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                           allocateWorkspace(handle, bufferSize));
+    REQUIRE(workspace != nullptr);
+    REQUIRE(*workspace != nullptr);
+
+    // Verify the underlying buffer view has the expected shape (1D i8).
+    iree_hal_buffer_view_t *bufferView = *workspace;
+    REQUIRE(iree_hal_buffer_view_shape_rank(bufferView) == 1);
+    REQUIRE(iree_hal_buffer_view_shape_dim(bufferView, 0) == bufferSize);
+  }
+
+  SECTION("allocates different sizes correctly") {
+    // Small allocation
+    FUSILLI_REQUIRE_ASSIGN(auto smallBuf, allocateWorkspace(handle, 64));
+    REQUIRE(smallBuf != nullptr);
+    REQUIRE(iree_hal_buffer_view_shape_dim(*smallBuf, 0) == 64);
+
+    // Larger allocation (1 MB)
+    constexpr size_t oneMB = size_t{1024} * size_t{1024};
+    FUSILLI_REQUIRE_ASSIGN(auto largeBuf, allocateWorkspace(handle, oneMB));
+    REQUIRE(largeBuf != nullptr);
+    REQUIRE(iree_hal_buffer_view_shape_dim(*largeBuf, 0) == oneMB);
+  }
+}
