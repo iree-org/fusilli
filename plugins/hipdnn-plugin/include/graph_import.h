@@ -290,8 +290,11 @@ private:
     std::shared_ptr<fusilli::TensorAttr> graphInput =
         fusilliGraph.tensor(fusilliTensorAttr);
 
-    // Track boundary tensor.
-    uidToIOTensor[uid] = graphInput;
+    // Scalar constants are embedded in the MLIR IR and don't need device
+    // buffers, so exclude them from the IO tensor map that drives variant
+    // pack construction at execution time.
+    if (!graphInput->isScalar())
+      uidToIOTensor[uid] = graphInput;
 
     return ok(graphInput);
   };
@@ -327,10 +330,46 @@ private:
     return fusilli::ok();
   };
 
-  // Import all tensor attrs src -> dest.
+  // Whether the hipDNN tensor carries a pass-by-value scalar (equivalent to
+  // hipDNN frontend's TensorAttributes::get_pass_by_value()).
+  static bool
+  isPassByValue(const hipdnn_data_sdk::data_objects::TensorAttributes *src) {
+    return src->value_type() !=
+           hipdnn_data_sdk::data_objects::TensorValue::NONE;
+  }
+
+  // Import all tensor attrs src -> dest. For pass-by-value scalars
+  // (hipDNN's TensorValue union), construct a scalar TensorAttr so that
+  // fusilli embeds the value as an MLIR constant rather than expecting a
+  // device buffer at runtime.
   fusilli::ErrorObject
   importAttrs(fusilli::TensorAttr &dest,
               const hipdnn_data_sdk::data_objects::TensorAttributes *src) {
+    if (isPassByValue(src)) {
+      // Scalar: use TensorAttr scalar constructors which set isScalar_,
+      // dim_={1}, stride_={1}, and dataType_ automatically.
+      switch (src->value_type()) {
+      case hipdnn_data_sdk::data_objects::TensorValue::Float32Value:
+        dest = fusilli::TensorAttr(
+            /*scalar=*/src->value_as_Float32Value()->value());
+        break;
+      case hipdnn_data_sdk::data_objects::TensorValue::Float64Value:
+        dest = fusilli::TensorAttr(
+            /*scalar=*/src->value_as_Float64Value()->value());
+        break;
+      case hipdnn_data_sdk::data_objects::TensorValue::Int32Value:
+        dest = fusilli::TensorAttr(
+            /*scalar=*/src->value_as_Int32Value()->value());
+        break;
+      default:
+        return fusilli::error(
+            fusilli::ErrorCode::NotImplemented,
+            "Unsupported scalar type in hipdnn -> fusilli graph translation.");
+      }
+      return fusilli::ok();
+    }
+
+    // Regular tensor.
     FUSILLI_ASSIGN_OR_RETURN(auto dataType,
                              hipDnnDataTypeToFusilliDataType(src->data_type()));
     dest.setIsVirtual(src->virtual_())
