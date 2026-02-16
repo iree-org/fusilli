@@ -164,17 +164,17 @@ add_fusilli_benchmark(
 
 # TODO(iree-org/iree#23340)
 # add_fusilli_benchmark(
-#   NAME fusilli_benchmark_layernorm_nhwc_bf16_scale_bias_small_channel
+#   NAME fusilli_benchmark_layernorm_nhwc_bf16_elementwise_affine_small_channel
 #   DRIVER fusilli_benchmark_driver
 #   ARGS
-#     --device 0 --iter 10 layernorm --input 2x3x128x128 -F 1 --type bf16 --layout NHWC --mode 1
+#     --device 0 --iter 10 layernorm --input 2x3x128x128 -F 1 --type bf16 --layout NHWC --elementwise_affine
 # )
 
 add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_nhwc_bf16_scale_bias
+  NAME fusilli_benchmark_layernorm_nhwc_bf16_elementwise_affine
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 layernorm --input 16x128x64x32 -F 1 --type bf16 --layout NHWC --mode 1
+    --device 0 --iter 10 layernorm --input 16x128x64x32 -F 1 --type bf16 --layout NHWC --elementwise_affine
 )
 
 # 3D input benchmarks (NCH format)
@@ -186,17 +186,17 @@ add_fusilli_benchmark(
 )
 
 add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_nch_bf16_scale_bias
+  NAME fusilli_benchmark_layernorm_nch_f16_elementwise_affine
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 layernorm --input 16x128x256 -F 1 --type f16 --layout NCH --mode 1
+    --device 0 --iter 10 layernorm --input 16x128x256 -F 1 --type f16 --layout NCH --elementwise_affine
 )
 
 add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_nhc_bf16_scale_bias
+  NAME fusilli_benchmark_layernorm_nhc_bf16_elementwise_affine
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 layernorm --input 16x128x256 -F 1 --type bf16 --layout NHC --mode 1
+    --device 0 --iter 10 layernorm --input 16x128x256 -F 1 --type bf16 --layout NHC --elementwise_affine
 )
 
 # 2D input benchmarks (NC format)
@@ -208,10 +208,10 @@ add_fusilli_benchmark(
 )
 
 add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_nc_f16_scale_bias
+  NAME fusilli_benchmark_layernorm_nc_f16_elementwise_affine
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 layernorm --input 16x128 -F 1 --type f16 --layout NC --mode 1
+    --device 0 --iter 10 layernorm --input 16x128 -F 1 --type f16 --layout NC --elementwise_affine
 )
 
 # Matrix multiplication benchmarks

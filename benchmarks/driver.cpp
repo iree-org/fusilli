@@ -57,8 +57,8 @@ struct LayerNormOptions {
   std::string type;
   std::string layout;
   int64_t forw;
-  int64_t mode;
-  float eps = 1e-5f;
+  float eps;
+  bool elementwiseAffine{false};
 };
 
 struct MatmulOptions {
@@ -495,16 +495,16 @@ static ErrorObject benchmarkLayerNormFwd(const LayerNormOptions &opts,
 #endif
 
   constexpr NormFwdPhase phase = NormFwdPhase::TRAINING;
-  const bool withScaleBias = opts.mode == 1;
 
   auto xDims = dims;
   FUSILLI_ASSIGN_OR_RETURN(auto xStride,
                            generateStrideFromLayout(xDims, opts.layout));
 
   Graph graph;
-  auto graphName = std::format(
-      "benchmark_layernorm_input{}_forw{}_layout{}_type{}_mode{}_eps{}",
-      opts.input, opts.forw, opts.layout, opts.type, opts.mode, opts.eps);
+  auto graphName = std::format("benchmark_layernorm_input{}_forw{}_layout{}_"
+                               "type{}_elementwise_affine{}_eps{}",
+                               opts.input, opts.forw, opts.layout, opts.type,
+                               opts.elementwiseAffine, opts.eps);
   graph.setName(graphName);
 
   graph.setIODataType(DataType::Float)
@@ -517,7 +517,7 @@ static ErrorObject benchmarkLayerNormFwd(const LayerNormOptions &opts,
 
   // Shape and strides will be inferred later in inferPropertiesNode()
   std::shared_ptr<TensorAttr> sT = nullptr, bT = nullptr;
-  if (withScaleBias) {
+  if (opts.elementwiseAffine) {
     sT = graph.tensor(
         TensorAttr().setName("scale").setDataType(layernormIOType));
     bT =
@@ -555,15 +555,16 @@ static ErrorObject benchmarkLayerNormFwd(const LayerNormOptions &opts,
   std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
       variantPack = {{xT, xBuf}, {yT, yBuf}, {mT, mBuf}, {vT, vBuf}};
 
-  if (withScaleBias) {
+  if (opts.elementwiseAffine) {
     FUSILLI_ASSIGN_OR_RETURN(
         auto sBuf, allocateBufferOfType(handle, sT, layernormIOType, 1.0f));
     variantPack.insert({sT, sBuf});
 
     FUSILLI_ASSIGN_OR_RETURN(
-        auto bBuf, allocateBufferOfType(handle, bT, layernormIOType, 1.0f));
+        auto bBuf, allocateBufferOfType(handle, bT, layernormIOType, 0.0f));
     variantPack.insert({bT, bBuf});
   }
+
   // Execute graph `iter` times.
   for (size_t i = 0; i < iter; ++i)
     FUSILLI_CHECK_ERROR(graph.execute(handle, variantPack));
@@ -813,6 +814,9 @@ static CLI::App *registerLayerNormOptions(CLI::App &mainApp,
                    "LayerNorm data type (f32, f16, bf16)")
       ->required()
       ->check(kIsValidDataType);
+  // TODO: Please add other kernel kinds here when they are supported:
+  // forward (1), backward input (2), backward weight (4),
+  // backward bias (8), full backward (14).
   layerNormApp
       ->add_option(
           "--forw,-F", layerNormOpts.forw,
@@ -821,12 +825,6 @@ static CLI::App *registerLayerNormOptions(CLI::App &mainApp,
       ->required()
       ->check(CLI::IsMember({1}));
   layerNormApp
-      ->add_option("--mode,-m", layerNormOpts.mode,
-                   "Elementwise affine mode (0), weight and bias mode (1). By "
-                   "default, 0 is used.")
-      ->default_val(0)
-      ->check(CLI::IsMember({0, 1}));
-  layerNormApp
       ->add_option("--layout,-l", layerNormOpts.layout, "Input/Output layout")
       ->required()
       ->check(kIsValidLayout);
@@ -834,6 +832,13 @@ static CLI::App *registerLayerNormOptions(CLI::App &mainApp,
       ->add_option("--eps,-e", layerNormOpts.eps, "Epsilon, 1e-5 by default")
       ->default_val(1e-5f)
       ->check(kIsPositiveDouble);
+
+  // layerNormApp CLI flags:
+  layerNormApp->add_flag(
+      "--elementwise_affine", layerNormOpts.elementwiseAffine,
+      "Run in elementwise affine mode. This flag adds learnable per-element "
+      "affine parameters initialized to ones (for weights) and "
+      "zeros (for biases)");
 
   return layerNormApp;
 }
