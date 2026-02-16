@@ -1,12 +1,15 @@
 [versions]
 # Git ref (commit/tag/branch) for TheRock tooling
-therock_git_ref = "main"
+therock_git_ref = "9321f00bd1b7f030b08453b72ee4ac3c4bf35c06"
 
 # GitHub CI run ID for Hip artifacts (from ROCm/TheRock actions)
-hip_run_id = "19089392286"
+hip_run_id = "21266949324"
+
+# GitHub CI run ID for hipDNN integration tests (from ROCm/TheRock actions)
+hipdnn_integration_tests_run_id = "21266949324"
 
 # Git ref (commit/tag/branch) for rocm-libraries hipDNN
-hipdnn_git_ref = "develop"
+hipdnn_git_ref = "9924d667c218d067403608d77f432dd13585a848"
 
 # IREE git tag
 iree_git_tag = "iree-3.11.0rc20260212"
