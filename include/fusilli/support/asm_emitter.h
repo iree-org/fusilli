@@ -161,6 +161,39 @@ inline std::string getPermuteOpsAsm(const std::shared_ptr<TensorAttr> &tensor,
   return oss.str();
 }
 
+// Emits a scalar TensorAttr as a constant tensor literal in MLIR assembly.
+// The result SSA name follows the same "<name>_<suffix>_perm" pattern used by
+// getPermuteOpsAsm() so that getOperandNamesAsm() works without changes.
+inline std::string
+getScalarConstantAsm(const std::shared_ptr<TensorAttr> &tensor,
+                     const std::string &suffix) {
+  assert(tensor->isScalar() && tensor->getScalarValue().has_value() &&
+         "getScalarConstantAsm called with non-scalar tensor");
+  std::string resultName = tensor->getValueNameAsm() + "_" + suffix + "_perm";
+  std::string mlirType = kDataTypeToMlirTypeAsm.at(tensor->getDataType());
+  std::string resultType = tensor->getTensorTypeAsm(/*isValueTensor=*/true,
+                                                    /*useLogicalDims=*/true);
+  // std::visit generates a compile time switch statement executing lambda
+  // instantiation per variant alternative.
+  return std::visit(
+      [&](auto val) -> std::string {
+        using T = decltype(val);
+        if constexpr (std::is_floating_point_v<T>) { // float, double
+          return std::format(
+              "\n{} = torch.vtensor.literal(dense<{:e}> : tensor<1x{}>) : "
+              "{}\n",
+              resultName, val, mlirType, resultType);
+        } else { // int64_t, int32_t
+          return std::format(
+              "\n{} = torch.vtensor.literal(dense<{}> : tensor<1x{}>) : "
+              "{}\n",
+              resultName, val, mlirType, resultType);
+        }
+      },
+      tensor->getScalarValue()
+          .value()); // std::variant<int64_t, int32_t, float, double>
+}
+
 //===----------------------------------------------------------------------===//
 //
 // TensorAttr ASM Emitter Methods
@@ -169,11 +202,9 @@ inline std::string getPermuteOpsAsm(const std::shared_ptr<TensorAttr> &tensor,
 
 // Emits a ranked tensor type in MLIR assembly representation.
 //
-// This expects ranked tensors (non-scalar) as we blanket generate a
-// `!torch.vtensor` (or `!torch.tensor` if mutable) type. The caller
-// is responsible to check for this. In the future we may want to extend
-// this (or add new methods) for scalar types (such as `!torch.int` or
-// `!torch.bool`).
+// This expects ranked tensors as we blanket generate a `!torch.vtensor` (or
+// `!torch.tensor` if mutable) type. The caller is responsible to check for
+// this.
 //
 // Example:
 //
@@ -198,9 +229,15 @@ inline std::string getPermuteOpsAsm(const std::shared_ptr<TensorAttr> &tensor,
 //    t.getTensorTypeAsm(/*isValueTensor=*/false,
 //                       /*useLogicalDims=*/false)
 //        --> "!torch.tensor<[2,4,3],f32>"
+//
+// Scalars (dim={1}, stride={1}) also work through this path:
+//
+//    TensorAttr s(2.0f);
+//    s.getTensorTypeAsm(/*isValueTensor=*/true,
+//                       /*useLogicalDims=*/true)
+//        --> "!torch.vtensor<[1],f32>"
 inline std::string TensorAttr::getTensorTypeAsm(bool isValueTensor,
                                                 bool useLogicalDims) const {
-  assert(!isScalar() && "TensorAttr::getTensorTypeAsm expects a ranked tensor");
   assert(!getDim().empty() &&
          "TensorAttr::getTensorTypeAsm expects non-empty dims");
   assert(!getStride().empty() &&
@@ -1222,17 +1259,22 @@ inline std::string PointwiseNode::getResultNamesAndTypesAsm() const {
 inline std::string PointwiseNode::emitNodePreAsm() const {
   std::string uniqueSSASuffix = pointwiseAttr.getName();
 
-  // Generate permute operations for inputs and output using the standard
-  // getPermuteOpsAsm() with unique suffixes to prevent SSA redefinitions
-  // when multiple operations use the same tensors.
-  std::string permuteIN0 =
-      getPermuteOpsAsm(pointwiseAttr.getIN_0(), "permute_IN_0", uniqueSSASuffix,
-                       /*isInput=*/true);
-  std::string permuteIN1 =
-      pointwiseAttr.getIN_1()
-          ? getPermuteOpsAsm(pointwiseAttr.getIN_1(), "permute_IN_1",
-                             uniqueSSASuffix, /*isInput=*/true)
-          : "";
+  // Generate permute operations (or scalar constants) for inputs and output
+  // using unique suffixes to prevent SSA redefinitions when multiple operations
+  // use the same tensors. Scalar inputs are emitted as torch.vtensor.literal
+  // constants instead of permute ops since they have no physical layout.
+  auto emitInput = [&](const std::shared_ptr<TensorAttr> &input,
+                       const std::string &permLabel) -> std::string {
+    if (!input)
+      return "";
+    if (input->isScalar())
+      return getScalarConstantAsm(input, uniqueSSASuffix);
+    return getPermuteOpsAsm(input, permLabel, uniqueSSASuffix,
+                            /*isInput=*/true);
+  };
+
+  std::string permuteIN0 = emitInput(pointwiseAttr.getIN_0(), "permute_IN_0");
+  std::string permuteIN1 = emitInput(pointwiseAttr.getIN_1(), "permute_IN_1");
   std::string permuteOUT0 =
       getPermuteOpsAsm(pointwiseAttr.getOUT_0(), "permute_OUT_0",
                        uniqueSSASuffix, /*isInput=*/false);
