@@ -354,7 +354,8 @@ importGraph(const hipdnnPluginConstData_t *opGraph) {
   FUSILLI_CHECK_ERROR(gc.importGraph());
   return HipdnnEnginePluginExecutionContext{.graph = std::move(gc.fusilliGraph),
                                             .uidToFusilliTensorAttr =
-                                                std::move(gc.uidToIOTensor)};
+                                                std::move(gc.uidToIOTensor),
+                                            .workspace = nullptr};
 }
 
 #endif // FUSILLI_PLUGIN_SRC_GRAPH_IMPORT_H
