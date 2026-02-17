@@ -116,7 +116,11 @@ public:
 #else
     // Use dlopen with RTLD_LOCAL to keep loaded symbols scoped to this handle,
     // preventing them from polluting the host process symbol table.
-    handle_ = dlopen(path.c_str(), RTLD_LAZY | RTLD_LOCAL);
+    // RTLD_NODELETE ensures the library is never unmapped from the process
+    // address space. This preserves the library's global state (e.g. IREE
+    // compiler init/shutdown refcount) across dlclose/dlopen cycles that
+    // occur when a hosting plugin is unloaded and reloaded.
+    handle_ = dlopen(path.c_str(), RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE);
     if (!handle_) {
       const char *err = dlerror();
       return error(ErrorCode::FileSystemFailure, err ? err : "Unknown error");

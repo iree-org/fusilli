@@ -318,15 +318,15 @@ inline ErrorObject CompileContext::load(const std::string &libPath) noexcept {
 inline CompileContext::CompileContext() = default;
 
 inline CompileContext::~CompileContext() {
-  if (lib_.isLoaded()) {
-    FUSILLI_LOG_LABEL_ENDL("INFO: Shutting down IREE compiler");
-    if (ireeCompilerGlobalShutdown_) {
-      ireeCompilerGlobalShutdown_();
-    }
-    auto err = lib_.close();
-    assert(isOk(err) &&
-           "Error closing IREE compiler library during destruction");
-  }
+  // Intentionally skip ireeCompilerGlobalShutdown and lib_.close().
+  //
+  // The IREE compiler API is reference-counted: each init must be balanced by
+  // a shutdown, and the final shutdown permanently disables the compiler for
+  // the process. In plugin scenarios, the hosting plugin may be unloaded and
+  // reloaded (destroying and recreating this static singleton), but the IREE
+  // library remains mapped (RTLD_NODELETE). Calling shutdown here would make
+  // reinitialization impossible. Skipping cleanup is safe because process exit
+  // reclaims all resources.
 }
 
 inline ErrorObject CompileContext::loadSymbols() noexcept {
