@@ -321,11 +321,14 @@ inline CompileContext::~CompileContext() {
   // Intentionally skip ireeCompilerGlobalShutdown.
   //
   // The IREE compiler API permanently disables itself after the final
-  // shutdown call, making reinitialization impossible. In plugin scenarios,
-  // the hosting plugin may be unloaded and reloaded within the same process
-  // (destroying and recreating this static singleton). Skipping shutdown
-  // allows reinitialization to succeed regardless of whether dlclose actually
-  // unmapped the library or it remained resident.
+  // shutdown call, making reinitialization impossible [1]. In plugin
+  // scenarios, the hosting plugin may be unloaded and reloaded within the
+  // same process (destroying and recreating this static singleton). Skipping
+  // shutdown allows reinitialization to succeed regardless of whether dlclose
+  // actually unmapped the library or it remained resident.
+  //
+  // [1]:
+  // https://github.com/iree-org/iree/blob/76fa637be19b40ec12bb0ac34e852142fb8604f5/compiler/bindings/c/iree/compiler/embedding_api.h#L74-L77
   if (lib_.isLoaded()) {
     auto err = lib_.close();
     assert(isOk(err) &&
