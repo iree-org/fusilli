@@ -450,15 +450,6 @@ hipdnnPluginStatus_t hipdnnEnginePluginCreateExecutionContext(
     FUSILLI_ASSIGN_OR_RETURN(auto fusilliHandle, handle->getFusilliHandle());
     FUSILLI_CHECK_ERROR(graphImport.graph.compile(fusilliHandle));
 
-    // Allocate workspace buffer if needed.
-    auto wsSize = graphImport.graph.getWorkspaceSize();
-    if (wsSize.value_or(0) > 0) {
-      FUSILLI_ASSIGN_OR_RETURN(
-          auto wsBuf, fusilli::Buffer::allocateRaw(fusilliHandle, *wsSize));
-      graphImport.workspace =
-          std::make_shared<fusilli::Buffer>(std::move(wsBuf));
-    }
-
     return fusilli::ok(std::move(graphImport));
   };
 
@@ -622,8 +613,8 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
     iree_hal_buffer_view_release(outBufferView);
   }
 
-  FUSILLI_PLUGIN_CHECK_ERROR(executionContext->graph.execute(
-      fusilliHandle, variantPack, executionContext->workspace));
+  FUSILLI_PLUGIN_CHECK_ERROR(
+      executionContext->graph.execute(fusilliHandle, variantPack));
 
   LOG_API_SUCCESS_AUTO("executed graph");
   return HIPDNN_PLUGIN_STATUS_SUCCESS;

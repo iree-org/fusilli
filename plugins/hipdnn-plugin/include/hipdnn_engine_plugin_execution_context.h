@@ -34,9 +34,6 @@ struct HipdnnEnginePluginExecutionContext {
   // tensors (inputs and outputs).
   std::unordered_map<int64_t, std::shared_ptr<fusilli::TensorAttr>>
       uidToFusilliTensorAttr;
-
-  // Workspace buffer for graph execution (nullptr when workspace size is 0).
-  std::shared_ptr<fusilli::Buffer> workspace;
 };
 
 #endif // FUSILLI_PLUGIN_SRC_HIPDNN_ENGINE_PLUGIN_EXECUTION_CONTEXT_H
