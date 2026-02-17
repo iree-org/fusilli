@@ -194,10 +194,28 @@ public:
   //                     hipMemcpyDeviceToDevice, stream);
   //     hipStreamSynchronize(stream);
   //     doSomethingWith(hostData);
+  //
+  // Workspace Buffer Usage:
+  //   After calling compile(), query getWorkspaceSize() to determine if a
+  //   workspace buffer is needed. If size > 0, allocate using
+  //   Buffer::allocateRaw() and pass it to execute(). The same workspace
+  //   buffer can be reused across multiple execute() calls.
+  //
+  //   Example:
+  //     graph.compile(handle);
+  //     auto wsSize = graph.getWorkspaceSize();
+  //     std::shared_ptr<Buffer> workspace = nullptr;
+  //     if (wsSize.value_or(0) > 0) {
+  //       FUSILLI_ASSIGN_OR_RETURN(auto wsBuf,
+  //                                Buffer::allocateRaw(handle, *wsSize));
+  //       workspace = std::make_shared<Buffer>(std::move(wsBuf));
+  //     }
+  //     graph.execute(handle, variantPack, workspace);
   ErrorObject
   execute(const Handle &handle,
           const std::unordered_map<std::shared_ptr<TensorAttr>,
-                                   std::shared_ptr<Buffer>> &variantPack) const;
+                                   std::shared_ptr<Buffer>> &variantPack,
+          const std::shared_ptr<Buffer> &workspace) const;
 
   // Delete copy constructors, keep default move constructor and destructor.
   Graph(const Graph &) = delete;
@@ -261,6 +279,11 @@ public:
 
   std::shared_ptr<TensorAttr> reduction(const std::shared_ptr<TensorAttr> &x,
                                         ReductionAttr &attributes);
+
+  // Query required workspace buffer size.
+  // Returns std::nullopt if not compiled, 0 if no workspace needed,
+  // or the required size in bytes.
+  std::optional<size_t> getWorkspaceSize() const { return workspaceSize_; }
 
   // ASM emitter driver method.
   //
@@ -333,6 +356,12 @@ private:
   // Definition in `fusilli/backend/runtime.h`.
   ErrorObject createPerGraphSession(const Handle &handle,
                                     const std::string &vmfbPath);
+
+  // Queries the required transient/workspace buffer size from the compiled
+  // module. Returns the size in bytes, or 0 if no transients are needed.
+  // Returns an error if the module requires dynamic transient sizes.
+  // Definition in `fusilli/backend/runtime.h`.
+  ErrorOr<size_t> queryTransientSize();
 
   // Create compiled artifacts from graph writing results to the cache. Set
   // `remove = true` to remove cache files when returned `CachedAssets` lifetime
@@ -545,6 +574,11 @@ private:
 
   // This is set after `validate()` is run at least once successfully.
   bool isValidated_ = false;
+
+  // Required workspace buffer size in bytes. Set during createPerGraphSession()
+  // by querying the iree.abi.transients.size.constant attribute.
+  // std::nullopt indicates the graph has not been compiled yet.
+  std::optional<size_t> workspaceSize_ = std::nullopt;
 
   // IREE runtime session lifetime managed by the `Graph` object
   // (deleted when the `Graph` object goes out of scope).

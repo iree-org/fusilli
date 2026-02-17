@@ -87,8 +87,12 @@ TEST_CASE("Convolution wgrad; DY/X (NHWC), DW (KRSC); 1x1; no padding; "
           {dwT, dwBuf},
       };
 
+  // Allocate workspace buffer if needed.
+  FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                         allocateWorkspace(handle, graph->getWorkspaceSize()));
+
   // Execute graph once.
-  FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack));
+  FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
 
   // Read output buffer and validate values for 1x1, stride=1, no padding.
   std::vector<float> dwVals;
@@ -103,7 +107,7 @@ TEST_CASE("Convolution wgrad; DY/X (NHWC), DW (KRSC); 1x1; no padding; "
   // Execute graph a few times.
   constexpr size_t numIters = 1;
   for (size_t i = 0; i < numIters; i++)
-    FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack));
+    FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
 
   // Repeat output buffer checks.
   dwVals.clear();

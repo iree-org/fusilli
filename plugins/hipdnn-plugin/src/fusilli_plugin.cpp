@@ -613,8 +613,8 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
     iree_hal_buffer_view_release(outBufferView);
   }
 
-  FUSILLI_PLUGIN_CHECK_ERROR(
-      executionContext->graph.execute(fusilliHandle, variantPack));
+  FUSILLI_PLUGIN_CHECK_ERROR(executionContext->graph.execute(
+      fusilliHandle, variantPack, /*workspace=*/nullptr));
 
   LOG_API_SUCCESS_AUTO("executed graph");
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
