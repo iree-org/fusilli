@@ -348,18 +348,11 @@ Graph::execute(const Handle &handle,
   if (executeAsync)
     inputCount += 2; // wait fence + signal fence
 
-  // Create input and output lists.
+  // Create input list. No output list needed since compiled functions write
+  // results in-place to the buffer views passed as inputs (void return).
   iree_vm_list_t *inputs = nullptr;
   FUSILLI_CHECK_ERROR(iree_vm_list_create(iree_vm_make_undefined_type_def(),
                                           inputCount, allocator, &inputs));
-  iree_vm_list_t *outputs = nullptr;
-  iree_status_t status =
-      iree_vm_list_create(iree_vm_make_undefined_type_def(),
-                          /*initial_capacity=*/0, allocator, &outputs);
-  if (!iree_status_is_ok(status)) {
-    iree_vm_list_release(inputs);
-    FUSILLI_CHECK_ERROR(status);
-  }
 
   // Populate output buffers.
   for (const auto &output : fullGraphOutputsSorted_) {
@@ -457,11 +450,10 @@ Graph::execute(const Handle &handle,
   }
 
   // Invoke the function.
-  status =
+  iree_status_t status =
       iree_vm_invoke(context_.get(), *function_, IREE_VM_INVOCATION_FLAG_NONE,
-                     /*policy=*/nullptr, inputs, outputs, allocator);
+                     /*policy=*/nullptr, inputs, /*outputs=*/nullptr, allocator);
   iree_vm_list_release(inputs);
-  iree_vm_list_release(outputs);
   FUSILLI_CHECK_ERROR(status);
 
   return ok();
