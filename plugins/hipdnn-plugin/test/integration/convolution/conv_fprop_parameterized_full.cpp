@@ -170,18 +170,6 @@ TEST_P(ConvFpropParameterizedTest, Correctness) {
 
   const ConvTestCase &tc = GetParam();
 
-  // Skip tests with known bugs (must be before handle creation)
-  bool hasPadding = tc.padding_[0] != 0 || tc.padding_[1] != 0;
-  bool isGrouped = tc.xDims_[1] != tc.wDims_[1];
-  bool isNHWC = tc.layoutName_ == "NHWC";
-
-  if (isNHWC && hasPadding) {
-    GTEST_SKIP() << "NHWC + padding bug (TODO #76)";
-  }
-  if (!isNHWC && isGrouped && hasPadding) {
-    GTEST_SKIP() << "NCHW, grouped conv + padding bug (TODO #72)";
-  }
-
   // Load only the fusilli plugin
   auto pluginPath = std::filesystem::canonical(getCurrentExecutableDirectory() /
                                                FUSILLI_PLUGIN_PATH);
