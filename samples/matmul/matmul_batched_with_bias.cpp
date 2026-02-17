@@ -99,8 +99,12 @@ TEST_CASE("Batched matrix multiplication with bias; A (B, M, K), B (B, K, N), "
           {resultT, resultBuf},
       };
 
+  // Allocate workspace buffer if needed.
+  FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                         allocateWorkspace(handle, graph->getWorkspaceSize()));
+
   // Execute graph once.
-  FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack));
+  FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
 
   // Read output buffers.
   std::vector<float> result;
@@ -197,8 +201,12 @@ TEST_CASE("Batched matrix multiplication with broadcast and bias; A (B, M, K), "
           {resultT, resultBuf},
       };
 
+  // Allocate workspace buffer if needed.
+  FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                         allocateWorkspace(handle, graph->getWorkspaceSize()));
+
   // Execute graph once.
-  FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack));
+  FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
 
   // Read output buffers.
   std::vector<float> result;

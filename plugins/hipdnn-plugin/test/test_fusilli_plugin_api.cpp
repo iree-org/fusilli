@@ -19,7 +19,6 @@
 #include <hipdnn_plugin_sdk/EnginePluginApi.h>
 #include <hipdnn_plugin_sdk/PluginApi.h>
 #include <hipdnn_test_sdk/utilities/FlatbufferGraphTestUtils.hpp>
-#include <spdlog/spdlog.h>
 
 #include <chrono>
 #include <condition_variable>

@@ -263,16 +263,67 @@ inline ErrorObject Graph::createPerGraphContext(const Handle &handle,
       &function));
   function_ = function;
 
+  // Query the required workspace size from the compiled module.
+  FUSILLI_LOG_LABEL_ENDL("INFO: Querying workspace size from compiled module");
+  FUSILLI_ASSIGN_OR_RETURN(workspaceSize_, queryTransientSize());
+
   return ok();
+}
+
+// Queries the required transient/workspace buffer size from the compiled
+// module. The --iree-torch-externalize-transients compiler flag adds an
+// attribute "iree.abi.transients.size.constant" with the required buffer size
+// for the constant workspace size case, or an "iree.abi.transients.size"
+// function for the data-dependent workspace size case. Only the former is
+// supported by Fusilli at the moment.
+inline ErrorOr<size_t> Graph::queryTransientSize() {
+  // Always resolve the async function for attribute queries. The
+  // iree.abi.transients.size.constant attribute is stored in the
+  // iree.reflection dict on the @main$async entry point. The sync wrapper
+  // @main is auto-generated and does not carry reflection attributes.
+  iree_vm_function_t mainFunc;
+  FUSILLI_CHECK_ERROR(iree_vm_context_resolve_function(
+      context_.get(), iree_make_cstring_view("module.main$async"), &mainFunc));
+
+  // First check for constant transient size attribute.
+  iree_string_view_t sizeAttr = iree_vm_function_lookup_attr_by_name(
+      &mainFunc, IREE_SV("iree.abi.transients.size.constant"));
+  if (!iree_string_view_is_empty(sizeAttr)) {
+    uint64_t size = 0;
+    if (iree_string_view_atoi_uint64(sizeAttr, &size)) {
+      FUSILLI_LOG_LABEL_ENDL("INFO: Workspace size required: " << size
+                                                               << " bytes");
+      return ok(static_cast<size_t>(size));
+    }
+  }
+
+  // Check if dynamic transient size function is present. Fusilli doesn't
+  // support dynamic transient sizes yet.
+  iree_string_view_t dynamicSizeAttr = iree_vm_function_lookup_attr_by_name(
+      &mainFunc, IREE_SV("iree.abi.transients.size"));
+  FUSILLI_RETURN_ERROR_IF(
+      !iree_string_view_is_empty(dynamicSizeAttr), ErrorCode::NotImplemented,
+      "Dynamic workspace sizes are not supported. The compiled module "
+      "requires a data-dependent transient size that must be queried at "
+      "runtime.");
+
+  // No transient size attributes found, no workspace needed.
+  // This is a catch-all for cases where the module was compiled without
+  // the --iree-torch-externalize-transients flag (could be the case for
+  // certain backends).
+  FUSILLI_LOG_LABEL_ENDL("INFO: No workspace allocation required");
+  return ok(static_cast<size_t>(0));
 }
 
 // Executes the graph using IREE VM invocation. Requires a `variantPack` which
 // is a map from `TensorAttr` to `Buffer` wrapping the
-// `iree_hal_buffer_view_t *`.
-inline ErrorObject Graph::execute(
-    const Handle &handle,
-    const std::unordered_map<std::shared_ptr<TensorAttr>,
-                             std::shared_ptr<Buffer>> &variantPack) const {
+// `iree_hal_buffer_view_t *`. The `workspace` parameter provides transient
+// storage for intermediate values when required by the compiled module.
+inline ErrorObject
+Graph::execute(const Handle &handle,
+               const std::unordered_map<std::shared_ptr<TensorAttr>,
+                                        std::shared_ptr<Buffer>> &variantPack,
+               const std::shared_ptr<Buffer> &workspace) const {
   FUSILLI_LOG_LABEL_ENDL("INFO: Executing Graph");
   FUSILLI_RETURN_ERROR_IF(context_ == nullptr, ErrorCode::NotCompiled,
                           "Graph must be compiled before being executed");
@@ -348,6 +399,35 @@ inline ErrorObject Graph::execute(
     FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_retain(inputs, &ref));
   }
 
+  // Push workspace buffer. The --iree-torch-externalize-transients flag always
+  // adds a !hal.buffer argument to the generated function signature, even when
+  // no transient storage is needed (size = 0). We must always push a buffer
+  // (or null ref when size = 0) to satisfy the function signature.
+  if (workspaceSize_.value_or(0) > 0) {
+    FUSILLI_RETURN_ERROR_IF(
+        workspace == nullptr, ErrorCode::InvalidArgument,
+        "Workspace buffer required but not provided (size=" +
+            std::to_string(*workspaceSize_) + " bytes)");
+    iree_hal_buffer_t *halBuffer = iree_hal_buffer_view_buffer(*workspace);
+    FUSILLI_RETURN_ERROR_IF(
+        iree_hal_buffer_byte_length(halBuffer) < *workspaceSize_,
+        ErrorCode::InvalidArgument,
+        "Workspace buffer too small: provided " +
+            std::to_string(iree_hal_buffer_byte_length(halBuffer)) +
+            " bytes, required " + std::to_string(*workspaceSize_) + " bytes");
+    iree_vm_ref_t bufferRef = iree_hal_buffer_retain_ref(halBuffer);
+    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputs, &bufferRef));
+  } else {
+    // Size is 0 - no workspace needed. Accept (and ignore) a non-null
+    // workspace buffer for caller convenience.
+    if (workspace != nullptr)
+      FUSILLI_LOG_LABEL_ENDL("WARNING: Workspace buffer provided but not "
+                             "needed (size=0), ignoring");
+    // Push a null ref to satisfy IREE function signature
+    iree_vm_ref_t nullRef = iree_vm_ref_null();
+    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputs, &nullRef));
+  }
+
   // In the asynchronous case, the IREE generated `@main$async` function
   // expects two additional `hal.fence` arguments. Since we rely on
   // stream-ordered synchronization, the fences may be dummy just to
@@ -361,9 +441,8 @@ inline ErrorObject Graph::execute(
       FUSILLI_CHECK_ERROR(
           iree_hal_fence_create(kDummyFenceCapacity, allocator, &waitFence));
 
-      iree_vm_ref_t waitFenceRef = iree_hal_fence_retain_ref(waitFence);
+      iree_vm_ref_t waitFenceRef = iree_hal_fence_move_ref(waitFence);
       FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputs, &waitFenceRef));
-      iree_vm_ref_release(&waitFenceRef);
     }
     // Create dummy signal fence (tells downstream consumers that kernel has
     // ran) that's already completed.
@@ -372,9 +451,8 @@ inline ErrorObject Graph::execute(
       FUSILLI_CHECK_ERROR(
           iree_hal_fence_create(kDummyFenceCapacity, allocator, &signalFence));
 
-      iree_vm_ref_t signalFenceRef = iree_hal_fence_retain_ref(signalFence);
+      iree_vm_ref_t signalFenceRef = iree_hal_fence_move_ref(signalFence);
       FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputs, &signalFenceRef));
-      iree_vm_ref_release(&signalFenceRef);
     }
   }
 
@@ -455,6 +533,38 @@ Buffer::import(iree_hal_buffer_view_t *externalBufferView) {
       "Buffer::import failed as externalBufferView* is NULL");
   iree_hal_buffer_view_retain(externalBufferView);
   return ok(Buffer(IreeHalBufferViewUniquePtrType(externalBufferView)));
+}
+
+// Factory: Allocates a raw buffer for workspace/transient usage.
+inline ErrorOr<Buffer> Buffer::allocateRaw(const Handle &handle,
+                                           size_t sizeInBytes) {
+  FUSILLI_LOG_LABEL_ENDL("INFO: Allocating raw device buffer of size "
+                         << sizeInBytes << " bytes");
+  FUSILLI_RETURN_ERROR_IF(sizeInBytes == 0, ErrorCode::RuntimeFailure,
+                          "Buffer::allocateRaw failed: cannot allocate "
+                          "zero-size buffer");
+
+  // Allocate raw buffer using IREE HAL allocator.
+  iree_hal_buffer_t *rawBuffer = nullptr;
+  iree_hal_buffer_params_t bufferParams = {
+      .usage = IREE_HAL_BUFFER_USAGE_DEFAULT,
+      .access = IREE_HAL_MEMORY_ACCESS_ALL,
+      .type = IREE_HAL_MEMORY_TYPE_DEVICE_LOCAL,
+  };
+  FUSILLI_CHECK_ERROR(iree_hal_allocator_allocate_buffer(
+      iree_hal_device_allocator(handle.getDevice()), bufferParams, sizeInBytes,
+      &rawBuffer));
+
+  // Wrap in buffer view for API compatibility (1D i8 shape).
+  iree_hal_buffer_view_t *bufferView = nullptr;
+  iree_hal_dim_t shape[] = {static_cast<iree_hal_dim_t>(sizeInBytes)};
+  FUSILLI_CHECK_ERROR(iree_hal_buffer_view_create(
+      rawBuffer, IREE_ARRAYSIZE(shape), shape, IREE_HAL_ELEMENT_TYPE_INT_8,
+      IREE_HAL_ENCODING_TYPE_DENSE_ROW_MAJOR, iree_allocator_system(),
+      &bufferView));
+
+  iree_hal_buffer_release(rawBuffer); // buffer view now owns it
+  return ok(Buffer(IreeHalBufferViewUniquePtrType(bufferView)));
 }
 
 // Reads device buffer by initiating a device-to-host transfer and

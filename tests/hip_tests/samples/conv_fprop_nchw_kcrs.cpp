@@ -96,8 +96,12 @@ TEST_CASE("Convolution fprop with hip stream; X (NCHW), W (KCRS); 1x1 conv; no "
           {yT, yBuf},
       };
 
+  // Allocate workspace buffer if needed.
+  FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                         allocateWorkspace(handle, graph.getWorkspaceSize()));
+
   // Execute graph once.
-  FUSILLI_REQUIRE_OK(graph.execute(handle, variantPack));
+  FUSILLI_REQUIRE_OK(graph.execute(handle, variantPack, workspace));
 
   // Read output buffers.
   std::vector<half> result;
@@ -108,7 +112,7 @@ TEST_CASE("Convolution fprop with hip stream; X (NCHW), W (KCRS); 1x1 conv; no "
   // Execute graph a few times.
   constexpr size_t numIters = 1;
   for (size_t i = 0; i < numIters; i++)
-    FUSILLI_REQUIRE_OK(graph.execute(handle, variantPack));
+    FUSILLI_REQUIRE_OK(graph.execute(handle, variantPack, workspace));
 
   // Repeat output buffer checks.
   result.clear();

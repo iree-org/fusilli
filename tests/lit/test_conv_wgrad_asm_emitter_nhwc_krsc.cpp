@@ -78,7 +78,7 @@
 // LINALG-CHECK:      %[[OUTT:.+]] = hal.tensor.alias wait(%[[ARG3]]) => %[[GEN]] : tensor<256x128x1x1xf32> to %[[ARG0]] : !hal.buffer_view
 // LINALG-CHECK:      %{{.+}} = hal.tensor.barrier join(%[[OUTT]] : tensor<256x128x1x1xf32>) => %[[ARG4]] : !hal.fence
 //
-// AMDGPU-STATS-CHECK-NOT: "transient-memory-size": 0
+// AMDGPU-STATS-CHECK: "transient-memory-size": 0
 // AMDGPU-STATS-CHECK: "dispatch-count": 2
 // CPU-STATS-CHECK: "transient-memory-size": 0
 // CPU-STATS-CHECK: "dispatch-count": 1

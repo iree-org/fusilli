@@ -139,6 +139,81 @@ add_fusilli_benchmark(
     --device 0 --iter 10 conv -F 2 -n 100 -c 3 -H 32 -W 32 -k 32 -y 3 -x 3 -u 1 -v 1 -p 0 -q 0 -l 1 -j 1 --in_layout "NCHW" --fil_layout "NCHW" --out_layout "NCHW" --spatial_dim 2 --bias
 )
 
+# Layer normalization benchmarks
+# TODO(iree-org/iree#23339)
+# add_fusilli_benchmark(
+#   NAME fusilli_benchmark_layernorm_nchw_fp32_single_batch
+#   DRIVER fusilli_benchmark_driver
+#   ARGS
+#     --device 0 --iter 10 layernorm --input 1x128x64x32 -F 1 --type f32 --layout NCHW
+# )
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_nchw_fp32
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128x64x32 -F 1 --type f32 --layout NCHW
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_nhwc_fp16
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128x64x32 -F 1 --type f16 --layout NHWC
+)
+
+# TODO(iree-org/iree#23340)
+# add_fusilli_benchmark(
+#   NAME fusilli_benchmark_layernorm_nhwc_bf16_elementwise_affine_small_channel
+#   DRIVER fusilli_benchmark_driver
+#   ARGS
+#     --device 0 --iter 10 layernorm --input 2x3x128x128 -F 1 --type bf16 --layout NHWC --elementwise_affine
+# )
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_nhwc_bf16_elementwise_affine
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128x64x32 -F 1 --type bf16 --layout NHWC --elementwise_affine
+)
+
+# 3D input benchmarks (NCH format)
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_nch_fp32
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128x256 -F 1 --type f32 --layout NCH
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_nch_f16_elementwise_affine
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128x256 -F 1 --type f16 --layout NCH --elementwise_affine
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_nhc_bf16_elementwise_affine
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128x256 -F 1 --type bf16 --layout NHC --elementwise_affine
+)
+
+# 2D input benchmarks (NC format)
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_nc_fp32
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128 -F 1 --type f32 --layout NC
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_nc_f16_elementwise_affine
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 16x128 -F 1 --type f16 --layout NC --elementwise_affine
+)
+
 # Matrix multiplication benchmarks
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp32

@@ -168,3 +168,60 @@ TEST_CASE("Buffer errors", "[buffer]") {
             "Buffer::allocate failed: cannot allocate a buffer with zero size");
   }
 }
+
+TEST_CASE("Buffer::allocateRaw for workspace buffers", "[buffer]") {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+
+  // Allocate a raw buffer of 1024 bytes.
+  constexpr size_t bufferSize = 1024;
+  FUSILLI_REQUIRE_ASSIGN(Buffer buf, Buffer::allocateRaw(handle, bufferSize));
+  REQUIRE(buf != nullptr);
+
+  // Verify the buffer view is valid and has the expected size.
+  // allocateRaw creates a 1D i8 buffer view with shape [sizeInBytes].
+  iree_hal_buffer_view_t *bufferView = buf;
+  REQUIRE(bufferView != nullptr);
+  REQUIRE(iree_hal_buffer_view_shape_rank(bufferView) == 1);
+  REQUIRE(iree_hal_buffer_view_shape_dim(bufferView, 0) == bufferSize);
+  REQUIRE(iree_hal_buffer_view_element_type(bufferView) ==
+          IREE_HAL_ELEMENT_TYPE_INT_8);
+
+  // Verify the underlying HAL buffer byte length matches the requested size.
+  // Graph::execute relies on this property to validate workspace buffer sizes.
+  iree_hal_buffer_t *halBuffer = iree_hal_buffer_view_buffer(bufferView);
+  REQUIRE(halBuffer != nullptr);
+  REQUIRE(iree_hal_buffer_byte_length(halBuffer) >= bufferSize);
+
+  // Test move semantics.
+  Buffer movedBuf = std::move(buf);
+  REQUIRE(movedBuf != nullptr);
+  REQUIRE(buf == nullptr);
+}
+
+TEST_CASE("Buffer::allocateRaw with various sizes", "[buffer]") {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+
+  // Test small allocation (1 byte).
+  FUSILLI_REQUIRE_ASSIGN(Buffer smallBuf, Buffer::allocateRaw(handle, 1));
+  REQUIRE(smallBuf != nullptr);
+  REQUIRE(iree_hal_buffer_view_shape_dim(smallBuf, 0) == 1);
+
+  // Test larger allocation (1 MB).
+  constexpr size_t oneMB = 1024 * 1024;
+  FUSILLI_REQUIRE_ASSIGN(Buffer largeBuf, Buffer::allocateRaw(handle, oneMB));
+  REQUIRE(largeBuf != nullptr);
+  REQUIRE(iree_hal_buffer_view_shape_dim(largeBuf, 0) == oneMB);
+}
+
+TEST_CASE("Buffer::allocateRaw errors", "[buffer]") {
+  SECTION("Zero-size allocation") {
+    FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+
+    // Allocating a zero-size buffer should fail.
+    ErrorObject status = Buffer::allocateRaw(handle, 0);
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::RuntimeFailure);
+    REQUIRE(status.getMessage() ==
+            "Buffer::allocateRaw failed: cannot allocate zero-size buffer");
+  }
+}

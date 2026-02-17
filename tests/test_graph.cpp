@@ -396,8 +396,12 @@ TEST_CASE("Graph `execute`", "[graph]") {
           {Y, yBuf},
       };
 
+  // Query and allocate workspace buffer if needed.
+  FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                         allocateWorkspace(handle, graph->getWorkspaceSize()));
+
   // Execute graph.
-  FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack));
+  FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
   REQUIRE(*yBuf != nullptr);
 
   // Make sure input/weight buffers are held until `xBuf` and `yBuf` are alive.
@@ -416,4 +420,44 @@ TEST_CASE("Graph `execute`", "[graph]") {
   FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
   for (auto val : result)
     REQUIRE(val == half(128.0f));
+}
+
+TEST_CASE("Graph `getWorkspaceSize` returns nullopt before compilation",
+          "[graph]") {
+  Graph g = testGraph(/*validate=*/true);
+
+  // Before compilation, workspace size should be nullopt.
+  REQUIRE(!g.getWorkspaceSize().has_value());
+}
+
+TEST_CASE("Graph `getWorkspaceSize` after compilation", "[graph]") {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+
+  Graph g = testGraph(/*validate=*/true);
+
+  // Compile the graph.
+  FUSILLI_REQUIRE_OK(g.compile(handle, /*remove=*/true));
+
+  // After compilation, getWorkspaceSize returns the queried transient size.
+  // It should have a value (not nullopt). The actual size is
+  // implementation-dependent.
+  auto workspaceSize = g.getWorkspaceSize();
+  REQUIRE(workspaceSize.has_value());
+}
+
+TEST_CASE("Graph `getWorkspaceSize` consistency across multiple queries",
+          "[graph]") {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+
+  Graph g = testGraph(/*validate=*/true);
+  FUSILLI_REQUIRE_OK(g.compile(handle, /*remove=*/true));
+
+  // Multiple queries should return the same value.
+  auto size1 = g.getWorkspaceSize();
+  auto size2 = g.getWorkspaceSize();
+  auto size3 = g.getWorkspaceSize();
+
+  REQUIRE(size1.has_value());
+  REQUIRE(size1 == size2);
+  REQUIRE(size2 == size3);
 }

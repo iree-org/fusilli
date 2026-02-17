@@ -182,14 +182,14 @@ inline std::string getArchFromRocmAgentEnumerator() {
   return target;
 }
 
-// Returns the best available IREE HIP target for the current AMD GPU.
+// Returns the best available IREE ROCm target for the current AMD GPU.
 // Attempts to get SKU name (e.g., `mi300x`) via amd-smi for optimal tuning,
 // falls back to architecture (e.g., `gfx942`) via rocm_agent_enumerator.
 // See:
 // https://iree.dev/guides/deployment-configurations/gpu-rocm/#choosing-hip-targets
-inline std::string getIreeHipTargetForAmdgpu() {
+inline std::string getIreeRocmTargetForAmdgpu() {
   // Try to get SKU name first via amd-smi for better compiler tuning.
-  FUSILLI_LOG_LABEL_ENDL("INFO: Detecting IREE HIP target for AMD GPU");
+  FUSILLI_LOG_LABEL_ENDL("INFO: Detecting IREE ROCm target for AMD GPU");
 
   std::string marketingName = getGpuMarketingNameFromAmdSmi();
   if (!marketingName.empty()) {
@@ -247,18 +247,19 @@ inline std::span<const std::string> getBackendFlags(Backend backend) {
     std::vector<std::string> cpuFlags = {
         "--iree-hal-target-backends=llvm-cpu",
         "--iree-llvmcpu-target-cpu=host",
+        "--iree-torch-externalize-transients",
     };
 
-    // Specify a HIP target for AMD GPU. First attempts to get the SKU name
+    // Specify a ROCm target for AMD GPU. First attempts to get the SKU name
     // (e.g., `mi300x`) via `amd-smi` for optimal compiler tuning, then falls
     // back to architecture (e.g., `gfx942`) via `rocm_agent_enumerator`.
     // See:
     // https://iree.dev/guides/deployment-configurations/gpu-rocm/#choosing-hip-targets
-    auto hipTarget = getIreeHipTargetForAmdgpu();
+    auto rocmTarget = getIreeRocmTargetForAmdgpu();
     std::vector<std::string> amdGpuFlags = {
         // clang-format off
                 "--iree-hal-target-backends=rocm",
-                std::format("--iree-hip-target={}", hipTarget),
+                std::format("--iree-rocm-target={}", rocmTarget),
                 "--iree-opt-level=O3",
                 "--iree-preprocessing-pass-pipeline=builtin.module(util.func(iree-preprocessing-convert-conv-filter-to-channels-last))",
                 "--iree-flow-enable-pad-handling",
@@ -267,6 +268,7 @@ inline std::span<const std::string> getBackendFlags(Backend backend) {
                 "--iree-dispatch-creation-enable-fuse-padding-into-linalg-consumer-ops",
                 "--iree-dispatch-creation-enable-aggressive-reshape-movement",
                 "--iree-dispatch-creation-enable-split-reduction",
+                "--iree-torch-externalize-transients",
         // clang-format on
     };
 

@@ -131,7 +131,7 @@ TEST_CASE("CompileCommand::build with AMDGPU backend", "[CompileCommand]") {
     if (arg.find("--iree-hal-target-backends=rocm") != std::string::npos) {
       hasROCMBackend = true;
     }
-    if (arg.find("--iree-hip-target=") != std::string::npos) {
+    if (arg.find("--iree-rocm-target=") != std::string::npos) {
       hasHIPTarget = true;
     }
     if (arg.find("--iree-opt-level=O3") != std::string::npos) {
