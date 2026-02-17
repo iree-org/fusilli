@@ -11,6 +11,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <iree/runtime/api.h>
 
+#include <cstddef>
 #include <utility>
 #include <vector>
 
@@ -207,7 +208,7 @@ TEST_CASE("Buffer::allocateRaw with various sizes", "[buffer]") {
   REQUIRE(iree_hal_buffer_view_shape_dim(smallBuf, 0) == 1);
 
   // Test larger allocation (1 MB).
-  constexpr size_t oneMB = 1024 * 1024;
+  constexpr size_t oneMB = 1024lu * 1024lu;
   FUSILLI_REQUIRE_ASSIGN(Buffer largeBuf, Buffer::allocateRaw(handle, oneMB));
   REQUIRE(largeBuf != nullptr);
   REQUIRE(iree_hal_buffer_view_shape_dim(largeBuf, 0) == oneMB);
