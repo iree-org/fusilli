@@ -11,7 +11,7 @@
 // The DynamicLibrary class provides a simple interface for loading shared
 // libraries, retrieving symbols, and unloading libraries. The implementation
 // is selected at compile time based on the target platform:
-// - Linux (glibc) systems: Uses dlmopen/dlsym/dlclose
+// - Linux (glibc) systems: Uses dlopen/dlsym/dlclose
 // - Windows: Uses LoadLibraryEx/GetProcAddress/FreeLibrary
 //
 //===----------------------------------------------------------------------===//
@@ -82,8 +82,8 @@ public:
 
   /// Loads a dynamic library from the specified path.
   ///
-  /// On POSIX systems, this uses dlmopen with LM_ID_NEWLM to load the library
-  /// in a new namespace, providing better isolation.
+  /// On POSIX systems, this uses dlopen with RTLD_LOCAL to load the library
+  /// with symbol isolation.
   ///
   /// On Windows, this uses LoadLibraryEx.
   ///
@@ -114,10 +114,9 @@ public:
       return error(ErrorCode::FileSystemFailure, errMsg);
     }
 #else
-    // Use dlmopen with LM_ID_NEWLM to load in a new namespace for isolation. We
-    // use a separate namespace to force reinitialization if another library
-    // loaded and shutdown already.
-    handle_ = dlmopen(LM_ID_NEWLM, path.c_str(), RTLD_LAZY | RTLD_LOCAL);
+    // Use dlopen with RTLD_LOCAL to keep loaded symbols scoped to this handle,
+    // preventing them from polluting the host process symbol table.
+    handle_ = dlopen(path.c_str(), RTLD_LAZY | RTLD_LOCAL);
     if (!handle_) {
       const char *err = dlerror();
       return error(ErrorCode::FileSystemFailure, err ? err : "Unknown error");
