@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 # Find python3 program (used to prepend venv python to lit PATH)
-fusilli_find_program(python3 "Please ensure python is on your PATH. If using a python
+fusilli_find_program(python3 "Please ensure python is on your PATH. If using a python\
   install of IREE, this should be the python with iree-base-compiler installed.")
 
 # Find lit program
