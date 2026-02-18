@@ -578,15 +578,19 @@ private:
   // Required workspace buffer size in bytes. Set during createVmContext()
   // by querying the iree.abi.transients.size.constant attribute.
   // std::nullopt indicates the graph has not been compiled yet.
-  std::optional<size_t> workspaceSize_;
+  std::optional<size_t> workspaceSize_ = std::nullopt;
 
   // IREE VM context lifetime managed by the `Graph` object
   // (deleted when the `Graph` object goes out of scope).
   IreeVmContextUniquePtrType context_;
 
-  // Memoized function handle resolved during context creation.
+  // Memoized function handle resolved during createVmContext().
   // Avoids repeated function lookup on every execute() call.
-  std::optional<iree_vm_function_t> function_;
+  std::optional<iree_vm_function_t> function_ = std::nullopt;
+
+  // Pre-computed VM input list capacity for iree_vm_list_create().
+  // Set during createVmContext() to avoid recomputing on every execute().
+  iree_host_size_t vmInputListCapacity_ = 0;
 
   // Cache set by `getCompiledArtifact()`.
   //

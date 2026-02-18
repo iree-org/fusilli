@@ -262,6 +262,22 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
       &function));
   function_ = function;
 
+  // Pre-compute the VM input list capacity for execute().
+  vmInputListCapacity_ = 0;
+  // Count the number of output buffers.
+  for (const auto &output : fullGraphOutputsSorted_)
+    if (!output->isVirtual())
+      vmInputListCapacity_++;
+  // Count the number of input buffers.
+  for (const auto &input : fullGraphInputsSorted_)
+    if (!input->isScalar())
+      vmInputListCapacity_++;
+  // Count the workspace buffer (or null ref when size = 0).
+  vmInputListCapacity_++;
+  // Count the wait fence and signal fence for asynchronous execution.
+  if (executeAsync)
+    vmInputListCapacity_ += 2;
+
   // Query the required workspace size from the compiled module.
   FUSILLI_LOG_LABEL_ENDL("INFO: Querying workspace size from compiled module");
   FUSILLI_ASSIGN_OR_RETURN(workspaceSize_, queryTransientSize());
@@ -338,22 +354,12 @@ Graph::execute(const Handle &handle,
 
   iree_allocator_t allocator = iree_allocator_system();
 
-  // Count the number of input arguments to size the input list.
-  iree_host_size_t inputCount = 0;
-  for (const auto &output : fullGraphOutputsSorted_)
-    if (!output->isVirtual())
-      inputCount++;
-  for (const auto &input : fullGraphInputsSorted_)
-    if (!input->isScalar())
-      inputCount++;
-  if (executeAsync)
-    inputCount += 2; // wait fence + signal fence
-
   // Create input list. No output list needed since compiled functions write
   // results in-place to the buffer views passed as inputs (void return).
   iree_vm_list_t *inputs = nullptr;
   FUSILLI_CHECK_ERROR(iree_vm_list_create(iree_vm_make_undefined_type_def(),
-                                          inputCount, allocator, &inputs));
+                                          vmInputListCapacity_, allocator,
+                                          &inputs));
 
   // Populate output buffers.
   for (const auto &output : fullGraphOutputsSorted_) {
