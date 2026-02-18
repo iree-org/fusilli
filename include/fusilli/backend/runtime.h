@@ -314,10 +314,10 @@ inline ErrorOr<size_t> Graph::queryTransientSize() {
   return ok(static_cast<size_t>(0));
 }
 
-// Executes the graph using IREE VM invocation. Requires a `variantPack`
-// which is a map from `TensorAttr` to `Buffer` wrapping the
-// `iree_hal_buffer_view_t *`. The `workspace` parameter provides transient
-// storage for intermediate values when required by the compiled module.
+// Executes the graph using IREE runtime. Requires a `variantPack` which is a
+// map from `TensorAttr` to `Buffer` wrapping the `iree_hal_buffer_view_t *`.
+// The `workspace` parameter provides transient storage for intermediate values
+// when required by the compiled module.
 inline ErrorObject
 Graph::execute(const Handle &handle,
                const std::unordered_map<std::shared_ptr<TensorAttr>,
@@ -325,9 +325,11 @@ Graph::execute(const Handle &handle,
                const std::shared_ptr<Buffer> &workspace) const {
   FUSILLI_LOG_LABEL_ENDL("INFO: Executing Graph");
   FUSILLI_RETURN_ERROR_IF(context_ == nullptr, ErrorCode::NotCompiled,
-                          "Graph must be compiled before being executed");
+                          "Graph::execute requires a successful compile() first"
+                          " (VM context not created)");
   FUSILLI_RETURN_ERROR_IF(!function_.has_value(), ErrorCode::NotCompiled,
-                          "Graph function not resolved");
+                          "Graph::execute requires a successful compile() first"
+                          " (VM function not resolved)");
 
   if (!kBackendExecuteAsync.contains(handle.getBackend())) // C++ 20
     return ErrorObject(ErrorCode::InternalError,
