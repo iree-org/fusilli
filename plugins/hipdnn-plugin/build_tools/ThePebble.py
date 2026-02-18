@@ -453,7 +453,7 @@ def test_fusilli_plugin():
     bin_dir = INSTALL_DIR / "bin"
 
     # Create iree_tag_for_pip.txt.
-    # TheRock/iree-libs/post_hook_fusilli-plugin.cmake would create this file
+    # TheRock/iree-libs/post_hook_fusilliprovider.cmake would create this file
     # when building in TheRock.
     iree_tag = get_iree_git_tag()
     # Convert tag like "iree-3.10.0rc20251210" to pip version "3.10.0rc20251210"
@@ -462,20 +462,20 @@ def test_fusilli_plugin():
     iree_tag_file.write_text(pip_version)
     print(f"Created {iree_tag_file} with version {pip_version}")
 
-    # Run TheRock's test_fusilli_plugin.py
+    # Run TheRock's test_fusilliprovider.py
     therock_dir = PEBBLE_DIR / "TheRock"
     test_script = (
         therock_dir
         / "build_tools"
         / "github_actions"
         / "test_executable_scripts"
-        / "test_fusilli_plugin.py"
+        / "test_fusilliprovider.py"
     )
 
     env = os.environ.copy()
     env["THEROCK_BIN_DIR"] = str(bin_dir)
 
-    # iree-libs/post_hook_fusilli-plugin.cmake sets up RPATHs so that a .so in
+    # iree-libs/post_hook_fusilliprovider.cmake sets up RPATHs so that a .so in
     # "lib/hipdnn_plugins/engines" will be found by tests that
     # fusilli_plugin.so, and so that
     # "lib/hipdnn_plugins/engines/fusilli_plugin.so" can find hip .so's in lib.
