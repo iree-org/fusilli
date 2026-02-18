@@ -196,8 +196,8 @@ inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
 //===----------------------------------------------------------------------===//
 
 // Create IREE VM context for this graph and load the compiled artifact.
-inline ErrorObject Graph::createPerGraphContext(const Handle &handle,
-                                                const std::string &vmfbPath) {
+inline ErrorObject Graph::createVmContext(const Handle &handle,
+                                          const std::string &vmfbPath) {
   // Create a context even if one was created earlier, since the handle
   // (hence device) might have changed and we might be re-compiling the graph
   // for the new device.

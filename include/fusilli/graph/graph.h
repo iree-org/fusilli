@@ -114,7 +114,7 @@ public:
                            vmfbPath.string() + "\"");
 
     // Create per-graph IREE VM context and load the compiled artifact.
-    FUSILLI_CHECK_ERROR(createPerGraphContext(handle, vmfbPath.string()));
+    FUSILLI_CHECK_ERROR(createVmContext(handle, vmfbPath.string()));
 
     return ok();
   }
@@ -354,8 +354,8 @@ public:
 
 private:
   // Definition in `fusilli/backend/runtime.h`.
-  ErrorObject createPerGraphContext(const Handle &handle,
-                                    const std::string &vmfbPath);
+  ErrorObject createVmContext(const Handle &handle,
+                              const std::string &vmfbPath);
 
   // Queries the required transient/workspace buffer size from the compiled
   // module. Returns the size in bytes, or 0 if no transients are needed.
@@ -575,7 +575,7 @@ private:
   // This is set after `validate()` is run at least once successfully.
   bool isValidated_ = false;
 
-  // Required workspace buffer size in bytes. Set during createPerGraphContext()
+  // Required workspace buffer size in bytes. Set during createVmContext()
   // by querying the iree.abi.transients.size.constant attribute.
   // std::nullopt indicates the graph has not been compiled yet.
   std::optional<size_t> workspaceSize_ = std::nullopt;
