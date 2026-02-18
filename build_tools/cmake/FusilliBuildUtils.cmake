@@ -39,18 +39,19 @@ endfunction()
 # executable target for said tool.
 #
 # Usage:
-#   fusilli_find_program(<tool-name> [REQUIRED] [INSTALL_INSTRUCTIONS <message>])
+#   fusilli_find_program(<tool-name> [QUIET] [INSTALL_INSTRUCTIONS <message>])
 #
 # fusilli_find_program first checks the FUSILLI_EXTERNAL_<TOOL_NAME> cache
 # variable (with <tool-name> converted to ALL CAPS and hyphens replaced with
 # underscores), then falls back to find_program.
 #
 # Options:
+#   QUIET - Do not error if the program is not found
 #   INSTALL_INSTRUCTIONS - Instructions to install tool if not found
 macro(fusilli_find_program TOOL_NAME)
   cmake_parse_arguments(
     ARG                     # prefix
-    ""                      # options
+    "QUIET"                 # options
     "INSTALL_INSTRUCTIONS"  # one value keywords
     ""                      # multi-value keywords
     ${ARGN}                 # extra arguments
@@ -71,7 +72,10 @@ macro(fusilli_find_program TOOL_NAME)
     find_program(${_FULL_VAR_NAME} NAMES ${TOOL_NAME})
     # find_program will only set ${_FULL_VAR_NAME} if the program was found.
     if(NOT ${_FULL_VAR_NAME})
-      message(FATAL_ERROR "Could not find '${TOOL_NAME}' in PATH. ${ARG_INSTALL_INSTRUCTIONS}")
+      if(NOT ARG_QUIET)
+        message(FATAL_ERROR "Could not find '${TOOL_NAME}' in PATH. ${ARG_INSTALL_INSTRUCTIONS}")
+      endif()
+      return()
     endif()
   endif()
 

@@ -4,6 +4,9 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+# Find python3 program (optional, used to prepend venv python to lit PATH)
+fusilli_find_program(python3 QUIET)
+
 # Find lit program
 fusilli_find_program(lit INSTALL_INSTRUCTIONS
                      "Please install lit (e.g., pip install lit).")

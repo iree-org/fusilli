@@ -215,14 +215,16 @@ function(add_fusilli_lit_test)
   )
 
   # Pass locations of tools in build directory to lit through `--path` arguments.
-  #
-  # Add `lit`'s path first to ensure that venv python is before any system
-  # python on `PATH`. Fusilli (can) use python to find `libIREECompiler.so`
-  # based on site_packages layout (see fusilli/support/python_utils.h), _if_ it
-  # finds a python with `iree-base-compiler` installed. Fusilli tests often run
-  # in a python venv providing `lit` and `iree-base-compiler` packages - in
-  # this setup `lit` will be in venv/bin right beside (the right) python.
-  set(_LIT_PATH_ARGS "--path" "$<TARGET_FILE_DIR:lit>")
+  set(_LIT_PATH_ARGS)
+  if(TARGET python3)
+    # If a user is providing `iree-compile` through python, the venv will likely
+    # be active during CMake configure - add python path first to prevent system
+    # python shadowing venv python. Shadowing causes issues because fusilli
+    # (can) use python to find `libIREECompiler.so` based on site_packages
+    # layout (see python_utils.h), _if_ it finds a python with
+    # `iree-base-compiler` installed.
+    list(APPEND _LIT_PATH_ARGS "--path" "$<TARGET_FILE_DIR:python3>")
+  endif()
   foreach(_TOOL IN LISTS _RULE_TOOLS)
     list(APPEND _LIT_PATH_ARGS "--path" "$<TARGET_FILE_DIR:${_TOOL}>")
   endforeach()
