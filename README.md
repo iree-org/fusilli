@@ -245,6 +245,39 @@ FUSILLI_COMPILE_BACKEND_USE_CLI=1 \
   -f commands.txt
 ```
 
+### Sanitizers (AddressSanitizer)
+
+Fusilli supports building with AddressSanitizer (ASAN) for detecting memory errors such as use-after-free, buffer overflows, and memory leaks.
+
+To build with AddressSanitizer, specify the cmake flag `-DFUSILLI_ENABLE_ASAN=ON`:
+```shell
+cmake -GNinja -S. -Bbuild \
+    -DCMAKE_C_COMPILER=clang \
+    -DCMAKE_CXX_COMPILER=clang++ \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DFUSILLI_ENABLE_ASAN=ON \
+    -DIREE_SOURCE_DIR=</path/to/iree/source>
+cmake --build build --target all
+ctest --test-dir build
+```
+
+To customize AddressSanitizer behavior at runtime, use the `ASAN_OPTIONS` environment variable:
+```shell
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=0 LSAN_OPTIONS=suppressions=build_tools/sanitizers/lsan_suppressions.txt ctest --test-dir build
+```
+
+To make AddressSanitizer symbolize its output you need to set the `ASAN_SYMBOLIZER_PATH` environment variable
+to point to the llvm-symbolizer binary (or make sure llvm-symbolizer is in your `$PATH`):
+```shell
+ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer ...
+```
+
+> [!NOTE]
+> - Debug builds (`-DCMAKE_BUILD_TYPE=Debug`) provide better stack traces.
+> - Sanitizer builds have runtime overhead and are intended for development/testing, not production.
+> - AddressSanitizer and Code Coverage cannot be used simultaneously, because both add heavy runtime instrumentation
+and combining them often leads to slow/flaky tests and less reliable diagnostics.
+
 ### Code Coverage (using gcov + lcov)
 
 This works with gcc builds (code coverage with clang instrumentation is future
@@ -278,6 +311,10 @@ lcov --capture --directory build --output-file build/coverage.info
 lcov --remove build/coverage.info '/usr/*' '*/iree/*' --output-file build/coverage.info
 genhtml build/coverage.info --output-directory coverage_report
 ```
+
+> [!NOTE]
+> - AddressSanitizer and Code Coverage cannot be used simultaneously, because both add heavy runtime instrumentation
+and combining them often leads to slow/flaky tests and less reliable diagnostics.
 
 ### Lint
 

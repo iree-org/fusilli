@@ -52,6 +52,7 @@ endif()
 # Includes
 include(CTest)
 include(FetchContent)
+include(CheckCXXCompilerFlag)
 
 # Local Includes
 list(APPEND CMAKE_MODULE_PATH
@@ -67,12 +68,21 @@ option(FUSILLI_CODE_COVERAGE "Enable code coverage for tests" OFF)
 option(FUSILLI_ENABLE_LOGGING "Enable logging for tests and samples" OFF)
 option(FUSILLI_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
 option(FUSILLI_SYSTEMS_AMDGPU  "Builds for AMD GPU systems" OFF)
+option(FUSILLI_ENABLE_ASAN "Enable AddressSanitizer" OFF)
 
 message(STATUS "Fusilli supported systems:")
 if(FUSILLI_SYSTEMS_AMDGPU)
   message(STATUS "  - AMD GPU")
 endif()
 message(STATUS "  - Host")
+
+if(FUSILLI_ENABLE_ASAN AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  message(FATAL_ERROR "AddressSanitizer requires Clang as the C++ compiler, but '${CMAKE_CXX_COMPILER_ID}' was detected.")
+endif()
+
+if(FUSILLI_ENABLE_ASAN AND FUSILLI_CODE_COVERAGE)
+  message(FATAL_ERROR "FUSILLI_ENABLE_ASAN and FUSILLI_CODE_COVERAGE cannot be enabled simultaneously.")
+endif()
 
 ################################################################################
 # IREE Dependency
@@ -120,6 +130,10 @@ set(IREE_HAL_DRIVER_LOCAL_TASK ON)
 if(FUSILLI_SYSTEMS_AMDGPU)
   set(IREE_HAL_DRIVER_HIP ON)
   set(IREE_HIP_TEST_TARGET_CHIP "" CACHE STRING "Enable ROCm testing on specific architecture (e.g. gfx942)")
+endif()
+# Enable ASAN build for IREE if ASAN is used in Fusilli
+if(FUSILLI_ENABLE_ASAN)
+  set(IREE_ENABLE_ASAN ON)
 endif()
 
 if(IREE_SOURCE_DIR)
@@ -182,6 +196,22 @@ endif()
 if(FUSILLI_CODE_COVERAGE)
   message(STATUS "Setting CMAKE_BUILD_TYPE to Debug")
   set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Debug build" FORCE)
+endif()
+
+# Configure sanitizer flags
+set(FUSILLI_SANITIZER_COMPILE_FLAGS "")
+set(FUSILLI_SANITIZER_LINK_FLAGS "")
+if(FUSILLI_ENABLE_ASAN)
+  message(STATUS "AddressSanitizer enabled")
+  # TODO: Remove the compilation flags "-mllvm -asan-globals=0" when
+  #       the problem with "__asan_register_globals" (odr-violation) is fixed
+  list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fsanitize=address -fno-omit-frame-pointer -g -mllvm -asan-globals=0)
+  list(APPEND FUSILLI_SANITIZER_LINK_FLAGS -fsanitize=address)
+
+  check_cxx_compiler_flag("-fsanitize-recover=address" SANITIZE_RECOVER_ADDRESS_SUPPORTED)
+  if (SANITIZE_RECOVER_ADDRESS_SUPPORTED)
+    list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fsanitize-recover=address)
+  endif()
 endif()
 
 # Enable AMD GPU build if requested

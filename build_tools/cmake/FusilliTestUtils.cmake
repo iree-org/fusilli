@@ -369,6 +369,12 @@ function(_add_fusilli_executable_for_test)
     target_link_options(${_RULE_NAME} PRIVATE -coverage)
   endif()
 
+  # Set compiler options for sanitizers.
+  if(FUSILLI_ENABLE_ASAN)
+    target_compile_options(${_RULE_NAME} PRIVATE ${FUSILLI_SANITIZER_COMPILE_FLAGS})
+    target_link_options(${_RULE_NAME} PRIVATE ${FUSILLI_SANITIZER_LINK_FLAGS})
+  endif()
+
   # Place executable in the build/bin sub-directory.
   set_target_properties(
       ${_RULE_NAME} PROPERTIES
