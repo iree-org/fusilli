@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 //
 // This file contains the inline definitions for all the wrapper code around
-// IREE VM/HAL C-APIs to create and manage VM instances, HAL devices, VM
+// IREE runtime C-APIs to create and manage VM instances, HAL devices, VM
 // contexts and function invocations.
 //
 // Here's a rough mapping of Fusilli constructs to IREE constructs
@@ -44,7 +44,6 @@
 #include <iree/hal/drivers/init.h>
 #include <iree/io/file_contents.h>
 #include <iree/modules/hal/module.h>
-#include <iree/modules/hal/types.h>
 #include <iree/vm/api.h>
 #include <iree/vm/bytecode/module.h>
 
