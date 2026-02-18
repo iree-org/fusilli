@@ -10,7 +10,7 @@
 // IREE runtime C-APIs to create and manage VM instances, HAL devices, VM
 // contexts and function invocations.
 //
-// Here's a rough mapping of Fusilli constructs to IREE constructs
+// Here's a rough mapping of Fusilli constructs to IREE runtime constructs
 // (based on scope and lifetime):
 //
 //  - Group of `Handle`s manage the IREE VM instance lifetime.

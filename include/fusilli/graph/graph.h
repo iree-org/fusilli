@@ -578,7 +578,7 @@ private:
   // Required workspace buffer size in bytes. Set during createVmContext()
   // by querying the iree.abi.transients.size.constant attribute.
   // std::nullopt indicates the graph has not been compiled yet.
-  std::optional<size_t> workspaceSize_ = std::nullopt;
+  std::optional<size_t> workspaceSize_;
 
   // IREE VM context lifetime managed by the `Graph` object
   // (deleted when the `Graph` object goes out of scope).
