@@ -450,9 +450,9 @@ Graph::execute(const Handle &handle,
   }
 
   // Invoke the function.
-  iree_status_t status =
-      iree_vm_invoke(context_.get(), *function_, IREE_VM_INVOCATION_FLAG_NONE,
-                     /*policy=*/nullptr, inputs, /*outputs=*/nullptr, allocator);
+  iree_status_t status = iree_vm_invoke(
+      context_.get(), *function_, IREE_VM_INVOCATION_FLAG_NONE,
+      /*policy=*/nullptr, inputs, /*outputs=*/nullptr, allocator);
   iree_vm_list_release(inputs);
   FUSILLI_CHECK_ERROR(status);
 
