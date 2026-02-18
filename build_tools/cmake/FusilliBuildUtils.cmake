@@ -25,11 +25,12 @@ function(fusilli_enable_clang_tidy target)
   fusilli_find_program(clang-tidy INSTALL_INSTRUCTIONS
     "Please install clang-tidy (e.g., apt install clang-tidy).")
 
+  # Value must be quoted: set_target_properties uses paired argument parsing
+  # (PROP VALUE PROP VALUE ...) so each unquoted line becomes a separate
+  # argument, and only the first is used as the property value.
   set_target_properties(${target} PROPERTIES
     CXX_CLANG_TIDY
-      clang-tidy;
-      -warnings-as-errors=*;
-      --config-file=${PROJECT_SOURCE_DIR}/.clang-tidy;
+      "clang-tidy;-warnings-as-errors=*;--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy"
   )
 endfunction()
 

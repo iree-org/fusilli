@@ -162,19 +162,13 @@ class ConvFpropParameterizedTest
     : public ::testing::TestWithParam<ConvTestCase> {};
 
 TEST_P(ConvFpropParameterizedTest, Correctness) {
+  const ::testing::TestInfo *const test_info =
+      ::testing::UnitTest::GetInstance()->current_test_info();
+
+  // Get the name of the individual test
+  const char *test_name = test_info->name();
+
   const ConvTestCase &tc = GetParam();
-
-  // Skip tests with known bugs (must be before handle creation)
-  bool hasPadding = tc.padding_[0] != 0 || tc.padding_[1] != 0;
-  bool isGrouped = tc.xDims_[1] != tc.wDims_[1];
-  bool isNHWC = tc.layoutName_ == "NHWC";
-
-  if (isNHWC && hasPadding) {
-    GTEST_SKIP() << "NHWC + padding bug (TODO #76)";
-  }
-  if (!isNHWC && isGrouped && hasPadding) {
-    GTEST_SKIP() << "NCHW, grouped conv + padding bug (TODO #72)";
-  }
 
   // Load only the fusilli plugin
   auto pluginPath = std::filesystem::canonical(getCurrentExecutableDirectory() /
@@ -238,7 +232,7 @@ TEST_P(ConvFpropParameterizedTest, Correctness) {
 
   // Create graph
   auto graph = std::make_shared<graph::Graph>();
-  graph->set_name("conv_parameterized_test");
+  graph->set_name(test_name);
   graph->set_io_data_type(DataType_t::FLOAT)
       .set_compute_data_type(DataType_t::FLOAT);
 

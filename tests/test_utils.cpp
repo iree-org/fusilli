@@ -20,8 +20,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
+
+#include <iree/runtime/api.h>
 
 using namespace fusilli;
 
