@@ -16,6 +16,7 @@
 
 #include "fusilli/attributes/common.h"
 #include "fusilli/attributes/conv_attributes.h"
+#include "fusilli/attributes/custom_op_attributes.h"
 #include "fusilli/attributes/layernorm_attributes.h"
 #include "fusilli/attributes/matmul_attributes.h"
 #include "fusilli/attributes/pointwise_attributes.h"
@@ -29,6 +30,7 @@
 #include "fusilli/backend/handle.h"
 #include "fusilli/graph/context.h"
 #include "fusilli/node/conv_node.h"
+#include "fusilli/node/custom_op_node.h"
 #include "fusilli/node/layernorm_node.h"
 #include "fusilli/node/matmul_node.h"
 #include "fusilli/node/node.h"
@@ -279,6 +281,43 @@ public:
 
   std::shared_ptr<TensorAttr> reduction(const std::shared_ptr<TensorAttr> &x,
                                         ReductionAttr &attributes);
+
+  template <typename... Tensors>
+  std::vector<std::shared_ptr<TensorAttr>> customOp(CustomOpAttr &customOpAttr,
+                                                    Tensors &&...inputArgs) {
+    std::vector<std::shared_ptr<TensorAttr>> inputs{
+        std::forward<Tensors>(inputArgs)...};
+
+    // Populate name when not set.
+    if (customOpAttr.getName().empty())
+      customOpAttr.setName("custom_op_" + std::to_string(subNodes_.size()));
+
+    // Auto-name unnamed inputs.
+    for (size_t i = 0; i < inputs.size(); ++i) {
+      if (inputs[i] && inputs[i]->getName().empty())
+        inputs[i]->setName(customOpAttr.getName() + "_IN_" + std::to_string(i));
+    }
+
+    FUSILLI_LOG_LABEL_ENDL("INFO: Adding CustomOpNode '"
+                           << customOpAttr.getName() << "' to Graph");
+
+    // Create output tensors. The caller sets dim/stride/datatype on the
+    // returned tensors (same pattern as convDGrad/convWGrad).
+    std::vector<std::shared_ptr<TensorAttr>> outputTensors;
+    outputTensors.reserve(customOpAttr.getNumOutputs());
+    for (int i = 0; i < customOpAttr.getNumOutputs(); ++i)
+      outputTensors.push_back(
+          outputTensor(customOpAttr.getName() + "_OUT_" + std::to_string(i)));
+
+    // Create node and add to Graph's subNodes_.
+    auto node =
+        std::make_unique<CustomOpNode>(std::move(customOpAttr), context);
+    node->inputs = inputs;
+    node->outputs = outputTensors;
+    subNodes_.emplace_back(std::move(node));
+
+    return outputTensors;
+  }
 
   // Query required workspace buffer size.
   // Returns std::nullopt if not compiled, 0 if no workspace needed,

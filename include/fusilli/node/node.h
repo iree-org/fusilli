@@ -37,6 +37,7 @@ public:
     LayerNorm,
     Matmul,
     Reduction,
+    Custom,
   };
 
   explicit INode(const Context &ctx) : context(ctx) {}
@@ -66,6 +67,15 @@ protected:
   // by each node as needed.
   virtual std::string emitNodePreAsm() const { return ""; };
   virtual std::string emitNodePostAsm() const { return ""; };
+  virtual std::string emitModuleScopeAsm() const { return ""; };
+
+  // Recursively collect module-scope ASM declarations from this node
+  // and all sub-nodes (e.g., custom op function definitions).
+  void collectModuleScopeAsm(std::ostringstream &oss) const {
+    oss << emitModuleScopeAsm();
+    for (const auto &subNode : subNodes_)
+      subNode->collectModuleScopeAsm(oss);
+  }
 
   // Recursively validate the node and its sub nodes.
   ErrorObject validateSubtree() {
