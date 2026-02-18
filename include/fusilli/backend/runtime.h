@@ -314,8 +314,8 @@ inline ErrorOr<size_t> Graph::queryTransientSize() {
   return ok(static_cast<size_t>(0));
 }
 
-// Executes the graph using IREE VM invocation. Requires a `variantPack` which
-// is a map from `TensorAttr` to `Buffer` wrapping the
+// Executes the graph using IREE VM invocation. Requires a `variantPack`
+// which is a map from `TensorAttr` to `Buffer` wrapping the
 // `iree_hal_buffer_view_t *`. The `workspace` parameter provides transient
 // storage for intermediate values when required by the compiled module.
 inline ErrorObject
