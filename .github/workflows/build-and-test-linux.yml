@@ -76,9 +76,7 @@ jobs:
               -DFUSILLI_SYSTEMS_AMDGPU=ON
               -DFUSILLI_ENABLE_ASAN=ON
             asan-env: >-
-              ASAN_SYMBOLIZER_PATH=/workspace/.cache/docker/venv/bin/llvm-symbolizer-22
               ASAN_OPTIONS=detect_leaks=1:halt_on_error=0
-              LSAN_OPTIONS=suppressions=/workspace/build_tools/sanitizers/lsan_suppressions.txt
           - name: cpu_clang18_asan
             runs-on: azure-linux-scale
             cmake-options:
@@ -88,9 +86,7 @@ jobs:
               -DFUSILLI_SYSTEMS_AMDGPU=OFF
               -DFUSILLI_ENABLE_ASAN=ON
             asan-env: >-
-              ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer-18
               ASAN_OPTIONS=detect_leaks=1:halt_on_error=0
-              LSAN_OPTIONS=suppressions=/workspace/build_tools/sanitizers/lsan_suppressions.txt
 
     steps:
     - name: Checkout fusilli

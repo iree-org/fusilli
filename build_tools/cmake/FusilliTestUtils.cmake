@@ -161,6 +161,9 @@ function(add_fusilli_benchmark)
   if(FUSILLI_ENABLE_LOGGING)
     list(APPEND _ENV_VARS "FUSILLI_LOG_INFO=1" "FUSILLI_LOG_FILE=stdout")
   endif()
+  if(FUSILLI_ENABLE_ASAN)
+    list(APPEND _ENV_VARS "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt")
+  endif()
 
   # Set environment variables for test
   set_tests_properties(
@@ -319,6 +322,9 @@ function(_add_fusilli_ctest_target)
   set(_ENV_VARS "FUSILLI_CACHE_DIR=/tmp")
   if(FUSILLI_ENABLE_LOGGING)
     list(APPEND _ENV_VARS "FUSILLI_LOG_INFO=1" "FUSILLI_LOG_FILE=stdout")
+  endif()
+  if(FUSILLI_ENABLE_ASAN)
+    list(APPEND _ENV_VARS "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt")
   endif()
 
   # Set environment variables for test
