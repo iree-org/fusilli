@@ -83,7 +83,6 @@ jobs:
               -DCMAKE_C_COMPILER=clang-18
               -DCMAKE_CXX_COMPILER=clang++-18
               -DCMAKE_BUILD_TYPE=Debug
-              -DFUSILLI_SYSTEMS_AMDGPU=OFF
               -DFUSILLI_ENABLE_ASAN=ON
             asan-env: >-
               ASAN_OPTIONS=detect_leaks=1:halt_on_error=0
@@ -101,21 +100,29 @@ jobs:
                  cmake --build build --target all"
 
     - name: Test fusilli (libIREECompiler CAPI)
-      if: ${{ matrix.name != 'cpu_gcc13_codecov' && matrix.name != 'gfx942_clang22_asan' && matrix.name != 'cpu_clang18_asan' }}
+      if: ${{ !contains(matrix.name, 'codecov') && !contains(matrix.name, 'asan') }}
       run: |
         build_tools/docker/exec_docker_ci.sh \
         bash -c "ctest --test-dir build --output-on-failure --extra-verbose --timeout 120 -j \$(nproc) && \
                  tests/test_cache_empty.sh"
 
     - name: Test fusilli (iree-compile CLI)
-      if: ${{ matrix.name != 'cpu_gcc13_codecov' && matrix.name != 'gfx942_clang22_asan' && matrix.name != 'cpu_clang18_asan' }}
+      if: ${{ !contains(matrix.name, 'codecov') && !contains(matrix.name, 'asan') }}
       run: |
         build_tools/docker/exec_docker_ci.sh \
         bash -c "FUSILLI_COMPILE_BACKEND_USE_CLI=1 ctest --test-dir build --output-on-failure --extra-verbose --timeout 120 -j \$(nproc) && \
                  tests/test_cache_empty.sh"
 
+    - name: Run AddressSanitizer (ASan)
+      if: ${{ contains(matrix.name, 'asan') }}
+      run: |
+        build_tools/docker/exec_docker_ci.sh \
+        bash -c "${{ matrix.asan-env }} \
+                 ctest --test-dir build --output-on-failure --extra-verbose --timeout 120 -j \$(nproc) && \
+                 tests/test_cache_empty.sh"
+
     - name: Run code coverage
-      if: ${{ matrix.name == 'cpu_gcc13_codecov' }}
+      if: ${{ contains(matrix.name, 'codecov') }}
       run: |
         build_tools/docker/exec_docker_ci.sh \
         bash -c "ctest --test-dir build -T test -T coverage --timeout 120 && \
@@ -124,16 +131,8 @@ jobs:
                  genhtml build/coverage.info --output-directory coverage_report"
 
     - name: Upload code coverage report
-      if: ${{ matrix.name == 'cpu_gcc13_codecov' }}
+      if: ${{ contains(matrix.name, 'codecov') }}
       uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
       with:
         name: coverage-report
         path: ${{ github.workspace }}/coverage_report
-
-    - name: Run AddressSanitizer
-      if: ${{ matrix.name == 'gfx942_clang22_asan' || matrix.name == 'cpu_clang18_asan' }}
-      run: |
-        build_tools/docker/exec_docker_ci.sh \
-        bash -c "${{ matrix.asan-env }} \
-                 ctest --test-dir build --output-on-failure --extra-verbose --timeout 120 -j \$(nproc) && \
-                 tests/test_cache_empty.sh"
