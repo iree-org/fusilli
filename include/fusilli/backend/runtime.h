@@ -204,9 +204,12 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
   FUSILLI_LOG_LABEL_ENDL("INFO: Creating per-graph IREE VM context");
   iree_allocator_t allocator = iree_allocator_system();
 
+  // Create the context and immediately take ownership via unique_ptr so
+  // any early return from module registration or loading cleans up.
   iree_vm_context_t *rawContext = nullptr;
   FUSILLI_CHECK_ERROR(iree_vm_context_create(
       handle.getInstance(), IREE_VM_CONTEXT_FLAG_NONE, allocator, &rawContext));
+  vmContext_ = IreeVmContextUniquePtrType(rawContext);
 
   // Create HAL module and register it with the context.
   {
@@ -217,7 +220,7 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
         /*device_count=*/1, &device, IREE_HAL_MODULE_FLAG_NONE,
         iree_hal_module_debug_sink_null(), allocator, &halModule));
     iree_status_t status = iree_vm_context_register_modules(
-        rawContext, /*module_count=*/1, &halModule);
+        vmContext_.get(), /*module_count=*/1, &halModule);
     iree_vm_module_release(halModule);
     FUSILLI_CHECK_ERROR(status);
   }
@@ -242,15 +245,12 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
     // File contents ownership transferred to bytecode module on success
     // so there's no `iree_io_file_contents_free` on the success path.
 
-    status = iree_vm_context_register_modules(rawContext, /*module_count=*/1,
-                                              &bytecodeModule);
+    status =
+        iree_vm_context_register_modules(vmContext_.get(),
+                                         /*module_count=*/1, &bytecodeModule);
     iree_vm_module_release(bytecodeModule);
     FUSILLI_CHECK_ERROR(status);
   }
-
-  // Wrap the raw context ptr with a unique_ptr and custom deleter
-  // for lifetime management.
-  vmContext_ = IreeVmContextUniquePtrType(rawContext);
 
   // Resolve and cache the function handle for `module.main` or
   // `module.main$async`.
