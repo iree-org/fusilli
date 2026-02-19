@@ -239,7 +239,8 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
       iree_io_file_contents_free(fileContents);
       FUSILLI_CHECK_ERROR(status);
     }
-    // File contents ownership transferred to bytecode module on success.
+    // File contents ownership transferred to bytecode module on success
+    // so there's no `iree_io_file_contents_free` on the success path.
 
     status = iree_vm_context_register_modules(rawContext, /*module_count=*/1,
                                               &bytecodeModule);
@@ -357,10 +358,10 @@ Graph::execute(const Handle &handle,
 
   // Create input list. No output list needed since compiled functions write
   // results in-place to the buffer views passed as inputs (void return).
-  iree_vm_list_t *inputs = nullptr;
+  iree_vm_list_t *inputList = nullptr;
   FUSILLI_CHECK_ERROR(iree_vm_list_create(iree_vm_make_undefined_type_def(),
                                           vmInputListCapacity_, allocator,
-                                          &inputs));
+                                          &inputList));
 
   // Populate output buffers.
   for (const auto &output : fullGraphOutputsSorted_) {
@@ -377,7 +378,7 @@ Graph::execute(const Handle &handle,
                             "Output tensor missing from variantPack");
     iree_vm_ref_t ref =
         iree_hal_buffer_view_retain_ref(*(variantPack.at(output)));
-    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputs, &ref));
+    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputList, &ref));
   }
 
   // Populate input buffers.
@@ -396,7 +397,7 @@ Graph::execute(const Handle &handle,
                             "Input tensor missing from variantPack");
     iree_vm_ref_t ref =
         iree_hal_buffer_view_retain_ref(*(variantPack.at(input)));
-    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputs, &ref));
+    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputList, &ref));
   }
 
   // Push workspace buffer. The --iree-torch-externalize-transients flag always
@@ -416,7 +417,7 @@ Graph::execute(const Handle &handle,
             std::to_string(iree_hal_buffer_byte_length(halBuffer)) +
             " bytes, required " + std::to_string(*workspaceSize_) + " bytes");
     iree_vm_ref_t bufferRef = iree_hal_buffer_retain_ref(halBuffer);
-    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputs, &bufferRef));
+    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputList, &bufferRef));
   } else {
     // Size is 0 - no workspace needed. Accept (and ignore) a non-null
     // workspace buffer for caller convenience.
@@ -425,7 +426,7 @@ Graph::execute(const Handle &handle,
                              "needed (size=0), ignoring");
     // Push a null ref to satisfy IREE function signature
     iree_vm_ref_t nullRef = iree_vm_ref_null();
-    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputs, &nullRef));
+    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputList, &nullRef));
   }
 
   // In the asynchronous case, the IREE generated `@main$async` function
@@ -442,7 +443,7 @@ Graph::execute(const Handle &handle,
           iree_hal_fence_create(kDummyFenceCapacity, allocator, &waitFence));
 
       iree_vm_ref_t waitFenceRef = iree_hal_fence_move_ref(waitFence);
-      FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputs, &waitFenceRef));
+      FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputList, &waitFenceRef));
     }
     // Create dummy signal fence (tells downstream consumers that kernel has
     // ran) that's already completed.
@@ -452,15 +453,16 @@ Graph::execute(const Handle &handle,
           iree_hal_fence_create(kDummyFenceCapacity, allocator, &signalFence));
 
       iree_vm_ref_t signalFenceRef = iree_hal_fence_move_ref(signalFence);
-      FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputs, &signalFenceRef));
+      FUSILLI_CHECK_ERROR(
+          iree_vm_list_push_ref_move(inputList, &signalFenceRef));
     }
   }
 
   // Invoke the function.
   iree_status_t status = iree_vm_invoke(
       vmContext_.get(), *vmFunction_, IREE_VM_INVOCATION_FLAG_NONE,
-      /*policy=*/nullptr, inputs, /*outputs=*/nullptr, allocator);
-  iree_vm_list_release(inputs);
+      /*policy=*/nullptr, inputList, /*outputs=*/nullptr, allocator);
+  iree_vm_list_release(inputList);
   FUSILLI_CHECK_ERROR(status);
 
   return ok();
