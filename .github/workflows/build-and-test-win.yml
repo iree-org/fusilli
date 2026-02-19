@@ -61,7 +61,7 @@ jobs:
           refreshenv
       - name: "Building Fusilli"
         run: |
-          cmake -S . -B ${{ env.BUILD_DIR_POWERSHELL}} -G Ninja -DCMAKE_BUILD_TYPE=Release -DFUSILLI_ENABLE_LOGGING=ON -DFUSILLI_SYSTEMS_AMDGPU=OFF
+          cmake -S . -B ${{ env.BUILD_DIR_POWERSHELL}} -G Ninja -DCMAKE_BUILD_TYPE=Release -DFUSILLI_ENABLE_LOGGING=ON
           cmake --build ${{ env.BUILD_DIR_POWERSHELL}} --config Release --target all
       - name: "Running Fusilli tests (libIREECompiler CAPI)"
         run: |
