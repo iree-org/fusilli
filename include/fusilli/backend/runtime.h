@@ -171,11 +171,13 @@ inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
       iree_make_cstring_view(kHalDriver.at(backend_)), &driverOptions, &params,
       iree_allocator_system(), &driver));
 
-  // Create device.
+  // Create device from the driver.
   iree_hal_device_t *rawDevice = nullptr;
-  FUSILLI_CHECK_ERROR(iree_hal_driver_create_device_by_id(
+  iree_status_t status = iree_hal_driver_create_device_by_id(
       driver, HIP_DEVICE_ID_TO_IREE_DEVICE_ID(deviceId), /*param_count=*/0,
-      /*params=*/nullptr, iree_allocator_system(), &rawDevice));
+      /*params=*/nullptr, iree_allocator_system(), &rawDevice);
+  iree_hal_driver_release(driver);
+  FUSILLI_CHECK_ERROR(status);
 
   // Wrap the raw device ptr with a unique_ptr and custom deleter
   // for lifetime management.
