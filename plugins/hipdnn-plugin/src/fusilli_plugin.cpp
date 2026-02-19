@@ -256,7 +256,7 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetApplicableEngineIds(
     // override ==, so we use std::ranges::equal for structural vs referential
     // equality.
     if (!std::ranges::equal(*convFwdAttrs->pre_padding(),
-                            *convFwdAttrs->post_padding())) { // C++ 20
+                            *convFwdAttrs->post_padding())) { // C++20
       HIPDNN_PLUGIN_LOG_INFO("Fusilli plan builder requires symmetric "
                              "padding for conv_fprop nodes.");
       return HIPDNN_PLUGIN_STATUS_SUCCESS;

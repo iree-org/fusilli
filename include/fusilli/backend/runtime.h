@@ -349,7 +349,7 @@ Graph::execute(const Handle &handle,
                           "Graph::execute requires a successful compile() first"
                           " (VM function not resolved)");
 
-  if (!kBackendExecuteAsync.contains(handle.getBackend())) // C++ 20
+  if (!kBackendExecuteAsync.contains(handle.getBackend())) // C++20
     return ErrorObject(ErrorCode::InternalError,
                        "Graph::execute got an unknown backend");
   bool executeAsync = kBackendExecuteAsync.at(handle.getBackend());
@@ -428,7 +428,7 @@ Graph::execute(const Handle &handle,
     if (workspace != nullptr)
       FUSILLI_LOG_LABEL_ENDL("WARNING: Workspace buffer provided but not "
                              "needed (size=0), ignoring");
-    // Push a null ref to satisfy IREE function signature
+    // Push a null ref to satisfy IREE function signature.
     iree_vm_ref_t nullRef = iree_vm_ref_null();
     FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputList.get(), &nullRef));
   }

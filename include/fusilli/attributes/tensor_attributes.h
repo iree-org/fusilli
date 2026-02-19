@@ -124,7 +124,7 @@ namespace fusilli {
 template <typename R>
 concept Int64Range =
     std::ranges::forward_range<R> &&
-    std::is_same_v<std::ranges::range_value_t<R>, int64_t>; // C++ 20
+    std::is_same_v<std::ranges::range_value_t<R>, int64_t>; // C++20
 
 // Generates stride order for a contiguous tensor. For a 4D tensor, this would
 // return {N: 3, C: 2, H: 1, W: 0} to represent an NCHW in-memory layout.

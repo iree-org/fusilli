@@ -463,7 +463,7 @@ TEST(TestFusilliPluginApi, CreateExecutionContext) {
   EXPECT_EQ(ctx->uidToFusilliTensorAttr.size(), 3);
 
   // Check x tensor properties.
-  ASSERT_TRUE(ctx->uidToFusilliTensorAttr.contains(xUID)); // C++ 20
+  ASSERT_TRUE(ctx->uidToFusilliTensorAttr.contains(xUID)); // C++20
   std::shared_ptr<fusilli::TensorAttr> xTensor =
       ctx->uidToFusilliTensorAttr[xUID];
   EXPECT_EQ(xTensor->getDim(), expectedXDims);
@@ -472,7 +472,7 @@ TEST(TestFusilliPluginApi, CreateExecutionContext) {
   EXPECT_FALSE(xTensor->isVirtual());
 
   // Check w tensor properties.
-  ASSERT_TRUE(ctx->uidToFusilliTensorAttr.contains(wUID)); // C++ 20
+  ASSERT_TRUE(ctx->uidToFusilliTensorAttr.contains(wUID)); // C++20
   std::shared_ptr<fusilli::TensorAttr> wTensor =
       ctx->uidToFusilliTensorAttr[wUID];
   EXPECT_EQ(wTensor->getDim(), expectedWDims);
@@ -481,7 +481,7 @@ TEST(TestFusilliPluginApi, CreateExecutionContext) {
   EXPECT_FALSE(wTensor->isVirtual());
 
   // Check y tensor properties.
-  ASSERT_TRUE(ctx->uidToFusilliTensorAttr.contains(wUID)); // C++ 20
+  ASSERT_TRUE(ctx->uidToFusilliTensorAttr.contains(wUID)); // C++20
   std::shared_ptr<fusilli::TensorAttr> yTensor =
       ctx->uidToFusilliTensorAttr[yUID];
   EXPECT_EQ(yTensor->getDim(), expectedYDims);
