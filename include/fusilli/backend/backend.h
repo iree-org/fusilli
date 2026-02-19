@@ -379,6 +379,14 @@ struct IreeVmContextDeleter {
   }
 };
 
+// Custom deleter for IREE VM list.
+struct IreeVmListDeleter {
+  void operator()(iree_vm_list_t *list) const {
+    if (list)
+      iree_vm_list_release(list);
+  }
+};
+
 // Custom deleter for IREE HAL buffer view.
 struct IreeHalBufferViewDeleter {
   void operator()(iree_hal_buffer_view_t *bufferView) const {
@@ -393,6 +401,8 @@ using IreeHalDeviceUniquePtrType =
     std::unique_ptr<iree_hal_device_t, IreeHalDeviceDeleter>;
 using IreeVmContextUniquePtrType =
     std::unique_ptr<iree_vm_context_t, IreeVmContextDeleter>;
+using IreeVmListUniquePtrType =
+    std::unique_ptr<iree_vm_list_t, IreeVmListDeleter>;
 using IreeHalBufferViewUniquePtrType =
     std::unique_ptr<iree_hal_buffer_view_t, IreeHalBufferViewDeleter>;
 
