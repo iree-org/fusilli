@@ -673,7 +673,7 @@ private:
   // These constants are inlined in the ASM emitters,
   // so they should not be in the variant pack.
   bool isScalar_ = false;
-  std::optional<scalar_t> scalarValue_ = std::nullopt;
+  std::optional<scalar_t> scalarValue_;
 };
 
 // Sorting function for deterministic lookups on TensorAttr containers

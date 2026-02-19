@@ -578,7 +578,7 @@ private:
   // Required workspace buffer size in bytes. Set during createVmContext()
   // by querying the iree.abi.transients.size.constant attribute.
   // std::nullopt indicates the graph has not been compiled yet.
-  std::optional<size_t> workspaceSize_ = std::nullopt;
+  std::optional<size_t> workspaceSize_;
 
   // IREE VM context lifetime managed by the `Graph` object
   // (deleted when the `Graph` object goes out of scope).
@@ -586,7 +586,7 @@ private:
 
   // Memoized function handle resolved during createVmContext().
   // Avoids repeated function lookup on every execute() call.
-  std::optional<iree_vm_function_t> vmFunction_ = std::nullopt;
+  std::optional<iree_vm_function_t> vmFunction_;
 
   // Pre-computed VM input list capacity for iree_vm_list_create().
   // Set during createVmContext() to avoid recomputing on every execute().
@@ -597,7 +597,7 @@ private:
   // Note: new instances should always re-generate cache even if the results
   // could be read from the file system. Old results may have been generated
   // with a different version of IREE, it would not be safe to use them.
-  std::optional<CachedAssets> cache_ = std::nullopt;
+  std::optional<CachedAssets> cache_;
 
   // This is safe for post-insertion updates of TensorAttr (e.g. setting name
   // or other properties) since it uses the pointer value itself for hashing.
