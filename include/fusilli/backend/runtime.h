@@ -298,7 +298,8 @@ inline ErrorOr<size_t> Graph::queryTransientSize() {
   // @main is auto-generated and does not carry reflection attributes.
   iree_vm_function_t mainFunc;
   FUSILLI_CHECK_ERROR(iree_vm_context_resolve_function(
-      vmContext_.get(), iree_make_cstring_view("module.main$async"), &mainFunc));
+      vmContext_.get(), iree_make_cstring_view("module.main$async"),
+      &mainFunc));
 
   // First check for constant transient size attribute.
   iree_string_view_t sizeAttr = iree_vm_function_lookup_attr_by_name(
@@ -364,7 +365,7 @@ Graph::execute(const Handle &handle,
   // Populate output buffers.
   for (const auto &output : fullGraphOutputsSorted_) {
     // Virtual tensors are internal to the function (intermediate outputs) and
-    // aren't exposed in the call's signature.
+    // aren't exposed in the call's signature (not part of the variantPack).
     if (output->isVirtual()) {
       FUSILLI_RETURN_ERROR_IF(variantPack.contains(output),
                               ErrorCode::VariantPackError,
@@ -374,15 +375,15 @@ Graph::execute(const Handle &handle,
     FUSILLI_RETURN_ERROR_IF(!variantPack.contains(output), // C++20
                             ErrorCode::VariantPackError,
                             "Output tensor missing from variantPack");
-    iree_vm_ref_t ref = {0};
-    FUSILLI_CHECK_ERROR(iree_vm_ref_wrap_assign(
-        *(variantPack.at(output)), iree_hal_buffer_view_type(), &ref));
-    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_retain(inputs, &ref));
+    iree_vm_ref_t ref =
+        iree_hal_buffer_view_retain_ref(*(variantPack.at(output)));
+    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputs, &ref));
   }
 
   // Populate input buffers.
   for (const auto &input : fullGraphInputsSorted_) {
-    // Scalar constants should not be used in the variantPack.
+    // Scalar constants are inlined in the function and aren't exposed
+    // in the call's signature (not part of the variantPack).
     if (input->isScalar()) {
       FUSILLI_RETURN_ERROR_IF(variantPack.contains(input),
                               ErrorCode::VariantPackError,
@@ -393,10 +394,9 @@ Graph::execute(const Handle &handle,
     FUSILLI_RETURN_ERROR_IF(!variantPack.contains(input), // C++20
                             ErrorCode::VariantPackError,
                             "Input tensor missing from variantPack");
-    iree_vm_ref_t ref = {0};
-    FUSILLI_CHECK_ERROR(iree_vm_ref_wrap_assign(
-        *(variantPack.at(input)), iree_hal_buffer_view_type(), &ref));
-    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_retain(inputs, &ref));
+    iree_vm_ref_t ref =
+        iree_hal_buffer_view_retain_ref(*(variantPack.at(input)));
+    FUSILLI_CHECK_ERROR(iree_vm_list_push_ref_move(inputs, &ref));
   }
 
   // Push workspace buffer. The --iree-torch-externalize-transients flag always
