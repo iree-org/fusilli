@@ -249,18 +249,18 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
 
   // Wrap the raw context ptr with a unique_ptr and custom deleter
   // for lifetime management.
-  context_ = IreeVmContextUniquePtrType(rawContext);
+  vmContext_ = IreeVmContextUniquePtrType(rawContext);
 
   // Resolve and cache the function handle for `module.main` or
   // `module.main$async`.
   bool executeAsync = kBackendExecuteAsync.at(handle.getBackend());
   iree_vm_function_t function;
   FUSILLI_CHECK_ERROR(iree_vm_context_resolve_function(
-      context_.get(),
+      vmContext_.get(),
       iree_make_cstring_view(executeAsync ? "module.main$async"
                                           : "module.main"),
       &function));
-  function_ = function;
+  vmFunction_ = function;
 
   // Pre-compute the VM input list capacity for execute().
   vmInputListCapacity_ = 0;
@@ -298,7 +298,7 @@ inline ErrorOr<size_t> Graph::queryTransientSize() {
   // @main is auto-generated and does not carry reflection attributes.
   iree_vm_function_t mainFunc;
   FUSILLI_CHECK_ERROR(iree_vm_context_resolve_function(
-      context_.get(), iree_make_cstring_view("module.main$async"), &mainFunc));
+      vmContext_.get(), iree_make_cstring_view("module.main$async"), &mainFunc));
 
   // First check for constant transient size attribute.
   iree_string_view_t sizeAttr = iree_vm_function_lookup_attr_by_name(
@@ -340,10 +340,10 @@ Graph::execute(const Handle &handle,
                                         std::shared_ptr<Buffer>> &variantPack,
                const std::shared_ptr<Buffer> &workspace) const {
   FUSILLI_LOG_LABEL_ENDL("INFO: Executing Graph");
-  FUSILLI_RETURN_ERROR_IF(context_ == nullptr, ErrorCode::NotCompiled,
+  FUSILLI_RETURN_ERROR_IF(vmContext_ == nullptr, ErrorCode::NotCompiled,
                           "Graph::execute requires a successful compile() first"
                           " (VM context not created)");
-  FUSILLI_RETURN_ERROR_IF(!function_.has_value(), ErrorCode::NotCompiled,
+  FUSILLI_RETURN_ERROR_IF(!vmFunction_.has_value(), ErrorCode::NotCompiled,
                           "Graph::execute requires a successful compile() first"
                           " (VM function not resolved)");
 
@@ -458,7 +458,7 @@ Graph::execute(const Handle &handle,
 
   // Invoke the function.
   iree_status_t status = iree_vm_invoke(
-      context_.get(), *function_, IREE_VM_INVOCATION_FLAG_NONE,
+      vmContext_.get(), *vmFunction_, IREE_VM_INVOCATION_FLAG_NONE,
       /*policy=*/nullptr, inputs, /*outputs=*/nullptr, allocator);
   iree_vm_list_release(inputs);
   FUSILLI_CHECK_ERROR(status);

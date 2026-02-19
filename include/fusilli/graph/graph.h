@@ -582,11 +582,11 @@ private:
 
   // IREE VM context lifetime managed by the `Graph` object
   // (deleted when the `Graph` object goes out of scope).
-  IreeVmContextUniquePtrType context_;
+  IreeVmContextUniquePtrType vmContext_;
 
   // Memoized function handle resolved during createVmContext().
   // Avoids repeated function lookup on every execute() call.
-  std::optional<iree_vm_function_t> function_ = std::nullopt;
+  std::optional<iree_vm_function_t> vmFunction_ = std::nullopt;
 
   // Pre-computed VM input list capacity for iree_vm_list_create().
   // Set during createVmContext() to avoid recomputing on every execute().
