@@ -285,8 +285,8 @@ private:
     }
 
     // Import new tensor.
-    auto fusilliTensorAttr = fusilli::TensorAttr().setName(
-        std::format("{}_{}", name, uid)); // C++20
+    auto fusilliTensorAttr =
+        fusilli::TensorAttr().setName(std::format("{}_{}", name, uid)); // C++20
     FUSILLI_CHECK_ERROR(importAttrs(fusilliTensorAttr, hipDnnTensorAttr));
     std::shared_ptr<fusilli::TensorAttr> graphInput =
         fusilliGraph.tensor(fusilliTensorAttr);
