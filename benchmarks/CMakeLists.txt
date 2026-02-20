@@ -19,6 +19,12 @@ set_target_properties(
 # Enable clang-tidy.
 fusilli_enable_clang_tidy(fusilli_benchmark_driver)
 
+# Set compiler options for sanitizers.
+if(FUSILLI_ENABLE_ASAN)
+  target_compile_options(fusilli_benchmark_driver PRIVATE ${FUSILLI_SANITIZER_COMPILE_FLAGS})
+  target_link_options(fusilli_benchmark_driver PRIVATE ${FUSILLI_SANITIZER_LINK_FLAGS})
+endif()
+
 # Test benchmark runner
 if(FUSILLI_SYSTEMS_AMDGPU)
   add_test(
@@ -28,6 +34,13 @@ if(FUSILLI_SYSTEMS_AMDGPU)
             $<TARGET_FILE:fusilli_benchmark_driver>
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   )
+
+  if(FUSILLI_ENABLE_ASAN)
+    set_tests_properties(
+      fusilli_benchmark_runner_tests PROPERTIES
+      ENVIRONMENT "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt"
+    )
+  endif()
 endif()
 
 # Add some benchmark configurations for CI coverage.

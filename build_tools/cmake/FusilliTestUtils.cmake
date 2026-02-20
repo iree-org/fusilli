@@ -161,6 +161,9 @@ function(add_fusilli_benchmark)
   if(FUSILLI_ENABLE_LOGGING)
     list(APPEND _ENV_VARS "FUSILLI_LOG_INFO=1" "FUSILLI_LOG_FILE=stdout")
   endif()
+  if(FUSILLI_ENABLE_ASAN)
+    list(APPEND _ENV_VARS "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt")
+  endif()
 
   # Set environment variables for test
   set_tests_properties(
@@ -327,6 +330,9 @@ function(_add_fusilli_ctest_target)
   if(FUSILLI_ENABLE_LOGGING)
     list(APPEND _ENV_VARS "FUSILLI_LOG_INFO=1" "FUSILLI_LOG_FILE=stdout")
   endif()
+  if(FUSILLI_ENABLE_ASAN)
+    list(APPEND _ENV_VARS "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt")
+  endif()
 
   # Set environment variables for test
   set_tests_properties(
@@ -374,6 +380,12 @@ function(_add_fusilli_executable_for_test)
     #   geninfo: ERROR: Unexpected negative count '-1' for /usr/include/c++/13/bits/hashtable.h:1964
     target_compile_options(${_RULE_NAME} PRIVATE -coverage -fprofile-update=atomic -O0 -g)
     target_link_options(${_RULE_NAME} PRIVATE -coverage)
+  endif()
+
+  # Set compiler options for sanitizers.
+  if(FUSILLI_ENABLE_ASAN)
+    target_compile_options(${_RULE_NAME} PRIVATE ${FUSILLI_SANITIZER_COMPILE_FLAGS})
+    target_link_options(${_RULE_NAME} PRIVATE ${FUSILLI_SANITIZER_LINK_FLAGS})
   endif()
 
   # Place executable in the build/bin sub-directory.

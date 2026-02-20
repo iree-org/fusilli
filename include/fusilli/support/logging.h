@@ -102,6 +102,7 @@ struct [[nodiscard]] ErrorObject {
     // Write error message into `errMsg` variable using the runtime's fprint
     // based reporting.
     iree_status_fprint(FprintToString(errMsg), status);
+    iree_status_ignore(status);
   }
 
   ErrorCode getCode() const { return code; }

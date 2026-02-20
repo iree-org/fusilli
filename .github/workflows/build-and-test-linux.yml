@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: ["gfx942_clang22_release", "cpu_clang18_debug", "gfx942_clang22_debug", "cpu_gcc13_codecov"]
+        name: ["gfx942_clang22_release", "cpu_clang18_debug", "gfx942_clang22_debug", "cpu_gcc13_codecov", "gfx942_clang22_asan", "cpu_clang18_asan"]
         include:
           - name: gfx942_clang22_release
             runs-on: linux-mi325-1gpu-ossci-iree-org
@@ -63,6 +63,21 @@ jobs:
               -DCMAKE_C_COMPILER=gcc-13
               -DCMAKE_CXX_COMPILER=g++-13
               -DFUSILLI_CODE_COVERAGE=ON
+          - name: gfx942_clang22_asan
+            runs-on: linux-mi325-1gpu-ossci-iree-org
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-22
+              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_SYSTEMS_AMDGPU=ON
+              -DFUSILLI_ENABLE_ASAN=ON
+          - name: cpu_clang18_asan
+            runs-on: azure-linux-scale
+            cmake-options:
+              -DCMAKE_C_COMPILER=clang-18
+              -DCMAKE_CXX_COMPILER=clang++-18
+              -DCMAKE_BUILD_TYPE=Debug
+              -DFUSILLI_ENABLE_ASAN=ON
 
     steps:
     - name: Checkout fusilli
@@ -77,21 +92,23 @@ jobs:
                  cmake --build build --target all"
 
     - name: Test fusilli (libIREECompiler CAPI)
-      if: ${{ matrix.name != 'cpu_gcc13_codecov' }}
+      if: ${{ contains(matrix.name, 'debug') || contains(matrix.name, 'release') || contains(matrix.name, 'asan') }}
       run: |
         build_tools/docker/exec_docker_ci.sh \
         bash -c "ctest --test-dir build --output-on-failure --extra-verbose --timeout 120 -j \$(nproc) && \
                  tests/test_cache_empty.sh"
 
     - name: Test fusilli (iree-compile CLI)
-      if: ${{ matrix.name != 'cpu_gcc13_codecov' }}
+      # Excluded for ASAN runs: the CLI backend spawns `iree-compile`
+      # (not ASAN-instrumented) as a separate process.
+      if: ${{ contains(matrix.name, 'debug') || contains(matrix.name, 'release') }}
       run: |
         build_tools/docker/exec_docker_ci.sh \
         bash -c "FUSILLI_COMPILE_BACKEND_USE_CLI=1 ctest --test-dir build --output-on-failure --extra-verbose --timeout 120 -j \$(nproc) && \
                  tests/test_cache_empty.sh"
 
     - name: Run code coverage
-      if: ${{ matrix.name == 'cpu_gcc13_codecov' }}
+      if: ${{ contains(matrix.name, 'codecov') }}
       run: |
         build_tools/docker/exec_docker_ci.sh \
         bash -c "ctest --test-dir build -T test -T coverage --timeout 120 && \
@@ -100,7 +117,7 @@ jobs:
                  genhtml build/coverage.info --output-directory coverage_report"
 
     - name: Upload code coverage report
-      if: ${{ matrix.name == 'cpu_gcc13_codecov' }}
+      if: ${{ contains(matrix.name, 'codecov') }}
       uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
       with:
         name: coverage-report
