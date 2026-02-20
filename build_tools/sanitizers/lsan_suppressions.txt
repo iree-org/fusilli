@@ -1,6 +1,9 @@
 # LSAN suppressions for leaks in external libraries (IREE, ROCm)
 
+# TODO(iree-org/iree#23526)
 leak:iree_hal_hip_dispatch_completed_create
+
+# Suppressions from IREE project
 leak:libamdhip64.so
 leak:libhsa-runtime64.so
 leak:libamd_comgr.so

@@ -254,7 +254,7 @@ To build with ASan, specify the cmake flag `-DFUSILLI_ENABLE_ASAN=ON`.
 
 Use the `ASAN_OPTIONS` environment variable to customize ASan behavior at runtime:
 ```shell
-ASAN_OPTIONS=detect_leaks=1:halt_on_error=0 \
+ASAN_OPTIONS=detect_leaks=1 \
   ctest --test-dir build
 ```
 

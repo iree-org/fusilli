@@ -34,6 +34,13 @@ if(FUSILLI_SYSTEMS_AMDGPU)
             $<TARGET_FILE:fusilli_benchmark_driver>
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   )
+
+  if(FUSILLI_ENABLE_ASAN)
+    set_tests_properties(
+      fusilli_benchmark_runner_tests PROPERTIES
+      ENVIRONMENT "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt"
+    )
+  endif()
 endif()
 
 # Add some benchmark configurations for CI coverage.
