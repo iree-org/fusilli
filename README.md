@@ -245,6 +245,39 @@ FUSILLI_COMPILE_BACKEND_USE_CLI=1 \
   -f commands.txt
 ```
 
+### Sanitizers
+
+Fusilli supports building with [AddressSanitizer](https://clang.llvm.org/docs/AddressSanitizer.html)
+(ASAN) for detecting memory errors such as use-after-free, buffer overflows, and memory leaks.
+
+To run with ASAN instrumentation, configure the build with the
+`-DFUSILLI_ENABLE_ASAN=ON` flag, then build and test:
+```shell
+cmake --build build --target all
+ctest --test-dir build
+```
+
+To customize ASAN behavior at runtime, set the `ASAN_OPTIONS` environment variable:
+```shell
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+  ctest --test-dir build
+```
+
+Ensure `llvm-symbolizer` is in your `$PATH` (or set the `ASAN_SYMBOLIZER_PATH`
+environment variable) to get symbolized stack traces from ASAN:
+```shell
+ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer \
+  ctest --test-dir build
+```
+
+[LeakSanitizer](https://clang.llvm.org/docs/LeakSanitizer.html) suppressions
+(`build_tools/sanitizers/lsan_suppressions.txt`) are automatically applied to
+all test and benchmark targets when ASAN is enabled.
+
+> [!NOTE]
+> - Debug builds (`-DCMAKE_BUILD_TYPE=Debug`) provide better stack traces.
+> - Sanitizer builds have runtime overhead and are intended for development/testing, not production.
+
 ### Code Coverage (using gcov + lcov)
 
 This works with gcc builds (code coverage with clang instrumentation is future

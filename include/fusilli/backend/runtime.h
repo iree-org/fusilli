@@ -145,9 +145,14 @@ inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
 
   // Create device.
   iree_hal_device_t *rawDevice = nullptr;
-  FUSILLI_CHECK_ERROR(iree_hal_driver_create_device_by_id(
+  iree_status_t deviceStatus = iree_hal_driver_create_device_by_id(
       driver, HIP_DEVICE_ID_TO_IREE_DEVICE_ID(deviceId), /*param_count=*/0,
-      /*params=*/nullptr, iree_allocator_system(), &rawDevice));
+      /*params=*/nullptr, iree_allocator_system(), &rawDevice);
+
+  // Release the driver regardless of whether device creation succeeded.
+  iree_hal_driver_release(driver);
+
+  FUSILLI_CHECK_ERROR(deviceStatus);
 
   // Wrap the raw device ptr with a unique_ptr and custom deleter
   // for lifetime management.
