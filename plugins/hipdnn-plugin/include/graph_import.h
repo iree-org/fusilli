@@ -352,6 +352,7 @@ inline fusilli::ErrorOr<HipdnnEnginePluginExecutionContext>
 importGraph(const hipdnnPluginConstData_t *opGraph) {
   auto gc = GraphImport(opGraph);
   FUSILLI_CHECK_ERROR(gc.importGraph());
+  FUSILLI_CHECK_ERROR(gc.fusilliGraph.validate());
   return HipdnnEnginePluginExecutionContext{.graph = std::move(gc.fusilliGraph),
                                             .uidToFusilliTensorAttr =
                                                 std::move(gc.uidToIOTensor)};
