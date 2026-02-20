@@ -175,8 +175,7 @@ private:
         std::shared_ptr<fusilli::TensorAttr> w,
         importNodeInput(hipDnnConvFwdAttr->w_tensor_uid(), "w"));
 
-    // hipdnnEnginePluginGetApplicableEngineIds should have already eliminated
-    // any nodes with asymmetric padding, this is just a double check.
+    // Fusilli only supports symmetric padding.
     if (!std::ranges::equal(*hipDnnConvFwdAttr->pre_padding(),
                             *hipDnnConvFwdAttr->post_padding())) // C++20
       return fusilli::error(fusilli::ErrorCode::AttributeNotSet,
