@@ -1,6 +1,6 @@
 # LSAN suppressions for leaks in external libraries (IREE, ROCm)
 
-# TODO(iree-org/iree#23526)
+# TODO(iree-org/iree#23526): Unsuppress when the IREE memory leak is fixed.
 leak:iree_hal_hip_dispatch_completed_create
 
 # Suppressions from IREE project
