@@ -21,7 +21,6 @@
 #include <hipdnn_data_sdk/data_objects/tensor_attributes_generated.h>
 #include <hipdnn_data_sdk/flatbuffer_utilities/EngineConfigWrapper.hpp>
 #include <hipdnn_data_sdk/flatbuffer_utilities/FlatbufferTypeHelpers.hpp>
-#include <hipdnn_data_sdk/flatbuffer_utilities/GraphWrapper.hpp>
 #include <hipdnn_data_sdk/logging/Logger.hpp>
 #include <hipdnn_data_sdk/utilities/EngineNames.hpp>
 #include <hipdnn_plugin_sdk/EnginePluginApi.h>
@@ -221,70 +220,21 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetApplicableEngineIds(
     return HIPDNN_PLUGIN_STATUS_SUCCESS;
   }
 
-  // Check for supported graph structure
-  GraphWrapper opGraphWrapper(opGraph->ptr, opGraph->size);
-  if (!opGraphWrapper.hasOnlySupportedAttributes(std::set<
-                                                 hipdnn_data_sdk::data_objects::
-                                                     NodeAttributes>{
-          hipdnn_data_sdk::data_objects::NodeAttributes::
-              ConvolutionFwdAttributes,
-          hipdnn_data_sdk::data_objects::NodeAttributes::PointwiseAttributes,
-          hipdnn_data_sdk::data_objects::NodeAttributes::MatmulAttributes})) {
+  // Use the graph import translation layer to determine if this graph is
+  // supported. If import succeeds, the graph is composed of ops fusilli can
+  // handle.
+  //
+  // NOTE: If a translatable graph should not be claimed (e.g. numerical
+  // issues), one can gate particular ops in the translation layer
+  // (graph_import.h), or filter out very specific graph types here - gates
+  // should check environment variables so it's easy to run the problematic
+  // graphs during development.
+  auto result = importGraph(opGraph);
+  if (fusilli::isError(static_cast<fusilli::ErrorObject>(result))) {
     HIPDNN_PLUGIN_LOG_INFO(
-        "Fusilli only supports conv_fprop, pointwise, and matmul nodes");
+        "Graph not supported: "
+        << static_cast<fusilli::ErrorObject>(result).getMessage());
     return HIPDNN_PLUGIN_STATUS_SUCCESS;
-  }
-
-  // Verify first node is either conv_fprop or matmul
-  auto firstNodeType = opGraphWrapper.getNode(0).attributes_type();
-  if (firstNodeType != hipdnn_data_sdk::data_objects::NodeAttributes::
-                           ConvolutionFwdAttributes &&
-      firstNodeType !=
-          hipdnn_data_sdk::data_objects::NodeAttributes::MatmulAttributes) {
-    HIPDNN_PLUGIN_LOG_INFO(
-        "Fusilli requires first node to be conv_fprop or matmul");
-    return HIPDNN_PLUGIN_STATUS_SUCCESS;
-  }
-
-  // Check symmetric padding for conv_fprop nodes
-  if (firstNodeType ==
-      hipdnn_data_sdk::data_objects::NodeAttributes::ConvolutionFwdAttributes) {
-    const hipdnn_data_sdk::data_objects::ConvolutionFwdAttributes
-        *convFwdAttrs =
-            opGraphWrapper.getNode(0).attributes_as_ConvolutionFwdAttributes();
-    // pre/post_padding are flatbuffer::vectors (not std::vectors) and don't
-    // override ==, so we use std::ranges::equal for structural vs referential
-    // equality.
-    if (!std::ranges::equal(*convFwdAttrs->pre_padding(),
-                            *convFwdAttrs->post_padding())) { // C++20
-      HIPDNN_PLUGIN_LOG_INFO("Fusilli plan builder requires symmetric "
-                             "padding for conv_fprop nodes.");
-      return HIPDNN_PLUGIN_STATUS_SUCCESS;
-    }
-  }
-
-  // Check pointwise ops are of supported mode
-  for (uint32_t i = 1; i < opGraphWrapper.nodeCount(); ++i) {
-    const hipdnn_data_sdk::data_objects::Node &node = opGraphWrapper.getNode(i);
-    // We should already know this is true, doing local check to defend against
-    // future code changes.
-    if (node.attributes_type() !=
-        hipdnn_data_sdk::data_objects::NodeAttributes::PointwiseAttributes) {
-      HIPDNN_PLUGIN_LOG_INFO(
-          "Fusilli only supports conv_fprop, pointwise, and matmul nodes");
-      return HIPDNN_PLUGIN_STATUS_SUCCESS;
-    }
-
-    // Check pointwise mode supported
-    const hipdnn_data_sdk::data_objects::PointwiseAttributes *pointwiseAttrs =
-        node.attributes_as_PointwiseAttributes();
-    hipdnn_data_sdk::data_objects::PointwiseMode mode =
-        pointwiseAttrs->operation();
-    if (fusilli::isError(hipDnnPointwiseModeToFusilliMode(mode))) {
-      HIPDNN_PLUGIN_LOG_INFO("Fusilli doesn't currently support pointwise Mode "
-                             << mode);
-      return HIPDNN_PLUGIN_STATUS_SUCCESS;
-    }
   }
 
   // Graph passes all checks, the fusilli engine is applicable.
@@ -446,7 +396,6 @@ hipdnnPluginStatus_t hipdnnEnginePluginCreateExecutionContext(
                              importGraph(opGraph));
 
     // Compile graph
-    FUSILLI_CHECK_ERROR(graphImport.graph.validate());
     FUSILLI_ASSIGN_OR_RETURN(auto fusilliHandle, handle->getFusilliHandle());
     FUSILLI_CHECK_ERROR(graphImport.graph.compile(fusilliHandle));
 

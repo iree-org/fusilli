@@ -297,12 +297,10 @@ TEST(TestFusilliPluginApi, GetApplicableEngineIdsConvPointwise) {
   std::array<int64_t, 5> engineIDs;
   uint32_t numEngines = 0;
 
-  // Test conv + pointwise for various modes.
-  for (auto mode : {hipdnn_data_sdk::data_objects::PointwiseMode::ADD,
-                    hipdnn_data_sdk::data_objects::PointwiseMode::DIV,
-                    hipdnn_data_sdk::data_objects::PointwiseMode::MUL,
-                    hipdnn_data_sdk::data_objects::PointwiseMode::RELU_FWD,
-                    hipdnn_data_sdk::data_objects::PointwiseMode::SUB,
+  // Test conv + unary pointwise activation for various modes.
+  // (conv -> binary -> pointwise covered in
+  // GetApplicableEngineIdsConvBiasActiv)
+  for (auto mode : {hipdnn_data_sdk::data_objects::PointwiseMode::RELU_FWD,
                     hipdnn_data_sdk::data_objects::PointwiseMode::SIGMOID_FWD,
                     hipdnn_data_sdk::data_objects::PointwiseMode::TANH_FWD,
                     hipdnn_data_sdk::data_objects::PointwiseMode::GELU_FWD,
