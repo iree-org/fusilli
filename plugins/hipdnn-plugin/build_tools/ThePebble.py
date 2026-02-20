@@ -399,12 +399,14 @@ def provide_iree_tools(iree_git_tag: str):
     )
     iree_compiler_lib = Path(result.stdout.strip())
     lib_symlink = INSTALL_DIR / "lib" / "libIREECompiler.so"
+    lib_symlink.unlink(missing_ok=True)
     print(f"Symlinking {lib_symlink} -> {iree_compiler_lib}")
     lib_symlink.symlink_to(iree_compiler_lib)
 
     # Symlink iree-compile binary into dist/bin/
     iree_compile_src = venv_dir / "bin" / "iree-compile"
     bin_symlink = INSTALL_DIR / "bin" / "iree-compile"
+    bin_symlink.unlink(missing_ok=True)
     print(f"Symlinking {bin_symlink} -> {iree_compile_src}")
     bin_symlink.symlink_to(iree_compile_src)
 
