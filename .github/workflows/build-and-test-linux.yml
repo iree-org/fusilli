@@ -99,6 +99,8 @@ jobs:
                  tests/test_cache_empty.sh"
 
     - name: Test fusilli (iree-compile CLI)
+      # Excluded for ASAN runs: the CLI backend spawns `iree-compile`
+      # (not ASAN-instrumented) as a separate process.
       if: ${{ contains(matrix.name, 'debug') || contains(matrix.name, 'release') }}
       run: |
         build_tools/docker/exec_docker_ci.sh \

@@ -208,6 +208,11 @@ if(FUSILLI_ENABLE_ASAN)
   list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fsanitize=address -fno-omit-frame-pointer -g -mllvm -asan-globals=0)
   list(APPEND FUSILLI_SANITIZER_LINK_FLAGS -fsanitize=address)
 
+  # Enable recovery mode so the program can continue past ASAN errors,
+  # allowing multiple issues to be reported in a single run. This is
+  # experimental and only supported by some compilers. It takes effect
+  # when `ASAN_OPTIONS=halt_on_error=0` is set at runtime; the default
+  # (halt_on_error=1) still aborts on the first error.
   check_cxx_compiler_flag("-fsanitize-recover=address" SANITIZE_RECOVER_ADDRESS_SUPPORTED)
   if (SANITIZE_RECOVER_ADDRESS_SUPPORTED)
     list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fsanitize-recover=address)
