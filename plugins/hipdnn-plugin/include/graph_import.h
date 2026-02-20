@@ -178,7 +178,7 @@ private:
     // hipdnnEnginePluginGetApplicableEngineIds should have already eliminated
     // any nodes with asymmetric padding, this is just a double check.
     if (!std::ranges::equal(*hipDnnConvFwdAttr->pre_padding(),
-                            *hipDnnConvFwdAttr->post_padding())) // C++ 20
+                            *hipDnnConvFwdAttr->post_padding())) // C++20
       return fusilli::error(fusilli::ErrorCode::AttributeNotSet,
                             "Conv node with asymmetric padding found.");
     // Import node.
@@ -285,8 +285,8 @@ private:
     }
 
     // Import new tensor.
-    auto fusilliTensorAttr = fusilli::TensorAttr().setName(
-        std::format("{}_{}", name, uid)); // C++ 20
+    auto fusilliTensorAttr =
+        fusilli::TensorAttr().setName(std::format("{}_{}", name, uid)); // C++20
     FUSILLI_CHECK_ERROR(importAttrs(fusilliTensorAttr, hipDnnTensorAttr));
     std::shared_ptr<fusilli::TensorAttr> graphInput =
         fusilliGraph.tensor(fusilliTensorAttr);
@@ -307,7 +307,7 @@ private:
         opGraphWrapper.getTensorMap().at(uid);
 
     // Import attrs.
-    nodeOutput->setName(std::format("{}_{}", name, uid)); // C++ 20
+    nodeOutput->setName(std::format("{}_{}", name, uid)); // C++20
     FUSILLI_CHECK_ERROR(importAttrs(*nodeOutput, hipDnnTensorAttr));
 
     // A virtual tensor indicates an intermediate (non-boundary) tensor.
