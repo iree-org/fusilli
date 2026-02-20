@@ -358,16 +358,17 @@ def generate_cmake_user_presets():
         f.write("\n")
 
 
-def generate_local_environment_setup(iree_git_tag: str):
-    """Installs a local copy of the correct `iree-compile` binary and generates
-    an "activate" script to setup local machine with correct $PATH etc. to use
-    ThePebble installed programs."""
-    # Create venv with ThePebble prompt
+def provide_iree_tools(iree_git_tag: str):
+    """Pip install iree-base-compiler and symlink IREE tools into dist/.
+
+    TheRock builds libIREECompiler.so and installs it to dist/lib/; ThePebble
+    gets it from pip's iree-base-compiler instead and symlinks it into dist/
+    so TheRock's test scripts can find it."""
+    # Create venv and pip install iree-base-compiler
     venv_dir = PEBBLE_DIR / ".venv"
     print(f"Creating venv at {venv_dir}...")
     venv.EnvBuilder(with_pip=True, prompt="ThePebble").create(venv_dir)
 
-    # Install iree-base-compiler
     pip_version = iree_git_tag.replace("iree-", "")
     pip = venv_dir / "bin" / "pip"
     print(f"Installing iree-base-compiler=={pip_version}...")
@@ -382,11 +383,37 @@ def generate_local_environment_setup(iree_git_tag: str):
         check=True,
     )
 
-    # Generate activate script
+    # Symlink libIREECompiler.so into dist/lib/
+    venv_python = venv_dir / "bin" / "python"
+    result = subprocess.run(
+        [
+            str(venv_python),
+            "-c",
+            "import pathlib, iree.compiler._mlir_libs;"
+            " print(pathlib.Path(iree.compiler._mlir_libs.__file__).parent"
+            " / 'libIREECompiler.so')",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    iree_compiler_lib = Path(result.stdout.strip())
+    lib_symlink = INSTALL_DIR / "lib" / "libIREECompiler.so"
+    print(f"Symlinking {lib_symlink} -> {iree_compiler_lib}")
+    lib_symlink.symlink_to(iree_compiler_lib)
+
+    # Symlink iree-compile binary into dist/bin/
+    iree_compile_src = venv_dir / "bin" / "iree-compile"
+    bin_symlink = INSTALL_DIR / "bin" / "iree-compile"
+    print(f"Symlinking {bin_symlink} -> {iree_compile_src}")
+    bin_symlink.symlink_to(iree_compile_src)
+
+
+def generate_local_environment_setup():
+    """Generate an 'activate' script to set up the local machine with correct
+    $PATH and $LD_LIBRARY_PATH to use ThePebble installed programs."""
     bin_dir = INSTALL_DIR / "bin"
     lib_dir = INSTALL_DIR / "lib"
-    venv_activate = venv_dir / "bin" / "activate"
-
     script_content = f"""#!/bin/bash
 # ThePebble environment activation script
 # Usage: source {PEBBLE_DIR}/activate
@@ -396,8 +423,6 @@ if [[ "${{BASH_SOURCE[0]}}" == "${{0}}" ]]; then
     echo "Usage: source {PEBBLE_DIR}/activate"
     exit 1
 fi
-
-source {venv_activate}
 
 export PATH="{bin_dir}:$PATH"
 export LD_LIBRARY_PATH="{lib_dir}:$LD_LIBRARY_PATH"
@@ -528,7 +553,8 @@ def main():
         setup_iree(get_iree_git_tag())
         build_fusilli()
         generate_cmake_user_presets()
-        generate_local_environment_setup(get_iree_git_tag())
+        provide_iree_tools(get_iree_git_tag())
+        generate_local_environment_setup()
 
         # Copy config to cache for validation checks
         config_src = Path(__file__).parent / "thepebble_config.toml"
