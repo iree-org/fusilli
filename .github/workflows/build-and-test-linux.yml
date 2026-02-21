@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: ["gfx942_clang22_release", "cpu_clang18_debug", "gfx942_clang22_debug", "cpu_gcc13_codecov", "gfx942_clang22_asan", "cpu_clang18_asan"]
+        name: ["gfx942_clang22_release", "cpu_clang18_debug", "gfx942_clang22_debug", "cpu_gcc13_codecov", "gfx942_clang18_asan", "cpu_clang18_asan"]
         include:
           - name: gfx942_clang22_release
             runs-on: linux-mi325-1gpu-ossci-iree-org
