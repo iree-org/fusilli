@@ -106,7 +106,7 @@ module {
 
 inline ErrorOr<std::shared_ptr<Buffer>>
 allocateBufferOfType(Handle &handle, const std::shared_ptr<TensorAttr> &tensor,
-                     DataType type, float initVal) {
+                     DataType type, double initVal) {
   FUSILLI_RETURN_ERROR_IF(!tensor, ErrorCode::AttributeNotSet,
                           "Tensor is not set");
 
