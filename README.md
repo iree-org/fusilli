@@ -247,11 +247,15 @@ FUSILLI_COMPILE_BACKEND_USE_CLI=1 \
 
 ### Sanitizers
 
-Fusilli supports building with [AddressSanitizer](https://clang.llvm.org/docs/AddressSanitizer.html)
-(ASAN) for detecting memory errors such as use-after-free, buffer overflows, and memory leaks, and
-[UndefinedBehaviorSanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html) (UBSAN)
-for detecting undefined behavior such as signed integer overflow, null pointer dereference, and
-misaligned access.
+Fusilli supports building with the following sanitizers:
+- [AddressSanitizer](https://clang.llvm.org/docs/AddressSanitizer.html) (ASAN)
+  for detecting memory errors such as use-after-free, double-free,
+  out-of-bounds accesses, and buffer overflows.
+- [UndefinedBehaviorSanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html)
+  (UBSAN) for detecting undefined behavior such as signed integer overflows,
+  null pointer dereferences, and misaligned accesses.
+- [LeakSanitizer](https://clang.llvm.org/docs/LeakSanitizer.html) (LSAN) for
+  detecting memory leaks.
 
 To run with ASAN/UBSAN instrumentation, configure the build with the
 `-DFUSILLI_ENABLE_ASAN=ON` and/or `-DFUSILLI_ENABLE_UBSAN=ON` flags
