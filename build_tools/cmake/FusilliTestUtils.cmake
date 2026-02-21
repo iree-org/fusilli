@@ -247,6 +247,14 @@ function(add_fusilli_lit_test)
       "--verbose"
       ${_SRC_FILE_PATH}
   )
+
+  # Configure LSAN suppressions for lit tests.
+  if(FUSILLI_ENABLE_ASAN)
+    set_tests_properties(
+      ${_TEST_NAME} PROPERTIES
+      ENVIRONMENT "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt"
+    )
+  endif()
 endfunction()
 
 # Creates multiple fusilli lit tests.

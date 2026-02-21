@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: ["gfx942_clang22_release", "cpu_clang18_debug", "gfx942_clang22_debug", "cpu_gcc13_codecov", "gfx942_clang22_asan", "cpu_clang18_asan"]
+        name: ["gfx942_clang22_release", "cpu_clang18_debug", "gfx942_clang22_debug", "cpu_gcc13_codecov", "gfx942_clang18_asan", "cpu_clang18_asan"]
         include:
           - name: gfx942_clang22_release
             runs-on: linux-mi325-1gpu-ossci-iree-org
@@ -63,11 +63,11 @@ jobs:
               -DCMAKE_C_COMPILER=gcc-13
               -DCMAKE_CXX_COMPILER=g++-13
               -DFUSILLI_CODE_COVERAGE=ON
-          - name: gfx942_clang22_asan
+          - name: gfx942_clang18_asan
             runs-on: linux-mi325-1gpu-ossci-iree-org
             cmake-options:
-              -DCMAKE_C_COMPILER=clang-22
-              -DCMAKE_CXX_COMPILER=clang++-22
+              -DCMAKE_C_COMPILER=clang-18
+              -DCMAKE_CXX_COMPILER=clang++-18
               -DCMAKE_BUILD_TYPE=Debug
               -DFUSILLI_SYSTEMS_AMDGPU=ON
               -DFUSILLI_ENABLE_ASAN=ON
