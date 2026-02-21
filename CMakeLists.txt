@@ -239,7 +239,6 @@ if(FUSILLI_ENABLE_UBSAN)
   # libraries are not UBSAN-instrumented, the vptr check causes undefined
   # symbol errors at link time (__ubsan_vptr_type_cache). Disable it.
   list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fno-sanitize=vptr)
-  list(APPEND FUSILLI_SANITIZER_LINK_FLAGS -fno-sanitize=vptr)
 
   # Disable recovery mode and abort on the first UBSAN error, ensuring
   # UB issues get flagged as test failures rather than silent warnings;
