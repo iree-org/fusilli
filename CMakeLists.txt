@@ -203,9 +203,7 @@ set(FUSILLI_SANITIZER_COMPILE_FLAGS "")
 set(FUSILLI_SANITIZER_LINK_FLAGS "")
 if(FUSILLI_ENABLE_ASAN)
   message(STATUS "AddressSanitizer (ASAN) enabled")
-  # TODO: Remove the compilation flags "-mllvm -asan-globals=0" when
-  #       the problem with "__asan_register_globals" (odr-violation) is fixed
-  list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fsanitize=address -fno-omit-frame-pointer -g -mllvm -asan-globals=0)
+  list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fsanitize=address -fno-omit-frame-pointer -g)
   list(APPEND FUSILLI_SANITIZER_LINK_FLAGS -fsanitize=address)
 
   # Enable recovery mode so the program can continue past ASAN errors,
