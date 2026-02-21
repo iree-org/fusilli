@@ -248,11 +248,22 @@ FUSILLI_COMPILE_BACKEND_USE_CLI=1 \
 ### Sanitizers
 
 Fusilli supports building with [AddressSanitizer](https://clang.llvm.org/docs/AddressSanitizer.html)
-(ASAN) for detecting memory errors such as use-after-free, buffer overflows, and memory leaks.
+(ASAN) for detecting memory errors such as use-after-free, buffer overflows,
+and memory leaks, and
+[UndefinedBehaviorSanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html)
+(UBSAN) for detecting undefined behavior such as signed integer overflow, null
+pointer dereference, and misaligned access.
 
 To run with ASAN instrumentation, configure the build with the
-`-DFUSILLI_ENABLE_ASAN=ON` flag, then build and test:
+`-DFUSILLI_ENABLE_ASAN=ON` flag. To run with UBSAN instrumentation, use
+`-DFUSILLI_ENABLE_UBSAN=ON`. Both can be combined:
 ```shell
+cmake -GNinja -S. -Bbuild \
+    -DCMAKE_C_COMPILER=clang-18 \
+    -DCMAKE_CXX_COMPILER=clang++-18 \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DFUSILLI_ENABLE_ASAN=ON \
+    -DFUSILLI_ENABLE_UBSAN=ON
 cmake --build build --target all
 ctest --test-dir build
 ```
@@ -263,8 +274,14 @@ ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
   ctest --test-dir build
 ```
 
+To customize UBSAN behavior at runtime, set the `UBSAN_OPTIONS` environment variable:
+```shell
+UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+  ctest --test-dir build
+```
+
 Ensure `llvm-symbolizer` is in your `$PATH` (or set the `ASAN_SYMBOLIZER_PATH`
-environment variable) to get symbolized stack traces from ASAN:
+environment variable) to get symbolized stack traces from sanitizers:
 ```shell
 ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer \
   ctest --test-dir build

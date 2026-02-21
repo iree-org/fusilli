@@ -391,7 +391,7 @@ function(_add_fusilli_executable_for_test)
   endif()
 
   # Set compiler options for sanitizers.
-  if(FUSILLI_ENABLE_ASAN)
+  if(FUSILLI_SANITIZER_COMPILE_FLAGS)
     target_compile_options(${_RULE_NAME} PRIVATE ${FUSILLI_SANITIZER_COMPILE_FLAGS})
     target_link_options(${_RULE_NAME} PRIVATE ${FUSILLI_SANITIZER_LINK_FLAGS})
   endif()
