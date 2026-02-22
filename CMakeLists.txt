@@ -69,6 +69,7 @@ option(FUSILLI_ENABLE_LOGGING "Enable logging for tests and samples" OFF)
 option(FUSILLI_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
 option(FUSILLI_SYSTEMS_AMDGPU  "Builds for AMD GPU systems" OFF)
 option(FUSILLI_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+option(FUSILLI_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 
 message(STATUS "Fusilli supported systems:")
 if(FUSILLI_SYSTEMS_AMDGPU)
@@ -80,8 +81,16 @@ if(FUSILLI_ENABLE_ASAN AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   message(FATAL_ERROR "AddressSanitizer requires Clang as the C++ compiler, but '${CMAKE_CXX_COMPILER_ID}' was detected.")
 endif()
 
+if(FUSILLI_ENABLE_UBSAN AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  message(FATAL_ERROR "UndefinedBehaviorSanitizer requires Clang as the C++ compiler, but '${CMAKE_CXX_COMPILER_ID}' was detected.")
+endif()
+
 if(FUSILLI_ENABLE_ASAN AND FUSILLI_CODE_COVERAGE)
   message(FATAL_ERROR "FUSILLI_ENABLE_ASAN and FUSILLI_CODE_COVERAGE cannot be enabled simultaneously.")
+endif()
+
+if(FUSILLI_ENABLE_UBSAN AND FUSILLI_CODE_COVERAGE)
+  message(FATAL_ERROR "FUSILLI_ENABLE_UBSAN and FUSILLI_CODE_COVERAGE cannot be enabled simultaneously.")
 endif()
 
 ################################################################################
@@ -134,6 +143,10 @@ endif()
 # Enable ASAN build for IREE if ASAN is used in Fusilli
 if(FUSILLI_ENABLE_ASAN)
   set(IREE_ENABLE_ASAN ON)
+endif()
+# Enable UBSAN build for IREE if UBSAN is used in Fusilli
+if(FUSILLI_ENABLE_UBSAN)
+  set(IREE_ENABLE_UBSAN ON)
 endif()
 
 if(IREE_SOURCE_DIR)
@@ -206,15 +219,31 @@ if(FUSILLI_ENABLE_ASAN)
   list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fsanitize=address -fno-omit-frame-pointer -g)
   list(APPEND FUSILLI_SANITIZER_LINK_FLAGS -fsanitize=address)
 
-  # Enable recovery mode so the program can continue past ASAN errors,
-  # allowing multiple issues to be reported in a single run. This is
-  # experimental and only supported by some compilers. It takes effect
-  # when `ASAN_OPTIONS=halt_on_error=0` is set at runtime; the default
-  # (halt_on_error=1) still aborts on the first error.
-  check_cxx_compiler_flag("-fsanitize-recover=address" SANITIZE_RECOVER_ADDRESS_SUPPORTED)
-  if (SANITIZE_RECOVER_ADDRESS_SUPPORTED)
+  # Optionally enable recovery mode so the program can continue past
+  # ASAN errors, allowing multiple issues to be reported in a single run.
+  # This is experimental and only supported by some compilers. It takes
+  # effect when `ASAN_OPTIONS=halt_on_error=0` is set at runtime; the
+  # default (halt_on_error=1) still aborts on the first error.
+  check_cxx_compiler_flag("-fsanitize-recover=address" ASAN_RECOVER_SUPPORTED)
+  if (ASAN_RECOVER_SUPPORTED)
     list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fsanitize-recover=address)
   endif()
+endif()
+if(FUSILLI_ENABLE_UBSAN)
+  message(STATUS "UndefinedBehaviorSanitizer (UBSAN) enabled")
+  list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fsanitize=undefined -fno-omit-frame-pointer -g)
+  list(APPEND FUSILLI_SANITIZER_LINK_FLAGS -fsanitize=undefined)
+
+  # The vptr check requires all linked code (including third-party libraries
+  # like Catch2 and libstdc++) to be compiled with UBSAN. Since pre-built
+  # libraries are not UBSAN-instrumented, the vptr check causes undefined
+  # symbol errors at link time (__ubsan_vptr_type_cache). Disable it.
+  list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fno-sanitize=vptr)
+
+  # Disable recovery mode and abort on the first UBSAN error, ensuring
+  # UB issues get flagged as test failures rather than silent warnings;
+  # the default UBSAN behavior is to continue past the first error.
+  list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fno-sanitize-recover=undefined)
 endif()
 
 # Enable AMD GPU build if requested

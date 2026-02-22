@@ -17,6 +17,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <climits>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -249,6 +250,36 @@ TEST_CASE("allocateBufferOfType with DataType and initVal", "[utils][buffer]") {
         allocateBufferOfType(handle, tensor, DataType::Boolean, 1.0f));
     REQUIRE(buffer != nullptr);
     verifyBufferContents(handle, *buffer, std::vector<int8_t>(6, 1));
+  }
+}
+
+TEST_CASE("allocateBufferOfType Int32 with extreme initVal",
+          "[utils][buffer]") {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+
+  auto graph = std::make_shared<Graph>();
+  auto tensor =
+      createTestTensor("test_tensor", std::vector<int64_t>{1, 2}, graph.get());
+
+  // Regression test for float-to-int overflow UB. Passing INT_MAX through a
+  // float parameter caused it to round up to 2147483648.0f (beyond int range).
+  // The fix widened the parameter to double which preserves all int32 values.
+  SECTION("INT_MAX initVal") {
+    double initVal = static_cast<double>(INT_MAX);
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::Int32, initVal));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<int>(2, INT_MAX));
+  }
+
+  SECTION("INT_MIN initVal") {
+    double initVal = static_cast<double>(INT_MIN);
+    FUSILLI_REQUIRE_ASSIGN(
+        auto buffer,
+        allocateBufferOfType(handle, tensor, DataType::Int32, initVal));
+    REQUIRE(buffer != nullptr);
+    verifyBufferContents(handle, *buffer, std::vector<int>(2, INT_MIN));
   }
 }
 
