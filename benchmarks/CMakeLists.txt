@@ -20,7 +20,7 @@ set_target_properties(
 fusilli_enable_clang_tidy(fusilli_benchmark_driver)
 
 # Set compiler options for sanitizers.
-if(FUSILLI_ENABLE_ASAN)
+if(FUSILLI_ENABLE_ASAN OR FUSILLI_ENABLE_UBSAN)
   target_compile_options(fusilli_benchmark_driver PRIVATE ${FUSILLI_SANITIZER_COMPILE_FLAGS})
   target_link_options(fusilli_benchmark_driver PRIVATE ${FUSILLI_SANITIZER_LINK_FLAGS})
 endif()
