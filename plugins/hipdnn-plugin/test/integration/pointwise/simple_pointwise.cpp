@@ -21,29 +21,36 @@ using namespace hipdnn_frontend;
 using namespace hipdnn_data_sdk::utilities;
 using namespace hipdnn_test_sdk::utilities;
 
-// Test: Standalone pointwise ReLU forward (unary)
-// Graph: input[4,8] -> pointwise(RELU_FWD) -> output[4,8]
-TEST(PointwiseIntegrationTest, SimpleReluFwd) {
-  // Initialize HIP.
-  ASSERT_EQ(hipInit(0), hipSuccess);
-  ASSERT_EQ(hipSetDevice(0), hipSuccess);
+class PointwiseIntegrationTest : public ::testing::Test {
+protected:
+  void SetUp() override {
+    ASSERT_EQ(hipInit(0), hipSuccess);
+    ASSERT_EQ(hipSetDevice(0), hipSuccess);
+    ASSERT_EQ(hipStreamCreate(&stream), hipSuccess);
+
+    auto pluginPath = std::filesystem::canonical(
+        getCurrentExecutableDirectory() / FUSILLI_PLUGIN_PATH);
+    const std::array<const char *, 1> paths = {pluginPath.c_str()};
+    ASSERT_EQ(hipdnnSetEnginePluginPaths_ext(paths.size(), paths.data(),
+                                             HIPDNN_PLUGIN_LOADING_ABSOLUTE),
+              HIPDNN_STATUS_SUCCESS);
+
+    ASSERT_EQ(hipdnnCreate(&handle), HIPDNN_STATUS_SUCCESS);
+    ASSERT_EQ(hipdnnSetStream(handle, stream), HIPDNN_STATUS_SUCCESS);
+  }
+
+  void TearDown() override {
+    ASSERT_EQ(hipStreamDestroy(stream), HIPDNN_STATUS_SUCCESS);
+    ASSERT_EQ(hipdnnDestroy(handle), HIPDNN_STATUS_SUCCESS);
+  }
 
   hipStream_t stream = nullptr;
-  ASSERT_EQ(hipStreamCreate(&stream), hipSuccess);
-
-  // Set plugin paths.
-  auto pluginPath = std::filesystem::canonical(getCurrentExecutableDirectory() /
-                                               FUSILLI_PLUGIN_PATH);
-  const std::array<const char *, 1> paths = {pluginPath.c_str()};
-  ASSERT_EQ(hipdnnSetEnginePluginPaths_ext(paths.size(), paths.data(),
-                                           HIPDNN_PLUGIN_LOADING_ABSOLUTE),
-            HIPDNN_STATUS_SUCCESS);
-
-  // Create handle.
   hipdnnHandle_t handle;
-  ASSERT_EQ(hipdnnCreate(&handle), HIPDNN_STATUS_SUCCESS);
-  ASSERT_EQ(hipdnnSetStream(handle, stream), HIPDNN_STATUS_SUCCESS);
+};
 
+// Test: Standalone pointwise ReLU forward (unary)
+// Graph: input[4,8] -> pointwise(RELU_FWD) -> output[4,8]
+TEST_F(PointwiseIntegrationTest, SimpleReluFwd) {
   // Dimensions.
   const int64_t M = 4;
   const int64_t N = 8;
@@ -114,35 +121,11 @@ TEST(PointwiseIntegrationTest, SimpleReluFwd) {
   // Check results.
   CpuFpReferenceValidation<float> validator(1e-6f, 1e-6f);
   EXPECT_TRUE(validator.allClose(expectedOutput, outputTensor));
-
-  // Clean up.
-  ASSERT_EQ(hipStreamDestroy(stream), HIPDNN_STATUS_SUCCESS);
-  ASSERT_EQ(hipdnnDestroy(handle), HIPDNN_STATUS_SUCCESS);
 }
 
 // Test: Standalone pointwise ADD (binary)
 // Graph: in0[4,8] + in1[4,8] -> output[4,8]
-TEST(PointwiseIntegrationTest, SimpleAdd) {
-  // Initialize HIP.
-  ASSERT_EQ(hipInit(0), hipSuccess);
-  ASSERT_EQ(hipSetDevice(0), hipSuccess);
-
-  hipStream_t stream = nullptr;
-  ASSERT_EQ(hipStreamCreate(&stream), hipSuccess);
-
-  // Set plugin paths.
-  auto pluginPath = std::filesystem::canonical(getCurrentExecutableDirectory() /
-                                               FUSILLI_PLUGIN_PATH);
-  const std::array<const char *, 1> paths = {pluginPath.c_str()};
-  ASSERT_EQ(hipdnnSetEnginePluginPaths_ext(paths.size(), paths.data(),
-                                           HIPDNN_PLUGIN_LOADING_ABSOLUTE),
-            HIPDNN_STATUS_SUCCESS);
-
-  // Create handle.
-  hipdnnHandle_t handle;
-  ASSERT_EQ(hipdnnCreate(&handle), HIPDNN_STATUS_SUCCESS);
-  ASSERT_EQ(hipdnnSetStream(handle, stream), HIPDNN_STATUS_SUCCESS);
-
+TEST_F(PointwiseIntegrationTest, SimpleAdd) {
   // Dimensions.
   const int64_t M = 4;
   const int64_t N = 8;
@@ -220,8 +203,4 @@ TEST(PointwiseIntegrationTest, SimpleAdd) {
   // Check results.
   CpuFpReferenceValidation<float> validator(1e-6f, 1e-6f);
   EXPECT_TRUE(validator.allClose(expectedOutput, outputTensor));
-
-  // Clean up.
-  ASSERT_EQ(hipStreamDestroy(stream), HIPDNN_STATUS_SUCCESS);
-  ASSERT_EQ(hipdnnDestroy(handle), HIPDNN_STATUS_SUCCESS);
 }
