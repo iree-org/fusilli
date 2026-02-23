@@ -567,13 +567,16 @@ static ErrorObject benchmarkLayerNormFwd(const LayerNormOptions &opts,
   std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
       variantPack = {{xT, xBuf}, {yT, yBuf}, {mT, mBuf}, {vT, vBuf}};
 
+  // If `elementwise_affine` is True, scale and bias buffers are
+  // allocated and initialized to non-trivial values to avoid possible
+  // compiler-side optimization removing redundant multiply/add operations.
   if (opts.elementwiseAffine) {
     FUSILLI_ASSIGN_OR_RETURN(
-        auto sBuf, allocateBufferOfType(handle, sT, layernormIOType, 1.0f));
+        auto sBuf, allocateBufferOfType(handle, sT, layernormIOType, 0.5f));
     variantPack.insert({sT, sBuf});
 
     FUSILLI_ASSIGN_OR_RETURN(
-        auto bBuf, allocateBufferOfType(handle, bT, layernormIOType, 0.0f));
+        auto bBuf, allocateBufferOfType(handle, bT, layernormIOType, 1.5f));
     variantPack.insert({bT, bBuf});
   }
 
