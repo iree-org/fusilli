@@ -860,8 +860,8 @@ static CLI::App *registerLayerNormOptions(CLI::App &mainApp,
   layerNormApp->add_flag(
       "--elementwise_affine", layerNormOpts.elementwiseAffine,
       "Run in elementwise affine mode. This flag adds learnable per-element "
-      "affine parameters initialized to ones (for weights) and "
-      "zeros (for biases)");
+      "affine parameters initialized to non-trivial values other than one and "
+      "zero");
 
   return layerNormApp;
 }
