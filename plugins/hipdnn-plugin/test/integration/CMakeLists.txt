@@ -109,3 +109,18 @@ add_fusilli_plugin_test(
   COMPILE_DEFS
     FUSILLI_PLUGIN_PATH="../${FUSILLI_PLUGIN_RELATIVE_PATH}"
 )
+
+add_fusilli_plugin_test(
+  NAME fusilli_plugin_simple_pointwise_test
+  SRCS pointwise/simple_pointwise.cpp
+  DEPS
+    GTest::gtest_main
+    hip::host
+    hipdnn_frontend
+    hipdnn_plugin_sdk
+    hipdnn_data_sdk
+    hipdnn_test_sdk
+    Threads::Threads
+  COMPILE_DEFS
+    FUSILLI_PLUGIN_PATH="../${FUSILLI_PLUGIN_RELATIVE_PATH}"
+)
