@@ -297,12 +297,10 @@ TEST(TestFusilliPluginApi, GetApplicableEngineIdsConvPointwise) {
   std::array<int64_t, 5> engineIDs;
   uint32_t numEngines = 0;
 
-  // Test conv + pointwise for various modes.
-  for (auto mode : {hipdnn_data_sdk::data_objects::PointwiseMode::ADD,
-                    hipdnn_data_sdk::data_objects::PointwiseMode::DIV,
-                    hipdnn_data_sdk::data_objects::PointwiseMode::MUL,
-                    hipdnn_data_sdk::data_objects::PointwiseMode::RELU_FWD,
-                    hipdnn_data_sdk::data_objects::PointwiseMode::SUB,
+  // Test conv + unary pointwise activation for various modes.
+  // (conv -> binary -> pointwise covered in
+  // GetApplicableEngineIdsConvBiasActiv)
+  for (auto mode : {hipdnn_data_sdk::data_objects::PointwiseMode::RELU_FWD,
                     hipdnn_data_sdk::data_objects::PointwiseMode::SIGMOID_FWD,
                     hipdnn_data_sdk::data_objects::PointwiseMode::TANH_FWD,
                     hipdnn_data_sdk::data_objects::PointwiseMode::GELU_FWD,
@@ -463,7 +461,7 @@ TEST(TestFusilliPluginApi, CreateExecutionContext) {
   EXPECT_EQ(ctx->uidToFusilliTensorAttr.size(), 3);
 
   // Check x tensor properties.
-  ASSERT_TRUE(ctx->uidToFusilliTensorAttr.contains(xUID)); // C++ 20
+  ASSERT_TRUE(ctx->uidToFusilliTensorAttr.contains(xUID)); // C++20
   std::shared_ptr<fusilli::TensorAttr> xTensor =
       ctx->uidToFusilliTensorAttr[xUID];
   EXPECT_EQ(xTensor->getDim(), expectedXDims);
@@ -472,7 +470,7 @@ TEST(TestFusilliPluginApi, CreateExecutionContext) {
   EXPECT_FALSE(xTensor->isVirtual());
 
   // Check w tensor properties.
-  ASSERT_TRUE(ctx->uidToFusilliTensorAttr.contains(wUID)); // C++ 20
+  ASSERT_TRUE(ctx->uidToFusilliTensorAttr.contains(wUID)); // C++20
   std::shared_ptr<fusilli::TensorAttr> wTensor =
       ctx->uidToFusilliTensorAttr[wUID];
   EXPECT_EQ(wTensor->getDim(), expectedWDims);
@@ -481,7 +479,7 @@ TEST(TestFusilliPluginApi, CreateExecutionContext) {
   EXPECT_FALSE(wTensor->isVirtual());
 
   // Check y tensor properties.
-  ASSERT_TRUE(ctx->uidToFusilliTensorAttr.contains(wUID)); // C++ 20
+  ASSERT_TRUE(ctx->uidToFusilliTensorAttr.contains(wUID)); // C++20
   std::shared_ptr<fusilli::TensorAttr> yTensor =
       ctx->uidToFusilliTensorAttr[yUID];
   EXPECT_EQ(yTensor->getDim(), expectedYDims);

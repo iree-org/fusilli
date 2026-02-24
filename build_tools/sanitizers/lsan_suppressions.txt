@@ -1,0 +1,12 @@
+# LSAN suppressions for leaks in external libraries (IREE, ROCm)
+
+# TODO(iree-org/iree#23526): Memory leak in IREE HIP driver.
+leak:iree_hal_hip_dispatch_completed_create
+
+# TODO(iree-org/iree#23561): RCCL library leaks during dynamic symbol initialization.
+leak:iree_hal_hip_nccl_dynamic_symbols_initialize
+
+# Suppressions from IREE project
+leak:libamdhip64.so
+leak:libhsa-runtime64.so
+leak:libamd_comgr.so

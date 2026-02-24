@@ -161,6 +161,12 @@ function(add_fusilli_benchmark)
   if(FUSILLI_ENABLE_LOGGING)
     list(APPEND _ENV_VARS "FUSILLI_LOG_INFO=1" "FUSILLI_LOG_FILE=stdout")
   endif()
+  if(FUSILLI_ENABLE_ASAN)
+    list(APPEND _ENV_VARS "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt")
+  endif()
+  if(FUSILLI_ENABLE_UBSAN)
+    list(APPEND _ENV_VARS "UBSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/ubsan_suppressions.txt:halt_on_error=1:print_stacktrace=1")
+  endif()
 
   # Set environment variables for test
   set_tests_properties(
@@ -216,6 +222,13 @@ function(add_fusilli_lit_test)
 
   # Pass locations of tools in build directory to lit through `--path` arguments.
   set(_LIT_PATH_ARGS)
+  if(TARGET python3)
+    # Add python path first to prevent system python shadowing venv python.
+    # Shadowing causes issues because fusilli can use python to find
+    # `libIREECompiler.so` based on site_packages layout (see python_utils.h),
+    # _if_ it finds a python with `iree-base-compiler` installed.
+    list(APPEND _LIT_PATH_ARGS "--path" "$<TARGET_FILE_DIR:python3>")
+  endif()
   foreach(_TOOL IN LISTS _RULE_TOOLS)
     list(APPEND _LIT_PATH_ARGS "--path" "$<TARGET_FILE_DIR:${_TOOL}>")
   endforeach()
@@ -237,6 +250,21 @@ function(add_fusilli_lit_test)
       "--verbose"
       ${_SRC_FILE_PATH}
   )
+
+  # Configure sanitizer suppressions for lit tests.
+  set(_LIT_ENV_VARS "")
+  if(FUSILLI_ENABLE_ASAN)
+    list(APPEND _LIT_ENV_VARS "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt")
+  endif()
+  if(FUSILLI_ENABLE_UBSAN)
+    list(APPEND _LIT_ENV_VARS "UBSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/ubsan_suppressions.txt:halt_on_error=1:print_stacktrace=1")
+  endif()
+  if(_LIT_ENV_VARS)
+    set_tests_properties(
+      ${_TEST_NAME} PROPERTIES
+      ENVIRONMENT "${_LIT_ENV_VARS}"
+    )
+  endif()
 endfunction()
 
 # Creates multiple fusilli lit tests.
@@ -320,6 +348,12 @@ function(_add_fusilli_ctest_target)
   if(FUSILLI_ENABLE_LOGGING)
     list(APPEND _ENV_VARS "FUSILLI_LOG_INFO=1" "FUSILLI_LOG_FILE=stdout")
   endif()
+  if(FUSILLI_ENABLE_ASAN)
+    list(APPEND _ENV_VARS "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt")
+  endif()
+  if(FUSILLI_ENABLE_UBSAN)
+    list(APPEND _ENV_VARS "UBSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/ubsan_suppressions.txt:halt_on_error=1:print_stacktrace=1")
+  endif()
 
   # Set environment variables for test
   set_tests_properties(
@@ -367,6 +401,12 @@ function(_add_fusilli_executable_for_test)
     #   geninfo: ERROR: Unexpected negative count '-1' for /usr/include/c++/13/bits/hashtable.h:1964
     target_compile_options(${_RULE_NAME} PRIVATE -coverage -fprofile-update=atomic -O0 -g)
     target_link_options(${_RULE_NAME} PRIVATE -coverage)
+  endif()
+
+  # Set compiler options for sanitizers.
+  if(FUSILLI_ENABLE_ASAN OR FUSILLI_ENABLE_UBSAN)
+    target_compile_options(${_RULE_NAME} PRIVATE ${FUSILLI_SANITIZER_COMPILE_FLAGS})
+    target_link_options(${_RULE_NAME} PRIVATE ${FUSILLI_SANITIZER_LINK_FLAGS})
   endif()
 
   # Place executable in the build/bin sub-directory.

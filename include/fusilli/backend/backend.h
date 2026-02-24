@@ -19,8 +19,9 @@
 #include "fusilli/support/logging.h"
 #include "fusilli/support/process.h"
 
+#include <iree/hal/api.h>
 #include <iree/hal/drivers/hip/api.h>
-#include <iree/runtime/api.h>
+#include <iree/vm/api.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -354,11 +355,11 @@ template <typename T> iree_hal_element_type_t getIreeHalElementTypeForT() {
   return IreeHalElementType<T>::kType;
 }
 
-// Custom deleter for IREE runtime instance.
-struct IreeRuntimeInstanceDeleter {
-  void operator()(iree_runtime_instance_t *instance) const {
+// Custom deleter for IREE VM instance.
+struct IreeVmInstanceDeleter {
+  void operator()(iree_vm_instance_t *instance) const {
     if (instance)
-      iree_runtime_instance_release(instance);
+      iree_vm_instance_release(instance);
   }
 };
 
@@ -370,11 +371,19 @@ struct IreeHalDeviceDeleter {
   }
 };
 
-// Custom deleter for IREE runtime session.
-struct IreeRuntimeSessionDeleter {
-  void operator()(iree_runtime_session_t *session) const {
-    if (session)
-      iree_runtime_session_release(session);
+// Custom deleter for IREE VM context.
+struct IreeVmContextDeleter {
+  void operator()(iree_vm_context_t *context) const {
+    if (context)
+      iree_vm_context_release(context);
+  }
+};
+
+// Custom deleter for IREE VM list.
+struct IreeVmListDeleter {
+  void operator()(iree_vm_list_t *list) const {
+    if (list)
+      iree_vm_list_release(list);
   }
 };
 
@@ -386,13 +395,14 @@ struct IreeHalBufferViewDeleter {
   }
 };
 
-// Aliases for IREE runtime types with custom deleters.
-using IreeRuntimeInstanceSharedPtrType =
-    std::shared_ptr<iree_runtime_instance_t>;
+// Aliases for IREE types with custom deleters.
+using IreeVmInstanceSharedPtrType = std::shared_ptr<iree_vm_instance_t>;
 using IreeHalDeviceUniquePtrType =
     std::unique_ptr<iree_hal_device_t, IreeHalDeviceDeleter>;
-using IreeRuntimeSessionUniquePtrType =
-    std::unique_ptr<iree_runtime_session_t, IreeRuntimeSessionDeleter>;
+using IreeVmContextUniquePtrType =
+    std::unique_ptr<iree_vm_context_t, IreeVmContextDeleter>;
+using IreeVmListUniquePtrType =
+    std::unique_ptr<iree_vm_list_t, IreeVmListDeleter>;
 using IreeHalBufferViewUniquePtrType =
     std::unique_ptr<iree_hal_buffer_view_t, IreeHalBufferViewDeleter>;
 

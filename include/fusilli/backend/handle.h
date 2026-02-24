@@ -7,8 +7,8 @@
 //===----------------------------------------------------------------------===//
 //
 // This file contains the code to create and manage a Fusilli handle
-// which is an RAII wrapper around shared IREE runtime resources
-// (instances and devices) for proper initialization, cleanup and
+// which is an RAII wrapper around shared IREE VM/HAL resources
+// (VM instances and HAL devices) for proper initialization, cleanup and
 // lifetime management.
 //
 //===----------------------------------------------------------------------===//
@@ -19,7 +19,8 @@
 #include "fusilli/backend/backend.h"
 #include "fusilli/support/logging.h"
 
-#include <iree/runtime/api.h>
+#include <iree/hal/api.h>
+#include <iree/vm/api.h>
 
 #include <cstdint>
 #include <utility>
@@ -39,7 +40,7 @@ public:
   static ErrorOr<Handle> create(Backend backend) {
     FUSILLI_LOG_LABEL_ENDL("INFO: Creating handle for backend: " << backend);
 
-    // Create a shared IREE runtime instance (thread-safe) and use it
+    // Create a shared IREE VM instance (thread-safe) and use it
     // along with the backend to construct a handle (without initializing
     // the device yet).
     FUSILLI_ASSIGN_OR_RETURN(auto instance, Handle::createSharedInstance());
@@ -94,7 +95,7 @@ public:
                             ErrorCode::InvalidArgument,
                             "Stream can only be set on AMDGPU backend");
 
-    // Create a shared IREE runtime instance (thread-safe) and use it
+    // Create a shared IREE VM instance (thread-safe) and use it
     // along with the backend to construct a handle (without initializing
     // the device yet).
     FUSILLI_ASSIGN_OR_RETURN(auto instance, Handle::createSharedInstance());
@@ -126,9 +127,9 @@ public:
   friend class CompileContext;
 
 private:
-  // Creates static singleton IREE runtime instance shared across
+  // Creates static singleton IREE VM instance shared across
   // handles/threads. Definition in `fusilli/backend/runtime.h`.
-  static ErrorOr<IreeRuntimeInstanceSharedPtrType> createSharedInstance();
+  static ErrorOr<IreeVmInstanceSharedPtrType> createSharedInstance();
 
   // Creates IREE HAL CPU device for this handle. Definition in
   // `fusilli/backend/runtime.h`.
@@ -139,7 +140,7 @@ private:
   ErrorObject createAMDGPUDevice(int deviceId, uintptr_t stream);
 
   // Private constructor (use factory `create` method for handle creation).
-  Handle(Backend backend, IreeRuntimeInstanceSharedPtrType instance)
+  Handle(Backend backend, IreeVmInstanceSharedPtrType instance)
       : backend_(backend), instance_(std::move(instance)) {}
 
   Backend getBackend() const { return backend_; }
@@ -150,16 +151,16 @@ private:
   // valid as long as this handle exists.
   iree_hal_device_t *getDevice() const { return device_.get(); }
 
-  // Returns a raw pointer to the underlying IREE runtime instance.
+  // Returns a raw pointer to the underlying IREE VM instance.
   // WARNING: The returned raw pointer is not safe to store since
   // its lifetime is tied to the `Handle` objects and only
   // valid as long as at least one handle exists.
-  iree_runtime_instance_t *getInstance() const { return instance_.get(); }
+  iree_vm_instance_t *getInstance() const { return instance_.get(); }
 
   // Order of initialization matters here.
   // `device_` depends on `backend_` and `instance_`.
   Backend backend_;
-  IreeRuntimeInstanceSharedPtrType instance_;
+  IreeVmInstanceSharedPtrType instance_;
   IreeHalDeviceUniquePtrType device_;
 };
 

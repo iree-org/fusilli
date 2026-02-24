@@ -12,9 +12,9 @@
 
 #include <hip/hip_runtime.h>
 
-#include <iree/base/status.h>
+#include <iree/base/allocator.h>
+#include <iree/base/config.h>
 #include <iree/hal/api.h>
-#include <iree/runtime/api.h>
 
 #include <cstdint>
 #include <cstdio>

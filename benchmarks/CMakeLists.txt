@@ -19,6 +19,12 @@ set_target_properties(
 # Enable clang-tidy.
 fusilli_enable_clang_tidy(fusilli_benchmark_driver)
 
+# Set compiler options for sanitizers.
+if(FUSILLI_ENABLE_ASAN OR FUSILLI_ENABLE_UBSAN)
+  target_compile_options(fusilli_benchmark_driver PRIVATE ${FUSILLI_SANITIZER_COMPILE_FLAGS})
+  target_link_options(fusilli_benchmark_driver PRIVATE ${FUSILLI_SANITIZER_LINK_FLAGS})
+endif()
+
 # Test benchmark runner
 if(FUSILLI_SYSTEMS_AMDGPU)
   add_test(
@@ -28,6 +34,21 @@ if(FUSILLI_SYSTEMS_AMDGPU)
             $<TARGET_FILE:fusilli_benchmark_driver>
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   )
+
+  # Configure sanitizer options
+  set(_ENV_VARS "")
+  if(FUSILLI_ENABLE_ASAN)
+    list(APPEND _ENV_VARS "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt")
+  endif()
+  if(FUSILLI_ENABLE_UBSAN)
+    list(APPEND _ENV_VARS "UBSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/ubsan_suppressions.txt:halt_on_error=1:print_stacktrace=1")
+  endif()
+  if(_ENV_VARS)
+    set_tests_properties(
+      fusilli_benchmark_runner_tests PROPERTIES
+      ENVIRONMENT "${_ENV_VARS}"
+    )
+  endif()
 endif()
 
 # Add some benchmark configurations for CI coverage.
@@ -235,14 +256,6 @@ add_fusilli_benchmark(
   ARGS
     --device 0 --iter 10 matmul -M 16 -N 32 -K 64 --a_type bf16 --b_type bf16 --out_type bf16
 )
-
-# TODO(llvm/torch-mlir#4422): Uncomment after torch-mlir issue is fixed.
-# add_fusilli_benchmark(
-#   NAME fusilli_benchmark_matmul_mixed
-#   DRIVER fusilli_benchmark_driver
-#   ARGS
-#     --device 0 --iter 10 matmul -M 16 -N 32 -K 64 --a_type f32 --b_type bf16 --out_type f32
-# )
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_matmul_fp16_transA

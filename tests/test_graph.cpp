@@ -406,9 +406,8 @@ TEST_CASE("Graph `execute`", "[graph]") {
 
   // Make sure input/weight buffers are held until `xBuf` and `yBuf` are alive.
   // If `Graph::execute` were to release them (via iree_hal_buffer_view_release)
-  // right after the call to iree_runtime_call_inputs_push_back_buffer_view,
-  // this would seg-fault with a use-after-free so this test guards against
-  // that.
+  // right after pushing them to the VM input list, this would seg-fault with a
+  // use-after-free so this test guards against that.
   std::vector<half> input;
   FUSILLI_REQUIRE_OK(xBuf->read(handle, input));
   for (auto val : input)

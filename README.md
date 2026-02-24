@@ -245,6 +245,57 @@ FUSILLI_COMPILE_BACKEND_USE_CLI=1 \
   -f commands.txt
 ```
 
+### Sanitizers
+
+Fusilli supports building with the following sanitizers:
+- [AddressSanitizer](https://clang.llvm.org/docs/AddressSanitizer.html) (ASAN)
+  for detecting memory errors such as use-after-free, double-free,
+  out-of-bounds accesses, and buffer overflows.
+- [UndefinedBehaviorSanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html)
+  (UBSAN) for detecting undefined behavior such as signed integer overflows,
+  null pointer dereferences, and misaligned accesses.
+- [LeakSanitizer](https://clang.llvm.org/docs/LeakSanitizer.html) (LSAN) for
+  detecting memory leaks.
+
+To run with ASAN/UBSAN instrumentation, configure the build with the
+`-DFUSILLI_ENABLE_ASAN=ON` and/or `-DFUSILLI_ENABLE_UBSAN=ON` flags
+then build and test:
+```shell
+cmake --build build --target all
+ctest --test-dir build
+```
+
+To customize ASAN behavior at runtime, set the `ASAN_OPTIONS` environment variable:
+```shell
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+  ctest --test-dir build
+```
+
+Ensure `llvm-symbolizer` is in your `$PATH` (or set the `LLVM_SYMBOLIZER_PATH`
+environment variable) to get symbolized stack traces from sanitizers:
+```shell
+LLVM_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer \
+  ctest --test-dir build
+```
+
+The following LSAN and UBSAN options are automatically configured for the relevant
+CTest targets:
+- LSAN: Suppressions from `build_tools/sanitizers/lsan_suppressions.txt` are applied
+- UBSAN: Suppressions from `build_tools/sanitizers/ubsan_suppressions.txt` are applied
+- UBSAN: `halt_on_error=1:print_stacktrace=1` is set (this is not the default behavior
+  but useful for debugging and to ensure violations are not ignored)
+
+When running test binaries directly (not through CTest), set sanitizer options manually:
+```shell
+LSAN_OPTIONS=suppressions=build_tools/sanitizers/lsan_suppressions.txt \
+UBSAN_OPTIONS=suppressions=build_tools/sanitizers/ubsan_suppressions.txt:halt_on_error=1:print_stacktrace=1 \
+  ./build/bin/tests/some_test
+```
+
+> [!NOTE]
+> - Debug builds (`-DCMAKE_BUILD_TYPE=Debug`) provide better stack traces.
+> - Sanitizer builds have runtime overhead and are intended for development/testing, not production.
+
 ### Code Coverage (using gcov + lcov)
 
 This works with gcc builds (code coverage with clang instrumentation is future
