@@ -56,7 +56,7 @@ TEST_CASE("Pointwise MUL with scalar operand", "[pointwise][scalar][graph]") {
   FUSILLI_REQUIRE_ASSIGN(
       auto yBuf, allocateBufferOfType(handle, yT, DataType::Float, 0.0f));
 
-  // Scalar is in the variant pack.
+  // Scalar is not in the variant pack.
   const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
       variantPack = {
           {xT, xBuf},
