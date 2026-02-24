@@ -732,6 +732,9 @@ Graph::layernorm(const std::shared_ptr<TensorAttr> &x,
     scale->setName(layernormAttr.getName() + "_SCALE");
   if (bias && bias->getName().empty())
     bias->setName(layernormAttr.getName() + "_BIAS");
+  auto eps = layernormAttr.getEpsilon();
+  if (eps && eps->getName().empty())
+    eps->setName(layernormAttr.getName() + "_EPSILON");
 
   FUSILLI_LOG_LABEL_ENDL("INFO: Adding LayerNorm '" << layernormAttr.getName()
                                                     << "' to Graph");

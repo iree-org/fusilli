@@ -37,6 +37,7 @@
 #include "fusilli/node/pointwise_node.h"
 #include "fusilli/support/extras.h"
 
+#include <bit> // C++20
 #include <cassert>
 #include <cctype>
 #include <cstddef>
@@ -162,14 +163,12 @@ inline std::string getPermuteOpsAsm(const std::shared_ptr<TensorAttr> &tensor,
 }
 
 // Emits a scalar TensorAttr as a constant tensor literal in MLIR assembly.
-// The result SSA name follows the same "<name>_<suffix>_perm" pattern used by
-// getPermuteOpsAsm() so that getOperandNamesAsm() works without changes.
+// The result SSA name is the tensor's value name (e.g. %alpha).
 inline std::string
-getScalarConstantAsm(const std::shared_ptr<TensorAttr> &tensor,
-                     const std::string &suffix) {
+getScalarConstantAsm(const std::shared_ptr<TensorAttr> &tensor) {
   assert(tensor->isScalar() && tensor->getScalarValue().has_value() &&
          "getScalarConstantAsm called with non-scalar tensor");
-  std::string resultName = tensor->getValueNameAsm() + "_" + suffix + "_perm";
+  std::string resultName = tensor->getValueNameAsm();
   std::string mlirType = kDataTypeToMlirTypeAsm.at(tensor->getDataType());
   std::string resultType = tensor->getTensorTypeAsm(/*isValueTensor=*/true,
                                                     /*useLogicalDims=*/true);
@@ -178,12 +177,19 @@ getScalarConstantAsm(const std::shared_ptr<TensorAttr> &tensor,
   return std::visit(
       [&](auto val) -> std::string {
         using T = decltype(val);
-        if constexpr (std::is_floating_point_v<T>) { // float, double
+        if constexpr (std::is_same_v<T, float>) {
           return std::format(
-              "\n{} = torch.vtensor.literal(dense<{:e}> : tensor<1x{}>) : "
-              "{}\n",
-              resultName, val, mlirType, resultType);
-        } else { // int64_t, int32_t
+              "\n{} = torch.vtensor.literal(dense<0x{:08X}> : tensor<1x{}>) "
+              ": {}\n",
+              resultName, std::bit_cast<uint32_t>(val), mlirType,
+              resultType); // C++20
+        } else if constexpr (std::is_same_v<T, double>) {
+          return std::format(
+              "\n{} = torch.vtensor.literal(dense<0x{:016X}> : tensor<1x{}>) "
+              ": {}\n",
+              resultName, std::bit_cast<uint64_t>(val), mlirType,
+              resultType); // C++20
+        } else /*int64_t, int32_t*/ {
           return std::format(
               "\n{} = torch.vtensor.literal(dense<{}> : tensor<1x{}>) : "
               "{}\n",
@@ -362,6 +368,13 @@ module @module {{
                                    getResultNamesAndTypesAsm(), // {0}
                                    getOperandNamesAndTypesAsm() // {1}
   );
+
+  // Emit scalar constants (`torch.vtensor.literal`) for all scalar graph inputs
+  // at the top of the function body.
+  for (const auto &input : fullGraphInputsSorted_) {
+    if (input->isScalar())
+      output += getScalarConstantAsm(input);
+  }
 
   return output;
 }
@@ -1008,12 +1021,19 @@ inline std::string LayerNormNode::getNormalizedShapeOpsAsm() const {
                             /*suffix=*/layernormAttr.getName());
 }
 
-// Get epsilon constant op in MLIR assembly format.
+// Get epsilon extraction op in MLIR assembly format. The scalar constant
+// `torch.vtensor.literal` is emitted once at graph level
+// (Graph::emitNodePreAsm). Here we extract the float value with
+// `torch.aten.item` for use with `torch.aten.layer_norm` which expects
+// `!torch.float`.
 inline std::string LayerNormNode::getEpsilonOpsAsm() const {
-  float eps =
-      std::get<float>(layernormAttr.getEpsilon()->getScalarValue().value());
-  return std::format("%eps_{} = torch.constant.float {:e}",
-                     layernormAttr.getName(), eps);
+  std::string suffix = layernormAttr.getName();
+  auto eps = layernormAttr.getEpsilon();
+  std::string tensorName = eps->getValueNameAsm();
+  std::string tensorType =
+      eps->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
+  return std::format("    %eps_{} = torch.aten.item {} : {} -> !torch.float\n",
+                     suffix, tensorName, tensorType);
 }
 
 // This gets called by the recursive `emitAsmSubtree()` method to emit
@@ -1259,22 +1279,17 @@ inline std::string PointwiseNode::getResultNamesAndTypesAsm() const {
 inline std::string PointwiseNode::emitNodePreAsm() const {
   std::string uniqueSSASuffix = pointwiseAttr.getName();
 
-  // Generate permute operations (or scalar constants) for inputs and output
-  // using unique suffixes to prevent SSA redefinitions when multiple operations
-  // use the same tensors. Scalar inputs are emitted as torch.vtensor.literal
-  // constants instead of permute ops since they have no physical layout.
-  auto emitInput = [&](const std::shared_ptr<TensorAttr> &input,
-                       const std::string &permLabel) -> std::string {
-    if (!input)
-      return "";
-    if (input->isScalar())
-      return getScalarConstantAsm(input, uniqueSSASuffix);
-    return getPermuteOpsAsm(input, permLabel, uniqueSSASuffix,
-                            /*isInput=*/true);
-  };
-
-  std::string permuteIN0 = emitInput(pointwiseAttr.getIN_0(), "permute_IN_0");
-  std::string permuteIN1 = emitInput(pointwiseAttr.getIN_1(), "permute_IN_1");
+  // Generate permute operations for inputs and output using the standard
+  // getPermuteOpsAsm() with unique suffixes to prevent SSA redefinitions
+  // when multiple operations use the same tensors.
+  std::string permuteIN0 =
+      getPermuteOpsAsm(pointwiseAttr.getIN_0(), "permute_IN_0", uniqueSSASuffix,
+                       /*isInput=*/true);
+  std::string permuteIN1 =
+      pointwiseAttr.getIN_1()
+          ? getPermuteOpsAsm(pointwiseAttr.getIN_1(), "permute_IN_1",
+                             uniqueSSASuffix, /*isInput=*/true)
+          : "";
   std::string permuteOUT0 =
       getPermuteOpsAsm(pointwiseAttr.getOUT_0(), "permute_OUT_0",
                        uniqueSSASuffix, /*isInput=*/false);

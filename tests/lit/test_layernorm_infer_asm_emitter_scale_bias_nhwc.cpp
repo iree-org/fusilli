@@ -12,11 +12,13 @@
 //
 // TORCH-CHECK:   module @module {
 // TORCH-CHECK:     func.func @main(%result_: !torch.tensor<[16,64,32,128],f32>, %arg0_x: !torch.vtensor<[16,64,32,128],f32>, %arg1_scale: !torch.vtensor<[1,128,64,32],f32>, %arg2_bias: !torch.vtensor<[1,128,64,32],f32>) attributes {torch.assume_strict_symbolic_shapes} {
+// Graph-level scalar constant emission for epsilon:
+// TORCH-CHECK:       %layernorm_infer_EPSILON = torch.vtensor.literal(dense<0x3727C5AC> : tensor<1xf32>) : !torch.vtensor<[1],f32>
 // TORCH-CHECK:       %normalized_shape_val_0_layernorm_infer = torch.constant.int 128
 // TORCH-CHECK:       %normalized_shape_val_1_layernorm_infer = torch.constant.int 64
 // TORCH-CHECK:       %normalized_shape_val_2_layernorm_infer = torch.constant.int 32
 // TORCH-CHECK:       %normalized_shape_layernorm_infer = torch.prim.ListConstruct %normalized_shape_val_0_layernorm_infer, %normalized_shape_val_1_layernorm_infer, %normalized_shape_val_2_layernorm_infer : (!torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %eps_layernorm_infer = torch.constant.float 1.000000e-05
+// TORCH-CHECK:       %eps_layernorm_infer = torch.aten.item %layernorm_infer_EPSILON : !torch.vtensor<[1],f32> -> !torch.float
 // TORCH-CHECK:       %permute_x_val_0_layernorm_infer = torch.constant.int 0
 // TORCH-CHECK:       %permute_x_val_1_layernorm_infer = torch.constant.int 3
 // TORCH-CHECK:       %permute_x_val_2_layernorm_infer = torch.constant.int 1
