@@ -128,7 +128,7 @@ static void testGetScalarConstantAsm() {
   int32Scalar->setName("alpha_i32");
 
   // clang-format off
-  // CHECK: %alpha_i32 = torch.vtensor.literal(dense<42> : tensor<1xsi32>) : !torch.vtensor<[1],si32>
+  // CHECK: %alpha_i32 = torch.vtensor.literal(dense<0x0000002A> : tensor<1xsi32>) : !torch.vtensor<[1],si32>
   // clang-format on
   std::cout << getScalarConstantAsm(int32Scalar) << std::endl;
 
@@ -137,7 +137,7 @@ static void testGetScalarConstantAsm() {
   int64Scalar->setName("alpha_i64");
 
   // clang-format off
-  // CHECK: %alpha_i64 = torch.vtensor.literal(dense<-7> : tensor<1xsi64>) : !torch.vtensor<[1],si64>
+  // CHECK: %alpha_i64 = torch.vtensor.literal(dense<0xFFFFFFFFFFFFFFF9> : tensor<1xsi64>) : !torch.vtensor<[1],si64>
   // clang-format on
   std::cout << getScalarConstantAsm(int64Scalar) << std::endl;
 }

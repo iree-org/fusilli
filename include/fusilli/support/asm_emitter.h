@@ -174,27 +174,23 @@ getScalarConstantAsm(const std::shared_ptr<TensorAttr> &tensor) {
                                                     /*useLogicalDims=*/true);
   // std::visit generates a compile time switch statement executing lambda
   // instantiation per variant alternative.
+  // Example output:
+  //   float  1.0f  → dense<0x3F800000>   : tensor<1xf32>
+  //   double 1.0   → dense<0x3FF0000000000000> : tensor<1xf64>
+  //   int32  42    → dense<0x0000002A>   : tensor<1xi32>
+  //   int64  42L   → dense<0x000000000000002A> : tensor<1xi64>
   return std::visit(
       [&](auto val) -> std::string {
-        using T = decltype(val);
-        if constexpr (std::is_same_v<T, float>) {
-          return std::format(
-              "\n{} = torch.vtensor.literal(dense<0x{:08X}> : tensor<1x{}>) "
-              ": {}\n",
-              resultName, std::bit_cast<uint32_t>(val), mlirType,
-              resultType); // C++20
-        } else if constexpr (std::is_same_v<T, double>) {
-          return std::format(
-              "\n{} = torch.vtensor.literal(dense<0x{:016X}> : tensor<1x{}>) "
-              ": {}\n",
-              resultName, std::bit_cast<uint64_t>(val), mlirType,
-              resultType); // C++20
-        } else /*int64_t, int32_t*/ {
-          return std::format(
-              "\n{} = torch.vtensor.literal(dense<{}> : tensor<1x{}>) : "
-              "{}\n",
-              resultName, val, mlirType, resultType);
-        }
+        using UInt = std::conditional_t<sizeof(val) == 4, uint32_t, uint64_t>;
+        // {:0{}X} -> hex format with runtime width:
+        //   - 0  pad with zeros
+        //   - {} runtime width (sizeof(val)*2: 4 bytes→8, 8 bytes→16)
+        //   - X  uppercase hex
+        return std::format(
+            "\n{} = torch.vtensor.literal(dense<0x{:0{}X}> : tensor<1x{}>) "
+            ": {}\n",
+            resultName, std::bit_cast<UInt>(val), sizeof(val) * 2, mlirType,
+            resultType);
       },
       tensor->getScalarValue()
           .value()); // std::variant<int64_t, int32_t, float, double>
