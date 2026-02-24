@@ -130,9 +130,9 @@ TEST_CASE("Handle creation with stream and deviceId", "[handle][hip_tests]") {
 
     // Verify we can allocate, write, and read buffers on handle2
     FUSILLI_REQUIRE_ASSIGN(Buffer deviceBuffer2,
-                           Buffer::allocate(handle1, bufferShape, hostData));
+                           Buffer::allocate(handle2, bufferShape, hostData));
     readData.clear();
-    FUSILLI_REQUIRE_OK(deviceBuffer2.read(handle1, readData));
+    FUSILLI_REQUIRE_OK(deviceBuffer2.read(handle2, readData));
     REQUIRE(readData == hostData);
 
     // Clean up.
