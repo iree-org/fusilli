@@ -181,23 +181,7 @@ Pass custom IREE compiler flags using:
 - **C++ driver**: `FUSILLI_EXTRA_COMPILER_FLAGS` environment variable
 - **Python wrapper**: `--Xiree-compile` flag (which sets the environment variable internally)
 
-**Single flag examples:**
-
-C++ driver:
-```shell
-FUSILLI_EXTRA_COMPILER_FLAGS="--iree-opt-level=O3" \
-  build/bin/benchmarks/fusilli_benchmark_driver --iter 100 \
-  matmul -M 8192 -N 2048 -K 4096 --transA --a_type bf16 --b_type bf16 --out_type bf16
-```
-
-Python wrapper:
-```shell
-python benchmarks/run_benchmark.py \
-  --Xiree-compile="--iree-opt-level=O3" \
-  -f commands.txt -o results.csv
-```
-
-**Multiple flags:**
+**Examples:**
 
 C++ driver (space-separated in one string):
 ```shell
