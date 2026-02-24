@@ -231,7 +231,7 @@ if(FUSILLI_ENABLE_ASAN)
 endif()
 if(FUSILLI_ENABLE_UBSAN)
   message(STATUS "UndefinedBehaviorSanitizer (UBSAN) enabled")
-  list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fsanitize=undefined -fno-omit-frame-pointer -g)
+  list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fsanitize=undefined -fno-omit-frame-pointer -fno-sanitize-merge -g)
   list(APPEND FUSILLI_SANITIZER_LINK_FLAGS -fsanitize=undefined)
 
   # The vptr check requires all linked code (including third-party libraries
