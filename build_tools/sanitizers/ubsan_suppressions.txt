@@ -1,0 +1,4 @@
+# UBSAN suppressions for undefined behavior in external libraries (IREE, ROCm)
+
+# TODO(iree-org/iree#23562): Null pointer passed to nonnull parameter in hip_device.c
+nonnull-attribute:iree/hal/drivers/hip/hip_device.c

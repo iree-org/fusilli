@@ -271,12 +271,6 @@ ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
   ctest --test-dir build
 ```
 
-To customize UBSAN behavior at runtime, set the `UBSAN_OPTIONS` environment variable:
-```shell
-UBSAN_OPTIONS=print_stacktrace=1 \
-  ctest --test-dir build
-```
-
 Ensure `llvm-symbolizer` is in your `$PATH` (or set the `LLVM_SYMBOLIZER_PATH`
 environment variable) to get symbolized stack traces from sanitizers:
 ```shell
@@ -284,9 +278,19 @@ LLVM_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer \
   ctest --test-dir build
 ```
 
-[LeakSanitizer](https://clang.llvm.org/docs/LeakSanitizer.html) suppressions
-(`build_tools/sanitizers/lsan_suppressions.txt`) are automatically applied to
-all test and benchmark targets when ASAN is enabled.
+The following LSAN and UBSAN options are automatically configured for the relevant
+CTest targets:
+- LSAN: Suppressions from `build_tools/sanitizers/lsan_suppressions.txt` are applied
+- UBSAN: Suppressions from `build_tools/sanitizers/ubsan_suppressions.txt` are applied
+- UBSAN: `halt_on_error=1:print_stacktrace=1` is set (this is not the default behavior
+  but useful for debugging and to ensure violations are not ignored)
+
+When running test binaries directly (not through CTest), set sanitizer options manually:
+```shell
+LSAN_OPTIONS=suppressions=build_tools/sanitizers/lsan_suppressions.txt \
+UBSAN_OPTIONS=suppressions=build_tools/sanitizers/ubsan_suppressions.txt:halt_on_error=1:print_stacktrace=1 \
+  ./build/bin/tests/some_test
+```
 
 > [!NOTE]
 > - Debug builds (`-DCMAKE_BUILD_TYPE=Debug`) provide better stack traces.
