@@ -161,12 +161,7 @@ function(add_fusilli_benchmark)
   if(FUSILLI_ENABLE_LOGGING)
     list(APPEND _ENV_VARS "FUSILLI_LOG_INFO=1" "FUSILLI_LOG_FILE=stdout")
   endif()
-  if(FUSILLI_ENABLE_ASAN)
-    list(APPEND _ENV_VARS "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt")
-  endif()
-  if(FUSILLI_ENABLE_UBSAN)
-    list(APPEND _ENV_VARS "UBSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/ubsan_suppressions.txt:halt_on_error=1:print_stacktrace=1")
-  endif()
+  list(APPEND _ENV_VARS ${FUSILLI_SANITIZER_TEST_ENV_VARS})
 
   # Set environment variables for test
   set_tests_properties(
@@ -252,17 +247,10 @@ function(add_fusilli_lit_test)
   )
 
   # Configure sanitizer suppressions for lit tests.
-  set(_LIT_ENV_VARS "")
-  if(FUSILLI_ENABLE_ASAN)
-    list(APPEND _LIT_ENV_VARS "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt")
-  endif()
-  if(FUSILLI_ENABLE_UBSAN)
-    list(APPEND _LIT_ENV_VARS "UBSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/ubsan_suppressions.txt:halt_on_error=1:print_stacktrace=1")
-  endif()
-  if(_LIT_ENV_VARS)
+  if(FUSILLI_SANITIZER_TEST_ENV_VARS)
     set_tests_properties(
       ${_TEST_NAME} PROPERTIES
-      ENVIRONMENT "${_LIT_ENV_VARS}"
+      ENVIRONMENT "${FUSILLI_SANITIZER_TEST_ENV_VARS}"
     )
   endif()
 endfunction()
@@ -348,12 +336,7 @@ function(_add_fusilli_ctest_target)
   if(FUSILLI_ENABLE_LOGGING)
     list(APPEND _ENV_VARS "FUSILLI_LOG_INFO=1" "FUSILLI_LOG_FILE=stdout")
   endif()
-  if(FUSILLI_ENABLE_ASAN)
-    list(APPEND _ENV_VARS "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt")
-  endif()
-  if(FUSILLI_ENABLE_UBSAN)
-    list(APPEND _ENV_VARS "UBSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/ubsan_suppressions.txt:halt_on_error=1:print_stacktrace=1")
-  endif()
+  list(APPEND _ENV_VARS ${FUSILLI_SANITIZER_TEST_ENV_VARS})
 
   # Set environment variables for test
   set_tests_properties(
