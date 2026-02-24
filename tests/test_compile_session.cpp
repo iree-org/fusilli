@@ -12,6 +12,7 @@
 #include <catch2/matchers/catch_matchers.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
+#include <algorithm>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -523,36 +524,34 @@ TEST_CASE("CompileSession::getArgs", "[CompileSession]") {
 TEST_CASE("CompileSession::addFlag with tuning spec path",
           "[CompileSession][tuning_spec]") {
   // Verify tuning spec path flag is accepted by C API.
-  FUSILLI_REQUIRE_ASSIGN(auto *context, CompileContext::create());
+  FUSILLI_REQUIRE_ASSIGN(CompileContext * context, CompileContext::create());
   REQUIRE(context != nullptr);
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-  FUSILLI_REQUIRE_ASSIGN(auto session, context->createSession(handle));
+  FUSILLI_REQUIRE_ASSIGN(CompileSession session,
+                         context->createSession(handle));
 
   std::string tuningSpecPath = "/tmp/test_tuning_spec.mlir";
 
-  auto result =
+  ErrorObject result =
       session.addFlag("--iree-codegen-tuning-spec-path=" + tuningSpecPath);
   FUSILLI_REQUIRE_OK(result);
 
-  // Verify the flag was stored.
-  const auto &args = session.getArgs();
-  bool hasTuningSpecFlag = false;
-  for (const auto &arg : args) {
-    if (arg.find("--iree-codegen-tuning-spec-path") != std::string::npos) {
-      hasTuningSpecFlag = true;
-      break;
-    }
-  }
+  const std::vector<std::string> &args = session.getArgs();
+  bool hasTuningSpecFlag =
+      std::any_of(args.begin(), args.end(), [](const std::string &arg) {
+        return arg.find("--iree-codegen-tuning-spec-path") != std::string::npos;
+      });
   REQUIRE(hasTuningSpecFlag);
 }
 
 TEST_CASE("CompileSession::compile with tuning spec",
           "[CompileSession][integration][tuning_spec]") {
   // End-to-end compilation with tuning spec via C API.
-  FUSILLI_REQUIRE_ASSIGN(auto *context, CompileContext::create());
+  FUSILLI_REQUIRE_ASSIGN(CompileContext * context, CompileContext::create());
   REQUIRE(context != nullptr);
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-  FUSILLI_REQUIRE_ASSIGN(auto session, context->createSession(handle));
+  FUSILLI_REQUIRE_ASSIGN(CompileSession session,
+                         context->createSession(handle));
 
   // Create a minimal no-op tuning spec.
   FUSILLI_REQUIRE_ASSIGN(
@@ -560,7 +559,6 @@ TEST_CASE("CompileSession::compile with tuning spec",
       CacheFile::create(kGraphName, "test_tuning_spec.mlir", /*remove=*/true));
 
   std::string tuningSpecContent = R"(
-// Minimal no-op tuning spec for testing.
 module attributes {transform.with_named_sequence} {
   transform.named_sequence @__kernel_config(%arg0: !transform.any_op {transform.consumed})
     -> !transform.any_op attributes {iree_codegen.tuning_spec_entrypoint} {
@@ -582,7 +580,7 @@ module attributes {transform.with_named_sequence} {
   std::string mlirContent = getSimpleMLIRModule();
   FUSILLI_REQUIRE_OK(input.write(mlirContent));
 
-  auto compileResult =
+  ErrorObject compileResult =
       session.compile(input.path.string(), output.path.string());
   FUSILLI_REQUIRE_OK(compileResult);
   REQUIRE(std::filesystem::exists(output.path));
