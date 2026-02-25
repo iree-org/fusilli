@@ -14,8 +14,10 @@
 #include "fusilli/support/external_tools.h"
 
 #include "fusilli/support/python_utils.h"
-#include "fusilli/support/target_platform.h"
+#include "fusilli/support/target_platform.h" // IWYU pragma: keep
+
 #include <cstdlib>
+#include <string>
 
 namespace fusilli {
 

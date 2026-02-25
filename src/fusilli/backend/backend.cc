@@ -17,16 +17,22 @@
 #include "fusilli/support/logging.h"
 #include "fusilli/support/process.h"
 
+#include <iree/base/config.h>
 #include <iree/hal/drivers/hip/api.h>
 
 #include <algorithm>
+#include <cctype>
+#include <cstddef>
+#include <cstdlib>
 #include <format>
 #include <iomanip>
 #include <mutex>
+#include <ostream>
 #include <span>
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace fusilli {

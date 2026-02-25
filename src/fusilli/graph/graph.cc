@@ -13,12 +13,34 @@
 
 #include "fusilli/graph/graph.h"
 
+#include "fusilli/attributes/common.h"
+#include "fusilli/attributes/conv_attributes.h"
+#include "fusilli/attributes/layernorm_attributes.h"
+#include "fusilli/attributes/matmul_attributes.h"
+#include "fusilli/attributes/pointwise_attributes.h"
+#include "fusilli/attributes/reduction_attributes.h"
+#include "fusilli/attributes/tensor_attributes.h"
 #include "fusilli/backend/compile_command.h"
 #include "fusilli/backend/compile_session.h"
+#include "fusilli/backend/handle.h"
+#include "fusilli/node/conv_node.h"
+#include "fusilli/node/layernorm_node.h"
+#include "fusilli/node/matmul_node.h"
+#include "fusilli/node/pointwise_node.h"
+#include "fusilli/node/reduction_node.h"
+#include "fusilli/support/cache.h"
+#include "fusilli/support/logging.h"
 
+#include <array>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <memory>
+#include <optional>
 #include <sstream>
+#include <string>
+#include <unordered_set>
+#include <utility>
 
 namespace fusilli {
 

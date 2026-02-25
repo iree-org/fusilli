@@ -32,7 +32,9 @@
 #include "fusilli/graph/graph.h"
 #include "fusilli/node/conv_node.h"
 #include "fusilli/node/layernorm_node.h"
+#include "fusilli/node/matmul_node.h"
 #include "fusilli/node/pointwise_node.h"
+#include "fusilli/node/reduction_node.h"
 #include "fusilli/support/extras.h"
 
 #include <bit> // C++20
@@ -45,6 +47,8 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <variant>
 #include <vector>
 
 namespace fusilli {

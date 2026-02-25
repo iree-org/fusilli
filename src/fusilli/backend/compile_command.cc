@@ -14,12 +14,19 @@
 
 #include "fusilli/backend/compile_command.h"
 
+#include "fusilli/backend/backend.h"
+#include "fusilli/backend/handle.h"
+#include "fusilli/support/cache.h"
 #include "fusilli/support/external_tools.h"
 #include "fusilli/support/extras.h"
-#include "fusilli/support/target_platform.h"
+#include "fusilli/support/logging.h"
+#include "fusilli/support/target_platform.h" // IWYU pragma: keep
 
 #include <cstdlib>
 #include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace fusilli {
 

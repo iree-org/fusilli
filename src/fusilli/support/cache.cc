@@ -13,13 +13,16 @@
 
 #include "fusilli/support/cache.h"
 
-#include "fusilli/support/target_platform.h"
+#include "fusilli/support/logging.h"
+#include "fusilli/support/target_platform.h" // IWYU pragma: keep
 
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <ios>
+#include <string>
 #include <system_error>
 
 #if defined(FUSILLI_PLATFORM_WINDOWS)
@@ -109,7 +112,8 @@ std::filesystem::path CacheFile::getPath(const std::string &graphName,
   std::transform(sanitizedGraphName.begin(), sanitizedGraphName.end(),
                  sanitizedGraphName.begin(),
                  [](char c) { return c == ' ' ? '_' : c; });
-  std::erase_if(sanitizedGraphName, [](unsigned char c) { // C++20
+  std::erase_if(sanitizedGraphName, // NOLINT(misc-include-cleaner)
+                [](unsigned char c) {
     return !(std::isalnum(c) || c == '_');
   });
 

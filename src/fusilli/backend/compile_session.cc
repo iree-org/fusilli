@@ -13,13 +13,23 @@
 
 #include "fusilli/backend/compile_session.h"
 
+#include "fusilli/backend/backend.h"
+#include "fusilli/backend/handle.h"
+#include "fusilli/support/cache.h"
 #include "fusilli/support/external_tools.h"
-#include "fusilli/support/extras.h"
+#include "fusilli/support/logging.h"
 
 #include <cassert>
+#include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <mutex>
+#include <span>
 #include <sstream>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 namespace fusilli {
 

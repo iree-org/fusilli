@@ -21,20 +21,24 @@
 #include "fusilli/graph/graph.h"
 #include "fusilli/support/logging.h"
 
+#include <iree/base/api.h>
 #include <iree/hal/api.h>
 #include <iree/hal/drivers/hip/api.h>
 #include <iree/hal/drivers/init.h>
 #include <iree/io/file_contents.h>
+#include <iree/modules/hal/debugging.h>
 #include <iree/modules/hal/module.h>
+#include <iree/modules/hal/types.h>
 #include <iree/vm/api.h>
 #include <iree/vm/bytecode/module.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 namespace fusilli {
 
