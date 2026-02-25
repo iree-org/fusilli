@@ -173,8 +173,11 @@ endif()
 # Defines variables CMAKE_INSTALL_<dir> for common install locations.
 include(GNUInstallDirs)
 
-# Create header-only library.
-add_library(libfusilli INTERFACE)
+# Collect source files.
+file(GLOB_RECURSE FUSILLI_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc)
+
+# Create compiled (static) library.
+add_library(libfusilli STATIC ${FUSILLI_SOURCES})
 
 # Consumers of exported/installed target use fusilli::fusilli.
 set_target_properties(libfusilli PROPERTIES EXPORT_NAME fusilli)
@@ -186,20 +189,19 @@ add_library(fusilli::fusilli ALIAS libfusilli)
 # Enable clang-tidy.
 fusilli_enable_clang_tidy(libfusilli)
 
-# INTERFACE libraries don't install/export header files added via
-# `target_include_directories`. Using a file set property ensures headers are
-# available in the installed/exported package.
+# Add headers to library using a file set property to ensure they are available
+# in the installed/exported package.
 file(GLOB_RECURSE FUSILLI_HEADERS
-  ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h
 )
-target_sources(libfusilli INTERFACE
-  FILE_SET fusilli_headers TYPE HEADERS # file sets require lowercase name
-  BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
+target_sources(libfusilli PUBLIC
+  FILE_SET fusilli_headers TYPE HEADERS
+  BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src
   FILES ${FUSILLI_HEADERS}
 )
 
-# Statically link IREERuntime
-target_link_libraries(libfusilli INTERFACE iree_runtime_unified)
+# Statically link IREERuntime (PUBLIC: IREE types appear in fusilli public headers).
+target_link_libraries(libfusilli PUBLIC iree_runtime_unified)
 
 # Build Type - Release/Debug
 if(NOT CMAKE_BUILD_TYPE)
@@ -266,7 +268,19 @@ if(FUSILLI_SYSTEMS_AMDGPU)
   if(NOT EXISTS "/dev/kfd")
     message(WARNING "No AMD GPU detected (`/dev/kfd` not found) but FUSILLI_SYSTEMS_AMDGPU is set; Only proceed if cross-compiling for AMD GPU systems.")
   endif()
-  target_compile_definitions(libfusilli INTERFACE FUSILLI_ENABLE_AMDGPU)
+  target_compile_definitions(libfusilli PUBLIC FUSILLI_ENABLE_AMDGPU)
+endif()
+
+# Apply sanitizer flags to the library target itself.
+if(FUSILLI_ENABLE_ASAN OR FUSILLI_ENABLE_UBSAN)
+  target_compile_options(libfusilli PRIVATE ${FUSILLI_SANITIZER_COMPILE_FLAGS})
+  target_link_options(libfusilli PRIVATE ${FUSILLI_SANITIZER_LINK_FLAGS})
+endif()
+
+# Apply code coverage flags to the library target itself.
+if(FUSILLI_CODE_COVERAGE)
+  target_compile_options(libfusilli PRIVATE -coverage -fprofile-update=atomic -O0 -g)
+  target_link_options(libfusilli PRIVATE -coverage)
 endif()
 
 # Both tests and benchmarks depend on iree-compile, Catch2, and libutils
@@ -333,6 +347,7 @@ endif()
 # Add libfusilli target to export set
 install(TARGETS libfusilli
   EXPORT FusilliTargets
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   FILE_SET fusilli_headers
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )

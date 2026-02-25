@@ -6,31 +6,13 @@
 
 //===----------------------------------------------------------------------===//
 //
-// This file contains the inline definitions for all the wrapper code around
+// This file contains the out-of-line definitions for the wrapper code around
 // IREE runtime C-APIs to create and manage VM instances, HAL devices, VM
 // contexts and function invocations.
 //
-// Here's a rough mapping of Fusilli constructs to IREE runtime constructs
-// (based on scope and lifetime):
-//
-//  - Group of `Handle`s manage the IREE VM instance lifetime.
-//    An instance is shared across handles/threads/contexts and released
-//    when the last handle goes out of scope.
-//  - `Handle` manages IREE HAL device lifetime. Handles may be shared
-//    by multiple graphs (as long as they intend to run on the same device).
-//    Separate physical devices should have their own handles (hence logical
-//    HAL device) created. Graphs running on the same physical devices should
-//    reuse the same handle (hence logical HAL device). The device is released
-//    when the handle holding it goes out of scope.
-//  - `Graph` manages IREE VM context lifetime. A context holds state on
-//    the HAL device and the loaded VM modules.
-//  - `Buffer` manages IREE HAL buffer view lifetime. The buffer view is
-//    released when the `Buffer` object holding it goes out of scope.
-//
 //===----------------------------------------------------------------------===//
 
-#ifndef FUSILLI_BACKEND_RUNTIME_H
-#define FUSILLI_BACKEND_RUNTIME_H
+#include "fusilli/backend/runtime.h"
 
 #include "fusilli/attributes/tensor_attributes.h"
 #include "fusilli/backend/backend.h"
@@ -65,7 +47,7 @@ namespace fusilli {
 // Register HAL drivers once in the global driver registry. The global
 // registry persists for the entire process lifetime, so drivers must only
 // be registered once even if all VM instances are destroyed and recreated.
-inline ErrorObject registerHalDriversOnce() {
+ErrorObject registerHalDriversOnce() {
   static std::once_flag driversRegistered;
   static iree_status_t registrationStatus = iree_ok_status();
   std::call_once(driversRegistered, []() {
@@ -77,7 +59,7 @@ inline ErrorObject registerHalDriversOnce() {
 }
 
 // Create static singleton IREE VM instance shared across handles/threads.
-inline ErrorOr<IreeVmInstanceSharedPtrType> Handle::createSharedInstance() {
+ErrorOr<IreeVmInstanceSharedPtrType> Handle::createSharedInstance() {
   // Mutex for thread-safe initialization of weakInstance.
   static std::mutex instanceMutex;
 
@@ -122,7 +104,7 @@ inline ErrorOr<IreeVmInstanceSharedPtrType> Handle::createSharedInstance() {
   return ok(sharedInstance);
 }
 
-inline ErrorObject Handle::createCPUDevice() {
+ErrorObject Handle::createCPUDevice() {
   FUSILLI_LOG_LABEL_ENDL("INFO: Creating per-handle IREE HAL device");
 
   // Create a driver from the global driver registry.
@@ -150,7 +132,7 @@ inline ErrorObject Handle::createCPUDevice() {
 #define HIP_DEVICE_ID_TO_IREE_DEVICE_ID(device)                                \
   (iree_hal_device_id_t)((device) + 1)
 
-inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
+ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
   FUSILLI_LOG_LABEL_ENDL("INFO: Creating per-handle IREE HAL device on device: "
                          << deviceId
                          << " stream: " << reinterpret_cast<void *>(stream));
@@ -198,8 +180,8 @@ inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
 //===----------------------------------------------------------------------===//
 
 // Create IREE VM context for this graph and load the compiled artifact.
-inline ErrorObject Graph::createVmContext(const Handle &handle,
-                                          const std::string &vmfbPath) {
+ErrorObject Graph::createVmContext(const Handle &handle,
+                                   const std::string &vmfbPath) {
   // Create a context even if one was created earlier, since the handle
   // (hence device) might have changed and we might be re-compiling the graph
   // for the new device.
@@ -294,7 +276,7 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
 // for the constant workspace size case, or an "iree.abi.transients.size"
 // function for the data-dependent workspace size case. Only the former is
 // supported by Fusilli at the moment.
-inline ErrorOr<size_t> Graph::queryTransientSize() {
+ErrorOr<size_t> Graph::queryTransientSize() {
   // Always resolve the async function for attribute queries. The
   // iree.abi.transients.size.constant attribute is stored in the
   // iree.reflection dict on the @main$async entry point. The sync wrapper
@@ -338,7 +320,7 @@ inline ErrorOr<size_t> Graph::queryTransientSize() {
 // map from `TensorAttr` to `Buffer` wrapping the `iree_hal_buffer_view_t *`.
 // The `workspace` parameter provides transient storage for intermediate values
 // when required by the compiled module.
-inline ErrorObject
+ErrorObject
 Graph::execute(const Handle &handle,
                const std::unordered_map<std::shared_ptr<TensorAttr>,
                                         std::shared_ptr<Buffer>> &variantPack,
@@ -473,57 +455,6 @@ Graph::execute(const Handle &handle,
   return ok();
 }
 
-// Factory: Allocates a new buffer view and takes ownership.
-template <typename T>
-inline ErrorOr<Buffer>
-Buffer::allocate(const Handle &handle,
-                 const std::vector<iree_hal_dim_t> &bufferShape,
-                 const std::vector<T> &bufferData) {
-  FUSILLI_LOG_LABEL_ENDL("INFO: Allocating new device buffer");
-
-  // Validate that bufferData size matches the product of bufferShape dimensions
-  size_t expectedSize = 1;
-  for (auto dim : bufferShape) {
-    expectedSize *= dim;
-  }
-  FUSILLI_RETURN_ERROR_IF(
-      expectedSize == 0 || bufferShape.empty(), ErrorCode::RuntimeFailure,
-      "Buffer::allocate failed: cannot allocate a buffer with zero size");
-  FUSILLI_RETURN_ERROR_IF(
-      bufferData.size() != expectedSize, ErrorCode::RuntimeFailure,
-      "Buffer::allocate failed: bufferData size (" +
-          std::to_string(bufferData.size()) +
-          ") does not match product of bufferShape dimensions (" +
-          std::to_string(expectedSize) + ")");
-
-  iree_hal_buffer_view_t *rawBufferView = nullptr;
-  iree_hal_buffer_params_t bufferParams = {
-      // Intended usage of this buffer (transfers, dispatches, etc):
-      .usage = IREE_HAL_BUFFER_USAGE_DEFAULT,
-      // Access to allow to this memory:
-      .access = IREE_HAL_MEMORY_ACCESS_ALL,
-      // Where to allocate (host or device):
-      .type = IREE_HAL_MEMORY_TYPE_DEVICE_LOCAL,
-  };
-  FUSILLI_CHECK_ERROR(iree_hal_buffer_view_allocate_buffer_copy(
-      // IREE HAL device and allocator:
-      handle.getDevice(), iree_hal_device_allocator(handle.getDevice()),
-      // Shape rank and dimensions:
-      bufferShape.size(), bufferShape.data(),
-      // Element type:
-      getIreeHalElementTypeForT<T>(),
-      // Encoding type:
-      IREE_HAL_ENCODING_TYPE_DENSE_ROW_MAJOR, bufferParams,
-      // The actual heap buffer to wrap or clone and its allocator:
-      iree_make_const_byte_span(bufferData.data(),
-                                bufferData.size() * sizeof(T)),
-      // Buffer view + storage are returned and owned by the caller
-      // (this Buffer object in this case):
-      &rawBufferView));
-
-  return ok(Buffer(IreeHalBufferViewUniquePtrType(rawBufferView)));
-}
-
 //===----------------------------------------------------------------------===//
 //
 // Buffer Runtime API Methods
@@ -531,8 +462,7 @@ Buffer::allocate(const Handle &handle,
 //===----------------------------------------------------------------------===//
 
 // Factory: Imports an existing buffer view and retains ownership.
-inline ErrorOr<Buffer>
-Buffer::import(iree_hal_buffer_view_t *externalBufferView) {
+ErrorOr<Buffer> Buffer::import(iree_hal_buffer_view_t *externalBufferView) {
   FUSILLI_LOG_LABEL_ENDL("INFO: Importing pre-allocated device buffer");
   FUSILLI_RETURN_ERROR_IF(
       externalBufferView == nullptr, ErrorCode::RuntimeFailure,
@@ -542,8 +472,7 @@ Buffer::import(iree_hal_buffer_view_t *externalBufferView) {
 }
 
 // Factory: Allocates a raw buffer for workspace/transient usage.
-inline ErrorOr<Buffer> Buffer::allocateRaw(const Handle &handle,
-                                           size_t sizeInBytes) {
+ErrorOr<Buffer> Buffer::allocateRaw(const Handle &handle, size_t sizeInBytes) {
   FUSILLI_LOG_LABEL_ENDL("INFO: Allocating raw device buffer of size "
                          << sizeInBytes << " bytes");
   FUSILLI_RETURN_ERROR_IF(sizeInBytes == 0, ErrorCode::RuntimeFailure,
@@ -573,30 +502,4 @@ inline ErrorOr<Buffer> Buffer::allocateRaw(const Handle &handle,
   return ok(Buffer(IreeHalBufferViewUniquePtrType(bufferView)));
 }
 
-// Reads device buffer by initiating a device-to-host transfer and
-// populating `outData`.
-template <typename T>
-inline ErrorObject Buffer::read(const Handle &handle, std::vector<T> &outData) {
-  FUSILLI_LOG_LABEL_ENDL("INFO: Reading device buffer through D2H transfer");
-  FUSILLI_RETURN_ERROR_IF(outData.size() != 0, ErrorCode::RuntimeFailure,
-                          "Buffer::read failed as outData is NOT empty");
-
-  // Get the underlying buffer from the buffer view.
-  iree_hal_buffer_t *buffer = iree_hal_buffer_view_buffer(getBufferView());
-
-  // Resize output vector `outData` based on buffer size.
-  iree_device_size_t byteLength =
-      iree_hal_buffer_view_byte_length(getBufferView());
-  outData.resize(byteLength / sizeof(T));
-
-  // Copy results back from device.
-  FUSILLI_CHECK_ERROR(iree_hal_device_transfer_d2h(
-      handle.getDevice(), buffer, 0, outData.data(), byteLength,
-      IREE_HAL_TRANSFER_BUFFER_FLAG_DEFAULT, iree_infinite_timeout()));
-
-  return ok();
-}
-
 } // namespace fusilli
-
-#endif // FUSILLI_BACKEND_RUNTIME_H
