@@ -21,8 +21,49 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <utility> // IWYU pragma: export
 #include <vector>
+
+// RAII helper to execute cleanup code when going out of scope, even if
+// REQUIRE() fails. Based on LLVM's scope_exit:
+// https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/ADT/ScopeExit.h
+//
+// Usage:
+//   TEST_CASE("my test") {
+//     auto cleanup = scope_exit([&] {
+//       std::filesystem::remove_all(some_directory_path);
+//     });
+//     // ... test code that might fail with REQUIRE() ...
+//     // cleanup happens automatically when going out of scope
+//   }
+template <typename Callable> class [[nodiscard]] scope_exit {
+  Callable ExitFunction;
+  bool Engaged = true; // False once moved-from or release()d.
+
+public:
+  template <typename Fp>
+  explicit scope_exit(Fp &&F) : ExitFunction(std::forward<Fp>(F)) {}
+
+  scope_exit(scope_exit &&Rhs)
+      : ExitFunction(std::move(Rhs.ExitFunction)), Engaged(Rhs.Engaged) {
+    Rhs.release();
+  }
+
+  scope_exit(const scope_exit &) = delete;
+  scope_exit &operator=(scope_exit &&) = delete;
+  scope_exit &operator=(const scope_exit &) = delete;
+
+  void release() { Engaged = false; }
+
+  ~scope_exit() {
+    if (Engaged)
+      ExitFunction();
+  }
+};
+
+// Deduction guide for C++17 CTAD.
+template <typename Callable> scope_exit(Callable) -> scope_exit<Callable>;
 
 // Test side dual to FUSILLI_CHECK_ERROR. REQUIRE expression that evaluates to
 // (or in the case of ErrorOr<T> is convertible to) an ErrorObject to be in ok

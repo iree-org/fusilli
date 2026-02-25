@@ -21,6 +21,12 @@ using namespace fusilli;
 static std::string kGraphName = "test_cache";
 
 TEST_CASE("CacheFile::create remove = true", "[CacheFile]") {
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup = scope_exit([&] {
+    std::filesystem::remove_all(
+        CacheFile::getPath(kGraphName, "a").parent_path());
+  });
+
   SECTION("cache removal") {
     std::filesystem::path cacheFilePath;
     {
@@ -86,12 +92,15 @@ TEST_CASE("CacheFile::create remove = true", "[CacheFile]") {
     // The second file (path2) should still exist (now owned by cf1).
     REQUIRE(std::filesystem::exists(path2));
   }
-
-  std::filesystem::remove_all(
-      CacheFile::getPath(kGraphName, "a").parent_path());
 }
 
 TEST_CASE("CacheFile::create remove = false", "[CacheFile]") {
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup = scope_exit([&] {
+    std::filesystem::remove_all(
+        CacheFile::getPath(kGraphName, "a").parent_path());
+  });
+
   SECTION("cache persistence") {
     std::filesystem::path cacheFilePath;
     {
@@ -107,9 +116,6 @@ TEST_CASE("CacheFile::create remove = false", "[CacheFile]") {
 
     // Cache file should not have been removed.
     REQUIRE(std::filesystem::exists(cacheFilePath));
-
-    // Remove test artifacts.
-    std::filesystem::remove_all(cacheFilePath.parent_path());
   }
 
   SECTION("move assignment operator") {
@@ -151,13 +157,7 @@ TEST_CASE("CacheFile::create remove = false", "[CacheFile]") {
     // Both files should still exist since remove=false.
     REQUIRE(std::filesystem::exists(path1));
     REQUIRE(std::filesystem::exists(path2));
-
-    // Clean up test artifacts.
-    std::filesystem::remove_all(path1.parent_path());
   }
-
-  std::filesystem::remove_all(
-      CacheFile::getPath(kGraphName, "a").parent_path());
 }
 
 TEST_CASE("CacheFile::open", "[CacheFile]") {
@@ -174,6 +174,11 @@ TEST_CASE("CacheFile::open", "[CacheFile]") {
                                                   /*graphName=*/kGraphName,
                                                   /*filename=*/"test_file.txt",
                                                   /*remove=*/true));
+
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup = scope_exit(
+      [&] { std::filesystem::remove_all(cacheFile.path.parent_path()); });
+
   FUSILLI_REQUIRE_OK(cacheFile.write("test data"));
 
   // Now open the existing file.
@@ -183,9 +188,6 @@ TEST_CASE("CacheFile::open", "[CacheFile]") {
   // Verify we can read the content.
   FUSILLI_REQUIRE_ASSIGN(std::string content, opened.read());
   REQUIRE(content == "test data");
-
-  // Remove test artifacts.
-  std::filesystem::remove_all(cacheFile.path.parent_path());
 }
 
 TEST_CASE("CacheFile directory sanitization", "[CacheFile]") {
@@ -194,6 +196,10 @@ TEST_CASE("CacheFile directory sanitization", "[CacheFile]") {
                          CacheFile::create(/*graphName=*/"test / gr@ph!",
                                            /*filename=*/"test_file.txt",
                                            /*remove=*/true));
+
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup = scope_exit(
+      [&] { std::filesystem::remove_all(cacheFile.path.parent_path()); });
 
   // Extract the sanitized directory name from the path.
   std::filesystem::path dirPath = cacheFile.path.parent_path();
@@ -204,7 +210,4 @@ TEST_CASE("CacheFile directory sanitization", "[CacheFile]") {
 
   // Verify the file was actually created.
   REQUIRE(std::filesystem::exists(cacheFile.path));
-
-  // Remove test artifacts.
-  std::filesystem::remove_all(cacheFile.path.parent_path());
 }
