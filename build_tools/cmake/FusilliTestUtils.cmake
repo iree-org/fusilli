@@ -161,7 +161,9 @@ function(add_fusilli_benchmark)
   if(FUSILLI_ENABLE_LOGGING)
     list(APPEND _ENV_VARS "FUSILLI_LOG_INFO=1" "FUSILLI_LOG_FILE=stdout")
   endif()
-  list(APPEND _ENV_VARS ${FUSILLI_SANITIZER_TEST_ENV_VARS})
+  if(FUSILLI_SANITIZER_TEST_ENV_VARS)
+    list(APPEND _ENV_VARS ${FUSILLI_SANITIZER_TEST_ENV_VARS})
+  endif()
 
   # Set environment variables for test
   set_tests_properties(
@@ -336,7 +338,9 @@ function(_add_fusilli_ctest_target)
   if(FUSILLI_ENABLE_LOGGING)
     list(APPEND _ENV_VARS "FUSILLI_LOG_INFO=1" "FUSILLI_LOG_FILE=stdout")
   endif()
-  list(APPEND _ENV_VARS ${FUSILLI_SANITIZER_TEST_ENV_VARS})
+  if(FUSILLI_SANITIZER_TEST_ENV_VARS)
+    list(APPEND _ENV_VARS ${FUSILLI_SANITIZER_TEST_ENV_VARS})
+  endif()
 
   # Set environment variables for test
   set_tests_properties(
