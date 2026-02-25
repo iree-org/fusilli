@@ -284,14 +284,37 @@ private:
     }
 
     // Import new tensor.
-    auto fusilliTensorAttr =
-        fusilli::TensorAttr().setName(std::format("{}_{}", name, uid)); // C++20
+    fusilli::TensorAttr fusilliTensorAttr;
+    if (isPassByValue(hipDnnTensorAttr)) { // handle scalar tensors
+      switch (hipDnnTensorAttr->value_type()) {
+      case hipdnn_data_sdk::data_objects::TensorValue::Float32Value:
+        fusilliTensorAttr = fusilli::TensorAttr(
+            hipDnnTensorAttr->value_as_Float32Value()->value());
+        break;
+      case hipdnn_data_sdk::data_objects::TensorValue::Float64Value:
+        fusilliTensorAttr = fusilli::TensorAttr(
+            hipDnnTensorAttr->value_as_Float64Value()->value());
+        break;
+      case hipdnn_data_sdk::data_objects::TensorValue::Int32Value:
+        fusilliTensorAttr = fusilli::TensorAttr(
+            hipDnnTensorAttr->value_as_Int32Value()->value());
+        break;
+      default:
+        return fusilli::error(
+            fusilli::ErrorCode::NotImplemented,
+            "Unsupported scalar type in hipdnn -> fusilli graph translation.");
+      }
+    }
+    fusilliTensorAttr.setName(std::format("{}_{}", name, uid)); // C++20
     FUSILLI_CHECK_ERROR(importAttrs(fusilliTensorAttr, hipDnnTensorAttr));
     std::shared_ptr<fusilli::TensorAttr> graphInput =
         fusilliGraph.tensor(fusilliTensorAttr);
 
-    // Track boundary tensor.
-    uidToIOTensor[uid] = graphInput;
+    // Scalar constants are embedded in the MLIR IR and don't need device
+    // buffers, so exclude them from the IO tensor map that drives variant
+    // pack construction at execution time.
+    if (!graphInput->isScalar())
+      uidToIOTensor[uid] = graphInput;
 
     return ok(graphInput);
   };
@@ -327,7 +350,15 @@ private:
     return fusilli::ok();
   };
 
-  // Import all tensor attrs src -> dest.
+  // Whether the hipDNN tensor carries a pass-by-value scalar (equivalent to
+  // hipDNN frontend's TensorAttributes::get_pass_by_value()).
+  static bool
+  isPassByValue(const hipdnn_data_sdk::data_objects::TensorAttributes *src) {
+    return src->value_type() !=
+           hipdnn_data_sdk::data_objects::TensorValue::NONE;
+  }
+
+  // Import tensor attrs (dims, strides, datatype) from hipDNN to fusilli.
   fusilli::ErrorObject
   importAttrs(fusilli::TensorAttr &dest,
               const hipdnn_data_sdk::data_objects::TensorAttributes *src) {
