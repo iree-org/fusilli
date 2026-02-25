@@ -179,6 +179,9 @@ getScalarConstantAsm(const std::shared_ptr<TensorAttr> &tensor) {
   //   double 1.0   → dense<0x3FF0000000000000> : tensor<1xf64>
   //   int32  42    → dense<0x0000002A>   : tensor<1xi32>
   //   int64  42L   → dense<0x000000000000002A> : tensor<1xi64>
+  constexpr std::string_view schema = R"(
+    {0} = torch.vtensor.literal(dense<0x{1}> : tensor<1x{2}>) : {3}
+)";
   return std::visit(
       [&](auto val) -> std::string {
         using UInt = std::conditional_t<sizeof(val) == 4, uint32_t, uint64_t>;
@@ -186,11 +189,13 @@ getScalarConstantAsm(const std::shared_ptr<TensorAttr> &tensor) {
         //   - 0  pad with zeros
         //   - {} runtime width (sizeof(val)*2: 4 bytes→8, 8 bytes→16)
         //   - X  uppercase hex
-        return std::format(
-            "\n{} = torch.vtensor.literal(dense<0x{:0{}X}> : tensor<1x{}>) "
-            ": {}\n",
-            resultName, std::bit_cast<UInt>(val), sizeof(val) * 2, mlirType,
-            resultType);
+        return std::format(schema,
+                           resultName, // {0}
+                           std::format("{:0{}X}", std::bit_cast<UInt>(val),
+                                       sizeof(val) * 2), // {1}
+                           mlirType,                     // {2}
+                           resultType                    // {3}
+        );
       },
       tensor->getScalarValue()
           .value()); // std::variant<int64_t, int32_t, float, double>
@@ -1028,8 +1033,14 @@ inline std::string LayerNormNode::getEpsilonOpsAsm() const {
   std::string tensorName = eps->getValueNameAsm();
   std::string tensorType =
       eps->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
-  return std::format("    %eps_{} = torch.aten.item {} : {} -> !torch.float\n",
-                     suffix, tensorName, tensorType);
+  constexpr std::string_view schema = R"(
+    %eps_{0} = torch.aten.item {1} : {2} -> !torch.float
+)";
+  return std::format(schema,
+                     suffix,     // {0}
+                     tensorName, // {1}
+                     tensorType  // {2}
+  );
 }
 
 // This gets called by the recursive `emitAsmSubtree()` method to emit
