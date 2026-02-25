@@ -121,6 +121,16 @@ add_fusilli_tests(
     libfusilli
     Catch2::Catch2WithMain)
 
+# Minimal reproduction for ASAN ODR false positive (issue #180).
+add_fusilli_tests(
+  PREFIX
+    fusilli_odr_repro
+  SRCS
+    test_odr_repro.cpp
+  DEPS
+    libfusilli
+    Catch2::Catch2WithMain)
+
 add_fusilli_lit_tests(
   SRCS
     lit/test_asm_emitter.cpp
