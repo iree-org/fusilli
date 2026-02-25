@@ -190,6 +190,10 @@ TEST_CASE("CompileSession::compile with valid MLIR",
       CacheFile output,
       CacheFile::create(kGraphName, "output.vmfb", /*remove=*/true));
 
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
+
   // Write a simple MLIR module to the input file.
   std::string mlirContent = getSimpleMLIRModule();
   FUSILLI_REQUIRE_OK(input.write(mlirContent));
@@ -202,7 +206,6 @@ TEST_CASE("CompileSession::compile with valid MLIR",
   // Verify the output file was created and is not empty.
   REQUIRE(std::filesystem::exists(output.path));
   REQUIRE(std::filesystem::file_size(output.path) > 0);
-  std::filesystem::remove_all(input.path.parent_path());
 }
 
 TEST_CASE("CompileSession::compile with custom flags",
@@ -226,6 +229,10 @@ TEST_CASE("CompileSession::compile with custom flags",
       CacheFile output,
       CacheFile::create(kGraphName, "output_opt.vmfb", /*remove=*/true));
 
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
+
   // Write a simple MLIR module to the input file.
   std::string mlirContent = getSimpleMLIRModule();
   FUSILLI_REQUIRE_OK(input.write(mlirContent));
@@ -238,7 +245,6 @@ TEST_CASE("CompileSession::compile with custom flags",
   // Verify the output file was created.
   REQUIRE(std::filesystem::exists(output.path));
   REQUIRE(std::filesystem::file_size(output.path) > 0);
-  std::filesystem::remove_all(input.path.parent_path());
 }
 
 TEST_CASE("CompileSession::compile with invalid MLIR",
@@ -257,6 +263,10 @@ TEST_CASE("CompileSession::compile with invalid MLIR",
       CacheFile output,
       CacheFile::create(kGraphName, "invalid.vmfb", /*remove=*/true));
 
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
+
   // Write invalid MLIR content.
   std::string invalidMLIR = "this is not valid MLIR syntax!";
   FUSILLI_REQUIRE_OK(input.write(invalidMLIR));
@@ -266,7 +276,6 @@ TEST_CASE("CompileSession::compile with invalid MLIR",
       session.compile(input.path.string(), output.path.string());
   REQUIRE(isError(compileResult));
   REQUIRE(compileResult.getCode() == ErrorCode::CompileFailure);
-  std::filesystem::remove_all(input.path.parent_path());
 }
 
 TEST_CASE("CompileSession::compile with missing input file",
@@ -285,12 +294,15 @@ TEST_CASE("CompileSession::compile with missing input file",
       CacheFile output,
       CacheFile::create(kGraphName, "missing.vmfb", /*remove=*/true));
 
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
+
   // Input file doesn't exist - should fail.
   auto compileResult =
       session.compile(input.path.string(), output.path.string());
   REQUIRE(isError(compileResult));
   REQUIRE(compileResult.getCode() == ErrorCode::CompileFailure);
-  std::filesystem::remove_all(input.path.parent_path());
 }
 
 TEST_CASE("CompileSession move semantics", "[CompileSession]") {
@@ -329,6 +341,10 @@ TEST_CASE("CompileSession::compile with AMDGPU backend",
       CacheFile output,
       CacheFile::create(kGraphName, "output_amdgpu.vmfb", /*remove=*/true));
 
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
+
   // Write a simple MLIR module to the input file.
   std::string mlirContent = getSimpleMLIRModule();
   FUSILLI_REQUIRE_OK(input.write(mlirContent));
@@ -341,7 +357,6 @@ TEST_CASE("CompileSession::compile with AMDGPU backend",
   // Verify the output file was created and is not empty.
   REQUIRE(std::filesystem::exists(output.path));
   REQUIRE(std::filesystem::file_size(output.path) > 0);
-  std::filesystem::remove_all(input.path.parent_path());
 }
 #endif
 
@@ -421,6 +436,10 @@ TEST_CASE("CompileSession::build with CPU backend", "[CompileSession]") {
       CacheFile statistics,
       CacheFile::create(kGraphName, "statistics.json", true));
 
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
+
   FUSILLI_REQUIRE_ASSIGN(
       CompileSession session,
       CompileSession::build(handle, input, output, statistics));
@@ -444,7 +463,6 @@ TEST_CASE("CompileSession::build with CPU backend", "[CompileSession]") {
   }
   REQUIRE(hasStatFormat);
   REQUIRE(hasStatFile);
-  std::filesystem::remove_all(input.path.parent_path());
 }
 
 TEST_CASE("CompileSession::toString format", "[CompileSession]") {
@@ -457,6 +475,10 @@ TEST_CASE("CompileSession::toString format", "[CompileSession]") {
       CacheFile statistics,
       CacheFile::create(kGraphName, "statistics.json", true));
 
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
+
   FUSILLI_REQUIRE_ASSIGN(
       CompileSession session,
       CompileSession::build(handle, input, output, statistics));
@@ -467,7 +489,6 @@ TEST_CASE("CompileSession::toString format", "[CompileSession]") {
   REQUIRE(cmdStr.back() == '\n');
   REQUIRE_THAT(cmdStr, Catch::Matchers::ContainsSubstring("iree-compile"));
   REQUIRE_THAT(cmdStr, Catch::Matchers::ContainsSubstring("-o"));
-  std::filesystem::remove_all(input.path.parent_path());
 }
 
 TEST_CASE("CompileSession::writeTo", "[CompileSession]") {
@@ -482,6 +503,10 @@ TEST_CASE("CompileSession::writeTo", "[CompileSession]") {
   FUSILLI_REQUIRE_ASSIGN(CacheFile commandFile,
                          CacheFile::create(kGraphName, "command.txt", true));
 
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
+
   FUSILLI_REQUIRE_ASSIGN(
       CompileSession session,
       CompileSession::build(handle, input, output, statistics));
@@ -491,7 +516,6 @@ TEST_CASE("CompileSession::writeTo", "[CompileSession]") {
   // Read back and verify.
   FUSILLI_REQUIRE_ASSIGN(std::string written, commandFile.read());
   REQUIRE(written == session.toString());
-  std::filesystem::remove_all(input.path.parent_path());
 }
 
 TEST_CASE("CompileSession::execute with valid MLIR", "[CompileSession]") {
@@ -503,6 +527,10 @@ TEST_CASE("CompileSession::execute with valid MLIR", "[CompileSession]") {
   FUSILLI_REQUIRE_ASSIGN(
       CacheFile statistics,
       CacheFile::create(kGraphName, "statistics.json", true));
+
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
 
   // Write valid MLIR.
   FUSILLI_REQUIRE_OK(input.write(getSimpleMLIRModule()));
@@ -521,7 +549,6 @@ TEST_CASE("CompileSession::execute with valid MLIR", "[CompileSession]") {
   // Verify statistics file was created.
   REQUIRE(std::filesystem::exists(statistics.path));
   REQUIRE(std::filesystem::file_size(statistics.path) > 0);
-  std::filesystem::remove_all(input.path.parent_path());
 }
 
 TEST_CASE("CompileSession::getArgs", "[CompileSession]") {
@@ -533,6 +560,10 @@ TEST_CASE("CompileSession::getArgs", "[CompileSession]") {
   FUSILLI_REQUIRE_ASSIGN(
       CacheFile statistics,
       CacheFile::create(kGraphName, "statistics.json", true));
+
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
 
   FUSILLI_REQUIRE_ASSIGN(
       CompileSession session,
@@ -547,7 +578,6 @@ TEST_CASE("CompileSession::getArgs", "[CompileSession]") {
   for (const auto &arg : args) {
     REQUIRE(!arg.empty());
   }
-  std::filesystem::remove_all(input.path.parent_path());
 }
 
 TEST_CASE("CompileSession::addFlag with tuning spec path",
@@ -594,6 +624,10 @@ TEST_CASE("CompileSession::compile with tuning spec",
       CacheFile output,
       CacheFile::create(graphName, "output.vmfb", /*remove=*/true));
 
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
+
   // Write a simple MLIR module to the input file.
   std::string mlirContent = R"(
 module {
@@ -610,6 +644,4 @@ module {
   FUSILLI_REQUIRE_OK(compileResult);
   REQUIRE(std::filesystem::exists(output.path));
   REQUIRE(std::filesystem::file_size(output.path) > 0);
-
-  std::filesystem::remove_all(input.path.parent_path());
 }

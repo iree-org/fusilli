@@ -34,6 +34,10 @@ TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {
       CacheFile statistics,
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
 
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
+
   // Write simple MLIR module to input file.
   REQUIRE(input.write(getSimpleMLIRModule()).isOk());
 
@@ -92,7 +96,6 @@ TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {
 
   auto outputSize = std::filesystem::file_size(output.path);
   REQUIRE(outputSize > 0);
-  std::filesystem::remove_all(input.path.parent_path());
 }
 
 #if defined(FUSILLI_ENABLE_AMDGPU)
@@ -110,6 +113,10 @@ TEST_CASE("CompileCommand::build with AMDGPU backend", "[CompileCommand]") {
   FUSILLI_REQUIRE_ASSIGN(
       CacheFile statistics,
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
+
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
 
   // Write simple MLIR module to input file.
   REQUIRE(input.write(getSimpleMLIRModule()).isOk());
@@ -147,7 +154,6 @@ TEST_CASE("CompileCommand::build with AMDGPU backend", "[CompileCommand]") {
 
   auto outputSize = std::filesystem::file_size(output.path);
   REQUIRE(outputSize > 0);
-  std::filesystem::remove_all(input.path.parent_path());
 }
 #endif
 
@@ -165,6 +171,10 @@ TEST_CASE("CompileCommand::toString format", "[CompileCommand]") {
   FUSILLI_REQUIRE_ASSIGN(
       CacheFile statistics,
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
+
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
 
   // Build the compile command.
   CompileCommand cmd = CompileCommand::build(handle, input, output, statistics);
@@ -184,7 +194,6 @@ TEST_CASE("CompileCommand::toString format", "[CompileCommand]") {
   REQUIRE_THAT(cmdStr, Catch::Matchers::ContainsSubstring(
                            "--iree-hal-target-backends=llvm-cpu"));
   REQUIRE_THAT(cmdStr, Catch::Matchers::ContainsSubstring("-o"));
-  std::filesystem::remove_all(input.path.parent_path());
 }
 
 TEST_CASE("CompileCommand::writeTo", "[CompileCommand]") {
@@ -205,6 +214,10 @@ TEST_CASE("CompileCommand::writeTo", "[CompileCommand]") {
       CacheFile commandFile,
       CacheFile::create(kGraphName, "command.txt", /*remove=*/true));
 
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
+
   // Build the compile command.
   CompileCommand cmd = CompileCommand::build(handle, input, output, statistics);
 
@@ -216,7 +229,6 @@ TEST_CASE("CompileCommand::writeTo", "[CompileCommand]") {
   std::string expectedContent = cmd.toString();
 
   REQUIRE(writtenContent == expectedContent);
-  std::filesystem::remove_all(input.path.parent_path());
 }
 
 TEST_CASE("CompileCommand::getArgs", "[CompileCommand]") {
@@ -233,6 +245,10 @@ TEST_CASE("CompileCommand::getArgs", "[CompileCommand]") {
   FUSILLI_REQUIRE_ASSIGN(
       CacheFile statistics,
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
+
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
 
   // Build the compile command.
   CompileCommand cmd = CompileCommand::build(handle, input, output, statistics);
@@ -252,7 +268,6 @@ TEST_CASE("CompileCommand::getArgs", "[CompileCommand]") {
   REQUIRE(args.size() >= 2);
   REQUIRE(args[args.size() - 2] == "-o");
   REQUIRE(args[args.size() - 1] == output.path.string());
-  std::filesystem::remove_all(input.path.parent_path());
 }
 
 TEST_CASE("CompileCommand round-trip serialization", "[CompileCommand]") {
@@ -273,6 +288,10 @@ TEST_CASE("CompileCommand round-trip serialization", "[CompileCommand]") {
       CacheFile commandFile,
       CacheFile::create(kGraphName, "command.txt", /*remove=*/true));
 
+  // Ensure cleanup happens even if REQUIRE() fails.
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
+
   // Build and write command.
   CompileCommand cmd1 =
       CompileCommand::build(handle, input, output, statistics);
@@ -288,5 +307,4 @@ TEST_CASE("CompileCommand round-trip serialization", "[CompileCommand]") {
   // Verify both produce the same string.
   REQUIRE(cmd1.toString() == cmd2.toString());
   REQUIRE(serializedCmd == cmd1.toString());
-  std::filesystem::remove_all(input.path.parent_path());
 }

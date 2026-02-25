@@ -21,8 +21,44 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <utility> // IWYU pragma: export
 #include <vector>
+
+// RAII helper to execute cleanup code when going out of scope, even if
+// REQUIRE() fails.
+//
+// Usage:
+//   TEST_CASE("my test") {
+//     auto cleanup = ScopeExit([&] {
+//       std::filesystem::remove_all(some_directory_path);
+//     });
+//     // ... test code that might fail with REQUIRE() ...
+//     // cleanup happens automatically when going out of scope
+//   }
+class [[nodiscard]] ScopeExit {
+  std::function<void()> exit_function_;
+
+public:
+  explicit ScopeExit(std::function<void()> &&f)
+      : exit_function_(std::move(f)) {}
+
+  ScopeExit(ScopeExit &&rhs) noexcept
+      : exit_function_(std::move(rhs.exit_function_)) {
+    rhs.release();
+  }
+
+  ScopeExit(const ScopeExit &) = delete;
+  ScopeExit &operator=(ScopeExit &&) = delete;
+  ScopeExit &operator=(const ScopeExit &) = delete;
+
+  void release() { exit_function_ = nullptr; }
+
+  ~ScopeExit() {
+    if (exit_function_)
+      exit_function_();
+  }
+};
 
 // Test side dual to FUSILLI_CHECK_ERROR. REQUIRE expression that evaluates to
 // (or in the case of ErrorOr<T> is convertible to) an ErrorObject to be in ok
