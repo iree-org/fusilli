@@ -177,48 +177,25 @@ The wrapper automatically:
 
 #### Custom Compiler Flags
 
-You can pass custom IREE compiler flags using the `FUSILLI_EXTRA_COMPILER_FLAGS`
-environment variable or the `--Xiree-compile` flag with the Python benchmark
-wrapper.
+Pass custom IREE compiler flags using:
+- **C++ driver**: `FUSILLI_EXTRA_COMPILER_FLAGS` environment variable
+- **Python wrapper**: `--Xiree-compile` flag (which sets the environment variable internally)
 
-**Using the C++ benchmark driver with environment variable:**
-```shell
-FUSILLI_EXTRA_COMPILER_FLAGS="--iree-opt-level=O3" \
-  build/bin/benchmarks/fusilli_benchmark_driver --iter 100 \
-  matmul -M 8192 -N 2048 -K 4096 --transA \
-  --a_type bf16 --b_type bf16 --out_type bf16
-```
+**Examples:**
 
-**Using the Python benchmark wrapper:**
-```shell
-python benchmarks/run_benchmark.py \
-  --Xiree-compile="--iree-opt-level=O3" \
-  -o results.csv \
-  -f commands.txt
-```
-
-**Passing multiple compiler flags:**
-
-Using environment variable:
+C++ driver (space-separated in one string):
 ```shell
 FUSILLI_EXTRA_COMPILER_FLAGS="--iree-opt-level=O3 --iree-hal-dump-executable-files-to=/tmp/dump" \
   build/bin/benchmarks/fusilli_benchmark_driver ...
 ```
 
-Using Python wrapper:
+Python wrapper (repeat `--Xiree-compile`):
 ```shell
 python benchmarks/run_benchmark.py \
   --Xiree-compile="--iree-opt-level=O3" \
   --Xiree-compile="--iree-hal-dump-executable-files-to=/tmp/dump" \
   -f commands.txt -o results.csv
 ```
-
-> [!NOTE]
-> If an extra compiler flag is exposed via CLI but not the C API, please select
-> the CLI backend (set `FUSILLI_COMPILE_BACKEND_USE_CLI=1`). Currently,
-> `--iree-codegen-tuning-spec-path` requires this since it is not exposed
-> through the C API. This limitation is being addressed and will be lifted
-> shortly.
 
 #### Tuning Specs
 
@@ -227,22 +204,18 @@ generation parameters such as workgroup sizes, tile sizes, MMA intrinsics, and
 shared memory allocation suited for specific workloads. You can pass tuning
 specs using the custom compiler flags feature described above.
 
-**Example with C++ benchmark driver:**
+C++ driver:
 ```shell
-FUSILLI_COMPILE_BACKEND_USE_CLI=1 \
 FUSILLI_EXTRA_COMPILER_FLAGS="--iree-codegen-tuning-spec-path=/path/to/tuning_spec.mlir" \
   build/bin/benchmarks/fusilli_benchmark_driver --iter 100 \
-  matmul -M 8192 -N 2048 -K 4096 --transA \
-  --a_type bf16 --b_type bf16 --out_type bf16
+  matmul -M 8192 -N 2048 -K 4096 --transA --a_type bf16 --b_type bf16 --out_type bf16
 ```
 
-**Example with Python benchmark wrapper:**
+Python wrapper:
 ```shell
-FUSILLI_COMPILE_BACKEND_USE_CLI=1 \
-  python benchmarks/run_benchmark.py \
+python benchmarks/run_benchmark.py \
   --Xiree-compile="--iree-codegen-tuning-spec-path=/path/to/tuning_spec.mlir" \
-  -o results.csv \
-  -f commands.txt
+  -f commands.txt -o results.csv
 ```
 
 ### Sanitizers

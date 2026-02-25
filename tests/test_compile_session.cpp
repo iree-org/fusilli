@@ -12,13 +12,43 @@
 #include <catch2/matchers/catch_matchers.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
+#include <algorithm>
+#include <cassert>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
 using namespace fusilli;
 
 static std::string kGraphName = "test_compile_session";
+
+// Returns the path to a shared tuning spec file for tests. The file is created
+// once and persists for the process lifetime because IREE caches parsed tuning
+// specs on the dialect instance keyed by path, and the tuning spec flag itself
+// is a process-wide static. Deleting the file would break subsequent
+// compilations that hit the cached path.
+static std::filesystem::path getTestTuningSpecPath() {
+  static std::filesystem::path path = [] {
+    std::filesystem::path dir =
+        std::filesystem::temp_directory_path() / "fusilli_test_tuning_specs";
+    std::filesystem::create_directories(dir);
+    std::filesystem::path p = dir / "tuning_spec.mlir";
+    std::ofstream ofs(p);
+    assert(ofs.is_open() && "Failed to create test tuning spec file");
+    ofs << R"(
+module attributes {transform.with_named_sequence} {
+  transform.named_sequence @__kernel_config(%arg0: !transform.any_op {transform.consumed})
+    -> !transform.any_op attributes {iree_codegen.tuning_spec_entrypoint} {
+    transform.yield %arg0 : !transform.any_op
+  }
+}
+)";
+    ofs.close();
+    return p;
+  }();
+  return path;
+}
 
 TEST_CASE("CompileContext::create successfully loads library",
           "[CompileContext]") {
@@ -517,5 +547,69 @@ TEST_CASE("CompileSession::getArgs", "[CompileSession]") {
   for (const auto &arg : args) {
     REQUIRE(!arg.empty());
   }
+  std::filesystem::remove_all(input.path.parent_path());
+}
+
+TEST_CASE("CompileSession::addFlag with tuning spec path",
+          "[CompileSession][tuning_spec]") {
+  // Verify tuning spec path flag is accepted by C API.
+  FUSILLI_REQUIRE_ASSIGN(CompileContext * context, CompileContext::create());
+  REQUIRE(context != nullptr);
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+  FUSILLI_REQUIRE_ASSIGN(CompileSession session,
+                         context->createSession(handle));
+
+  ErrorObject result =
+      session.addFlag("--iree-codegen-tuning-spec-path=" +
+                      getTestTuningSpecPath().generic_string());
+  FUSILLI_REQUIRE_OK(result);
+
+  const std::vector<std::string> &args = session.getArgs();
+  bool hasTuningSpecFlag =
+      std::any_of(args.begin(), args.end(), [](const std::string &arg) {
+        return arg.find("--iree-codegen-tuning-spec-path") != std::string::npos;
+      });
+  REQUIRE(hasTuningSpecFlag);
+}
+
+TEST_CASE("CompileSession::compile with tuning spec",
+          "[CompileSession][integration][tuning_spec]") {
+  // End-to-end compilation with tuning spec via C API.
+  FUSILLI_REQUIRE_ASSIGN(CompileContext * context, CompileContext::create());
+  REQUIRE(context != nullptr);
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+  FUSILLI_REQUIRE_ASSIGN(CompileSession session,
+                         context->createSession(handle));
+
+  FUSILLI_REQUIRE_OK(session.addFlag("--iree-codegen-tuning-spec-path=" +
+                                     getTestTuningSpecPath().generic_string()));
+
+  // Create input/output files in cache (these will auto-cleanup with
+  // remove=true).
+  std::string graphName = "test_compile_session_with_tuning_spec";
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile input,
+      CacheFile::create(graphName, "input.mlir", /*remove=*/true));
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile output,
+      CacheFile::create(graphName, "output.vmfb", /*remove=*/true));
+
+  // Write a simple MLIR module to the input file.
+  std::string mlirContent = R"(
+module {
+  func.func @tuning_spec_test(%arg0: tensor<3x3xf32>, %arg1: tensor<3x3xf32>) -> tensor<3x3xf32> {
+    %0 = arith.mulf %arg0, %arg1 : tensor<3x3xf32>
+    return %0 : tensor<3x3xf32>
+  }
+}
+)";
+  FUSILLI_REQUIRE_OK(input.write(mlirContent));
+
+  ErrorObject compileResult = session.compile(input.path.generic_string(),
+                                              output.path.generic_string());
+  FUSILLI_REQUIRE_OK(compileResult);
+  REQUIRE(std::filesystem::exists(output.path));
+  REQUIRE(std::filesystem::file_size(output.path) > 0);
+
   std::filesystem::remove_all(input.path.parent_path());
 }

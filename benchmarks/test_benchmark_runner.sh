@@ -6,10 +6,6 @@ set -x
 BENCHMARK_RUNNER="$1"
 BENCHMARK_DRIVER="$2"
 
-# Use CLI backend for tests (--iree-codegen-tuning-spec-path not available via C API)
-# TODO(iree-org/iree#23314): Remove this when tuning spec path support is added to C API
-export FUSILLI_COMPILE_BACKEND_USE_CLI=1
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEST_COMMANDS="${SCRIPT_DIR}/test_commands.txt"
 OUTPUT_CSV=$(mktemp)
