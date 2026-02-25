@@ -26,8 +26,10 @@
 // variable, or returns the error from the enclosing function if the result is
 // an error.
 #define FUSILLI_PLUGIN_EXPECT_OR_ASSIGN(varDecl, expr)                         \
+  FUSILLI_DISABLE_COUNTER_WARNING                                              \
   FUSILLI_PLUGIN_EXPECT_OR_ASSIGN_IMPL(                                        \
       FUSILLI_PLUGIN_ERROR_VAR(_errorOr, __LINE__, __COUNTER__), varDecl,      \
-      expr)
+      expr)                                                                    \
+  FUSILLI_RESTORE_COUNTER_WARNING
 
 #endif // FUSILLI_PLUGIN_TESTS_UTILS_H

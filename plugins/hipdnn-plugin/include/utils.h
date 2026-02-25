@@ -94,8 +94,10 @@ findDeviceBuffer(int64_t uid, const hipdnnPluginDeviceBuffer_t *deviceBuffers,
   var = std::move(*errorOr);
 
 #define FUSILLI_PLUGIN_ASSIGN_OR_RETURN(varDecl, expr)                         \
+  FUSILLI_DISABLE_COUNTER_WARNING                                              \
   FUSILLI_PLUGIN_ASSIGN_OR_RETURN_IMPL(FUSILLI_ERROR_VAR(_errorOr), varDecl,   \
-                                       expr)
+                                       expr)                                   \
+  FUSILLI_RESTORE_COUNTER_WARNING
 
 template <typename T> fusilli::ErrorObject convertToErrorObject(T &&error) {
   using DecayT = std::decay_t<T>;
