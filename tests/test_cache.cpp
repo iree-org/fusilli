@@ -22,7 +22,7 @@ static std::string kGraphName = "test_cache";
 
 TEST_CASE("CacheFile::create remove = true", "[CacheFile]") {
   // Ensure cleanup happens even if REQUIRE() fails.
-  auto cleanup = scope_exit([&] {
+  auto cleanup = ScopeExit([&] {
     std::filesystem::remove_all(
         CacheFile::getPath(kGraphName, "a").parent_path());
   });
@@ -96,7 +96,7 @@ TEST_CASE("CacheFile::create remove = true", "[CacheFile]") {
 
 TEST_CASE("CacheFile::create remove = false", "[CacheFile]") {
   // Ensure cleanup happens even if REQUIRE() fails.
-  auto cleanup = scope_exit([&] {
+  auto cleanup = ScopeExit([&] {
     std::filesystem::remove_all(
         CacheFile::getPath(kGraphName, "a").parent_path());
   });
@@ -176,7 +176,7 @@ TEST_CASE("CacheFile::open", "[CacheFile]") {
                                                   /*remove=*/true));
 
   // Ensure cleanup happens even if REQUIRE() fails.
-  auto cleanup = scope_exit(
+  auto cleanup = ScopeExit(
       [&] { std::filesystem::remove_all(cacheFile.path.parent_path()); });
 
   FUSILLI_REQUIRE_OK(cacheFile.write("test data"));
@@ -198,7 +198,7 @@ TEST_CASE("CacheFile directory sanitization", "[CacheFile]") {
                                            /*remove=*/true));
 
   // Ensure cleanup happens even if REQUIRE() fails.
-  auto cleanup = scope_exit(
+  auto cleanup = ScopeExit(
       [&] { std::filesystem::remove_all(cacheFile.path.parent_path()); });
 
   // Extract the sanitized directory name from the path.

@@ -21,49 +21,44 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
+#include <functional>
 #include <utility> // IWYU pragma: export
 #include <vector>
 
 // RAII helper to execute cleanup code when going out of scope, even if
-// REQUIRE() fails. Based on LLVM's scope_exit:
-// https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/ADT/ScopeExit.h
+// REQUIRE() fails.
 //
 // Usage:
 //   TEST_CASE("my test") {
-//     auto cleanup = scope_exit([&] {
+//     auto cleanup = ScopeExit([&] {
 //       std::filesystem::remove_all(some_directory_path);
 //     });
 //     // ... test code that might fail with REQUIRE() ...
 //     // cleanup happens automatically when going out of scope
 //   }
-template <typename Callable> class [[nodiscard]] scope_exit {
-  Callable ExitFunction;
-  bool Engaged = true; // False once moved-from or release()d.
+class [[nodiscard]] ScopeExit {
+  std::function<void()> exit_function_;
 
 public:
-  template <typename Fp>
-  explicit scope_exit(Fp &&F) : ExitFunction(std::forward<Fp>(F)) {}
+  explicit ScopeExit(std::function<void()> &&f)
+      : exit_function_(std::move(f)) {}
 
-  scope_exit(scope_exit &&Rhs)
-      : ExitFunction(std::move(Rhs.ExitFunction)), Engaged(Rhs.Engaged) {
-    Rhs.release();
+  ScopeExit(ScopeExit &&rhs) noexcept
+      : exit_function_(std::move(rhs.exit_function_)) {
+    rhs.release();
   }
 
-  scope_exit(const scope_exit &) = delete;
-  scope_exit &operator=(scope_exit &&) = delete;
-  scope_exit &operator=(const scope_exit &) = delete;
+  ScopeExit(const ScopeExit &) = delete;
+  ScopeExit &operator=(ScopeExit &&) = delete;
+  ScopeExit &operator=(const ScopeExit &) = delete;
 
-  void release() { Engaged = false; }
+  void release() { exit_function_ = nullptr; }
 
-  ~scope_exit() {
-    if (Engaged)
-      ExitFunction();
+  ~ScopeExit() {
+    if (exit_function_)
+      exit_function_();
   }
 };
-
-// Deduction guide for C++17 CTAD.
-template <typename Callable> scope_exit(Callable) -> scope_exit<Callable>;
 
 // Test side dual to FUSILLI_CHECK_ERROR. REQUIRE expression that evaluates to
 // (or in the case of ErrorOr<T> is convertible to) an ErrorObject to be in ok

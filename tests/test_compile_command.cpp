@@ -35,8 +35,8 @@ TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
 
   // Ensure cleanup happens even if REQUIRE() fails.
-  auto cleanup = scope_exit(
-      [&] { std::filesystem::remove_all(input.path.parent_path()); });
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
 
   // Write simple MLIR module to input file.
   REQUIRE(input.write(getSimpleMLIRModule()).isOk());
@@ -115,8 +115,8 @@ TEST_CASE("CompileCommand::build with AMDGPU backend", "[CompileCommand]") {
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
 
   // Ensure cleanup happens even if REQUIRE() fails.
-  auto cleanup = scope_exit(
-      [&] { std::filesystem::remove_all(input.path.parent_path()); });
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
 
   // Write simple MLIR module to input file.
   REQUIRE(input.write(getSimpleMLIRModule()).isOk());
@@ -173,8 +173,8 @@ TEST_CASE("CompileCommand::toString format", "[CompileCommand]") {
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
 
   // Ensure cleanup happens even if REQUIRE() fails.
-  auto cleanup = scope_exit(
-      [&] { std::filesystem::remove_all(input.path.parent_path()); });
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
 
   // Build the compile command.
   CompileCommand cmd = CompileCommand::build(handle, input, output, statistics);
@@ -215,8 +215,8 @@ TEST_CASE("CompileCommand::writeTo", "[CompileCommand]") {
       CacheFile::create(kGraphName, "command.txt", /*remove=*/true));
 
   // Ensure cleanup happens even if REQUIRE() fails.
-  auto cleanup = scope_exit(
-      [&] { std::filesystem::remove_all(input.path.parent_path()); });
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
 
   // Build the compile command.
   CompileCommand cmd = CompileCommand::build(handle, input, output, statistics);
@@ -247,8 +247,8 @@ TEST_CASE("CompileCommand::getArgs", "[CompileCommand]") {
       CacheFile::create(kGraphName, "statistics.json", /*remove=*/true));
 
   // Ensure cleanup happens even if REQUIRE() fails.
-  auto cleanup = scope_exit(
-      [&] { std::filesystem::remove_all(input.path.parent_path()); });
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
 
   // Build the compile command.
   CompileCommand cmd = CompileCommand::build(handle, input, output, statistics);
@@ -289,8 +289,8 @@ TEST_CASE("CompileCommand round-trip serialization", "[CompileCommand]") {
       CacheFile::create(kGraphName, "command.txt", /*remove=*/true));
 
   // Ensure cleanup happens even if REQUIRE() fails.
-  auto cleanup = scope_exit(
-      [&] { std::filesystem::remove_all(input.path.parent_path()); });
+  auto cleanup =
+      ScopeExit([&] { std::filesystem::remove_all(input.path.parent_path()); });
 
   // Build and write command.
   CompileCommand cmd1 =
