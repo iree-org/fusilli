@@ -6,22 +6,22 @@
 
 //===----------------------------------------------------------------------===//
 //
-// This file contains utilities for finding required external programs at
+// This file implements utilities for finding required external programs at
 // runtime.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef FUSILLI_SUPPORT_EXTERNAL_TOOLS_H
-#define FUSILLI_SUPPORT_EXTERNAL_TOOLS_H
+#include "fusilli/support/external_tools.h"
 
 #include "fusilli/support/python_utils.h"
-#include "fusilli/support/target_platform.h"
+#include "fusilli/support/target_platform.h" // IWYU pragma: keep
+
 #include <cstdlib>
 #include <string>
 
 namespace fusilli {
 
-inline std::string getIreeCompilePath() {
+std::string getIreeCompilePath() {
   // Check environment variable.
   const char *envPath = std::getenv("FUSILLI_EXTERNAL_IREE_COMPILE");
   if (envPath && envPath[0] != '\0') {
@@ -32,7 +32,7 @@ inline std::string getIreeCompilePath() {
   return std::string("iree-compile");
 }
 
-inline std::string getRocmAgentEnumeratorPath() {
+std::string getRocmAgentEnumeratorPath() {
   // Check environment variable.
   const char *envPath = std::getenv("FUSILLI_EXTERNAL_ROCM_AGENT_ENUMERATOR");
   if (envPath && envPath[0] != '\0') {
@@ -47,7 +47,7 @@ inline std::string getRocmAgentEnumeratorPath() {
 #endif
 }
 
-inline std::string getAmdSmiPath() {
+std::string getAmdSmiPath() {
   // Check environment variable.
   const char *envPath = std::getenv("FUSILLI_EXTERNAL_AMD_SMI");
   if (envPath && envPath[0] != '\0') {
@@ -58,7 +58,7 @@ inline std::string getAmdSmiPath() {
   return std::string("amd-smi");
 }
 
-inline std::string getIreeCompilerLibPath() {
+std::string getIreeCompilerLibPath() {
   // Check environment variable.
   const char *envPath = std::getenv("FUSILLI_EXTERNAL_IREE_COMPILER_LIB");
   if (envPath && envPath[0] != '\0') {
@@ -80,5 +80,3 @@ inline std::string getIreeCompilerLibPath() {
 }
 
 } // namespace fusilli
-
-#endif // FUSILLI_SUPPORT_EXTERNAL_TOOLS_H

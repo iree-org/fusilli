@@ -6,67 +6,45 @@
 
 //===----------------------------------------------------------------------===//
 //
-// This file contains backend specific code like the `Backend` type, code to
-// map from Backend to `iree-compile` flags, IREE runtime types and deleters.
+// Implementation of backend utility functions for GPU target detection,
+// compiler flag management, and IREE HAL HIP device parameter configuration.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef FUSILLI_BACKEND_BACKEND_H
-#define FUSILLI_BACKEND_BACKEND_H
+#include "fusilli/backend/backend.h"
 
-#include "fusilli/attributes/types.h"
 #include "fusilli/support/external_tools.h"
 #include "fusilli/support/logging.h"
 #include "fusilli/support/process.h"
 
-#include <iree/hal/api.h>
+#include <iree/base/config.h>
 #include <iree/hal/drivers/hip/api.h>
-#include <iree/vm/api.h>
 
 #include <algorithm>
-#include <cstdint>
+#include <cctype>
+#include <cstddef>
+#include <cstdlib>
 #include <format>
 #include <iomanip>
-#include <memory>
 #include <mutex>
 #include <ostream>
+#include <span>
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace fusilli {
 
-// Target backend to run the generated kernels on.
-enum class Backend : uint8_t {
-  CPU,
-  AMDGPU,
-};
-
-static const std::unordered_map<Backend, std::string> kBackendToStr = {
-    {Backend::CPU, "CPU"},
-    {Backend::AMDGPU, "AMDGPU"},
-};
-
-static const std::unordered_map<Backend, bool> kBackendExecuteAsync = {
-    {Backend::CPU, false},
-    {Backend::AMDGPU, true},
-};
-
 // Stream operator for Backend.
-inline std::ostream &operator<<(std::ostream &os, const Backend &backend) {
+std::ostream &operator<<(std::ostream &os, const Backend &backend) {
   if (kBackendToStr.contains(backend)) // C++20
     os << kBackendToStr.at(backend);
   else
     os << "UNKNOWN_BACKEND";
   return os;
 }
-
-// Map from backend to IREE HAL driver name.
-static const std::unordered_map<Backend, const char *> kHalDriver = {
-    {Backend::CPU, "local-task"},
-    {Backend::AMDGPU, "hip"},
-};
 
 // Maps GPU marketing name to IREE SKU target name.
 // Returns empty string if not recognized.
@@ -77,8 +55,7 @@ static const std::unordered_map<Backend, const char *> kHalDriver = {
 //   - AMD Radeon RX 7900 XTX/XT, RX 7800 XT, RX 7700 XT
 // See:
 // https://github.com/iree-org/iree/blob/main/compiler/src/iree/compiler/Codegen/Dialect/GPU/TargetUtils/KnownTargets.cpp
-inline std::string
-getGpuSkuFromMarketingName(const std::string &marketingName) {
+std::string getGpuSkuFromMarketingName(const std::string &marketingName) {
   // Map of known marketing name patterns to IREE SKU targets.
   // The key is a substring to match (case-insensitive), value is the SKU.
   static const std::vector<std::pair<std::string, std::string>> skuPatterns = {
@@ -133,7 +110,7 @@ getGpuSkuFromMarketingName(const std::string &marketingName) {
 // Queries amd-smi for GPU marketing name.
 // Runs `amd-smi static --gpu 0 --json` and extracts market_name field.
 // Returns empty string on failure.
-inline std::string getGpuMarketingNameFromAmdSmi() {
+std::string getGpuMarketingNameFromAmdSmi() {
   std::string cmd = getAmdSmiPath() + " static --gpu 0 --json 2>/dev/null";
 
   auto outputOrNone = execCommand(cmd);
@@ -163,7 +140,7 @@ inline std::string getGpuMarketingNameFromAmdSmi() {
 }
 
 // Parses AMDGPU arch (e.g. `gfx942`) from `rocm_agent_enumerator` CLI output.
-inline std::string getArchFromRocmAgentEnumerator() {
+std::string getArchFromRocmAgentEnumerator() {
   auto cmd = getRocmAgentEnumeratorPath();
 
   auto outputOrNone = execCommand(cmd);
@@ -187,7 +164,7 @@ inline std::string getArchFromRocmAgentEnumerator() {
 // falls back to architecture (e.g., `gfx942`) via rocm_agent_enumerator.
 // See:
 // https://iree.dev/guides/deployment-configurations/gpu-rocm/#choosing-hip-targets
-inline std::string getIreeRocmTargetForAmdgpu() {
+std::string getIreeRocmTargetForAmdgpu() {
   // Try to get SKU name first via amd-smi for better compiler tuning.
   FUSILLI_LOG_LABEL_ENDL("INFO: Detecting IREE ROCm target for AMD GPU");
 
@@ -222,7 +199,7 @@ inline std::string getIreeRocmTargetForAmdgpu() {
 //   "--flag1 '--flag2=value with spaces'"    (fails - single quotes are
 //   literal).
 // Returns an empty vector if flagsStr is null or contains no tokens.
-inline std::vector<std::string> parseCompilerFlags(const char *flagsStr) {
+std::vector<std::string> parseCompilerFlags(const char *flagsStr) {
   if (!flagsStr)
     return {};
 
@@ -240,7 +217,7 @@ inline std::vector<std::string> parseCompilerFlags(const char *flagsStr) {
 }
 
 // Map from backend to IREE compile flags.
-inline std::span<const std::string> getBackendFlags(Backend backend) {
+std::span<const std::string> getBackendFlags(Backend backend) {
   static std::once_flag initFlag;
   static std::unordered_map<Backend, std::vector<std::string>> kBackendFlags;
   std::call_once(initFlag, []() {
@@ -297,8 +274,7 @@ inline std::span<const std::string> getBackendFlags(Backend backend) {
 
 // Set appropriate values on `iree_hal_hip_device_params_t` for fusilli hal
 // hip driver creation.
-inline void
-setDefaultIreeHalHipDeviceParams(iree_hal_hip_device_params_t *params) {
+void setDefaultIreeHalHipDeviceParams(iree_hal_hip_device_params_t *params) {
   constexpr iree_device_size_t kMinimalFileTransferBufferSize = 1;
 
   iree_hal_hip_device_params_initialize(params);
@@ -308,104 +284,4 @@ setDefaultIreeHalHipDeviceParams(iree_hal_hip_device_params_t *params) {
   params->file_transfer_buffer_size = kMinimalFileTransferBufferSize;
 }
 
-// Template specializations to map from primitive types
-// to IREE HAL element type.
-template <typename T> struct IreeHalElementType;
-//
-// float -> IREE_HAL_ELEMENT_TYPE_FLOAT_32:
-template <> struct IreeHalElementType<float> {
-  static constexpr iree_hal_element_type_t kType =
-      IREE_HAL_ELEMENT_TYPE_FLOAT_32;
-};
-//
-// half -> IREE_HAL_ELEMENT_TYPE_FLOAT_16:
-template <> struct IreeHalElementType<half> {
-  static constexpr iree_hal_element_type_t kType =
-      IREE_HAL_ELEMENT_TYPE_FLOAT_16;
-};
-//
-// bf16 -> IREE_HAL_ELEMENT_TYPE_BFLOAT_16:
-template <> struct IreeHalElementType<bf16> {
-  static constexpr iree_hal_element_type_t kType =
-      IREE_HAL_ELEMENT_TYPE_BFLOAT_16;
-};
-//
-// int -> IREE_HAL_ELEMENT_TYPE_INT_32:
-template <> struct IreeHalElementType<int> {
-  static constexpr iree_hal_element_type_t kType = IREE_HAL_ELEMENT_TYPE_INT_32;
-};
-//
-// int16 -> IREE_HAL_ELEMENT_TYPE_INT_16:
-template <> struct IreeHalElementType<int16_t> {
-  static constexpr iree_hal_element_type_t kType = IREE_HAL_ELEMENT_TYPE_INT_16;
-};
-//
-// int8 -> IREE_HAL_ELEMENT_TYPE_INT_8:
-template <> struct IreeHalElementType<int8_t> {
-  static constexpr iree_hal_element_type_t kType = IREE_HAL_ELEMENT_TYPE_INT_8;
-};
-//
-// Assert for unsupported types:
-template <typename T> struct IreeHalElementType {
-  static_assert(sizeof(T) == 0, "Unsupported type for IREE_HAL_ELEMENT_TYPE");
-};
-//
-// Getter:
-template <typename T> iree_hal_element_type_t getIreeHalElementTypeForT() {
-  return IreeHalElementType<T>::kType;
-}
-
-// Custom deleter for IREE VM instance.
-struct IreeVmInstanceDeleter {
-  void operator()(iree_vm_instance_t *instance) const {
-    if (instance)
-      iree_vm_instance_release(instance);
-  }
-};
-
-// Custom deleter for IREE HAL device.
-struct IreeHalDeviceDeleter {
-  void operator()(iree_hal_device_t *device) const {
-    if (device)
-      iree_hal_device_release(device);
-  }
-};
-
-// Custom deleter for IREE VM context.
-struct IreeVmContextDeleter {
-  void operator()(iree_vm_context_t *context) const {
-    if (context)
-      iree_vm_context_release(context);
-  }
-};
-
-// Custom deleter for IREE VM list.
-struct IreeVmListDeleter {
-  void operator()(iree_vm_list_t *list) const {
-    if (list)
-      iree_vm_list_release(list);
-  }
-};
-
-// Custom deleter for IREE HAL buffer view.
-struct IreeHalBufferViewDeleter {
-  void operator()(iree_hal_buffer_view_t *bufferView) const {
-    if (bufferView)
-      iree_hal_buffer_view_release(bufferView);
-  }
-};
-
-// Aliases for IREE types with custom deleters.
-using IreeVmInstanceSharedPtrType = std::shared_ptr<iree_vm_instance_t>;
-using IreeHalDeviceUniquePtrType =
-    std::unique_ptr<iree_hal_device_t, IreeHalDeviceDeleter>;
-using IreeVmContextUniquePtrType =
-    std::unique_ptr<iree_vm_context_t, IreeVmContextDeleter>;
-using IreeVmListUniquePtrType =
-    std::unique_ptr<iree_vm_list_t, IreeVmListDeleter>;
-using IreeHalBufferViewUniquePtrType =
-    std::unique_ptr<iree_hal_buffer_view_t, IreeHalBufferViewDeleter>;
-
 } // namespace fusilli
-
-#endif // FUSILLI_BACKEND_BACKEND_H
