@@ -36,17 +36,10 @@ if(FUSILLI_SYSTEMS_AMDGPU)
   )
 
   # Configure sanitizer options
-  set(_ENV_VARS "")
-  if(FUSILLI_ENABLE_ASAN)
-    list(APPEND _ENV_VARS "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt")
-  endif()
-  if(FUSILLI_ENABLE_UBSAN)
-    list(APPEND _ENV_VARS "UBSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/ubsan_suppressions.txt:halt_on_error=1:print_stacktrace=1")
-  endif()
-  if(_ENV_VARS)
+  if(FUSILLI_SANITIZER_TEST_ENV_VARS)
     set_tests_properties(
       fusilli_benchmark_runner_tests PROPERTIES
-      ENVIRONMENT "${_ENV_VARS}"
+      ENVIRONMENT "${FUSILLI_SANITIZER_TEST_ENV_VARS}"
     )
   endif()
 endif()

@@ -246,6 +246,20 @@ if(FUSILLI_ENABLE_UBSAN)
   list(APPEND FUSILLI_SANITIZER_COMPILE_FLAGS -fno-sanitize-recover=undefined)
 endif()
 
+# Configure sanitizer environment variables for CTest targets.
+# These are appended to test ENVIRONMENT properties so that LSAN/UBSAN
+# suppressions and behavior flags are set consistently across all test,
+# sample, lit, and benchmark targets.
+set(FUSILLI_SANITIZER_TEST_ENV_VARS "")
+if(FUSILLI_ENABLE_ASAN)
+  list(APPEND FUSILLI_SANITIZER_TEST_ENV_VARS
+    "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt")
+endif()
+if(FUSILLI_ENABLE_UBSAN)
+  list(APPEND FUSILLI_SANITIZER_TEST_ENV_VARS
+    "UBSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/ubsan_suppressions.txt:halt_on_error=1:print_stacktrace=1")
+endif()
+
 # Enable AMD GPU build if requested
 if(FUSILLI_SYSTEMS_AMDGPU)
   # Check for Linux AMD GPU device node - `/dev/kfd`
