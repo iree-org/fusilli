@@ -22,14 +22,11 @@ namespace fusilli {
 
 class CustomOpAttr {
 public:
-  const std::string &getName() const { return name_; }
-  CustomOpAttr &setName(std::string name) {
-    name_ = std::move(name);
+  /// Setters:
+  CustomOpAttr &setName(const std::string &name) {
+    name_ = name;
     return *this;
   }
-
-  /// Returns the MLIR template string (may contain unresolved placeholders).
-  const std::string &getMlir() const { return mlir_; }
 
   /// Sets the MLIR function definition for this custom op.
   ///
@@ -53,8 +50,14 @@ public:
     return *this;
   }
 
-  uint64_t getNumOutputs() const { return numOutputs_; }
-  CustomOpAttr &setNumOutputs(uint64_t numOutputs) {
+  /// Getters:
+  const std::string &getName() const { return name_; }
+
+  /// Returns the MLIR template string (may contain unresolved placeholders).
+  const std::string &getMlir() const { return mlir_; }
+
+  size_t getNumOutputs() const { return numOutputs_; }
+  CustomOpAttr &setNumOutputs(size_t numOutputs) {
     numOutputs_ = numOutputs;
     return *this;
   }
@@ -62,7 +65,7 @@ public:
 private:
   std::string name_;
   std::string mlir_;
-  uint64_t numOutputs_ = 0;
+  size_t numOutputs_ = 0;
 };
 
 } // namespace fusilli

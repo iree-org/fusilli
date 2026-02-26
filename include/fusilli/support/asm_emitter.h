@@ -238,6 +238,11 @@ getScalarConstantAsm(const std::shared_ptr<TensorAttr> &tensor) {
 //                       /*useLogicalDims=*/false)
 //        --> "!torch.tensor<[2,4,3],f32>"
 //
+//    t.getTensorTypeAsm(/*isValueTensor=*/true,
+//                       /*useLogicalDims=*/false,
+//                       /*isDynamic=*/true)
+//        --> "!torch.vtensor<[?,?,?],f32>"
+//
 // Scalars (dim={1}, stride={1}) also work through this path:
 //
 //    TensorAttr s(2.0f);
@@ -245,7 +250,8 @@ getScalarConstantAsm(const std::shared_ptr<TensorAttr> &tensor) {
 //                       /*useLogicalDims=*/true)
 //        --> "!torch.vtensor<[1],f32>"
 inline std::string TensorAttr::getTensorTypeAsm(bool isValueTensor,
-                                                bool useLogicalDims) const {
+                                                bool useLogicalDims,
+                                                bool isDynamic) const {
   assert(!getDim().empty() &&
          "TensorAttr::getTensorTypeAsm expects non-empty dims");
   assert(!getStride().empty() &&
@@ -258,41 +264,16 @@ inline std::string TensorAttr::getTensorTypeAsm(bool isValueTensor,
 
   std::vector<int64_t> dims = useLogicalDims ? getDim() : getPhysicalDim();
 
-  // Emit dims in logical or physical order.
+  // Emit dims in logical or physical order, or as `?` when dynamic.
   interleave(
       dims.begin(), dims.end(),
       // each_fn:
-      [&](int64_t dim) { oss << dim; },
+      [&](int64_t dim) { oss << (isDynamic ? "?" : std::to_string(dim)); },
       // between_fn:
       [&] { oss << ","; });
   oss << "],";
   oss << kDataTypeToMlirTypeAsm.at(getDataType());
   oss << ">";
-  return oss.str();
-}
-
-// Emits a fully-dynamic ranked tensor type in MLIR assembly.
-// All dimensions are replaced with `?`.
-//
-// Example: TensorAttr with dim={4,8,16}, dataType=Half
-//   -> "!torch.vtensor<[?,?,?],f16>"
-inline std::string
-TensorAttr::getDynamicTensorTypeAsm(bool isValueTensor) const {
-  assert(!isScalar() &&
-         "TensorAttr::getDynamicTensorTypeAsm expects a ranked tensor");
-  assert(!getDim().empty() &&
-         "TensorAttr::getDynamicTensorTypeAsm expects non-empty dims");
-  assert(getDataType() != DataType::NotSet &&
-         "TensorAttr::getDynamicTensorTypeAsm expects a valid data type");
-
-  std::ostringstream oss;
-  oss << (isValueTensor ? "!torch.vtensor<[" : "!torch.tensor<[");
-  for (size_t i = 0; i < getDim().size(); ++i) {
-    if (i > 0)
-      oss << ",";
-    oss << "?";
-  }
-  oss << "]," << kDataTypeToMlirTypeAsm.at(getDataType()) << ">";
   return oss.str();
 }
 
@@ -1552,7 +1533,9 @@ inline std::string CustomOpNode::getCallOperandTypesAsm() const {
   interleave(
       inputs.begin(), inputs.end(),
       [&](const std::shared_ptr<TensorAttr> &input) {
-        oss << input->getDynamicTensorTypeAsm();
+        oss << input->getTensorTypeAsm(/*isValueTensor=*/true,
+                                       /*useLogicalDims=*/false,
+                                       /*isDynamic=*/true);
       },
       [&] { oss << ", "; });
   return oss.str();
@@ -1576,7 +1559,9 @@ inline std::string CustomOpNode::getCallResultTypesAsm() const {
   interleave(
       outputs.begin(), outputs.end(),
       [&](const std::shared_ptr<TensorAttr> &output) {
-        oss << output->getDynamicTensorTypeAsm();
+        oss << output->getTensorTypeAsm(/*isValueTensor=*/true,
+                                        /*useLogicalDims=*/false,
+                                        /*isDynamic=*/true);
       },
       [&] { oss << ", "; });
   return oss.str();
@@ -1596,7 +1581,8 @@ inline std::string CustomOpNode::getStaticToDynamicCastAsm(
     bool isInput, const std::string &operandOverride) const {
   std::string staticType =
       tensor->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
-  std::string dynamicType = tensor->getDynamicTensorTypeAsm();
+  std::string dynamicType = tensor->getTensorTypeAsm(
+      /*isValueTensor=*/true, /*useLogicalDims=*/false, /*isDynamic=*/true);
 
   std::string resultName =
       tensor->getValueNameAsm() + "_" + suffix + (isInput ? "_dyn" : "_perm");

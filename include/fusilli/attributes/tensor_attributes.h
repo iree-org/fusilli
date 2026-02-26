@@ -433,8 +433,8 @@ public:
 
   // MLIR assembly emitter helper methods:
   std::string getTensorTypeAsm(bool isValueTensor = true,
-                               bool useLogicalDims = false) const;
-  std::string getDynamicTensorTypeAsm(bool isValueTensor = true) const;
+                               bool useLogicalDims = false,
+                               bool isDynamic = false) const;
   std::string getValueNameAsm(bool isOutputAliased = false) const;
 
   // Setters:

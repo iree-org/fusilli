@@ -99,13 +99,13 @@ public:
     replaceAll(mlir, "{FUNC_NAME}", customOpAttr.getName());
     for (size_t i = 0; i < inputs.size(); ++i) {
       auto it = kDataTypeToMlirTypeAsm.find(inputs[i]->getDataType());
-      if (it != kDataTypeToMlirTypeAsm.end())
-        replaceAll(mlir, "{IN" + std::to_string(i) + "_DTYPE}", it->second);
+      assert(it != kDataTypeToMlirTypeAsm.end());
+      replaceAll(mlir, "{IN" + std::to_string(i) + "_DTYPE}", it->second);
     }
     for (size_t i = 0; i < outputs.size(); ++i) {
       auto it = kDataTypeToMlirTypeAsm.find(outputs[i]->getDataType());
-      if (it != kDataTypeToMlirTypeAsm.end())
-        replaceAll(mlir, "{OUT" + std::to_string(i) + "_DTYPE}", it->second);
+      assert(it != kDataTypeToMlirTypeAsm.end());
+      replaceAll(mlir, "{OUT" + std::to_string(i) + "_DTYPE}", it->second);
     }
     return mlir;
   }
