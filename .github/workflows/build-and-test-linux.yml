@@ -13,10 +13,17 @@ on:
 permissions:
   contents: read
 
+env:
+  IREE_DIR: ${{ github.workspace }}/iree
+  HIP_DIR: ${{ github.workspace }}/hip
+  FUSILLI_DIR: ${{ github.workspace }}/fusilli
+  HIPDNN_DIR: ${{ github.workspace }}/hipdnn
+
 jobs:
   build-and-test-linux:
     name: "Build & Test :: ${{ matrix.name }}"
     runs-on: ${{ matrix.runs-on }}
+    container: ghcr.io/sjain-stanford/compiler-dev-ubuntu-24.04:main@sha256:80ef5253f3c4f48b9aee3da47c6b13f1dc5edb4bc804e8fe0f725d278cb5a10c
     defaults:
       run:
         # --noprofile skips loading ~/.bash_profile
@@ -84,39 +91,64 @@ jobs:
     steps:
     - name: Checkout fusilli
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        path: fusilli
+
+    - name: Checkout iree
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        repository: iree-org/iree
+        path: iree
+        ref: iree-3.11.0rc20260217
+
+    - name: Setup Python
+      uses: actions/setup-python@v4.2.0
+      with:
+        python-version: '3.11'
+
+    - name: Create and activate virtual environment
+      run: |
+        python -m venv .venv
+        source .venv/bin/activate
+        echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> $GITHUB_ENV
+        echo "${GITHUB_WORKSPACE}/.venv/bin" >> $GITHUB_PATH
+      shell: bash
+
+    - name: Install python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install lit FileCheck
+        python -m pip install --find-links https://iree.dev/pip-release-links.html iree-base-compiler==3.11.0rc20260217
+
+    - name: Create symlink for FileCheck
+      run: |
+        ln -s ${GITHUB_WORKSPACE}/bin/filecheck .venv/bin/FileCheck
 
     - name: Build fusilli
       run: |
-        build_tools/docker/exec_docker_ci.sh \
-        bash -c "cmake -GNinja -S. -Bbuild \
-                   -DIREE_SOURCE_DIR=/workspace/.cache/docker/iree \
-                   ${{ matrix.cmake-options }} && \
-                 cmake --build build --target all"
+        ls ${GITHUB_WORKSPACE}/.venv/bin
+        export FUSILLI_CMAKE_FLAGS="${{ matrix.cmake-options }}"
+        bash fusilli/build_tools/scripts/build-fusilli-test.sh
 
     - name: Test fusilli (libIREECompiler CAPI)
       if: ${{ contains(matrix.name, 'debug') || contains(matrix.name, 'release') || contains(matrix.name, 'asan') }}
       run: |
-        build_tools/docker/exec_docker_ci.sh \
-        bash -c "ctest --test-dir build --output-on-failure --extra-verbose --timeout 120 -j \$(nproc) && \
-                 tests/test_cache_empty.sh"
+        bash fusilli/build_tools/scripts/run-fusilli-tests.sh
+        fusilli/tests/test_cache_empty.sh"
 
-    - name: Test fusilli (iree-compile CLI)
-      # Excluded for ASAN runs: the CLI backend spawns `iree-compile`
-      # (not ASAN-instrumented) as a separate process.
-      if: ${{ contains(matrix.name, 'debug') || contains(matrix.name, 'release') }}
+    - name: Test fusilli (iree-compile CAPI)
+      if: ${{ contains(matrix.name, 'debug') || contains(matrix.name, 'release') || contains(matrix.name, 'asan') }}
       run: |
-        build_tools/docker/exec_docker_ci.sh \
-        bash -c "FUSILLI_COMPILE_BACKEND_USE_CLI=1 ctest --test-dir build --output-on-failure --extra-verbose --timeout 120 -j \$(nproc) && \
-                 tests/test_cache_empty.sh"
+        FUSILLI_COMPILE_BACKEND_USE_CLI=1 bash fusilli/build_tools/scripts/run-fusilli-tests.sh
+        fusilli/tests/test_cache_empty.sh"
 
     - name: Run code coverage
       if: ${{ contains(matrix.name, 'codecov') }}
       run: |
-        build_tools/docker/exec_docker_ci.sh \
-        bash -c "ctest --test-dir build -T test -T coverage --timeout 120 && \
-                 lcov --capture --directory build --output-file build/coverage.info && \
-                 lcov --remove build/coverage.info '/usr/*' '*/iree/*' --output-file build/coverage.info && \
-                 genhtml build/coverage.info --output-directory coverage_report"
+        ctest --test-dir ${FUSILLI_TEST_BUILD_DIR} -T test -T coverage --timeout 120
+        lcov --capture --directory ${FUSILLI_TEST_BUILD_DIR} --output-file coverage.info
+        lcov --remove coverage.info '/usr/*' '*/iree/*' --output-file coverage.info
+        genhtml coverage.info --output-directory coverage_report
 
     - name: Upload code coverage report
       if: ${{ contains(matrix.name, 'codecov') }}

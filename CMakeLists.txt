@@ -138,6 +138,7 @@ set(IREE_HAL_DRIVER_LOCAL_TASK ON)
 # Enable HAL HIP driver for AMD GPU systems.
 if(FUSILLI_SYSTEMS_AMDGPU)
   set(IREE_HAL_DRIVER_HIP ON)
+  set(IREE_HAL_DRIVER_AMDGPU ON)
   set(IREE_HIP_TEST_TARGET_CHIP "" CACHE STRING "Enable ROCm testing on specific architecture (e.g. gfx942)")
 endif()
 # Enable ASAN build for IREE if ASAN is used in Fusilli
