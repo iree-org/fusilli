@@ -358,7 +358,7 @@ def generate_cmake_user_presets():
         f.write("\n")
 
 
-def provide_iree_tools(iree_git_tag: str):
+def provide_iree_tools(iree_version: str):
     """Pip install iree-base-compiler and symlink IREE tools into dist/.
 
     TheRock builds libIREECompiler.so and installs it to dist/lib/; ThePebble
@@ -369,16 +369,15 @@ def provide_iree_tools(iree_git_tag: str):
     print(f"Creating venv at {venv_dir}...")
     venv.EnvBuilder(with_pip=True, prompt="ThePebble").create(venv_dir)
 
-    pip_version = iree_git_tag.replace("iree-", "")
     pip = venv_dir / "bin" / "pip"
-    print(f"Installing iree-base-compiler=={pip_version}...")
+    print(f"Installing iree-base-compiler=={iree_version}...")
     subprocess.run(
         [
             str(pip),
             "install",
             "--find-links",
             "https://iree.dev/pip-release-links.html",
-            f"iree-base-compiler=={pip_version}",
+            f"iree-base-compiler=={iree_version}",
         ],
         check=True,
     )
@@ -482,12 +481,10 @@ def test_fusilli_plugin():
     # Create iree_tag_for_pip.txt.
     # TheRock/iree-libs/post_hook_fusilliprovider.cmake would create this file
     # when building in TheRock.
-    iree_tag = get_iree_git_tag()
-    # Convert tag like "iree-3.10.0rc20251210" to pip version "3.10.0rc20251210"
-    pip_version = iree_tag.replace("iree-", "")
+    iree_version = get_iree_git_tag()
     iree_tag_file = bin_dir / "fusilli_plugin_test_infra" / "iree_tag_for_pip.txt"
-    iree_tag_file.write_text(pip_version)
-    print(f"Created {iree_tag_file} with version {pip_version}")
+    iree_tag_file.write_text(iree_version)
+    print(f"Created {iree_tag_file} with version {iree_version}")
 
     # Run TheRock's test_fusilliprovider.py
     therock_dir = PEBBLE_DIR / "TheRock"
@@ -552,7 +549,7 @@ def main():
         setup_therock(versions["therock_git_ref"])
         install_hip(versions["hip_run_id"])
         build_hipdnn(versions["hipdnn_git_ref"])
-        setup_iree(get_iree_git_tag())
+        setup_iree(f"iree-{get_iree_git_tag()}")
         build_fusilli()
         generate_cmake_user_presets()
         provide_iree_tools(get_iree_git_tag())
