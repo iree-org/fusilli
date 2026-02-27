@@ -157,6 +157,8 @@ add_fusilli_lit_tests(
     lit/test_conv_dgrad_asm_emitter_nhwc_kcrs_grouped.cpp
     lit/test_layernorm_infer_asm_emitter_nchw.cpp
     lit/test_layernorm_infer_asm_emitter_scale_bias_nhwc.cpp
+    # TODO(iree-org/iree#23340) The model compilation takes a lot of time
+    # lit/test_layernorm_infer_asm_emitter_scale_bias_nhwc_small_batch.cpp
     lit/test_layernorm_train_asm_emitter_nchw.cpp
     lit/test_layernorm_train_asm_emitter_scale_bias_nhwc.cpp
     lit/test_matmul_asm_emitter_basic.cpp
