@@ -176,13 +176,12 @@ add_fusilli_benchmark(
     --device 0 --iter 10 layernorm --input 16x128x64x32 -F 1 --type f16 --layout NHWC
 )
 
-# TODO(iree-org/iree#23340)
-# add_fusilli_benchmark(
-#   NAME fusilli_benchmark_layernorm_nhwc_bf16_elementwise_affine_small_channel
-#   DRIVER fusilli_benchmark_driver
-#   ARGS
-#     --device 0 --iter 10 layernorm --input 2x3x128x128 -F 1 --type bf16 --layout NHWC --elementwise_affine
-# )
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_layernorm_nhwc_bf16_elementwise_affine_small_channel
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 layernorm --input 2x3x128x128 -F 1 --type bf16 --layout NHWC --elementwise_affine
+)
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_layernorm_nhwc_bf16_elementwise_affine
