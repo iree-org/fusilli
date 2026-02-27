@@ -66,6 +66,7 @@ add_fusilli_tests(
   SRCS
     test_graph.cpp
     test_context.cpp
+    test_custom_op.cpp
   DEPS
     libfusilli
     libutils
@@ -166,6 +167,10 @@ add_fusilli_lit_tests(
     lit/test_matmul_asm_emitter_broadcast_3D.cpp
     lit/test_matmul_asm_emitter_broadcast_4D.cpp
     lit/test_matmul_asm_emitter_noncontiguous.cpp
+    lit/test_custom_op_asm_emitter.cpp
+    lit/test_custom_op_asm_emitter_dup_input.cpp
+    lit/test_custom_op_asm_emitter_multi_output.cpp
+    lit/test_custom_op_asm_emitter_mixed_dtype.cpp
     lit/test_reduction_asm_emitter_sum.cpp
     lit/test_reduction_asm_emitter_min.cpp
     lit/test_reduction_asm_emitter_max.cpp

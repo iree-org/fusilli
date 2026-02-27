@@ -16,6 +16,7 @@
 
 #include "fusilli/attributes/common.h"
 #include "fusilli/attributes/conv_attributes.h"
+#include "fusilli/attributes/custom_op_attributes.h"
 #include "fusilli/attributes/layernorm_attributes.h"
 #include "fusilli/attributes/matmul_attributes.h"
 #include "fusilli/attributes/pointwise_attributes.h"
@@ -29,6 +30,7 @@
 #include "fusilli/backend/handle.h"
 #include "fusilli/graph/context.h"
 #include "fusilli/node/conv_node.h"
+#include "fusilli/node/custom_op_node.h"
 #include "fusilli/node/layernorm_node.h"
 #include "fusilli/node/matmul_node.h"
 #include "fusilli/node/node.h"
@@ -279,6 +281,10 @@ public:
 
   std::shared_ptr<TensorAttr> reduction(const std::shared_ptr<TensorAttr> &x,
                                         ReductionAttr &attributes);
+
+  std::vector<std::shared_ptr<TensorAttr>>
+  customOp(std::vector<std::shared_ptr<TensorAttr>> inputs,
+           CustomOpAttr &customOpAttr);
 
   // Query required workspace buffer size.
   // Returns std::nullopt if not compiled, 0 if no workspace needed,
@@ -885,6 +891,40 @@ Graph::reduction(const std::shared_ptr<TensorAttr> &x,
       std::make_unique<ReductionNode>(std::move(reductionAttr), context));
 
   return y;
+}
+
+inline std::vector<std::shared_ptr<TensorAttr>>
+Graph::customOp(std::vector<std::shared_ptr<TensorAttr>> inputTensors,
+                CustomOpAttr &customOpAttr) {
+  // Populate name when not set.
+  if (customOpAttr.getName().empty())
+    customOpAttr.setName("custom_op_" + std::to_string(subNodes_.size()));
+
+  // Auto-name unnamed inputs.
+  for (size_t i = 0; i < inputTensors.size(); ++i) {
+    if (inputTensors[i] && inputTensors[i]->getName().empty())
+      inputTensors[i]->setName(customOpAttr.getName() + "_IN_" +
+                               std::to_string(i));
+  }
+
+  FUSILLI_LOG_LABEL_ENDL("INFO: Adding CustomOpNode '" << customOpAttr.getName()
+                                                       << "' to Graph");
+
+  // Create output tensors. The caller sets dim/stride/datatype on the
+  // returned tensors (same pattern as convDGrad/convWGrad).
+  std::vector<std::shared_ptr<TensorAttr>> outputTensors;
+  outputTensors.reserve(customOpAttr.getNumOutputs());
+  for (size_t i = 0; i < customOpAttr.getNumOutputs(); ++i)
+    outputTensors.push_back(
+        outputTensor(customOpAttr.getName() + "_OUT_" + std::to_string(i)));
+
+  // Create node and add to Graph's subNodes_.
+  auto node = std::make_unique<CustomOpNode>(std::move(customOpAttr), context);
+  node->inputs = std::move(inputTensors);
+  node->outputs = outputTensors;
+  subNodes_.emplace_back(std::move(node));
+
+  return outputTensors;
 }
 
 } // namespace fusilli

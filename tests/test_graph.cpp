@@ -16,12 +16,37 @@
 #include <fstream>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
 
 using namespace fusilli;
+
+// Minimal INode subclass for testing recursive tree methods like
+// collectModuleScopeAsm without depending on any concrete op node.
+class TestNode : public INode {
+public:
+  explicit TestNode(const std::string &name,
+                    const std::string &moduleScopeAsm = "")
+      : INode(Context{}), name_(name), moduleScopeAsm_(moduleScopeAsm) {}
+
+  const std::string &getName() const override { return name_; }
+  Type getType() const override { return Type::Composite; }
+
+  // Expose protected members for testing.
+  using INode::collectModuleScopeAsm;
+  using INode::subNodes_;
+
+protected:
+  std::string emitModuleScopeAsm() const override { return moduleScopeAsm_; }
+  ErrorObject inferPropertiesNode() override { return ok(); }
+
+private:
+  std::string name_;
+  std::string moduleScopeAsm_;
+};
 
 TEST_CASE("Graph getName correctly propagates the context name", "[graph]") {
   Graph g;
@@ -420,6 +445,46 @@ TEST_CASE("Graph `execute`", "[graph]") {
   FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
   for (auto val : result)
     REQUIRE(val == half(128.0f));
+}
+
+// collectModuleScopeAsm recursively walks the sub-node tree and gathers
+// module-scope declarations. This test constructs a nested tree using
+// TestNode to verify the traversal reaches all depths:
+//
+//   root
+//     child_a ("DECL_A\n")
+//       grandchild ("DECL_GRANDCHILD\n")
+//     child_b ("DECL_B\n")
+//
+TEST_CASE("collectModuleScopeAsm gathers declarations from nested sub-nodes",
+          "[graph]") {
+  auto root = std::make_shared<TestNode>("root", "DECL_ROOT\n");
+
+  auto childA = std::make_shared<TestNode>("child_a", "DECL_A\n");
+  auto grandchild =
+      std::make_shared<TestNode>("grandchild", "DECL_GRANDCHILD\n");
+  childA->subNodes_.push_back(grandchild);
+
+  auto childB = std::make_shared<TestNode>("child_b", "DECL_B\n");
+
+  root->subNodes_.push_back(childA);
+  root->subNodes_.push_back(childB);
+
+  std::ostringstream oss;
+  root->collectModuleScopeAsm(oss);
+  std::string result = oss.str();
+
+  // All four declarations must be collected in pre-order.
+  REQUIRE(result.find("DECL_ROOT") != std::string::npos);
+  REQUIRE(result.find("DECL_A") != std::string::npos);
+  REQUIRE(result.find("DECL_GRANDCHILD") != std::string::npos);
+  REQUIRE(result.find("DECL_B") != std::string::npos);
+
+  // Verify pre-order: root before children, child_a before grandchild,
+  // grandchild before child_b.
+  REQUIRE(result.find("DECL_ROOT") < result.find("DECL_A"));
+  REQUIRE(result.find("DECL_A") < result.find("DECL_GRANDCHILD"));
+  REQUIRE(result.find("DECL_GRANDCHILD") < result.find("DECL_B"));
 }
 
 TEST_CASE("Graph `getWorkspaceSize` returns nullopt before compilation",
