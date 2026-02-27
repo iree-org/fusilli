@@ -425,6 +425,31 @@ inline ConditionalStreamer &getLogger() {
 
 #define FUSILLI_CONCAT_IMPL(a, b, c) a##_##b##_##c
 #define FUSILLI_CONCAT(a, b, c) FUSILLI_CONCAT_IMPL(a, b, c)
+
+// __COUNTER__ is supported by all major compilers (including MSVC), but newer
+// Clangs flag it as use of upcoming C2y standard. It isn't technically
+// standardized yet, but isn't a practical problem, so we simply silence the
+// diagnostic.
+//
+// Suppressed warnings:
+//   -Wunknown-warning-option: guards against older Clang versions that don't
+//       recognize the -Wc2y-extensions warning option.
+//   -Wc2y-extensions: disable the actual __COUNTER__ warning.
+//
+// See also: https://github.com/google/benchmark/pull/2108
+// clang-format off
+#if defined(__clang__)
+#define FUSILLI_DISABLE_COUNTER_WARNING                                        \
+  _Pragma("clang diagnostic push")                                             \
+  _Pragma("clang diagnostic ignored \"-Wunknown-warning-option\"")             \
+  _Pragma("clang diagnostic ignored \"-Wc2y-extensions\"")
+#define FUSILLI_RESTORE_COUNTER_WARNING _Pragma("clang diagnostic pop")
+#else
+#define FUSILLI_DISABLE_COUNTER_WARNING
+#define FUSILLI_RESTORE_COUNTER_WARNING
+#endif
+// clang-format on
+
 #define FUSILLI_ERROR_VAR(varDecl)                                             \
   FUSILLI_CONCAT(varDecl, __LINE__, __COUNTER__)
 
@@ -441,6 +466,8 @@ inline ConditionalStreamer &getLogger() {
 //     return ok(str.length());
 //   }
 #define FUSILLI_ASSIGN_OR_RETURN(varDecl, expr)                                \
-  FUSILLI_ASSIGN_OR_RETURN_IMPL(FUSILLI_ERROR_VAR(_errorOr), varDecl, expr)
+  FUSILLI_DISABLE_COUNTER_WARNING                                              \
+  FUSILLI_ASSIGN_OR_RETURN_IMPL(FUSILLI_ERROR_VAR(_errorOr), varDecl, expr)    \
+  FUSILLI_RESTORE_COUNTER_WARNING
 
 #endif // FUSILLI_SUPPORT_LOGGING_H
