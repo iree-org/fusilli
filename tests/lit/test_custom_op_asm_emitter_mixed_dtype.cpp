@@ -74,14 +74,14 @@ int main() {
   CustomOpAttr identityAttr;
   identityAttr.setName("identity_f16").setMlir(identityMlir).setNumOutputs(1);
 
-  auto outs1 = g.customOp(identityAttr, a);
+  auto outs1 = g.customOp({a}, identityAttr);
   outs1[0]->setDim({4}).setStride({1}).setDataType(DataType::Half);
 
   // Second op: cast_to_f32 (f16 -> f32)
   CustomOpAttr castAttr;
   castAttr.setName("cast_to_f32").setMlir(castMlir).setNumOutputs(1);
 
-  auto outs2 = g.customOp(castAttr, outs1[0]);
+  auto outs2 = g.customOp({outs1[0]}, castAttr);
   outs2[0]
       ->setDim({4})
       .setStride({1})

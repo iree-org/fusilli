@@ -22,38 +22,38 @@ namespace fusilli {
 
 class CustomOpAttr {
 public:
-  /// Setters:
+  // Setters:
   CustomOpAttr &setName(const std::string &name) {
     name_ = name;
     return *this;
   }
 
-  /// Sets the MLIR function definition for this custom op.
-  ///
-  /// The string may contain placeholders that are resolved at emission time
-  /// by `CustomOpNode::resolveMlirPlaceholders()`:
-  ///
-  ///   {FUNC_NAME}   — replaced with the node's unique name (from setName()).
-  ///   {IN0_DTYPE}   — replaced with input 0's MLIR element type (e.g., "f32").
-  ///   {OUT0_DTYPE}  — replaced with output 0's MLIR element type.
-  ///
-  /// Example:
-  ///   func.func private @{FUNC_NAME}(%arg0: !torch.vtensor<[?],{IN0_DTYPE}>,
-  ///                                    %arg1: !torch.vtensor<[?],{IN1_DTYPE}>)
-  ///                                    -> !torch.vtensor<[?],{OUT0_DTYPE}> {
-  ///     ...
-  ///   }
-  ///
-  /// If no placeholders are present, the string is emitted verbatim.
-  CustomOpAttr &setMlir(std::string mlir) {
-    mlir_ = std::move(mlir);
+  // Sets the MLIR function definition for this custom op.
+  //
+  // The string may contain placeholders that are resolved at emission time
+  // by `CustomOpNode::resolveMlirPlaceholders()`:
+  //
+  //   {FUNC_NAME}   — replaced with the node's unique name (from setName()).
+  //   {IN0_DTYPE}   — replaced with input 0's MLIR element type (e.g., "f32").
+  //   {OUT0_DTYPE}  — replaced with output 0's MLIR element type.
+  //
+  // Example:
+  //   func.func private @{FUNC_NAME}(%arg0: !torch.vtensor<[?],{IN0_DTYPE}>,
+  //                                    %arg1: !torch.vtensor<[?],{IN1_DTYPE}>)
+  //                                    -> !torch.vtensor<[?],{OUT0_DTYPE}> {
+  //     ...
+  //   }
+  //
+  // If no placeholders are present, the string is emitted verbatim.
+  CustomOpAttr &setMlir(const std::string &mlir) {
+    mlir_ = mlir;
     return *this;
   }
 
-  /// Getters:
+  // Getters:
   const std::string &getName() const { return name_; }
 
-  /// Returns the MLIR template string (may contain unresolved placeholders).
+  // Returns the MLIR template string (may contain unresolved placeholders).
   const std::string &getMlir() const { return mlir_; }
 
   size_t getNumOutputs() const { return numOutputs_; }

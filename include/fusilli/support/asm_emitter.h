@@ -214,6 +214,8 @@ getScalarConstantAsm(const std::shared_ptr<TensorAttr> &tensor) {
 // `!torch.tensor` if mutable) type. The caller is responsible to check for
 // this.
 //
+// NOTE: `useLogicalDims` is effectively ignored when `isDynamic` is set.
+//
 // Example:
 //
 //    TensorAttr t;
@@ -367,27 +369,22 @@ inline std::string Graph::getResultNamesAndTypesAsm() const {
 // schema, take extra caution about double bracing the curly brackets
 // (refer to the comments at the top of this file for details).
 inline std::string Graph::emitNodePreAsm() const {
-  std::string output;
-  output += "\nmodule @module {\n";
-
   // Collect module-scope declarations from sub-nodes
   // (e.g., custom op function definitions).
   std::ostringstream moduleScopeOss;
   collectModuleScopeAsm(moduleScopeOss);
-  std::string moduleScope = moduleScopeOss.str();
-  if (!moduleScope.empty()) {
-    output += moduleScope;
-    if (moduleScope.back() != '\n')
-      output += '\n';
-  }
 
-  // The func.func schema uses string concatenation (not std::format) to
-  // avoid issues with braces in module-scope MLIR content.
-  output += "  func.func @main(";
-  output += getResultNamesAndTypesAsm();
-  output += ", ";
-  output += getOperandNamesAndTypesAsm();
-  output += ") attributes {torch.assume_strict_symbolic_shapes} {\n  ";
+  constexpr std::string_view schema = R"(
+module @module {{
+  {0}
+  func.func @main({1}, {2}) attributes {{torch.assume_strict_symbolic_shapes}} {{
+  )";
+
+  std::string output = std::format(schema,
+                                   moduleScopeOss.str(),        // {0}
+                                   getResultNamesAndTypesAsm(), // {1}
+                                   getOperandNamesAndTypesAsm() // {2}
+  );
 
   // Emit scalar constants (`torch.vtensor.literal`) for all scalar graph inputs
   // at the top of the function body.
@@ -1612,7 +1609,7 @@ inline std::string CustomOpNode::emitNodePreAsm() const {
 
   // 1 & 2. For each input: permute + cast static->dynamic.
   // Use per-input indexed suffix to ensure unique SSA names when the same
-  // tensor appears in multiple input slots (e.g., g.customOp(attr, A, A)).
+  // tensor appears in multiple input slots (e.g., g.customOp({A, A}, attr)).
   for (size_t i = 0; i < inputs.size(); ++i) {
     std::string inputSuffix = suffix + "_i" + std::to_string(i);
     std::string permutePrefix = "permute_IN_" + std::to_string(i);

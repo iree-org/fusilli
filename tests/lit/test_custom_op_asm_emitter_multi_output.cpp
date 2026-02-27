@@ -61,7 +61,7 @@ int main() {
   CustomOpAttr splitAttr;
   splitAttr.setName("my_split").setMlir(splitMlir).setNumOutputs(2);
 
-  auto outs = g.customOp(splitAttr, a);
+  auto outs = g.customOp({a}, splitAttr);
   outs[0]
       ->setDim({4})
       .setStride({1})

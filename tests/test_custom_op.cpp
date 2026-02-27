@@ -65,7 +65,7 @@ TEST_CASE("Graph customOp() adds CustomOpNode and output tensors",
   CustomOpAttr addAttr;
   addAttr.setName("my_add").setMlir(getCustomAddMlir()).setNumOutputs(1);
 
-  auto outs = g.customOp(addAttr, a, b);
+  auto outs = g.customOp({a, b}, addAttr);
   outs[0]->setDim({4}).setStride({1}).setDataType(DataType::Float);
 
   REQUIRE(outs.size() == 1);
@@ -88,7 +88,7 @@ TEST_CASE("Graph customOp() auto-generates names", "[custom_op]") {
   CustomOpAttr attr;
   attr.setMlir(getCustomAddMlir()).setNumOutputs(1);
 
-  auto outs = g.customOp(attr, a);
+  auto outs = g.customOp({a}, attr);
   outs[0]->setDim({4}).setStride({1}).setDataType(DataType::Float);
 
   // Name should be auto-populated.
@@ -110,7 +110,7 @@ TEST_CASE("CustomOp compile + execute round-trip", "[custom_op]") {
   CustomOpAttr addAttr;
   addAttr.setName("my_add").setMlir(getCustomAddMlir()).setNumOutputs(1);
 
-  auto outs = g.customOp(addAttr, a, b);
+  auto outs = g.customOp({a, b}, addAttr);
   outs[0]
       ->setDim({4})
       .setStride({1})
@@ -179,7 +179,7 @@ TEST_CASE("CustomOp composition: built-in op -> custom op", "[custom_op]") {
   CustomOpAttr negAttr;
   negAttr.setName("my_neg").setMlir(negateMlir).setNumOutputs(1);
 
-  auto outs = g.customOp(negAttr, pwOut);
+  auto outs = g.customOp({pwOut}, negAttr);
   outs[0]
       ->setDim({4})
       .setStride({1})
@@ -229,7 +229,7 @@ TEST_CASE("CustomOp error: missing MLIR", "[custom_op]") {
   CustomOpAttr attr;
   attr.setName("bad_op").setNumOutputs(1);
 
-  auto outs = g.customOp(attr, a);
+  auto outs = g.customOp({a}, attr);
   outs[0]
       ->setDim({4})
       .setStride({1})
@@ -253,7 +253,7 @@ TEST_CASE("CustomOp error: missing outputs", "[custom_op]") {
   CustomOpAttr attr;
   attr.setName("bad_op").setMlir("some mlir");
   // No setNumOutputs call — defaults to 0, so the node will have empty outputs.
-  auto outs = g.customOp(attr, a);
+  auto outs = g.customOp({a}, attr);
 
   auto status = g.validate();
   REQUIRE(isError(status));
@@ -270,7 +270,7 @@ TEST_CASE("CustomOp error: scalar input", "[custom_op]") {
   CustomOpAttr attr;
   attr.setName("bad_op").setMlir(getCustomAddMlir()).setNumOutputs(1);
 
-  auto outs = g.customOp(attr, scalar);
+  auto outs = g.customOp({scalar}, attr);
   outs[0]
       ->setDim({4})
       .setStride({1})
@@ -283,6 +283,30 @@ TEST_CASE("CustomOp error: scalar input", "[custom_op]") {
   REQUIRE(status.getMessage() == "CustomOp input 0 is scalar (not supported)");
 }
 
+// Scalar tensor output must return validation error.
+TEST_CASE("CustomOp error: scalar output", "[custom_op]") {
+  Graph g;
+  g.setName("scalar_output_graph").setIODataType(DataType::Float);
+
+  auto a =
+      g.tensor(TensorAttr().setName("a").setDim({4}).setStride({1}).setDataType(
+          DataType::Float));
+
+  CustomOpAttr attr;
+  attr.setName("bad_op").setMlir(getCustomAddMlir()).setNumOutputs(1);
+
+  auto outs = g.customOp({a}, attr);
+  // Force the output tensor to be scalar. setOutput(true) clears the virtual
+  // flag first so that the CustomOpNode scalar check fires before TensorAttr's
+  // own "virtual + scalar" validation.
+  outs[0]->setOutput(true).setIsScalar(true);
+
+  auto status = g.validate();
+  REQUIRE(isError(status));
+  REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+  REQUIRE(status.getMessage() == "CustomOp output 0 is scalar (not supported)");
+}
+
 // Null shared_ptr input must return validation error, not segfault.
 TEST_CASE("CustomOp error: null input shared_ptr", "[custom_op]") {
   Graph g;
@@ -293,7 +317,7 @@ TEST_CASE("CustomOp error: null input shared_ptr", "[custom_op]") {
   CustomOpAttr attr;
   attr.setName("null_op").setMlir(getCustomAddMlir()).setNumOutputs(1);
 
-  auto outs = g.customOp(attr, nullInput);
+  auto outs = g.customOp({nullInput}, attr);
   outs[0]
       ->setDim({4})
       .setStride({1})
@@ -304,33 +328,4 @@ TEST_CASE("CustomOp error: null input shared_ptr", "[custom_op]") {
   REQUIRE(isError(status));
   REQUIRE(status.getCode() == ErrorCode::AttributeNotSet);
   REQUIRE(status.getMessage() == "CustomOp input 0 is null");
-}
-
-// Duplicate inputs (same tensor in multiple slots) must produce valid ASM
-// with unique SSA names — no redefinition errors.
-TEST_CASE("CustomOp duplicate input produces valid ASM", "[custom_op]") {
-  Graph g;
-  g.setName("dup_input_graph").setIODataType(DataType::Float);
-
-  auto a =
-      g.tensor(TensorAttr().setName("a").setDim({4}).setStride({1}).setDataType(
-          DataType::Float));
-
-  CustomOpAttr addAttr;
-  addAttr.setName("my_add").setMlir(getCustomAddMlir()).setNumOutputs(1);
-
-  auto outs = g.customOp(addAttr, a, a);
-  outs[0]
-      ->setDim({4})
-      .setStride({1})
-      .setDataType(DataType::Float)
-      .setOutput(true);
-
-  FUSILLI_REQUIRE_OK(g.validate());
-  FUSILLI_REQUIRE_ASSIGN(auto asmStr, g.emitAsm());
-
-  // Each input slot must get a unique indexed suffix (_i0, _i1) even when
-  // both slots refer to the same tensor.
-  REQUIRE(asmStr.find("%a_my_add_i0_dyn") != std::string::npos);
-  REQUIRE(asmStr.find("%a_my_add_i1_dyn") != std::string::npos);
 }

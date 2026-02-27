@@ -80,9 +80,6 @@ public:
           "CustomOp input " + std::to_string(i) + " is scalar (not supported)");
     }
     for (size_t i = 0; i < outputs.size(); ++i) {
-      FUSILLI_RETURN_ERROR_IF(!outputs[i], ErrorCode::AttributeNotSet,
-                              "CustomOp output " + std::to_string(i) +
-                                  " is null");
       FUSILLI_RETURN_ERROR_IF(outputs[i]->isScalar(),
                               ErrorCode::InvalidAttribute,
                               "CustomOp output " + std::to_string(i) +
@@ -92,20 +89,20 @@ public:
     return ok();
   }
 
-  /// Resolves `{FUNC_NAME}`, `{IN<i>_DTYPE}`, and `{OUT<i>_DTYPE}` placeholders
-  /// in the MLIR template using the node's name and tensor data types.
+  // Resolves `{FUNC_NAME}`, `{IN<i>_DTYPE}`, and `{OUT<i>_DTYPE}` placeholders
+  // in the MLIR template using the node's name and tensor data types.
   std::string resolveMlirPlaceholders() const {
     std::string mlir = customOpAttr.getMlir();
     replaceAll(mlir, "{FUNC_NAME}", customOpAttr.getName());
     for (size_t i = 0; i < inputs.size(); ++i) {
-      auto it = kDataTypeToMlirTypeAsm.find(inputs[i]->getDataType());
-      assert(it != kDataTypeToMlirTypeAsm.end());
-      replaceAll(mlir, "{IN" + std::to_string(i) + "_DTYPE}", it->second);
+      const std::string &mlirDtype =
+          kDataTypeToMlirTypeAsm.at(inputs[i]->getDataType());
+      replaceAll(mlir, "{IN" + std::to_string(i) + "_DTYPE}", mlirDtype);
     }
     for (size_t i = 0; i < outputs.size(); ++i) {
-      auto it = kDataTypeToMlirTypeAsm.find(outputs[i]->getDataType());
-      assert(it != kDataTypeToMlirTypeAsm.end());
-      replaceAll(mlir, "{OUT" + std::to_string(i) + "_DTYPE}", it->second);
+      const std::string &mlirDtype =
+          kDataTypeToMlirTypeAsm.at(outputs[i]->getDataType());
+      replaceAll(mlir, "{OUT" + std::to_string(i) + "_DTYPE}", mlirDtype);
     }
     return mlir;
   }

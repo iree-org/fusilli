@@ -282,9 +282,9 @@ public:
   std::shared_ptr<TensorAttr> reduction(const std::shared_ptr<TensorAttr> &x,
                                         ReductionAttr &attributes);
 
-  template <typename... Tensors>
-  std::vector<std::shared_ptr<TensorAttr>> customOp(CustomOpAttr &customOpAttr,
-                                                    Tensors &&...inputArgs);
+  std::vector<std::shared_ptr<TensorAttr>>
+  customOp(std::vector<std::shared_ptr<TensorAttr>> inputs,
+           CustomOpAttr &customOpAttr);
 
   // Query required workspace buffer size.
   // Returns std::nullopt if not compiled, 0 if no workspace needed,
@@ -893,12 +893,9 @@ Graph::reduction(const std::shared_ptr<TensorAttr> &x,
   return y;
 }
 
-template <typename... Tensors>
 inline std::vector<std::shared_ptr<TensorAttr>>
-Graph::customOp(CustomOpAttr &customOpAttr, Tensors &&...inputArgs) {
-  std::vector<std::shared_ptr<TensorAttr>> inputTensors{
-      std::forward<Tensors>(inputArgs)...};
-
+Graph::customOp(std::vector<std::shared_ptr<TensorAttr>> inputTensors,
+                CustomOpAttr &customOpAttr) {
   // Populate name when not set.
   if (customOpAttr.getName().empty())
     customOpAttr.setName("custom_op_" + std::to_string(subNodes_.size()));
@@ -923,7 +920,7 @@ Graph::customOp(CustomOpAttr &customOpAttr, Tensors &&...inputArgs) {
 
   // Create node and add to Graph's subNodes_.
   auto node = std::make_unique<CustomOpNode>(std::move(customOpAttr), context);
-  node->inputs = inputTensors;
+  node->inputs = std::move(inputTensors);
   node->outputs = outputTensors;
   subNodes_.emplace_back(std::move(node));
 

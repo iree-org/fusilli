@@ -67,7 +67,7 @@ TEST_CASE("Custom op: compose built-in pointwise add with custom negate",
     CustomOpAttr negAttr;
     negAttr.setName("my_neg").setMlir(getCustomNegateMlir()).setNumOutputs(1);
 
-    auto outs = graph->customOp(negAttr, pwOut);
+    auto outs = graph->customOp({pwOut}, negAttr);
 
     // IMPORTANT: Unlike built-in ops, custom op outputs cannot be inferred.
     // You must manually set dim, stride, and dataType on each output.
