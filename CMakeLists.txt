@@ -121,7 +121,8 @@ endif()
 # Prefer to keep the IREE_GIT_TAG synced with the python-installed IREE version.
 # At a minimum, the compiler from those packages must be compatible with the
 # runtime at this source ref.
-string(JSON IREE_GIT_TAG GET ${VERSION_JSON_STRING} iree-version)
+string(JSON IREE_VERSION GET ${VERSION_JSON_STRING} iree-version)
+set(IREE_GIT_TAG "iree-${IREE_VERSION}")
 set(IREE_SOURCE_DIR "" CACHE FILEPATH "Path to IREE source")
 
 # Set IREE build flags.
