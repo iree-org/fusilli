@@ -1,0 +1,173 @@
+# Copyright 2026 Advanced Micro Devices, Inc.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+name: Nightly Dependency Bump
+
+on:
+  workflow_dispatch:
+    inputs:
+      iree_version:
+        description: "IREE version override (e.g., 3.11.0rc20260217). Skips auto-discovery."
+        required: false
+      therock_version:
+        description: "TheRock version override (e.g., 7.12.0a20260217). Skips auto-discovery."
+        required: false
+  schedule:
+    # Run daily at 10:00 UTC (before benchmarks at 11:00 UTC)
+    - cron: "0 10 * * *"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump-deps:
+    if: ${{ github.repository == 'iree-org/fusilli' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout fusilli
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Read current versions
+        id: current
+        run: |
+          CURRENT_IREE=$(python3 -c "import json; print(json.load(open('version.json'))['iree-version'])")
+          CURRENT_THEROCK=$(python3 -c "import json; print(json.load(open('version.json'))['therock-version'])")
+          echo "iree=${CURRENT_IREE}" >> $GITHUB_OUTPUT
+          echo "therock=${CURRENT_THEROCK}" >> $GITHUB_OUTPUT
+
+      - name: Discover latest IREE version
+        id: iree
+        run: |
+          # Use manual override if provided
+          if [ -n "${{ inputs.iree_version }}" ]; then
+            echo "Using manual override: ${{ inputs.iree_version }}"
+            echo "version=${{ inputs.iree_version }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Fetch the latest two rc tags (fallback if latest wheel isn't published yet).
+          # Uses git ls-remote instead of GitHub releases API, which may not list recent rc tags.
+          readarray -t TAGS < <(
+            git ls-remote --tags https://github.com/iree-org/iree.git \
+              | grep -v '\^{}' \
+              | sed 's#.*/##' \
+              | grep '^iree-.*rc' \
+              | sort -V \
+              | tail -n2 \
+              | sed 's/^iree-//'
+          )
+
+          LATEST=${TAGS[1]}
+          FALLBACK=${TAGS[0]}
+          echo "Latest IREE tag: ${LATEST}, Fallback: ${FALLBACK}"
+
+          # Verify pip wheel availability (the git tag can exist before the wheel is uploaded)
+          if pip install iree-base-compiler==${LATEST} \
+               --find-links https://iree.dev/pip-release-links.html \
+               --dry-run 2>/dev/null; then
+            CHOSEN=${LATEST}
+          elif pip install iree-base-compiler==${FALLBACK} \
+                 --find-links https://iree.dev/pip-release-links.html \
+                 --dry-run 2>/dev/null; then
+            echo "::warning::Latest IREE wheel ${LATEST} not available, falling back to ${FALLBACK}"
+            CHOSEN=${FALLBACK}
+          else
+            echo "::error::No IREE wheel available for ${LATEST} or ${FALLBACK}"
+            exit 1
+          fi
+
+          echo "Chosen IREE version: ${CHOSEN}"
+          echo "version=${CHOSEN}" >> $GITHUB_OUTPUT
+
+      - name: Discover latest TheRock version
+        id: therock
+        run: |
+          # Use manual override if provided
+          if [ -n "${{ inputs.therock_version }}" ]; then
+            echo "Using manual override: ${{ inputs.therock_version }}"
+            echo "version=${{ inputs.therock_version }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Extract version prefix from current tag (e.g., "7.12.0a" from "7.12.0a20260217").
+          # Don't hardcode — the major version may change between bumps.
+          CURRENT="${{ steps.current.outputs.therock }}"
+          PREFIX=$(echo "${CURRENT}" | sed -E 's/[0-9]{8}$//')
+
+          FOUND=""
+          for DATE in $(date +%Y%m%d) $(date -d yesterday +%Y%m%d) $(date -d '2 days ago' +%Y%m%d); do
+            URL="https://therock-nightly-tarball.s3.us-east-2.amazonaws.com/therock-dist-linux-gfx94X-dcgpu-${PREFIX}${DATE}.tar.gz"
+            if curl -sI "${URL}" | grep -q "HTTP.*200"; then
+              FOUND="${PREFIX}${DATE}"
+              echo "Found TheRock nightly: ${FOUND}"
+              break
+            fi
+          done
+
+          if [ -z "${FOUND}" ]; then
+            echo "::warning::No new TheRock nightly found, keeping current version: ${CURRENT}"
+            echo "version=${CURRENT}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${FOUND}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if update needed
+        id: check
+        run: |
+          NEW_IREE="${{ steps.iree.outputs.version }}"
+          NEW_THEROCK="${{ steps.therock.outputs.version }}"
+          CUR_IREE="${{ steps.current.outputs.iree }}"
+          CUR_THEROCK="${{ steps.current.outputs.therock }}"
+
+          echo "Current: IREE=${CUR_IREE}, TheRock=${CUR_THEROCK}"
+          echo "New:     IREE=${NEW_IREE}, TheRock=${NEW_THEROCK}"
+
+          if [ "${NEW_IREE}" = "${CUR_IREE}" ] && [ "${NEW_THEROCK}" = "${CUR_THEROCK}" ]; then
+            echo "No version changes detected. Skipping PR creation."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update version.json
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          python3 -c "
+          import json
+          with open('version.json') as f:
+              data = json.load(f)
+          data['iree-version'] = '${{ steps.iree.outputs.version }}'
+          data['therock-version'] = '${{ steps.therock.outputs.version }}'
+          with open('version.json', 'w') as f:
+              json.dump(data, f, indent=2)
+              f.write('\n')
+          "
+          echo "Updated version.json:"
+          cat version.json
+
+      - name: Create Pull Request
+        if: steps.check.outputs.skip != 'true'
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7.0.11
+        with:
+          branch: nightly-bump/iree-${{ steps.iree.outputs.version }}-therock-${{ steps.therock.outputs.version }}
+          delete-branch: true
+          title: "[Nightly] Bump IREE to ${{ steps.iree.outputs.version }}"
+          body: |
+            ## Summary
+            Automated nightly dependency bump.
+            - IREE: `${{ steps.current.outputs.iree }}` → `${{ steps.iree.outputs.version }}`
+            - TheRock: `${{ steps.current.outputs.therock }}` → `${{ steps.therock.outputs.version }}`
+
+            This PR was created automatically by the [Nightly Dependency Bump](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) workflow.
+          commit-message: |
+            [Nightly] Bump IREE to ${{ steps.iree.outputs.version }}, TheRock to ${{ steps.therock.outputs.version }}
+          labels: nightly-bump
