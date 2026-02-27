@@ -215,12 +215,15 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
 
   // Create HAL module and register it with the context.
   {
-    iree_hal_device_t *device = handle.getDevice();
+    iree_hal_device_group_t *deviceGroup = nullptr;
+    FUSILLI_CHECK_ERROR(iree_hal_device_group_create_from_device(
+        handle.getDevice(), allocator, &deviceGroup));
     iree_vm_module_t *halModule = nullptr;
     FUSILLI_CHECK_ERROR(iree_hal_module_create(
         handle.getInstance(), iree_hal_module_device_policy_default(),
-        /*device_count=*/1, &device, IREE_HAL_MODULE_FLAG_NONE,
+        deviceGroup, IREE_HAL_MODULE_FLAG_NONE,
         iree_hal_module_debug_sink_null(), allocator, &halModule));
+    iree_hal_device_group_release(deviceGroup);
     iree_status_t status = iree_vm_context_register_modules(
         vmContext_.get(), /*module_count=*/1, &halModule);
     iree_vm_module_release(halModule);
