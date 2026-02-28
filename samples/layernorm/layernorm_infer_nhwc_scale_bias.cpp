@@ -101,13 +101,13 @@ TEST_CASE("Layer normalization; inference mode; NHWC layout; scale, bias",
 
   REQUIRE(yVals.size() == expectedVals.size());
   constexpr float tolerance = 1e-4f;
-  for (size_t i = 0; i < yVals.size(); i++) {
+  for (size_t i = 0; i < yVals.size(); ++i) {
     REQUIRE(std::abs(yVals[i] - expectedVals[i]) < tolerance);
   }
 
   // Execute graph a few times to verify consistent results.
   constexpr size_t numIters = 1;
-  for (size_t i = 0; i < numIters; i++)
+  for (size_t i = 0; i < numIters; ++i)
     FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
 
   // Repeat output buffer checks.
@@ -115,7 +115,7 @@ TEST_CASE("Layer normalization; inference mode; NHWC layout; scale, bias",
   FUSILLI_REQUIRE_OK(yBuf->read(handle, yVals));
 
   REQUIRE(yVals.size() == expectedVals.size());
-  for (size_t i = 0; i < yVals.size(); i++) {
+  for (size_t i = 0; i < yVals.size(); ++i) {
     REQUIRE(std::abs(yVals[i] - expectedVals[i]) < tolerance);
   }
 }
