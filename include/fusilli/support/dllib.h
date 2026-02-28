@@ -32,26 +32,26 @@
 
 namespace fusilli {
 
-/// DynamicLibrary provides a cross-platform interface for loading and
-/// interacting with dynamic/shared libraries.
-///
-/// Usage:
-///   DynamicLibrary lib;
-///   ErrorObject loadErr = lib.load("/path/to/library.so");
-///   if (isError(loadErr)) {
-///     std::cerr << "Error: " << loadErr << std::endl;
-///     return;
-///   }
-///
-///   ErrorOr<int(*)(int)> funcPtr = lib.getSymbol<int(*)(int)>("myFunction");
-///   if (isError(funcPtr)) {
-///     std::cerr << "Symbol not found: " << ErrorObject(funcPtr) << std::endl;
-///     return;
-///   }
-///
-///   int result = (*funcPtr)(42);
-///   lib.close();
-///
+// DynamicLibrary provides a cross-platform interface for loading and
+// interacting with dynamic/shared libraries.
+//
+// Usage:
+//   DynamicLibrary lib;
+//   ErrorObject loadErr = lib.load("/path/to/library.so");
+//   if (isError(loadErr)) {
+//     std::cerr << "Error: " << loadErr << std::endl;
+//     return;
+//   }
+//
+//   ErrorOr<int(*)(int)> funcPtr = lib.getSymbol<int(*)(int)>("myFunction");
+//   if (isError(funcPtr)) {
+//     std::cerr << "Symbol not found: " << ErrorObject(funcPtr) << std::endl;
+//     return;
+//   }
+//
+//   int result = (*funcPtr)(42);
+//   lib.close();
+//
 class DynamicLibrary {
 public:
   DynamicLibrary() = default;
@@ -80,14 +80,14 @@ public:
     assert(isOk(err) && "Error closing library during destruction");
   }
 
-  /// Loads a dynamic library from the specified path.
-  ///
-  /// On POSIX systems, this uses dlopen with RTLD_LOCAL to load the library
-  /// with symbol isolation.
-  ///
-  /// On Windows, this uses LoadLibraryEx.
-  ///
-  /// Returns ErrorObject indicating success or failure.
+  // Loads a dynamic library from the specified path.
+  //
+  // On POSIX systems, this uses dlopen with RTLD_LOCAL to load the library
+  // with symbol isolation.
+  //
+  // On Windows, this uses LoadLibraryEx.
+  //
+  // Returns ErrorObject indicating success or failure.
   ErrorObject load(const std::string &path) {
     if (handle_) {
       auto err = close();
@@ -126,10 +126,10 @@ public:
     return ok();
   }
 
-  /// Retrieves a symbol from the loaded library.
-  ///
-  /// Returns ErrorOr<T> containing the symbol pointer on success, or an error
-  /// if the symbol is not found or the library is not loaded.
+  // Retrieves a symbol from the loaded library.
+  //
+  // Returns ErrorOr<T> containing the symbol pointer on success, or an error
+  // if the symbol is not found or the library is not loaded.
   template <typename T> ErrorOr<T> getSymbol(const char *name) {
     static_assert(std::is_pointer_v<T>, "T must be a pointer type");
     if (!handle_) {
@@ -175,9 +175,9 @@ public:
     return ok(reinterpret_cast<T>(sym));
   }
 
-  /// Closes the loaded library.
-  ///
-  /// Safe to call multiple times or on an unloaded library.
+  // Closes the loaded library.
+  //
+  // Safe to call multiple times or on an unloaded library.
   ErrorObject close() {
     if (handle_) {
 #if defined(FUSILLI_PLATFORM_WINDOWS)
@@ -190,7 +190,7 @@ public:
     return ok();
   }
 
-  /// Returns true if a library is currently loaded.
+  // Returns true if a library is currently loaded.
   bool isLoaded() const { return handle_ != nullptr; }
 
 private:

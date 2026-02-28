@@ -44,7 +44,7 @@ template <typename T> hipdnnPluginStatus_t isNull(T *value) {
 inline fusilli::ErrorOr<hipdnnPluginDeviceBuffer_t>
 findDeviceBuffer(int64_t uid, const hipdnnPluginDeviceBuffer_t *deviceBuffers,
                  uint32_t numDeviceBuffers) {
-  for (uint32_t i = 0; i < numDeviceBuffers; i++) {
+  for (uint32_t i = 0; i < numDeviceBuffers; ++i) {
     if (uid == deviceBuffers[i].uid) {
       return fusilli::ok(deviceBuffers[i]);
     }

@@ -110,8 +110,8 @@ TEST_CASE("MemStream large writes", "[memstream]") {
     MemStream ms;
     REQUIRE(ms.isValid());
 
-    for (int i = 0; i < 1000; ++i) {
-      fprintf(ms, "%d", i % 10);
+    for (size_t i = 0; i < 1000; ++i) {
+      fprintf(ms, "%zu", i % 10);
     }
     std::string result = *ms.str();
     REQUIRE(result.size() == 1000);
