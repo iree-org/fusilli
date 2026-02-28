@@ -22,6 +22,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <sstream>
+#include <string>
 #include <utility> // IWYU pragma: export
 #include <vector>
 
@@ -245,6 +247,58 @@ allocateWorkspace(const Handle &handle, std::optional<size_t> workspaceSize) {
   return ok(std::make_shared<Buffer>(std::move(workspaceBuf)));
 }
 
+// Validates that all operations inside `func.func @main` are indented at
+// exactly 4 spaces, matching MLIR formatting conventions.
+//
+// Only the body of `@main` is checked — module-scope declarations such as
+// custom op functions (`func.func private @...`) are skipped because their
+// MLIR is user-specified and not controlled by the ASM emitter.
+//
+// Call this after `emitAsm()` to catch indentation regressions in the ASM
+// emitter schemas.
+inline ErrorObject checkMlirIndentation(const std::string &mlir) {
+  std::istringstream stream(mlir);
+  std::string line;
+  int lineNum = 0;
+  bool insideMainFunc = false;
+
+  while (std::getline(stream, line)) {
+    ++lineNum;
+
+    // Skip blank lines.
+    if (line.empty() || line.find_first_not_of(' ') == std::string::npos)
+      continue;
+
+    size_t indent = line.find_first_not_of(' ');
+
+    // Enter the @main function body — this is the only scope we validate.
+    if (line.find("func.func @main") != std::string::npos) {
+      insideMainFunc = true;
+      continue;
+    }
+
+    // Ignore everything outside @main (module decl, custom op funcs, etc.).
+    if (!insideMainFunc)
+      continue;
+
+    // Closing braces are structural; a brace at module or func level
+    // (indent <= 2) exits the @main scope.
+    if (line[indent] == '}') {
+      if (indent <= 2)
+        insideMainFunc = false;
+      continue;
+    }
+
+    // Every op inside @main must be indented at exactly 4 spaces.
+    FUSILLI_RETURN_ERROR_IF(indent != 4, ErrorCode::InvalidAttribute,
+                            "MLIR indentation error on line " +
+                                std::to_string(lineNum) +
+                                ": expected 4-space indent, got " +
+                                std::to_string(indent) + ": " + line);
+  }
+  return ok();
+}
+
 inline TensorAttr createTestTensorAttr(const std::string &name,
                                        std::span<const int64_t> dim) {
 
@@ -288,6 +342,7 @@ inline ErrorObject testUnaryPointwiseAsmEmitter(const std::string &graphName,
 
   if (mode == "default") {
     FUSILLI_ASSIGN_OR_RETURN(auto generatedAsm, graph->emitAsm());
+    FUSILLI_CHECK_ERROR(checkMlirIndentation(generatedAsm));
     std::cout << generatedAsm << std::endl;
   }
 
@@ -326,6 +381,7 @@ inline ErrorObject testBinaryPointwiseAsmEmitter(const std::string &graphName,
 
   if (mode == "default") {
     FUSILLI_ASSIGN_OR_RETURN(auto generatedAsm, graph->emitAsm());
+    FUSILLI_CHECK_ERROR(checkMlirIndentation(generatedAsm));
     std::cout << generatedAsm << std::endl;
   }
 

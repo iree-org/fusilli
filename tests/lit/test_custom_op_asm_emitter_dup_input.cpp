@@ -33,6 +33,8 @@
 
 #include <fusilli.h>
 
+#include "utils.h"
+
 #include <iostream>
 #include <string>
 
@@ -77,6 +79,12 @@ int main() {
   auto asmOrErr = g.emitAsm();
   if (isError(asmOrErr)) {
     std::cerr << "ASM emission failed: " << asmOrErr << std::endl;
+    return 1;
+  }
+
+  auto indentErr = checkMlirIndentation(*asmOrErr);
+  if (isError(indentErr)) {
+    std::cerr << "Indentation check failed: " << indentErr << std::endl;
     return 1;
   }
 
