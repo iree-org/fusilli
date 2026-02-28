@@ -263,6 +263,7 @@ def build_hipdnn(git_ref: str):
         "-DHIP_DNN_GENERATE_SDK_HEADERS=OFF",
         "-DENABLE_CLANG_TIDY=OFF",
         "-DENABLE_CLANG_FORMAT=OFF",
+        "-DHIPDNN_FRONTEND_SKIP_JSON_LIB=ON",
     ]
     subprocess.run(cmake_args, check=True)
 
