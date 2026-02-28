@@ -80,3 +80,13 @@ add_fusilli_samples(
     libutils
     Catch2::Catch2WithMain
 )
+
+add_fusilli_samples(
+  PREFIX fusilli_custom_op_samples
+  SRCS
+    custom_op/custom_op_add.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)

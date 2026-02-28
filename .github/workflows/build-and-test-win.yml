@@ -38,7 +38,7 @@ jobs:
       - name: "Reading IREE version"
         run: |
           $json = Get-Content version.json | ConvertFrom-Json
-          $ireeGitTag = $json.'iree-version' -replace '^iree-', ''
+          $ireeGitTag = $json.'iree-version'
           echo "IREE_GIT_TAG=$ireeGitTag" >> $env:GITHUB_ENV
       - name: "Installing Python packages"
         run: |

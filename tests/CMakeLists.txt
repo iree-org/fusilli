@@ -66,6 +66,7 @@ add_fusilli_tests(
   SRCS
     test_graph.cpp
     test_context.cpp
+    test_custom_op.cpp
   DEPS
     libfusilli
     libutils
@@ -157,6 +158,8 @@ add_fusilli_lit_tests(
     lit/test_conv_dgrad_asm_emitter_nhwc_kcrs_grouped.cpp
     lit/test_layernorm_infer_asm_emitter_nchw.cpp
     lit/test_layernorm_infer_asm_emitter_scale_bias_nhwc.cpp
+    # TODO(iree-org/iree#23340) The model compilation takes a lot of time
+    # lit/test_layernorm_infer_asm_emitter_scale_bias_nhwc_small_batch.cpp
     lit/test_layernorm_train_asm_emitter_nchw.cpp
     lit/test_layernorm_train_asm_emitter_scale_bias_nhwc.cpp
     lit/test_matmul_asm_emitter_basic.cpp
@@ -164,6 +167,10 @@ add_fusilli_lit_tests(
     lit/test_matmul_asm_emitter_broadcast_3D.cpp
     lit/test_matmul_asm_emitter_broadcast_4D.cpp
     lit/test_matmul_asm_emitter_noncontiguous.cpp
+    lit/test_custom_op_asm_emitter.cpp
+    lit/test_custom_op_asm_emitter_dup_input.cpp
+    lit/test_custom_op_asm_emitter_multi_output.cpp
+    lit/test_custom_op_asm_emitter_mixed_dtype.cpp
     lit/test_reduction_asm_emitter_sum.cpp
     lit/test_reduction_asm_emitter_min.cpp
     lit/test_reduction_asm_emitter_max.cpp
