@@ -69,12 +69,12 @@ public:
 
     // Validate inputs based on mode
     PointwiseAttr::Mode mode = pointwiseAttr.getMode();
-    int requiredCount = PointwiseAttr::kModeToRequiredInputCount.at(mode);
+    size_t requiredCount = PointwiseAttr::kModeToRequiredInputCount.at(mode);
 
     // Validate input requirements (required inputs must exist, unnecessary ones
     // must not)
-    constexpr int maxInputs = 3;
-    for (int i = 0; i < maxInputs; ++i) {
+    constexpr size_t maxInputs = 3;
+    for (size_t i = 0; i < maxInputs; ++i) {
       auto inputName = static_cast<PointwiseAttr::InputNames>(i);
       bool hasInput = pointwiseAttr.inputs.contains(inputName) &&
                       pointwiseAttr.inputs.at(inputName) != nullptr;

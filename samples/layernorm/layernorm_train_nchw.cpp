@@ -102,17 +102,17 @@ TEST_CASE("Layer normalization; training mode; NCHW layout; no bias/scale",
   REQUIRE(mVals.size() == expectedMeans.size());
   REQUIRE(vVals.size() == expectedVariances.size());
   constexpr float tolerance = 1e-4f;
-  for (size_t i = 0; i < yVals.size(); i++) {
+  for (size_t i = 0; i < yVals.size(); ++i) {
     REQUIRE(std::abs(yVals[i] - expectedVals[i]) < tolerance);
   }
-  for (size_t i = 0; i < mVals.size(); i++) {
+  for (size_t i = 0; i < mVals.size(); ++i) {
     REQUIRE(std::abs(mVals[i] - expectedMeans[i]) < tolerance);
     REQUIRE(std::abs(vVals[i] - expectedVariances[i]) < tolerance);
   }
 
   // Execute graph a few times to verify consistent results.
   constexpr size_t numIters = 1;
-  for (size_t i = 0; i < numIters; i++)
+  for (size_t i = 0; i < numIters; ++i)
     FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
 
   // Repeat output buffer checks.
@@ -126,10 +126,10 @@ TEST_CASE("Layer normalization; training mode; NCHW layout; no bias/scale",
   REQUIRE(yVals.size() == expectedVals.size());
   REQUIRE(mVals.size() == expectedMeans.size());
   REQUIRE(vVals.size() == expectedVariances.size());
-  for (size_t i = 0; i < yVals.size(); i++) {
+  for (size_t i = 0; i < yVals.size(); ++i) {
     REQUIRE(std::abs(yVals[i] - expectedVals[i]) < tolerance);
   }
-  for (size_t i = 0; i < mVals.size(); i++) {
+  for (size_t i = 0; i < mVals.size(); ++i) {
     REQUIRE(std::abs(mVals[i] - expectedMeans[i]) < tolerance);
     REQUIRE(std::abs(vVals[i] - expectedVariances[i]) < tolerance);
   }

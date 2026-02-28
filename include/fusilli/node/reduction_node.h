@@ -42,8 +42,8 @@ public:
   std::string getResultNamesAsm() const;
   std::string getResultTypesAsm() const;
 
-  /// Returns the list of dimension indices that are reduced.
-  /// A dimension is reduced if Y[i] == 1 and X[i] > 1.
+  // Returns the list of dimension indices that are reduced.
+  // A dimension is reduced if Y[i] == 1 and X[i] > 1.
   std::vector<int64_t> getReductionDims() const {
     std::vector<int64_t> reductionDims;
     const auto &xDim = reductionAttr.getX()->getDim();
