@@ -416,7 +416,7 @@ inline std::string Graph::emitNodePostAsm() const {
             << output->getTensorTypeAsm(/*isValueTensor=*/false);
       },
       // between_fn:
-      [&] { oss << "\n"; },
+      [&] { oss << "\n    "; },
       // skip_fn:
       [&](const std::shared_ptr<TensorAttr> &output) {
         // We only want the final outputs in the return so ignore any virtual
@@ -1092,15 +1092,15 @@ inline std::string LayerNormNode::emitNodePreAsm() const {
         uniqueSSASuffix, /*isInput=*/false);
 
     constexpr std::string_view schema = R"(
-      {0}
-      {1}
-      {2}
-      {3}
-      {4}
-      {5} = torch.aten.native_layer_norm {6} : {7} -> {8}
-      {9}
-      {10}
-      {11}
+    {0}
+    {1}
+    {2}
+    {3}
+    {4}
+    {5} = torch.aten.native_layer_norm {6} : {7} -> {8}
+    {9}
+    {10}
+    {11}
     )";
 
     return std::format(schema,
@@ -1318,24 +1318,24 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
                        uniqueSSASuffix, /*isInput=*/false);
 
   constexpr std::string_view kUnaryTorchSchema = R"(
-{0}
-{1} = {6} {2} : {3} -> {4}
-{5}
+    {0}
+    {1} = {6} {2} : {3} -> {4}
+    {5}
 )";
 
   constexpr std::string_view kBinaryTorchSchema = R"(
-{0}
-{1}
-{2} = {7} {3} : {4} -> {5}
-{6}
+    {0}
+    {1}
+    {2} = {7} {3} : {4} -> {5}
+    {6}
 )";
 
   constexpr std::string_view kSubAddSchema = R"(
-{0}
-{1}
-%alpha_{8} = torch.constant.int 1
-{2} = {7} {3}, %alpha_{8} : {4}, !torch.int -> {5}
-{6}
+    {0}
+    {1}
+    %alpha_{8} = torch.constant.int 1
+    {2} = {7} {3}, %alpha_{8} : {4}, !torch.int -> {5}
+    {6}
 )";
 
 #define FUSILLI_DECLARE_UNARY_TORCH_EMITTER(PWOP, OPIR)                        \
@@ -1613,7 +1613,8 @@ inline std::string CustomOpNode::emitNodePreAsm() const {
   for (size_t i = 0; i < inputs.size(); ++i) {
     std::string inputSuffix = suffix + "_i" + std::to_string(i);
     std::string permutePrefix = "permute_IN_" + std::to_string(i);
-    oss << getPermuteOpsAsm(inputs[i], permutePrefix, inputSuffix,
+    oss << "\n    "
+        << getPermuteOpsAsm(inputs[i], permutePrefix, inputSuffix,
                             /*isInput=*/true);
     oss << getStaticToDynamicCastAsm(inputs[i], inputSuffix, /*isInput=*/true);
   }
@@ -1646,7 +1647,8 @@ inline std::string CustomOpNode::emitNodePreAsm() const {
     oss << getStaticToDynamicCastAsm(outputs[i], suffix, /*isInput=*/false,
                                      operandOverride);
     std::string permutePrefix = "permute_OUT_" + std::to_string(i);
-    oss << getPermuteOpsAsm(outputs[i], permutePrefix, suffix,
+    oss << "\n    "
+        << getPermuteOpsAsm(outputs[i], permutePrefix, suffix,
                             /*isInput=*/false);
   }
 

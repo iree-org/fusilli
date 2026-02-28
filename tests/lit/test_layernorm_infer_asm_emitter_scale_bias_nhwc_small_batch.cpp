@@ -105,6 +105,7 @@ testLayernormInferAsmEmitterScaleBiasNhwcSmallBatch(const std::string &mode) {
 
   if (mode == "default") {
     FUSILLI_ASSIGN_OR_RETURN(auto generatedAsm, graph->emitAsm());
+    FUSILLI_CHECK_ERROR(checkMlirIndentation(generatedAsm));
     std::cout << generatedAsm << std::endl;
   }
 
