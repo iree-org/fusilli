@@ -351,10 +351,10 @@ hipdnnEnginePluginGetWorkspaceSize(hipdnnEnginePluginHandle_t handle,
   FUSILLI_PLUGIN_CHECK_NULL(opGraph);
   FUSILLI_PLUGIN_CHECK_NULL(workspaceSize);
 
-  // TODO(#2309): for now we're focusing on kernels that don't require scratch
-  // buffer space. Eventually we will need to teach IREE to report what scratch
-  // buffer space required, and how to use a passed in pre-allocated scratch
-  // space rather than a runtime allocated scratch space.
+  // TODO(#197): Create a heuristic to estimate workspace size from the op graph
+  // without requiring full compilation. For now, return 0 — the actual
+  // workspace size will be reported by GetWorkspaceSizeFromExecutionContext
+  // after the graph is compiled.
   *workspaceSize = 0;
 
   LOG_API_SUCCESS_AUTO("workspaceSize=" << *workspaceSize);
@@ -439,11 +439,15 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetWorkspaceSizeFromExecutionContext(
   FUSILLI_PLUGIN_CHECK_NULL(executionContext);
   FUSILLI_PLUGIN_CHECK_NULL(workspaceSize);
 
-  // TODO(#2309): for now we're focusing on kernels that don't require scratch
-  // buffer space. Eventually we will need to teach IREE to report what scratch
-  // buffer space required, and how to use a passed in pre-allocated scratch
-  // space rather than a runtime allocated scratch space.
-  *workspaceSize = 0;
+  // This should never happen. When it does we'll at least get a sane error
+  // message.
+  std::optional<size_t> maybeSize = executionContext->graph.getWorkspaceSize();
+  if (!maybeSize.has_value()) {
+    return hipdnn_plugin_sdk::PluginLastErrorManager::setLastError(
+        HIPDNN_PLUGIN_STATUS_INTERNAL_ERROR,
+        "Workspace size not available — graph may not be compiled");
+  }
+  *workspaceSize = *maybeSize;
 
   LOG_API_SUCCESS_AUTO("workspaceSize=" << *workspaceSize);
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
@@ -451,37 +455,27 @@ hipdnnPluginStatus_t hipdnnEnginePluginGetWorkspaceSizeFromExecutionContext(
 
 hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
     hipdnnEnginePluginHandle_t handle,
-    hipdnnEnginePluginExecutionContext_t executionContext, void *workspace,
+    hipdnnEnginePluginExecutionContext_t executionContext, void *workspacePtr,
     const hipdnnPluginDeviceBuffer_t *deviceBuffers,
     uint32_t numDeviceBuffers) {
   // See comment in hipdnnEnginePluginGetEngineDetails for more about how this
   // function fits into the flow.
 
-  LOG_API_ENTRY("handle=" << static_cast<void *>(handle)
-                          << ", executionContext="
-                          << static_cast<void *>(executionContext)
-                          << ", workspace=" << workspace << ", deviceBuffers="
-                          << static_cast<const void *>(deviceBuffers)
-                          << ", numDeviceBuffers=" << numDeviceBuffers);
+  LOG_API_ENTRY(
+      "handle=" << static_cast<void *>(handle) << ", executionContext="
+                << static_cast<void *>(executionContext)
+                << ", workspace=" << workspacePtr << ", deviceBuffers="
+                << static_cast<const void *>(deviceBuffers)
+                << ", numDeviceBuffers=" << numDeviceBuffers);
   FUSILLI_PLUGIN_CHECK_NULL(handle);
   FUSILLI_PLUGIN_CHECK_NULL(executionContext);
   FUSILLI_PLUGIN_CHECK_NULL(deviceBuffers);
 
-  // Params and allocators hoisted out of loop below.
+  // Get device allocator for buffer imports below.
   FUSILLI_PLUGIN_ASSIGN_OR_RETURN(auto fusilliHandle,
                                   handle->getFusilliHandle());
   iree_hal_allocator_t *deviceAllocator =
       iree_hal_device_allocator(fusilliHandle.get());
-  iree_allocator_t ireeHostAllocator = iree_allocator_system();
-  iree_hal_buffer_params_t bufferParams = {
-      .usage = IREE_HAL_BUFFER_USAGE_DEFAULT,
-      .access = IREE_HAL_MEMORY_ACCESS_READ | IREE_HAL_MEMORY_ACCESS_WRITE,
-      .type = IREE_HAL_MEMORY_TYPE_DEVICE_LOCAL,
-      .queue_affinity = IREE_HAL_QUEUE_AFFINITY_ANY,
-      // As we are importing a buffer rather than allocating, this param should
-      // be ignored.
-      .min_alignment = 0,
-  };
 
   // Fill variant pack for graph execution. Fusilli expects a variant pack to
   // map from fusilli::TensorAttr -> fusilli::Buffer for all boundary tensors.
@@ -506,64 +500,55 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
         hipdnnPluginDeviceBuffer_t hipMallocedBuffer,
         findDeviceBuffer(uid, deviceBuffers, numDeviceBuffers));
 
-    // 2.1. Import external buffer into IREE runtime. This isn't allocating a
-    // buffer, it's making an existing allocation available to the IREE runtime.
-    iree_hal_external_buffer_t externalBuffer = {
-        .type = IREE_HAL_EXTERNAL_BUFFER_TYPE_DEVICE_ALLOCATION,
-        .flags = 0,
-        .size = static_cast<iree_device_size_t>(
-            sizeof(float) * static_cast<size_t>(tensorAttr->getVolume())),
-        .handle =
-            {
-                .device_allocation =
-                    {
-                        .ptr =
-                            reinterpret_cast<uint64_t>(hipMallocedBuffer.ptr),
-                    },
-            },
-    };
-    iree_hal_buffer_t *importedBuffer = nullptr;
-    FUSILLI_PLUGIN_CHECK_ERROR(iree_hal_allocator_import_buffer(
-        deviceAllocator, bufferParams, &externalBuffer,
-        iree_hal_buffer_release_callback_null(), &importedBuffer));
-
-    // 2.2. Create a buffer view for external buffer.
+    // 2. Import external buffer into IREE runtime and create fusilli::Buffer.
     FUSILLI_PLUGIN_ASSIGN_OR_RETURN(
         auto elementType,
         fusilliDataTypeToIreeHalDataType(tensorAttr->getDataType()));
-    iree_hal_buffer_view_t *outBufferView = nullptr;
-    FUSILLI_PLUGIN_CHECK_ERROR(iree_hal_buffer_view_create(
-        /*buffer=*/importedBuffer,
-        /*shape_rank=*/tensorAttr->getPhysicalDim().size(),
-        /*shape=*/
-        reinterpret_cast<const iree_hal_dim_t *>(
-            tensorAttr->getPhysicalDim().data()),
-        /*element_type=*/elementType,
-        /*encoding_type=*/IREE_HAL_ENCODING_TYPE_DENSE_ROW_MAJOR,
-        /*host_allocator=*/ireeHostAllocator,
-        /*out_buffer_view=*/&outBufferView));
-
-    // Release our reference to buffer. The buffer view holds a reference to
-    // buffer and will handle release + possible destruction when it's
-    // destroyed.
-    iree_hal_buffer_release(importedBuffer);
-
-    // 2.3. Create fusilli::Buffer from buffer view. Buffer::import is a RAII
-    // type that retains the buffer view, incrementing its reference count, on
-    // construction and releases the buffer view on destruction.
-    FUSILLI_PLUGIN_ASSIGN_OR_RETURN(auto fusilliBuffer,
-                                    fusilli::Buffer::import(outBufferView));
-    variantPack[tensorAttr] =
-        std::make_shared<fusilli::Buffer>(std::move(fusilliBuffer));
-
-    // Release our reference to buffer view. The buffer view and buffer will
-    // (now) be tied to fusilli::Buffer's lifetime as it holds the only
-    // reference to the buffer view.
-    iree_hal_buffer_view_release(outBufferView);
+    size_t sizeBytes = iree_hal_element_dense_byte_count(elementType) *
+                       static_cast<size_t>(tensorAttr->getVolume());
+    std::vector<int64_t> dims = tensorAttr->getPhysicalDim();
+    std::span<const iree_hal_dim_t> shape( // C++20
+        reinterpret_cast<const iree_hal_dim_t *>(dims.data()), dims.size());
+    FUSILLI_PLUGIN_ASSIGN_OR_RETURN(
+        auto fusilliBuffer,
+        importDevicePointer(/*deviceAllocator=*/deviceAllocator,
+                            /*devicePtr=*/hipMallocedBuffer.ptr,
+                            /*sizeBytes=*/sizeBytes,
+                            /*shape=*/shape,
+                            /*elementType=*/elementType));
+    variantPack[tensorAttr] = std::move(fusilliBuffer);
   }
 
-  FUSILLI_PLUGIN_CHECK_ERROR(executionContext->graph.execute(
-      fusilliHandle, variantPack, /*workspace=*/nullptr));
+  // Import workspace buffer if the compiled graph requires transient storage.
+  std::shared_ptr<fusilli::Buffer> workspace = nullptr;
+  std::optional<size_t> maybeWorkspaceSize =
+      executionContext->graph.getWorkspaceSize();
+  if (!maybeWorkspaceSize.has_value()) {
+    return hipdnn_plugin_sdk::PluginLastErrorManager::setLastError(
+        HIPDNN_PLUGIN_STATUS_INTERNAL_ERROR,
+        "Workspace size not available — graph may not be compiled");
+  }
+  size_t workspaceSize = *maybeWorkspaceSize;
+  if (workspaceSize > 0) {
+    if (workspacePtr == nullptr) {
+      return hipdnn_plugin_sdk::PluginLastErrorManager::setLastError(
+          HIPDNN_PLUGIN_STATUS_BAD_PARAM,
+          "Workspace of size " + std::to_string(workspaceSize) +
+              " bytes required but workspace pointer is null");
+    }
+    // Workspace is opaque 1D array of bytes.
+    iree_hal_dim_t workspaceShape[1] = {workspaceSize};
+    FUSILLI_PLUGIN_ASSIGN_OR_RETURN(
+        workspace,
+        importDevicePointer(/*deviceAllocator=*/deviceAllocator,
+                            /*devicePtr=*/workspacePtr,
+                            /*sizeBytes=*/workspaceSize,
+                            /*shape=*/workspaceShape,
+                            /*elementType=*/IREE_HAL_ELEMENT_TYPE_UINT_8));
+  }
+
+  FUSILLI_PLUGIN_CHECK_ERROR(
+      executionContext->graph.execute(fusilliHandle, variantPack, workspace));
 
   LOG_API_SUCCESS_AUTO("executed graph");
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
