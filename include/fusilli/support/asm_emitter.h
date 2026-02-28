@@ -1517,7 +1517,7 @@ inline std::string CustomOpNode::getCallOperandNamesAsm() const {
       inputs.begin(), inputs.end(),
       [&](const std::shared_ptr<TensorAttr> &input) {
         oss << std::format("{}_{}_i{}_dyn", input->getValueNameAsm(), suffix,
-                           ++idx);
+                           idx++);
       },
       [&] { oss << ", "; });
   return oss.str();
