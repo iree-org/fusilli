@@ -96,8 +96,11 @@ def find_latest_iree_with_wheel() -> str:
     print("Querying IREE git tags via GitHub API...")
     result = subprocess.run(
         [
-            "gh", "api", "repos/iree-org/iree/git/refs/tags",
-            "--jq", ".[].ref",
+            "gh",
+            "api",
+            "repos/iree-org/iree/git/refs/tags",
+            "--jq",
+            ".[].ref",
             "--paginate",
         ],
         capture_output=True,
