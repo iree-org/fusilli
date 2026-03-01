@@ -16,8 +16,9 @@ permissions:
 jobs:
   build-and-test-win:
     # TODO: Check if we can use a windows runner with and AMD GPU for testing.
-    name: "Build & Test :: cpu_msvc_windows"
+    name: "Build & Test :: cpu-msvc-windows"
     runs-on: azure-windows-scale
+    timeout-minutes: 60
     env:
       BASE_BUILD_DIR_POWERSHELL: B:\tmpbuild
     steps:

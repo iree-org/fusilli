@@ -24,6 +24,7 @@ jobs:
   build-and-test:
     name: "Build and test fusilli's hipdnn plugin"
     runs-on: linux-mi325-1gpu-ossci-iree-org
+    timeout-minutes: 60
     container:
       image: ghcr.io/rocm/no_rocm_image_ubuntu24_04
       options: --device /dev/kfd --device /dev/dri
@@ -60,6 +61,7 @@ jobs:
   ci_fusilli_plugin_summary:
     if: always()
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     needs:
       - build-and-test
     steps:
