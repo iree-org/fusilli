@@ -38,11 +38,12 @@ jobs:
   ci_fusilli_summary:
     if: always()
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     needs:
       - build-and-test-linux
       - build-and-test-windows
     steps:
-      - name: Getting failed jobs
+      - name: "Getting failed jobs"
         run: |
           echo '${{ toJson(needs) }}'
           FAILED_JOBS="$(echo '${{ toJson(needs) }}' \

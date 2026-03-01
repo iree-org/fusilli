@@ -31,10 +31,11 @@ jobs:
   setup:
     name: "Setup iteration matrix"
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     outputs:
       iterations: ${{ steps.generate-matrix.outputs.iterations }}
     steps:
-      - name: Generate iteration matrix
+      - name: "Generate iteration matrix"
         id: generate-matrix
         run: |
           ITERATIONS=$(seq 1 ${{ env.FLAKE_TEST_ITERATIONS }} | jq -R -s -c 'split("\n")[:-1] | map(tonumber)')
@@ -44,7 +45,8 @@ jobs:
   flake-test:
     name: "${{ matrix.name }} - iteration ${{ matrix.iteration }}"
     needs: setup
-    runs-on: ${{ matrix.runs-on }}
+    runs-on: ${{ startsWith(matrix.name, 'gpu') && 'linux-mi325-1gpu-ossci-iree-org' || 'azure-linux-scale' }}
+    timeout-minutes: 60
     defaults:
       run:
         # --noprofile skips loading ~/.bash_profile
@@ -58,58 +60,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: ["cpu_clang18_debug", "gfx942_clang22_debug"]
+        name: ["cpu-debug", "gpu-debug"]
         iteration: ${{ fromJson(needs.setup.outputs.iterations) }}
-        include:
-          - name: cpu_clang18_debug
-            runs-on: azure-linux-scale
-            cmake-options:
-              -DCMAKE_C_COMPILER=clang-18
-              -DCMAKE_CXX_COMPILER=clang++-18
-              -DCMAKE_BUILD_TYPE=Debug
-              -DFUSILLI_ENABLE_LOGGING=ON
-          - name: gfx942_clang22_debug
-            runs-on: linux-mi325-1gpu-ossci-iree-org
-            cmake-options:
-              -DCMAKE_C_COMPILER=clang-22
-              -DCMAKE_CXX_COMPILER=clang++-22
-              -DCMAKE_BUILD_TYPE=Debug
-              -DFUSILLI_ENABLE_LOGGING=ON
-              -DFUSILLI_SYSTEMS_AMDGPU=ON
 
     steps:
-    - name: Checkout fusilli
+    - name: "Checkout fusilli"
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-    - name: Build fusilli
+    - name: "Build fusilli"
       run: |
         build_tools/docker/exec_docker_ci.sh \
-        bash -c "cmake -GNinja -S. -Bbuild \
-                   -DIREE_SOURCE_DIR=/workspace/.cache/docker/iree \
-                   ${{ matrix.cmake-options }} && \
-                 cmake --build build --target all"
+        build_tools/scripts/build.sh ${{ matrix.name }} \
+          --iree-source-dir /workspace/.cache/docker/iree
 
-    - name: Test fusilli (libIREECompiler CAPI)
+    - name: "Test fusilli (libIREECompiler CAPI)"
       run: |
         build_tools/docker/exec_docker_ci.sh \
-        bash -c "ctest --test-dir build --output-on-failure --extra-verbose --timeout 120 -j 8 && \
-                 tests/test_cache_empty.sh"
+        build_tools/scripts/test.sh --backend capi --parallel 8 --extra-verbose
 
-    - name: Test fusilli (iree-compile CLI)
+    - name: "Test fusilli (iree-compile CLI)"
       run: |
         build_tools/docker/exec_docker_ci.sh \
-        bash -c "FUSILLI_COMPILE_BACKEND_USE_CLI=1 ctest --test-dir build --output-on-failure --extra-verbose --timeout 120 -j 8 && \
-                 tests/test_cache_empty.sh"
+        build_tools/scripts/test.sh --backend cli --parallel 8 --extra-verbose
 
   # Depends on all other jobs to provide an aggregate job status.
   flake_test_summary:
     if: always()
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     needs:
       - setup
       - flake-test
     steps:
-      - name: Getting failed jobs
+      - name: "Getting failed jobs"
         run: |
           echo '${{ toJson(needs) }}'
           FAILED_JOBS="$(echo '${{ toJson(needs) }}' \
