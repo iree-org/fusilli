@@ -35,6 +35,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -507,8 +508,7 @@ hipdnnPluginStatus_t hipdnnEnginePluginExecuteOpGraph(
     size_t sizeBytes = iree_hal_element_dense_byte_count(elementType) *
                        static_cast<size_t>(tensorAttr->getVolume());
     std::vector<int64_t> dims = tensorAttr->getPhysicalDim();
-    std::span<const iree_hal_dim_t> shape( // C++20
-        reinterpret_cast<const iree_hal_dim_t *>(dims.data()), dims.size());
+    std::vector<iree_hal_dim_t> shape(dims.begin(), dims.end());
     FUSILLI_PLUGIN_ASSIGN_OR_RETURN(
         auto fusilliBuffer,
         importDevicePointer(/*deviceAllocator=*/deviceAllocator,
