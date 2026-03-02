@@ -89,7 +89,8 @@ jobs:
           token: ${{ steps.generate-token.outputs.token || github.token }}
           base: main
           branch: ${{ env.GIT_BRANCH_NAME }}
-          author: "fusilli-bot[bot] <fusilli-bot[bot]@users.noreply.github.com>"
+          author: "iree-pr-automator[bot] <iree-github-actions-bot@google.com>"
+          committer: "iree-pr-automator[bot] <iree-github-actions-bot@google.com>"
           signoff: true
           delete-branch: true
           title: "Bump IREE and TheRock to latest nightly"
