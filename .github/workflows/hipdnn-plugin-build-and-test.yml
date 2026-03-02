@@ -40,20 +40,20 @@ jobs:
         shell: bash --noprofile --norc -exo pipefail {0}
 
     steps:
-    - name: Install dependencies
+    - name: "Install dependencies"
       run: |
         sudo apt-get update
         sudo apt-get install -y python3-venv
 
-    - name: Checkout fusilli
+    - name: "Checkout fusilli"
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-    - name: Run ThePebble setup
+    - name: "Run ThePebble setup"
       working-directory: plugins/hipdnn-plugin
       run: |
         python3 build_tools/ThePebble.py --setup
 
-    - name: Build and test fusilli's hipdnn plugin
+    - name: "Build and test fusilli's hipdnn plugin"
       working-directory: plugins/hipdnn-plugin
       run: |
         python3 build_tools/ThePebble.py --ci-install-and-test-fusilli-plugin
@@ -65,7 +65,7 @@ jobs:
     needs:
       - build-and-test
     steps:
-      - name: Getting failed jobs
+      - name: "Getting failed jobs"
         run: |
           echo '${{ toJson(needs) }}'
           FAILED_JOBS="$(echo '${{ toJson(needs) }}' \
