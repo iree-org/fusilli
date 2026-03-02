@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: ["cpu-asan", "cpu-codecov", "cpu-debug", "gpu-asan", "gpu-debug", "gpu-release"]
+        name: ["cpu-asan", "cpu-codecov", "cpu-debug-tidy", "gpu-asan", "gpu-debug-tidy", "gpu-release"]
 
     steps:
     - name: "Checkout fusilli"
