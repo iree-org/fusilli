@@ -76,12 +76,12 @@ jobs:
     - name: "Test fusilli (libIREECompiler CAPI)"
       run: |
         build_tools/docker/exec_docker_ci.sh \
-        build_tools/scripts/test.sh --backend capi --parallel 8 --extra-verbose
+        build_tools/scripts/test.sh --backend capi --parallel 8 --extra-verbose --validate-cache-cleanup
 
     - name: "Test fusilli (iree-compile CLI)"
       run: |
         build_tools/docker/exec_docker_ci.sh \
-        build_tools/scripts/test.sh --backend cli --parallel 8 --extra-verbose
+        build_tools/scripts/test.sh --backend cli --parallel 8 --extra-verbose --validate-cache-cleanup
 
   # Depends on all other jobs to provide an aggregate job status.
   flake_test_summary:

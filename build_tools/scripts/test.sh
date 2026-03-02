@@ -21,7 +21,7 @@ Options:
   --parallel N               Number of parallel tests (default: \$(nproc))
   --backend capi|cli         Compile backend (default: capi)
   --extra-verbose            Print extra test output (default: off)
-  --skip-cache-validation    Skip running test_cache_empty.sh after tests
+  --validate-cache-cleanup   Run test_cache_empty.sh after tests (default: off)
 EOF
   exit 1
 }
@@ -31,7 +31,7 @@ TIMEOUT=120
 PARALLEL="$(nproc)"
 BACKEND="capi"
 EXTRA_VERBOSE=false
-SKIP_CACHE_VALIDATION=false
+VALIDATE_CACHE_CLEANUP=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -55,8 +55,8 @@ while [[ $# -gt 0 ]]; do
       EXTRA_VERBOSE=true
       shift
       ;;
-    --skip-cache-validation)
-      SKIP_CACHE_VALIDATION=true
+    --validate-cache-cleanup)
+      VALIDATE_CACHE_CLEANUP=true
       shift
       ;;
     *)
@@ -86,6 +86,6 @@ fi
 
 ctest "${CTEST_ARGS[@]}"
 
-if [[ "${SKIP_CACHE_VALIDATION}" == "false" ]]; then
+if [[ "${VALIDATE_CACHE_CLEANUP}" == "true" ]]; then
   "${REPO_ROOT}/tests/test_cache_empty.sh"
 fi
