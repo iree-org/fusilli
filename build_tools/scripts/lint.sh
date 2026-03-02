@@ -8,6 +8,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
 usage() {
   cat <<EOF
 Usage: lint.sh [options]
@@ -33,6 +36,8 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+cd "${REPO_ROOT}"
 
 echo "=== Fusilli lint ==="
 pre-commit run "${ARGS[@]}"
