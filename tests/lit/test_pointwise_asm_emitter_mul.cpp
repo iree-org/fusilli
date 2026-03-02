@@ -40,8 +40,9 @@
 //
 // clang-format on
 
-#include "utils.h"
 #include <fusilli.h>
+
+#include "utils.h"
 
 #include <iostream>
 #include <string>
