@@ -93,9 +93,9 @@ jobs:
           committer: "iree-pr-automator[bot] <iree-github-actions-bot@google.com>"
           signoff: true
           delete-branch: true
-          title: "Bump IREE and TheRock to latest nightly"
+          title: "Bump IREE to ${{ env.LATEST_IREE_VERSION }} and TheRock to ${{ env.LATEST_THEROCK_VERSION }}"
           commit-message: |
-            Bump IREE and TheRock to latest nightly
+            Bump IREE to ${{ env.LATEST_IREE_VERSION }} and TheRock to ${{ env.LATEST_THEROCK_VERSION }}
 
             IREE: ${{ env.CURRENT_IREE_VERSION }} -> ${{ env.LATEST_IREE_VERSION }}
             TheRock: ${{ env.CURRENT_THEROCK_VERSION }} -> ${{ env.LATEST_THEROCK_VERSION }}
