@@ -18,8 +18,10 @@
 #include <hipdnn_plugin_sdk/PluginApiDataTypes.h>
 #include <hipdnn_plugin_sdk/PluginException.hpp>
 #include <hipdnn_plugin_sdk/PluginLastErrorManager.hpp>
+#include <iree/hal/allocator.h>
 #include <iree/hal/buffer_view.h>
 
+#include <span>
 #include <type_traits>
 
 namespace fusilli_plugin {
@@ -175,6 +177,77 @@ fusilliDataTypeToIreeHalDataType(fusilli::DataType fusilliDataType) {
         fusilli::ErrorCode::InvalidAttribute,
         "unknown data type in fusilli -> iree runtime data type conversion");
   }
+}
+
+// Import a HIP device pointer into the IREE runtime as a fusilli::Buffer.
+//
+// No allocations are done, this is making an existing allocation available to
+// the IREE runtime.
+inline fusilli::ErrorOr<std::shared_ptr<fusilli::Buffer>>
+importDevicePointer(iree_hal_allocator_t *deviceAllocator, void *devicePtr,
+                    size_t sizeBytes,
+                    std::span<const iree_hal_dim_t> shape, // C++20
+                    iree_hal_element_type_t elementType) {
+  iree_allocator_t hostAllocator = iree_allocator_system();
+
+  // Import external buffer into IREE runtime.
+  iree_hal_buffer_params_t bufferParams = {
+      .usage = IREE_HAL_BUFFER_USAGE_DEFAULT,
+      .access = IREE_HAL_MEMORY_ACCESS_READ | IREE_HAL_MEMORY_ACCESS_WRITE,
+      .type = IREE_HAL_MEMORY_TYPE_DEVICE_LOCAL,
+      .queue_affinity = IREE_HAL_QUEUE_AFFINITY_ANY,
+      // As we are importing a buffer rather than allocating, this param should
+      // be ignored.
+      .min_alignment = 0,
+  };
+  iree_hal_external_buffer_t externalBuffer = {
+      .type = IREE_HAL_EXTERNAL_BUFFER_TYPE_DEVICE_ALLOCATION,
+      .flags = 0,
+      .size = static_cast<iree_device_size_t>(sizeBytes),
+      .handle =
+          {
+              .device_allocation =
+                  {
+                      .ptr = reinterpret_cast<uint64_t>(devicePtr),
+                  },
+          },
+  };
+  iree_hal_buffer_t *importedBuffer = nullptr;
+  FUSILLI_CHECK_ERROR(iree_hal_allocator_import_buffer(
+      /*allocator=*/deviceAllocator, /*params=*/bufferParams,
+      /*external_buffer=*/&externalBuffer,
+      /*release_callback=*/iree_hal_buffer_release_callback_null(),
+      /*out_buffer=*/&importedBuffer));
+
+  // Create a buffer view for external buffer.
+  iree_hal_buffer_view_t *outBufferView = nullptr;
+  FUSILLI_CHECK_ERROR(iree_hal_buffer_view_create(
+      /*buffer=*/importedBuffer,
+      /*shape_rank=*/shape.size(),
+      /*shape=*/shape.data(),
+      /*element_type=*/elementType,
+      /*encoding_type=*/IREE_HAL_ENCODING_TYPE_DENSE_ROW_MAJOR,
+      /*host_allocator=*/hostAllocator,
+      /*out_buffer_view=*/&outBufferView));
+
+  // Release our reference to buffer. The buffer view holds a reference to
+  // buffer and will handle release + possible destruction when it's destroyed.
+  iree_hal_buffer_release(importedBuffer);
+
+  // Create fusilli::Buffer from buffer view. fusilli::Buffer is a RAII type
+  // that retains the buffer view on construction (incrementing its reference
+  // count) and releases the buffer view on destruction.
+  FUSILLI_ASSIGN_OR_RETURN(auto fusilliBuffer,
+                           fusilli::Buffer::import(outBufferView));
+  std::shared_ptr<fusilli::Buffer> result =
+      std::make_shared<fusilli::Buffer>(std::move(fusilliBuffer));
+
+  // Release our reference to buffer view. The buffer view and buffer is tied to
+  // fusilli::Buffer's lifetime as it holds the only reference to the buffer
+  // view.
+  iree_hal_buffer_view_release(outBufferView);
+
+  return fusilli::ok(std::move(result));
 }
 
 } // namespace fusilli_plugin
