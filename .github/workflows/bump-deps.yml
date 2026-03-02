@@ -4,15 +4,14 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-name: Bump Dependencies
+name: Bump Deps (nightly)
 
 on:
   workflow_dispatch:
     inputs:
       branch-name:
-        default: "bump-deps/nightly"
         type: string
-        description: Branch name for the bump PR
+        description: "Branch name override (default: bump-deps/YYYY-MM-DD)"
   schedule:
     # Weekdays at 10:00 UTC (02:00 PST / 03:00 PDT)
     - cron: "0 10 * * 1-5"
@@ -20,9 +19,6 @@ on:
 permissions:
   contents: write
   pull-requests: write
-
-env:
-  GIT_BRANCH_NAME: ${{ inputs.branch-name || 'bump-deps/nightly' }}
 
 jobs:
 
@@ -32,17 +28,29 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       branch-exists: ${{ steps.check-exists.outputs.branch-exists }}
+      branch-name: ${{ steps.resolve-name.outputs.branch-name }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      - name: Resolve branch name
+        id: resolve-name
+        run: |
+          if [[ -n "${{ inputs.branch-name }}" ]]; then
+            BRANCH_NAME="${{ inputs.branch-name }}"
+          else
+            BRANCH_NAME="bump-deps/$(date -u +%Y-%m-%d)"
+          fi
+          echo "branch-name=${BRANCH_NAME}" >> "${GITHUB_OUTPUT}"
+
       - name: Check for existing bump branch
         id: check-exists
         run: |
-          BRANCH_EXISTS=$(git ls-remote --heads origin ${{ env.GIT_BRANCH_NAME }} | wc -l)
+          BRANCH_NAME="${{ steps.resolve-name.outputs.branch-name }}"
+          BRANCH_EXISTS=$(git ls-remote --heads origin "${BRANCH_NAME}" | wc -l)
           echo "branch-exists=${BRANCH_EXISTS}" >> "${GITHUB_OUTPUT}"
           if [[ ${BRANCH_EXISTS} == 1 ]]; then
-            echo "Skipping: branch \`${{ env.GIT_BRANCH_NAME }}\` already exists." \
+            echo "Skipping: branch \`${BRANCH_NAME}\` already exists." \
               >> "${GITHUB_STEP_SUMMARY}"
           fi
 
@@ -50,6 +58,8 @@ jobs:
     needs: check-for-existing-branch
     if: needs.check-for-existing-branch.outputs.branch-exists == '0'
     runs-on: ubuntu-24.04
+    env:
+      GIT_BRANCH_NAME: ${{ needs.check-for-existing-branch.outputs.branch-name }}
     defaults:
       run:
         shell: bash --noprofile --norc -exo pipefail {0}
@@ -89,12 +99,13 @@ jobs:
           token: ${{ steps.generate-token.outputs.token || github.token }}
           base: main
           branch: ${{ env.GIT_BRANCH_NAME }}
-          author: "fusilli-bot[bot] <fusilli-bot[bot]@users.noreply.github.com>"
+          author: "iree-pr-automator[bot] <iree-github-actions-bot@google.com>"
+          committer: "iree-pr-automator[bot] <iree-github-actions-bot@google.com>"
           signoff: true
           delete-branch: true
-          title: "Bump IREE and TheRock to latest nightly"
+          title: "Bump IREE to `${{ env.LATEST_IREE_VERSION }}`, TheRock to `${{ env.LATEST_THEROCK_VERSION }}`"
           commit-message: |
-            Bump IREE and TheRock to latest nightly
+            Bump IREE to `${{ env.LATEST_IREE_VERSION }}`, TheRock to `${{ env.LATEST_THEROCK_VERSION }}`
 
             IREE: ${{ env.CURRENT_IREE_VERSION }} -> ${{ env.LATEST_IREE_VERSION }}
             TheRock: ${{ env.CURRENT_THEROCK_VERSION }} -> ${{ env.LATEST_THEROCK_VERSION }}
