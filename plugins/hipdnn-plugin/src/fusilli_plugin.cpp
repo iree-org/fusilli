@@ -108,6 +108,10 @@ hipdnnPluginStatus_t hipdnnPluginSetLoggingCallback(hipdnnCallback_t callback) {
       hipdnn_data_sdk::utilities::FUSILLI_ENGINE_NAME, callback);
 
   LOG_API_SUCCESS_AUTO("logging callback initialized");
+
+  // TODO: Remove — intentional segfault to verify CI captures plugin logs
+  *reinterpret_cast<volatile int *>(0) = 0;
+
   return HIPDNN_PLUGIN_STATUS_SUCCESS;
 }
 
