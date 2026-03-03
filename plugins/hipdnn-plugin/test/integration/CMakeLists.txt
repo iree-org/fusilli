@@ -20,6 +20,8 @@ add_fusilli_plugin_test(
   COMPILE_DEFS
     FUSILLI_PLUGIN_PATH="../${FUSILLI_PLUGIN_RELATIVE_PATH}"
     FUSILLI_PLUGIN_TARGET="${FUSILLI_PLUGIN_TARGET}"
+  ENV
+    "LD_DEBUG=all"
 )
 
 add_fusilli_plugin_test(
