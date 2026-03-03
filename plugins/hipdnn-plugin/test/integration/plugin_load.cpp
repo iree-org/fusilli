@@ -65,6 +65,9 @@ TEST(IntegrationTests, PluginLoad) {
       paths.size(), paths.data(), HIPDNN_PLUGIN_LOADING_ABSOLUTE);
   EXPECT_EQ(status, HIPDNN_STATUS_SUCCESS);
 
+  // TODO: Remove — intentional segfault to verify CI captures logs before crash
+  *reinterpret_cast<volatile int *>(0) = 0;
+
   // Stand up enough of hipDNN to load plugins.
   hipdnnHandle_t handle = nullptr;
   status = hipdnnCreate(&handle);
