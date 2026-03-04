@@ -128,7 +128,6 @@ public:
   // - error(ErrorCode::CompileFailure, msg) if compilation fails
   //
   // Note: stderr output from failed compilation is currently not captured
-  // (see TODO #11 in original code).
   ErrorObject execute() {
     FUSILLI_LOG_LABEL_ENDL("INFO: Executing compile command");
 
