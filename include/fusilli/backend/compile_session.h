@@ -606,27 +606,33 @@ CompileSession::build(const Handle &handle, const CacheFile &input,
 inline std::string CompileSession::toString() const {
   // Generate command string similar to CompileCommand.
   // Format: "iree-compile <input> <flags> -o <output>\n"
+  // Arguments are shell-escaped so the output can be pasted directly into a
+  // terminal for reproduction.
   std::ostringstream cmdss;
 
   // Add iree-compile path.
-  cmdss << getIreeCompilePath();
+  cmdss << escapeArgument(getIreeCompilePath());
 
   // Add input file.
   if (!inputPath_.empty()) {
-    cmdss << " " << inputPath_;
+    cmdss << " " << escapeArgument(inputPath_);
   }
 
   // Add flags.
   for (const auto &flag : flags_) {
-    cmdss << " " << flag;
+    cmdss << " " << escapeArgument(flag);
   }
 
   // Add output specification.
   if (!outputPath_.empty()) {
-    cmdss << " -o " << outputPath_;
+    cmdss << " -o " << escapeArgument(outputPath_);
   }
 
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  return cmdss.str() + "\r\n";
+#else
   return cmdss.str() + "\n";
+#endif
 }
 
 inline ErrorObject CompileSession::writeTo(CacheFile &cacheFile) const {

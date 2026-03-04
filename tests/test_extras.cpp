@@ -1,0 +1,177 @@
+// Copyright 2026 Advanced Micro Devices, Inc.
+//
+// Licensed under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+#include <fusilli.h>
+
+#include <catch2/catch_test_macros.hpp>
+
+#include <string>
+
+using namespace fusilli;
+
+// =============================================================================
+// needsShellQuoting Tests
+// =============================================================================
+
+TEST_CASE("needsShellQuoting returns false for simple flags",
+          "[needsShellQuoting]") {
+  REQUIRE_FALSE(needsShellQuoting("--iree-hal-target-backends=rocm"));
+  REQUIRE_FALSE(needsShellQuoting("--iree-opt-level=O3"));
+  REQUIRE_FALSE(needsShellQuoting("-o"));
+  REQUIRE_FALSE(needsShellQuoting("iree-compile"));
+  REQUIRE_FALSE(needsShellQuoting("/tmp/cache/output.vmfb"));
+}
+
+TEST_CASE("needsShellQuoting returns true for parentheses",
+          "[needsShellQuoting]") {
+  REQUIRE(needsShellQuoting(
+      "--iree-preprocessing-pass-pipeline="
+      "builtin.module(util.func(iree-preprocessing-convert-conv-filter-"
+      "to-channels-last))"));
+}
+
+TEST_CASE("needsShellQuoting returns true for spaces", "[needsShellQuoting]") {
+  REQUIRE(needsShellQuoting("/path/with spaces/file.mlir"));
+}
+
+TEST_CASE("needsShellQuoting returns true for cross-platform metacharacters",
+          "[needsShellQuoting]") {
+  // These are metacharacters on both POSIX and Windows.
+  REQUIRE(needsShellQuoting("foo;bar"));
+  REQUIRE(needsShellQuoting("foo|bar"));
+  REQUIRE(needsShellQuoting("foo&bar"));
+  REQUIRE(needsShellQuoting("file*.mlir"));
+  REQUIRE(needsShellQuoting("file?.mlir"));
+  REQUIRE(needsShellQuoting("foo>bar"));
+  REQUIRE(needsShellQuoting("foo<bar"));
+  REQUIRE(needsShellQuoting("~user"));
+  REQUIRE(needsShellQuoting("foo#comment"));
+  REQUIRE(needsShellQuoting("!history"));
+  REQUIRE(needsShellQuoting("{a,b}"));
+  REQUIRE(needsShellQuoting("[abc]"));
+  REQUIRE(needsShellQuoting("foo\"bar"));
+  REQUIRE(needsShellQuoting("foo\tbar"));
+}
+
+#if !defined(FUSILLI_PLATFORM_WINDOWS)
+TEST_CASE("needsShellQuoting returns true for POSIX-only metacharacters",
+          "[needsShellQuoting]") {
+  // These are metacharacters only on POSIX shells; on Windows backslash is the
+  // path separator and the others have no special meaning in cmd.exe.
+  REQUIRE(needsShellQuoting("foo\\bar"));
+  REQUIRE(needsShellQuoting("foo'bar"));
+  REQUIRE(needsShellQuoting("$HOME/file"));
+  REQUIRE(needsShellQuoting("`cmd`"));
+}
+#endif
+
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+TEST_CASE("needsShellQuoting returns false for Windows path separators",
+          "[needsShellQuoting]") {
+  // Backslash is the path separator on Windows and should not trigger quoting.
+  REQUIRE_FALSE(needsShellQuoting("C:\\tmp\\cache\\output.vmfb"));
+}
+#endif
+
+TEST_CASE("needsShellQuoting returns false for empty string",
+          "[needsShellQuoting]") {
+  // Empty string has no special characters, but note that it may still need
+  // quoting for semantic reasons (not handled by this function).
+  REQUIRE_FALSE(needsShellQuoting(""));
+}
+
+// =============================================================================
+// escapeArgument Tests
+// =============================================================================
+
+TEST_CASE("escapeArgument returns simple args unchanged", "[escapeArgument]") {
+  REQUIRE(escapeArgument("--iree-hal-target-backends=rocm") ==
+          "--iree-hal-target-backends=rocm");
+  REQUIRE(escapeArgument("-o") == "-o");
+  REQUIRE(escapeArgument("/tmp/cache/output.vmfb") == "/tmp/cache/output.vmfb");
+}
+
+TEST_CASE("escapeArgument quotes parentheses", "[escapeArgument]") {
+  std::string flag = "--iree-preprocessing-pass-pipeline="
+                     "builtin.module(util.func(convert-filter))";
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  std::string expected = "\"--iree-preprocessing-pass-pipeline="
+                         "builtin.module(util.func(convert-filter))\"";
+#else
+  std::string expected = "'--iree-preprocessing-pass-pipeline="
+                         "builtin.module(util.func(convert-filter))'";
+#endif
+  REQUIRE(escapeArgument(flag) == expected);
+}
+
+TEST_CASE("escapeArgument quotes spaces", "[escapeArgument]") {
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  REQUIRE(escapeArgument("/path/with spaces/file") ==
+          "\"/path/with spaces/file\"");
+#else
+  REQUIRE(escapeArgument("/path/with spaces/file") ==
+          "'/path/with spaces/file'");
+#endif
+}
+
+#if !defined(FUSILLI_PLATFORM_WINDOWS)
+TEST_CASE("escapeArgument escapes embedded single quotes", "[escapeArgument]") {
+  // Input: it's
+  // Expected: 'it'\''s' (end quote, escaped quote, restart quote)
+  REQUIRE(escapeArgument("it's") == "'it'\\''s'");
+}
+
+TEST_CASE("escapeArgument handles multiple single quotes", "[escapeArgument]") {
+  // Input: a'b'c (contains single quotes and no other metachar... but ' itself
+  // is a metachar)
+  REQUIRE(escapeArgument("a'b'c") == "'a'\\''b'\\''c'");
+}
+
+TEST_CASE("escapeArgument handles dollar signs", "[escapeArgument]") {
+  // Single-quoted strings prevent variable expansion.
+  REQUIRE(escapeArgument("$HOME/file") == "'$HOME/file'");
+}
+
+TEST_CASE("escapeArgument handles backticks", "[escapeArgument]") {
+  // Single-quoted strings prevent command substitution.
+  REQUIRE(escapeArgument("`whoami`") == "'`whoami`'");
+}
+#endif
+
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+TEST_CASE("escapeArgument escapes embedded double quotes on Windows",
+          "[escapeArgument]") {
+  REQUIRE(escapeArgument("foo\"bar") == "\"foo\\\"bar\"");
+}
+
+TEST_CASE("escapeArgument does not quote Windows paths", "[escapeArgument]") {
+  // Backslash paths should pass through unchanged on Windows.
+  REQUIRE(escapeArgument("C:\\tmp\\cache\\output.vmfb") ==
+          "C:\\tmp\\cache\\output.vmfb");
+}
+#endif
+
+TEST_CASE("escapeArgument handles the actual problematic flag",
+          "[escapeArgument]") {
+  // This is the exact flag that caused the original bash syntax error.
+  std::string flag =
+      "--iree-preprocessing-pass-pipeline="
+      "builtin.module(util.func("
+      "iree-preprocessing-convert-conv-filter-to-channels-last))";
+  std::string result = escapeArgument(flag);
+
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  // On Windows, should be wrapped in double quotes.
+  REQUIRE(result.front() == '"');
+  REQUIRE(result.back() == '"');
+  REQUIRE(result == "\"" + flag + "\"");
+#else
+  // On POSIX, should be wrapped in single quotes.
+  REQUIRE(result.front() == '\'');
+  REQUIRE(result.back() == '\'');
+  REQUIRE(result == "'" + flag + "'");
+#endif
+}
