@@ -92,6 +92,7 @@ add_fusilli_tests(
   SRCS
     test_cache.cpp
     test_dllib.cpp
+    test_extras.cpp
     test_float_types.cpp
     test_memstream.cpp
     test_process.cpp
