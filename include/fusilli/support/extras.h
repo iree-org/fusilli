@@ -128,7 +128,9 @@ inline std::string escapeArgument(const std::string &arg) {
     return arg;
 
   std::string escaped;
-  escaped.reserve(arg.size() + 4);
+  // +2 for surrounding quotes. Underestimates when internal quotes need
+  // escaping, but avoids repeated reallocations for long arguments.
+  escaped.reserve(arg.size() + 2);
 #if defined(FUSILLI_PLATFORM_WINDOWS)
   escaped += '"';
   for (char c : arg) {
