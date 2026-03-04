@@ -20,6 +20,8 @@ Options:
   --timeout SECS             Test timeout in seconds (default: 120)
   --parallel N               Number of parallel tests (default: \$(nproc))
   --backend capi|cli         Compile backend (default: capi)
+  -R REGEX                   Only run tests matching regex
+  -E REGEX                   Exclude tests matching regex
   --extra-verbose            Print extra test output (default: off)
   --validate-cache-cleanup   Run test_cache_empty.sh after tests (default: off)
 EOF
@@ -32,6 +34,8 @@ PARALLEL="$(nproc)"
 BACKEND="capi"
 EXTRA_VERBOSE=false
 VALIDATE_CACHE_CLEANUP=false
+INCLUDE_REGEX=""
+EXCLUDE_REGEX=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -49,6 +53,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --backend)
       BACKEND="$2"
+      shift 2
+      ;;
+    -R)
+      INCLUDE_REGEX="$2"
+      shift 2
+      ;;
+    -E)
+      EXCLUDE_REGEX="$2"
       shift 2
       ;;
     --extra-verbose)
@@ -79,6 +91,14 @@ CTEST_ARGS=(
   --timeout "${TIMEOUT}"
   -j "${PARALLEL}"
 )
+
+if [[ -n "${INCLUDE_REGEX}" ]]; then
+  CTEST_ARGS+=(-R "${INCLUDE_REGEX}")
+fi
+
+if [[ -n "${EXCLUDE_REGEX}" ]]; then
+  CTEST_ARGS+=(-E "${EXCLUDE_REGEX}")
+fi
 
 if [[ "${EXTRA_VERBOSE}" == "true" ]]; then
   CTEST_ARGS+=(--extra-verbose)
