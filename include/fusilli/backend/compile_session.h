@@ -628,7 +628,11 @@ inline std::string CompileSession::toString() const {
     cmdss << " -o " << escapeArgument(outputPath_);
   }
 
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  return cmdss.str() + "\r\n";
+#else
   return cmdss.str() + "\n";
+#endif
 }
 
 inline ErrorObject CompileSession::writeTo(CacheFile &cacheFile) const {
