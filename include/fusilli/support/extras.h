@@ -13,6 +13,8 @@
 #ifndef FUSILLI_SUPPORT_EXTRAS_H
 #define FUSILLI_SUPPORT_EXTRAS_H
 
+#include <string>
+
 namespace fusilli {
 
 // An STL-style algorithm similar to std::for_each that applies a second
@@ -66,6 +68,66 @@ inline void interleave(ForwardIterator begin, ForwardIterator end,
       eachFn(*begin);
     }
   }
+}
+
+// Returns true if the argument contains characters that are special to the
+// shell and require quoting (parentheses, spaces, glob characters, etc.).
+inline bool needsShellQuoting(const std::string &arg) {
+  for (char c : arg) {
+    switch (c) {
+    case ' ':
+    case '\t':
+    case '"':
+    case '\'':
+    case '\\':
+    case '$':
+    case '`':
+    case '(':
+    case ')':
+    case '{':
+    case '}':
+    case '[':
+    case ']':
+    case '|':
+    case '&':
+    case ';':
+    case '<':
+    case '>':
+    case '~':
+    case '*':
+    case '?':
+    case '!':
+    case '#':
+      return true;
+    default:
+      break;
+    }
+  }
+  return false;
+}
+
+// Shell-safe argument escaping for command line serialization.
+// Wraps the argument in single quotes if it contains shell metacharacters.
+// Single-quoting is preferred because only the single-quote character itself
+// needs escaping (done via the '\'' idiom: end quote, escaped quote, restart).
+inline std::string escapeArgument(const std::string &arg) {
+  if (!needsShellQuoting(arg))
+    return arg;
+
+  std::string escaped;
+  escaped.reserve(arg.size() + 4);
+  escaped += '\'';
+  for (char c : arg) {
+    if (c == '\'') {
+      // End current single-quoted string, add an escaped single quote,
+      // then restart single-quoting: 'foo'\''bar' -> foo'bar
+      escaped += "'\\''";
+    } else {
+      escaped += c;
+    }
+  }
+  escaped += '\'';
+  return escaped;
 }
 
 } // namespace fusilli

@@ -29,21 +29,6 @@
 
 namespace fusilli {
 
-// Simple argument escaping for command line serialization.
-inline std::string escapeArgument(const std::string &arg) {
-  std::string escaped;
-  escaped.reserve(arg.size() + 2);
-  escaped += '"';
-  for (char c : arg) {
-    if (c == '"' || c == '\\' || c == '$' || c == '`') {
-      escaped += '\\';
-    }
-    escaped += c;
-  }
-  escaped += '"';
-  return escaped;
-}
-
 // CompileCommand encapsulates the construction, serialization, and execution
 // of iree-compile commands for Fusilli graph compilation.
 //
@@ -72,23 +57,24 @@ public:
   static CompileCommand build(const Handle &handle, const CacheFile &input,
                               const CacheFile &output,
                               const CacheFile &statistics) {
-    std::vector<std::string> args = {getIreeCompilePath(), input.path.string()};
+    std::vector<std::string> args = {escapeArgument(getIreeCompilePath()),
+                                     escapeArgument(input.path.string())};
 
     // Get backend-specific flags.
     auto flags = getBackendFlags(handle.getBackend());
     for (const auto &flag : flags) {
-      std::string escapedFlag = escapeArgument(flag);
-      args.push_back(escapedFlag);
+      args.push_back(escapeArgument(flag));
     }
 
     // TODO(#12): Make this conditional (enabled only for testing/debug).
-    args.push_back("--iree-scheduling-dump-statistics-format=json");
-    args.push_back("--iree-scheduling-dump-statistics-file=" +
-                   statistics.path.string());
+    args.push_back(
+        escapeArgument("--iree-scheduling-dump-statistics-format=json"));
+    args.push_back(escapeArgument("--iree-scheduling-dump-statistics-file=" +
+                                  statistics.path.string()));
 
     // Add output specification.
     args.push_back("-o");
-    args.push_back(output.path.string());
+    args.push_back(escapeArgument(output.path.string()));
 
     return CompileCommand(std::move(args));
   }
