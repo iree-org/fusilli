@@ -37,13 +37,12 @@ TEST_CASE("needsShellQuoting returns true for spaces", "[needsShellQuoting]") {
   REQUIRE(needsShellQuoting("/path/with spaces/file.mlir"));
 }
 
-TEST_CASE("needsShellQuoting returns true for shell metacharacters",
+TEST_CASE("needsShellQuoting returns true for cross-platform metacharacters",
           "[needsShellQuoting]") {
+  // These are metacharacters on both POSIX and Windows.
   REQUIRE(needsShellQuoting("foo;bar"));
   REQUIRE(needsShellQuoting("foo|bar"));
   REQUIRE(needsShellQuoting("foo&bar"));
-  REQUIRE(needsShellQuoting("$HOME/file"));
-  REQUIRE(needsShellQuoting("`cmd`"));
   REQUIRE(needsShellQuoting("file*.mlir"));
   REQUIRE(needsShellQuoting("file?.mlir"));
   REQUIRE(needsShellQuoting("foo>bar"));
@@ -53,11 +52,29 @@ TEST_CASE("needsShellQuoting returns true for shell metacharacters",
   REQUIRE(needsShellQuoting("!history"));
   REQUIRE(needsShellQuoting("{a,b}"));
   REQUIRE(needsShellQuoting("[abc]"));
-  REQUIRE(needsShellQuoting("foo\\bar"));
   REQUIRE(needsShellQuoting("foo\"bar"));
-  REQUIRE(needsShellQuoting("foo'bar"));
   REQUIRE(needsShellQuoting("foo\tbar"));
 }
+
+#if !defined(FUSILLI_PLATFORM_WINDOWS)
+TEST_CASE("needsShellQuoting returns true for POSIX-only metacharacters",
+          "[needsShellQuoting]") {
+  // These are metacharacters only on POSIX shells; on Windows backslash is the
+  // path separator and the others have no special meaning in cmd.exe.
+  REQUIRE(needsShellQuoting("foo\\bar"));
+  REQUIRE(needsShellQuoting("foo'bar"));
+  REQUIRE(needsShellQuoting("$HOME/file"));
+  REQUIRE(needsShellQuoting("`cmd`"));
+}
+#endif
+
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+TEST_CASE("needsShellQuoting returns false for Windows path separators",
+          "[needsShellQuoting]") {
+  // Backslash is the path separator on Windows and should not trigger quoting.
+  REQUIRE_FALSE(needsShellQuoting("C:\\tmp\\cache\\output.vmfb"));
+}
+#endif
 
 TEST_CASE("needsShellQuoting returns false for empty string",
           "[needsShellQuoting]") {
@@ -77,20 +94,30 @@ TEST_CASE("escapeArgument returns simple args unchanged", "[escapeArgument]") {
   REQUIRE(escapeArgument("/tmp/cache/output.vmfb") == "/tmp/cache/output.vmfb");
 }
 
-TEST_CASE("escapeArgument wraps parentheses in single quotes",
-          "[escapeArgument]") {
+TEST_CASE("escapeArgument quotes parentheses", "[escapeArgument]") {
   std::string flag = "--iree-preprocessing-pass-pipeline="
                      "builtin.module(util.func(convert-filter))";
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  std::string expected = "\"--iree-preprocessing-pass-pipeline="
+                         "builtin.module(util.func(convert-filter))\"";
+#else
   std::string expected = "'--iree-preprocessing-pass-pipeline="
                          "builtin.module(util.func(convert-filter))'";
+#endif
   REQUIRE(escapeArgument(flag) == expected);
 }
 
-TEST_CASE("escapeArgument wraps spaces in single quotes", "[escapeArgument]") {
+TEST_CASE("escapeArgument quotes spaces", "[escapeArgument]") {
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  REQUIRE(escapeArgument("/path/with spaces/file") ==
+          "\"/path/with spaces/file\"");
+#else
   REQUIRE(escapeArgument("/path/with spaces/file") ==
           "'/path/with spaces/file'");
+#endif
 }
 
+#if !defined(FUSILLI_PLATFORM_WINDOWS)
 TEST_CASE("escapeArgument escapes embedded single quotes", "[escapeArgument]") {
   // Input: it's
   // Expected: 'it'\''s' (end quote, escaped quote, restart quote)
@@ -112,6 +139,21 @@ TEST_CASE("escapeArgument handles backticks", "[escapeArgument]") {
   // Single-quoted strings prevent command substitution.
   REQUIRE(escapeArgument("`whoami`") == "'`whoami`'");
 }
+#endif
+
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+TEST_CASE("escapeArgument escapes embedded double quotes on Windows",
+          "[escapeArgument]") {
+  REQUIRE(escapeArgument("foo\"bar") == "\"foo\\\"bar\"");
+}
+
+TEST_CASE("escapeArgument does not quote Windows paths",
+          "[escapeArgument]") {
+  // Backslash paths should pass through unchanged on Windows.
+  REQUIRE(escapeArgument("C:\\tmp\\cache\\output.vmfb") ==
+          "C:\\tmp\\cache\\output.vmfb");
+}
+#endif
 
 TEST_CASE("escapeArgument handles the actual problematic flag",
           "[escapeArgument]") {
@@ -122,11 +164,15 @@ TEST_CASE("escapeArgument handles the actual problematic flag",
       "iree-preprocessing-convert-conv-filter-to-channels-last))";
   std::string result = escapeArgument(flag);
 
-  // Should be wrapped in single quotes.
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  // On Windows, should be wrapped in double quotes.
+  REQUIRE(result.front() == '"');
+  REQUIRE(result.back() == '"');
+  REQUIRE(result == "\"" + flag + "\"");
+#else
+  // On POSIX, should be wrapped in single quotes.
   REQUIRE(result.front() == '\'');
   REQUIRE(result.back() == '\'');
-
-  // The content between quotes should be the original flag unchanged
-  // (no single quotes in the original, so no escaping needed inside).
   REQUIRE(result == "'" + flag + "'");
+#endif
 }

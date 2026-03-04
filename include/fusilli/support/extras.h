@@ -13,6 +13,8 @@
 #ifndef FUSILLI_SUPPORT_EXTRAS_H
 #define FUSILLI_SUPPORT_EXTRAS_H
 
+#include "fusilli/support/target_platform.h"
+
 #include <string>
 
 namespace fusilli {
@@ -72,16 +74,23 @@ inline void interleave(ForwardIterator begin, ForwardIterator end,
 
 // Returns true if the argument contains characters that are special to the
 // shell and require quoting (parentheses, spaces, glob characters, etc.).
+// Platform-aware: on Windows, backslash is not a metacharacter (it is the
+// path separator).
 inline bool needsShellQuoting(const std::string &arg) {
   for (char c : arg) {
     switch (c) {
-    case ' ':
-    case '\t':
-    case '"':
+#if !defined(FUSILLI_PLATFORM_WINDOWS)
+    // On POSIX shells these are metacharacters; on Windows cmd.exe they are
+    // not (backslash is the path separator, and the others have no special
+    // meaning outside of double quotes).
     case '\'':
     case '\\':
     case '$':
     case '`':
+#endif
+    case ' ':
+    case '\t':
+    case '"':
     case '(':
     case ')':
     case '{':
@@ -107,15 +116,28 @@ inline bool needsShellQuoting(const std::string &arg) {
 }
 
 // Shell-safe argument escaping for command line serialization.
-// Wraps the argument in single quotes if it contains shell metacharacters.
-// Single-quoting is preferred because only the single-quote character itself
-// needs escaping (done via the '\'' idiom: end quote, escaped quote, restart).
+//
+// On POSIX: wraps the argument in single quotes if it contains shell
+// metacharacters. Single-quoting is preferred because only the single-quote
+// character itself needs escaping (done via the '\'' idiom).
+//
+// On Windows: wraps the argument in double quotes. Internal double-quote
+// characters are escaped with a backslash.
 inline std::string escapeArgument(const std::string &arg) {
   if (!needsShellQuoting(arg))
     return arg;
 
   std::string escaped;
   escaped.reserve(arg.size() + 4);
+#if defined(FUSILLI_PLATFORM_WINDOWS)
+  escaped += '"';
+  for (char c : arg) {
+    if (c == '"')
+      escaped += '\\';
+    escaped += c;
+  }
+  escaped += '"';
+#else
   escaped += '\'';
   for (char c : arg) {
     if (c == '\'') {
@@ -127,6 +149,7 @@ inline std::string escapeArgument(const std::string &arg) {
     }
   }
   escaped += '\'';
+#endif
   return escaped;
 }
 
