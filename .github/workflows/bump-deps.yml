@@ -13,8 +13,8 @@ on:
         type: string
         description: "Branch name override (default: bump-deps/YYYY-MM-DD)"
   schedule:
-    # Weekdays at 10:00 UTC (02:00 PST / 03:00 PDT)
-    - cron: "0 10 * * 1-5"
+    # Weekdays at 12:00 UTC (04:00 PST / 05:00 PDT)
+    - cron: "0 12 * * 1-5"
 
 permissions:
   contents: write
