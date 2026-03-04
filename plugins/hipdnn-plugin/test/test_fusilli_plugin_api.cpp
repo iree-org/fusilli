@@ -153,7 +153,7 @@ TEST(TestFusilliPluginApi, GetVersionSuccess) {
   const char *version = nullptr;
   EXPECT_EQ(hipdnnPluginGetVersion(&version), HIPDNN_PLUGIN_STATUS_SUCCESS);
   ASSERT_NE(version, nullptr);
-  // TODO(#2317): check returned version against single source of truth.
+  // TODO(#222): check returned version against single source of truth.
 }
 
 TEST(TestFusilliPluginApi, GetVersionNullptr) {

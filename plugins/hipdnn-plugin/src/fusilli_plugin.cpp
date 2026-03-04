@@ -47,7 +47,7 @@
 using namespace hipdnn_plugin_sdk;
 using namespace fusilli_plugin;
 
-// TODO(#2317): ensure single source of truth for plugin version
+// TODO(#222): ensure single source of truth for plugin version
 static const char *fusilliPluginVersion = "0.0.1";
 
 // s_lastError is thread_local static so can't be initialized in the header file

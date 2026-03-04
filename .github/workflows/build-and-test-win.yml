@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   build-and-test-win:
-    # TODO: Check if we can use a windows runner with and AMD GPU for testing.
+    # TODO: Check if we can use a windows runner with an AMD GPU for testing.
     name: "Build & Test :: cpu-msvc-windows"
     runs-on: azure-windows-scale
     timeout-minutes: 60
