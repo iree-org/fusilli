@@ -88,6 +88,10 @@ CMAKE_OPTIONS=(
 
 if [[ -n "${IREE_SOURCE_DIR}" ]]; then
   CMAKE_OPTIONS+=("-DIREE_SOURCE_DIR=${IREE_SOURCE_DIR}")
+else
+  # IREE's project() command caches IREE_SOURCE_DIR as a STATIC entry
+  # that persists across reconfigures. Clear it and force an empty value.
+  CMAKE_OPTIONS+=("-UIREE_SOURCE_DIR" "-DIREE_SOURCE_DIR:FILEPATH=")
 fi
 
 case "${CONFIG}" in
