@@ -29,21 +29,6 @@
 
 namespace fusilli {
 
-// Simple argument escaping for command line serialization.
-inline std::string escapeArgument(const std::string &arg) {
-  std::string escaped;
-  escaped.reserve(arg.size() + 2);
-  escaped += '"';
-  for (char c : arg) {
-    if (c == '"' || c == '\\' || c == '$' || c == '`') {
-      escaped += '\\';
-    }
-    escaped += c;
-  }
-  escaped += '"';
-  return escaped;
-}
-
 // CompileCommand encapsulates the construction, serialization, and execution
 // of iree-compile commands for Fusilli graph compilation.
 //
@@ -77,8 +62,7 @@ public:
     // Get backend-specific flags.
     auto flags = getBackendFlags(handle.getBackend());
     for (const auto &flag : flags) {
-      std::string escapedFlag = escapeArgument(flag);
-      args.push_back(escapedFlag);
+      args.push_back(flag);
     }
 
     // TODO(#12): Make this conditional (enabled only for testing/debug).
@@ -103,10 +87,13 @@ public:
 
   ~CompileCommand() = default;
 
-  // Serializes the command to a string representation suitable for:
-  // - Writing to cache files
+  // Serializes the command to a shell-safe string representation suitable for:
+  // - Writing to cache files (copy-pasteable into a terminal)
   // - Logging
   // - Execution via std::system()
+  //
+  // Arguments containing shell metacharacters are escaped so the output can
+  // be pasted directly into a terminal for reproduction.
   //
   // Format: space-separated arguments with trailing newline
   // Example: "iree-compile input.mlir --flag1 --flag2 -o output.vmfb\n"
@@ -114,8 +101,8 @@ public:
     std::ostringstream cmdss;
     interleave(
         args_.begin(), args_.end(),
-        // each_fn:
-        [&](const std::string &arg) { cmdss << arg; },
+        // each_fn: shell-escape each argument for safe serialization.
+        [&](const std::string &arg) { cmdss << escapeArgument(arg); },
         // between_fn:
         [&] { cmdss << " "; });
 #if defined(FUSILLI_PLATFORM_WINDOWS)
