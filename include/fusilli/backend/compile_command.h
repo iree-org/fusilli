@@ -57,8 +57,7 @@ public:
   static CompileCommand build(const Handle &handle, const CacheFile &input,
                               const CacheFile &output,
                               const CacheFile &statistics) {
-    std::vector<std::string> args = {getIreeCompilePath(),
-                                     input.path.string()};
+    std::vector<std::string> args = {getIreeCompilePath(), input.path.string()};
 
     // Get backend-specific flags.
     auto flags = getBackendFlags(handle.getBackend());

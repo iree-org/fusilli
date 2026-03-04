@@ -147,8 +147,7 @@ TEST_CASE("escapeArgument escapes embedded double quotes on Windows",
   REQUIRE(escapeArgument("foo\"bar") == "\"foo\\\"bar\"");
 }
 
-TEST_CASE("escapeArgument does not quote Windows paths",
-          "[escapeArgument]") {
+TEST_CASE("escapeArgument does not quote Windows paths", "[escapeArgument]") {
   // Backslash paths should pass through unchanged on Windows.
   REQUIRE(escapeArgument("C:\\tmp\\cache\\output.vmfb") ==
           "C:\\tmp\\cache\\output.vmfb");
