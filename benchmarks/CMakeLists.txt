@@ -154,12 +154,13 @@ add_fusilli_benchmark(
 )
 
 # Layer normalization benchmarks
-add_fusilli_benchmark(
-  NAME fusilli_benchmark_layernorm_nchw_fp32_single_batch
-  DRIVER fusilli_benchmark_driver
-  ARGS
-    --device 0 --iter 10 layernorm --input 1x128x64x32 -F 1 --type f32 --layout NCHW
-)
+# TODO(iree-org/iree#23650)
+# add_fusilli_benchmark(
+#   NAME fusilli_benchmark_layernorm_nchw_fp32_single_batch
+#   DRIVER fusilli_benchmark_driver
+#   ARGS
+#     --device 0 --iter 10 layernorm --input 1x128x64x32 -F 1 --type f32 --layout NCHW
+# )
 
 add_fusilli_benchmark(
   NAME fusilli_benchmark_layernorm_nchw_fp32
