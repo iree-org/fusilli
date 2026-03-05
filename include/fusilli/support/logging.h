@@ -13,6 +13,10 @@
 #ifndef FUSILLI_SUPPORT_LOGGING_H
 #define FUSILLI_SUPPORT_LOGGING_H
 
+// TODO: Remove this. Testing clang-tidy CI integration.
+inline void bad_function_name() {}
+inline int BadVariableName = 0;
+
 #include <fusilli/support/memstream.h>
 #include <iree/base/status.h>
 
