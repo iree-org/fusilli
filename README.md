@@ -73,6 +73,11 @@ cmake --build build --target all
 ctest --test-dir build
 ```
 
+To set a default path to `libIREECompiler.so` at configure time, specify
+`-DIREE_COMPILER_LIB=</path/to/libIREECompiler.so>`. The
+`FUSILLI_EXTERNAL_IREE_COMPILER_LIB` environment variable still takes priority
+as a runtime override.
+
 When building on an AMD GPU system, specify `-DFUSILLI_SYSTEMS_AMDGPU=ON` to
 enable the AMDGPU build.
 
