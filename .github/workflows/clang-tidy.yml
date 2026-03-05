@@ -1,0 +1,89 @@
+# Copyright 2026 Advanced Micro Devices, Inc.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+name: Clang Tidy
+
+on:
+  pull_request:
+    paths:
+      - '**.h'
+      - '**.hpp'
+      - '**.c'
+      - '**.cpp'
+      - '.clang-tidy'
+      - '.github/workflows/clang-tidy.yml'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  clang-tidy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BUILD_DIR: build
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 ninja-build
+          # Stub out tools that cmake configure expects on PATH.
+          # Only the compilation database is needed, not the actual tools.
+          for tool in iree-compile iree-opt lit FileCheck; do
+            sudo install -m 755 /dev/null /usr/local/bin/$tool
+          done
+
+      - name: Read IREE version
+        id: iree-version
+        run: |
+          IREE_VERSION=$(python3 -c "import json; print(json.load(open('version.json'))['iree-version'])")
+          echo "tag=iree-${IREE_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache IREE source
+        id: cache-iree
+        uses: actions/cache@v4
+        with:
+          path: .cache/iree
+          key: iree-source-${{ steps.iree-version.outputs.tag }}
+
+      - name: Clone IREE source
+        if: steps.cache-iree.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth=1 --branch=${{ steps.iree-version.outputs.tag }} \
+            https://github.com/iree-org/iree.git .cache/iree
+          cd .cache/iree && git submodule update --init --depth=1 \
+            third_party/benchmark third_party/flatcc third_party/hip-build-deps
+
+      - name: Generate compilation database (compile_commands.json)
+        run: |
+          build_tools/scripts/build.sh cpu-debug --configure-only \
+            --iree-source-dir .cache/iree
+
+      - name: Run clang-tidy
+        uses: cpp-linter/cpp-linter-action@b6edc0625e3941baa1797f4b4326adeab6890c97 # v1.11.4
+        id: linter
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          version: '18'
+          style: ''  # Disable clang-format (handled by pre-commit).
+          tidy-checks: ''  # Use .clang-tidy config file.
+          database: ${{ env.BUILD_DIR }}
+          files-changed-only: true
+          lines-changed-only: diff
+          ignore: 'build|.cache'
+          thread-comments: false
+          step-summary: true
