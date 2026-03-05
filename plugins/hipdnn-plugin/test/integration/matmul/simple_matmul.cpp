@@ -124,4 +124,8 @@ TEST(MatmulIntegrationTest, SimpleMatmul) {
   // Clean up.
   ASSERT_EQ(hipStreamDestroy(stream), HIPDNN_STATUS_SUCCESS);
   ASSERT_EQ(hipdnnDestroy(handle), HIPDNN_STATUS_SUCCESS);
+
+  // TODO: Remove — intentional failure to verify CI captures rich output
+  // (env vars: HIPDNN_LOG_LEVEL, FUSILLI_LOG_INFO, FUSILLI_LOG_FILE).
+  FAIL() << "Intentional failure to verify CI diagnostic output is captured";
 }
