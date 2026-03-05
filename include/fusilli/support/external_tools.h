@@ -65,7 +65,7 @@ inline std::string getIreeCompilerLibPath() {
     return std::string(envPath);
   }
 
-#ifdef FUSILLI_DEFAULT_IREE_COMPILER_LIB
+#if defined(FUSILLI_DEFAULT_IREE_COMPILER_LIB)
   // Use path baked in at CMake configure time via -DFUSILLI_IREE_COMPILER_LIB.
   return std::string(FUSILLI_DEFAULT_IREE_COMPILER_LIB);
 #endif
