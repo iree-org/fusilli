@@ -59,11 +59,16 @@ inline std::string getAmdSmiPath() {
 }
 
 inline std::string getIreeCompilerLibPath() {
-  // Check environment variable.
+  // Check environment variable (always takes priority).
   const char *envPath = std::getenv("FUSILLI_EXTERNAL_IREE_COMPILER_LIB");
   if (envPath && envPath[0] != '\0') {
     return std::string(envPath);
   }
+
+#ifdef FUSILLI_DEFAULT_IREE_COMPILER_LIB
+  // Use path baked in at CMake configure time via -DFUSILLI_IREE_COMPILER_LIB.
+  return std::string(FUSILLI_DEFAULT_IREE_COMPILER_LIB);
+#endif
 
   // Try to find libIREECompiler.so in Python site-packages.
   auto libPath = findIreeCompilerLib();

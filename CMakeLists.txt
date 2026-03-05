@@ -71,6 +71,8 @@ option(FUSILLI_SYSTEMS_AMDGPU  "Builds for AMD GPU systems" OFF)
 option(FUSILLI_ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(FUSILLI_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 
+set(FUSILLI_IREE_COMPILER_LIB "" CACHE FILEPATH "Path to libIREECompiler.so")
+
 message(STATUS "Fusilli supported systems:")
 if(FUSILLI_SYSTEMS_AMDGPU)
   message(STATUS "  - AMD GPU")
@@ -268,6 +270,17 @@ if(FUSILLI_SYSTEMS_AMDGPU)
     message(WARNING "No AMD GPU detected (`/dev/kfd` not found) but FUSILLI_SYSTEMS_AMDGPU is set; Only proceed if cross-compiling for AMD GPU systems.")
   endif()
   target_compile_definitions(libfusilli INTERFACE FUSILLI_ENABLE_AMDGPU)
+endif()
+
+# Bake IREE compiler library path into the binary so LD_LIBRARY_PATH is not
+# needed at runtime.
+if(FUSILLI_IREE_COMPILER_LIB)
+  if(NOT EXISTS "${FUSILLI_IREE_COMPILER_LIB}")
+    message(FATAL_ERROR "FUSILLI_IREE_COMPILER_LIB set to '${FUSILLI_IREE_COMPILER_LIB}' but the file does not exist.")
+  endif()
+  message(STATUS "Using IREE compiler lib: ${FUSILLI_IREE_COMPILER_LIB}")
+  target_compile_definitions(libfusilli INTERFACE
+    FUSILLI_DEFAULT_IREE_COMPILER_LIB="${FUSILLI_IREE_COMPILER_LIB}")
 endif()
 
 # Both tests and benchmarks depend on iree-compile, Catch2, and libutils
