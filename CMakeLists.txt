@@ -124,6 +124,7 @@ endif()
 string(JSON IREE_VERSION GET ${VERSION_JSON_STRING} iree-version)
 set(IREE_GIT_TAG "iree-${IREE_VERSION}")
 set(IREE_SOURCE_DIR "" CACHE FILEPATH "Path to IREE source")
+set(IREE_COMPILER_LIB "" CACHE FILEPATH "Path to libIREECompiler.so")
 
 # Set IREE build flags.
 set(IREE_VISIBILITY_HIDDEN OFF)
@@ -268,6 +269,17 @@ if(FUSILLI_SYSTEMS_AMDGPU)
     message(WARNING "No AMD GPU detected (`/dev/kfd` not found) but FUSILLI_SYSTEMS_AMDGPU is set; Only proceed if cross-compiling for AMD GPU systems.")
   endif()
   target_compile_definitions(libfusilli INTERFACE FUSILLI_ENABLE_AMDGPU)
+endif()
+
+# Bake IREE compiler library path into the binary so LD_LIBRARY_PATH is not
+# needed at runtime.
+if(IREE_COMPILER_LIB)
+  if(NOT EXISTS "${IREE_COMPILER_LIB}")
+    message(FATAL_ERROR "IREE_COMPILER_LIB set to '${IREE_COMPILER_LIB}' but the file does not exist.")
+  endif()
+  message(STATUS "Using IREE compiler lib: ${IREE_COMPILER_LIB}")
+  target_compile_definitions(libfusilli INTERFACE
+    FUSILLI_DEFAULT_IREE_COMPILER_LIB="${IREE_COMPILER_LIB}")
 endif()
 
 # Both tests and benchmarks depend on iree-compile, Catch2, and libutils
