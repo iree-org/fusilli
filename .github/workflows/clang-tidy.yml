@@ -36,12 +36,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install dependencies
+      - name: Stub out tools for cmake configure
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-18 ninja-build
-          # Stub out tools that cmake configure expects on PATH.
-          # Only the compilation database is needed, not the actual tools.
+          # cmake configure expects these on PATH but they aren't needed
+          # for generating the compilation database.
           for tool in iree-compile iree-opt lit FileCheck; do
             sudo install -m 755 /dev/null /usr/local/bin/$tool
           done
@@ -87,3 +85,7 @@ jobs:
           ignore: 'build|.cache'
           thread-comments: false
           step-summary: true
+
+      - name: Fail if clang-tidy found issues
+        if: steps.linter.outputs.checks-failed > 0
+        run: exit 1
