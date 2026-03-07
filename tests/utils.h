@@ -24,7 +24,6 @@
 #include <functional>
 #include <sstream>
 #include <string>
-#include <utility> // IWYU pragma: export
 #include <vector>
 
 // RAII helper to execute cleanup code when going out of scope, even if
