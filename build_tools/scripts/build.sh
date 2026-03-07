@@ -31,6 +31,7 @@ Options:
   --build-dir DIR        Build directory (default: build/)
   --iree-source-dir DIR  IREE source directory
   --target TARGET        Build target (default: all)
+  --configure-only       Only run cmake configure, skip the build step
 
 Extra cmake options can be passed after '--'.
 EOF
@@ -48,6 +49,7 @@ SOURCE_DIR="${REPO_ROOT}"
 BUILD_DIR="build"
 IREE_SOURCE_DIR=""
 TARGET="all"
+CONFIGURE_ONLY="${FUSILLI_CONFIGURE_ONLY:-0}"
 EXTRA_CMAKE_OPTIONS=()
 
 while [[ $# -gt 0 ]]; do
@@ -67,6 +69,10 @@ while [[ $# -gt 0 ]]; do
     --target)
       TARGET="$2"
       shift 2
+      ;;
+    --configure-only)
+      CONFIGURE_ONLY=1
+      shift
       ;;
     --)
       shift
@@ -224,4 +230,10 @@ echo "=== Fusilli build: config=${CONFIG} ==="
 echo "=== CMake options: ${CMAKE_OPTIONS[*]} ==="
 
 cmake "${CMAKE_OPTIONS[@]}"
+
+if [[ "${CONFIGURE_ONLY}" == "1" ]]; then
+  echo "=== Configure only, skipping build ==="
+  exit 0
+fi
+
 cmake --build "${BUILD_DIR}" --target "${TARGET}"
