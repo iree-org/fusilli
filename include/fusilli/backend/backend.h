@@ -248,6 +248,7 @@ inline std::span<const std::string> getBackendFlags(Backend backend) {
         "--iree-hal-target-backends=llvm-cpu",
         "--iree-llvmcpu-target-cpu=host",
         "--iree-torch-externalize-transients",
+        "--iree-torch-enable-shape-refinement",
     };
 
     // Specify a ROCm target for AMD GPU. First attempts to get the SKU name
@@ -269,6 +270,7 @@ inline std::span<const std::string> getBackendFlags(Backend backend) {
                 "--iree-dispatch-creation-enable-aggressive-reshape-movement",
                 "--iree-dispatch-creation-enable-split-reduction",
                 "--iree-torch-externalize-transients",
+                "--iree-torch-enable-shape-refinement",
         // clang-format on
     };
 
