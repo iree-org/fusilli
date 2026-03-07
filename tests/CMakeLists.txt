@@ -171,6 +171,9 @@ add_fusilli_lit_tests(
     lit/test_custom_op_asm_emitter_dup_input.cpp
     lit/test_custom_op_asm_emitter_multi_output.cpp
     lit/test_custom_op_asm_emitter_mixed_dtype.cpp
+    lit/test_custom_op_asm_emitter_static.cpp
+    lit/test_custom_op_asm_emitter_multi_output_static.cpp
+    lit/test_custom_op_asm_emitter_static_transposed.cpp
     lit/test_reduction_asm_emitter_sum.cpp
     lit/test_reduction_asm_emitter_min.cpp
     lit/test_reduction_asm_emitter_max.cpp
