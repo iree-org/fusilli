@@ -41,47 +41,50 @@ using namespace fusilli;
 // Tensor rank is hardcoded to 4 ([batch, heads, seq_len, head_dim]).
 
 // SDPA template: 3 tensor inputs (Q, K, V), attention mask is none.
+// Positional args: {0}=DROPOUT_P, {1}=IS_CAUSAL, {2}=SCALE_CONST,
+//                  {3}=SCALE_TYPE, {4}=ENABLE_GQA
 // clang-format off
 static constexpr std::string_view kSdpaNoMask = R"mlir(
-  func.func private @{FUNC_NAME}(
-      %arg0: !torch.vtensor<[?,?,?,?],{IN0_DTYPE}>,
-      %arg1: !torch.vtensor<[?,?,?,?],{IN1_DTYPE}>,
-      %arg2: !torch.vtensor<[?,?,?,?],{IN2_DTYPE}>)
-      -> !torch.vtensor<[?,?,?,?],{OUT0_DTYPE}> {
+  func.func private @{{FUNC_NAME}}(
+      %arg0: !torch.vtensor<[?,?,?,?],{{IN0_DTYPE}}>,
+      %arg1: !torch.vtensor<[?,?,?,?],{{IN1_DTYPE}}>,
+      %arg2: !torch.vtensor<[?,?,?,?],{{IN2_DTYPE}}>)
+      -> !torch.vtensor<[?,?,?,?],{{OUT0_DTYPE}}> {{
     %none_mask = torch.constant.none
-    %dropout = torch.constant.float {DROPOUT_P}
-    %is_causal = torch.constant.bool {IS_CAUSAL}
-    %scale = {SCALE_CONST}
-    %enable_gqa = torch.constant.bool {ENABLE_GQA}
+    %dropout = torch.constant.float {0}
+    %is_causal = torch.constant.bool {1}
+    %scale = {2}
+    %enable_gqa = torch.constant.bool {4}
     %0 = torch.aten.scaled_dot_product_attention %arg0, %arg1, %arg2,
         %none_mask, %dropout, %is_causal, %scale, %enable_gqa :
-        !torch.vtensor<[?,?,?,?],{IN0_DTYPE}>, !torch.vtensor<[?,?,?,?],{IN1_DTYPE}>,
-        !torch.vtensor<[?,?,?,?],{IN2_DTYPE}>, !torch.none, !torch.float, !torch.bool,
-        {SCALE_TYPE}, !torch.bool -> !torch.vtensor<[?,?,?,?],{OUT0_DTYPE}>
-    return %0 : !torch.vtensor<[?,?,?,?],{OUT0_DTYPE}>
-  }
+        !torch.vtensor<[?,?,?,?],{{IN0_DTYPE}}>, !torch.vtensor<[?,?,?,?],{{IN1_DTYPE}}>,
+        !torch.vtensor<[?,?,?,?],{{IN2_DTYPE}}>, !torch.none, !torch.float, !torch.bool,
+        {3}, !torch.bool -> !torch.vtensor<[?,?,?,?],{{OUT0_DTYPE}}>
+    return %0 : !torch.vtensor<[?,?,?,?],{{OUT0_DTYPE}}>
+  }}
 )mlir";
 
 // SDPA template: 4 tensor inputs (Q, K, V, attn_mask).
+// Positional args: same as kSdpaNoMask.
 static constexpr std::string_view kSdpaWithMask = R"mlir(
-  func.func private @{FUNC_NAME}(
-      %arg0: !torch.vtensor<[?,?,?,?],{IN0_DTYPE}>,
-      %arg1: !torch.vtensor<[?,?,?,?],{IN1_DTYPE}>,
-      %arg2: !torch.vtensor<[?,?,?,?],{IN2_DTYPE}>,
-      %arg3: !torch.vtensor<[?,?,?,?],{IN3_DTYPE}>)
-      -> !torch.vtensor<[?,?,?,?],{OUT0_DTYPE}> {
-    %dropout = torch.constant.float {DROPOUT_P}
-    %is_causal = torch.constant.bool {IS_CAUSAL}
-    %scale = {SCALE_CONST}
-    %enable_gqa = torch.constant.bool {ENABLE_GQA}
+  func.func private @{{FUNC_NAME}}(
+      %arg0: !torch.vtensor<[?,?,?,?],{{IN0_DTYPE}}>,
+      %arg1: !torch.vtensor<[?,?,?,?],{{IN1_DTYPE}}>,
+      %arg2: !torch.vtensor<[?,?,?,?],{{IN2_DTYPE}}>,
+      %arg3: !torch.vtensor<[?,?,?,?],{{IN3_DTYPE}}>)
+      -> !torch.vtensor<[?,?,?,?],{{OUT0_DTYPE}}> {{
+    %dropout = torch.constant.float {0}
+    %is_causal = torch.constant.bool {1}
+    %scale = {2}
+    %enable_gqa = torch.constant.bool {4}
     %0 = torch.aten.scaled_dot_product_attention %arg0, %arg1, %arg2,
         %arg3, %dropout, %is_causal, %scale, %enable_gqa :
-        !torch.vtensor<[?,?,?,?],{IN0_DTYPE}>, !torch.vtensor<[?,?,?,?],{IN1_DTYPE}>,
-        !torch.vtensor<[?,?,?,?],{IN2_DTYPE}>, !torch.vtensor<[?,?,?,?],{IN3_DTYPE}>,
+        !torch.vtensor<[?,?,?,?],{{IN0_DTYPE}}>, !torch.vtensor<[?,?,?,?],{{IN1_DTYPE}}>,
+        !torch.vtensor<[?,?,?,?],{{IN2_DTYPE}}>, !torch.vtensor<[?,?,?,?],{{IN3_DTYPE}}>,
         !torch.float, !torch.bool,
-        {SCALE_TYPE}, !torch.bool -> !torch.vtensor<[?,?,?,?],{OUT0_DTYPE}>
-    return %0 : !torch.vtensor<[?,?,?,?],{OUT0_DTYPE}>
-  }
+        {3}, !torch.bool -> !torch.vtensor<[?,?,?,?],{{OUT0_DTYPE}}>
+    return %0 : !torch.vtensor<[?,?,?,?],{{OUT0_DTYPE}}>
+  }}
 )mlir";
 // clang-format on
 
@@ -97,29 +100,23 @@ static std::string buildSdpaMlir(bool hasAttnMask = false,
                                  float dropoutP = 0.0f, bool isCausal = false,
                                  std::optional<float> scale = std::nullopt,
                                  bool enableGqa = false) {
-  std::string mlir(hasAttnMask ? kSdpaWithMask : kSdpaNoMask);
+  // Compute raw values for scalar placeholders.
+  std::string dropoutStr = std::format("{:e}", dropoutP);
+  std::string isCausalStr = isCausal ? "true" : "false";
+  std::string scaleConstStr =
+      scale.has_value() ? std::format("torch.constant.float {:e}", *scale)
+                        : "torch.constant.none";
+  std::string scaleTypeStr = scale.has_value() ? "!torch.float" : "!torch.none";
+  std::string enableGqaStr = enableGqa ? "true" : "false";
 
-  // Resolve scalar placeholders.
-  auto replace = [&mlir](std::string_view placeholder,
-                         const std::string &value) {
-    auto pos = mlir.find(placeholder);
-    if (pos != std::string::npos)
-      mlir.replace(pos, placeholder.size(), value);
-  };
-
-  replace("{DROPOUT_P}", std::format("{:e}", dropoutP));
-  replace("{IS_CAUSAL}", isCausal ? "true" : "false");
-  replace("{ENABLE_GQA}", enableGqa ? "true" : "false");
-
-  if (scale.has_value()) {
-    replace("{SCALE_CONST}", std::format("torch.constant.float {:e}", *scale));
-    replace("{SCALE_TYPE}", "!torch.float");
-  } else {
-    replace("{SCALE_CONST}", "torch.constant.none");
-    replace("{SCALE_TYPE}", "!torch.none");
-  }
-
-  return mlir;
+  // Resolve all scalar placeholders in a single format pass.
+  return std::vformat(hasAttnMask ? kSdpaWithMask : kSdpaNoMask,
+                      std::make_format_args(dropoutStr,    // {0} DROPOUT_P
+                                            isCausalStr,   // {1} IS_CAUSAL
+                                            scaleConstStr, // {2} SCALE_CONST
+                                            scaleTypeStr,  // {3} SCALE_TYPE
+                                            enableGqaStr   // {4} ENABLE_GQA
+                                            ));
 }
 
 // CPU reference implementation of scaled dot-product attention.
