@@ -199,14 +199,19 @@ static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
     REQUIRE(headsQ == headsKV);
   }
 
+  std::string causalSuffix = isCausal ? "_causal" : "";
+  std::string maskSuffix = hasAttnMask ? "_mask" : "";
+  std::string gqaSuffix = enableGqa ? "_gqa" : "";
+  std::string scaleSuffix =
+      scale.has_value() ? std::format("_scale{:g}", *scale) : "";
+  std::string dropoutSuffix =
+      dropoutP > 0.0f ? std::format("_dropout{:g}", dropoutP) : "";
+
   auto graph = std::make_shared<Graph>();
   graph
-      ->setName(std::format(
-          "sdpa_b{}hq{}hkv{}sq{}skv{}d{}{}{}{}{}{}", batch, headsQ, headsKV,
-          seqQ, seqKV, headDim, isCausal ? "_causal" : "",
-          hasAttnMask ? "_mask" : "", enableGqa ? "_gqa" : "",
-          scale.has_value() ? std::format("_scale{:g}", *scale) : "",
-          dropoutP > 0.0f ? std::format("_dropout{:g}", dropoutP) : ""))
+      ->setName(std::format("sdpa_b{}hq{}hkv{}sq{}skv{}d{}{}{}{}{}{}", batch,
+                            headsQ, headsKV, seqQ, seqKV, headDim, causalSuffix,
+                            maskSuffix, gqaSuffix, scaleSuffix, dropoutSuffix))
       .setIODataType(dt)
       .setIntermediateDataType(dt);
 
