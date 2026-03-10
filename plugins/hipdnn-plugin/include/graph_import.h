@@ -16,12 +16,15 @@
 
 #include <fusilli.h>
 #include <hipdnn_data_sdk/data_objects/convolution_wrw_attributes_generated.h>
+#include <hipdnn_data_sdk/data_objects/custom_op_attributes_generated.h>
 #include <hipdnn_data_sdk/data_objects/data_types_generated.h>
 #include <hipdnn_data_sdk/data_objects/matmul_attributes_generated.h>
 #include <hipdnn_data_sdk/data_objects/pointwise_attributes_generated.h>
 #include <hipdnn_data_sdk/data_objects/tensor_attributes_generated.h>
 #include <hipdnn_data_sdk/flatbuffer_utilities/GraphWrapper.hpp>
 #include <hipdnn_plugin_sdk/PluginApiDataTypes.h>
+
+#include "custom_op_opaque_data.h"
 
 #include <format>
 #include <memory>
@@ -163,6 +166,10 @@ private:
       FUSILLI_CHECK_ERROR(
           importMatmulAttr(node.attributes_as_MatmulAttributes()));
       break;
+    case hipdnn_data_sdk::data_objects::NodeAttributes::CustomOpAttributes:
+      FUSILLI_CHECK_ERROR(
+          importCustomOpAttr(node.attributes_as_CustomOpAttributes()));
+      break;
     default:
       return fusilli::error(fusilli::ErrorCode::NotImplemented,
                             "Unsupported node type.");
@@ -298,6 +305,50 @@ private:
     // Import node output.
     FUSILLI_CHECK_ERROR(
         importNodeOutput(hipDnnMatmulAttr->c_tensor_uid(), "c", c));
+
+    return fusilli::ok();
+  }
+
+  fusilli::ErrorObject importCustomOpAttr(
+      const hipdnn_data_sdk::data_objects::CustomOpAttributes *hipDnnAttr) {
+    // Only import custom ops targeting this plugin.
+    std::string customOpId = hipDnnAttr->custom_op_id()->str();
+    if (!customOpId.starts_with("fusilli.")) {
+      return fusilli::error(
+          fusilli::ErrorCode::NotImplemented,
+          std::format("Custom op id '{}' does not target the fusilli plugin. "
+                      "Expected 'fusilli.<operation>' prefix.",
+                      customOpId));
+    }
+
+    // Deserialize JSON opaque data.
+    auto opaqueData = CustomOpOpaqueData::deserialize(
+        hipDnnAttr->data()->data(), hipDnnAttr->data()->size());
+
+    // Import input tensors (variable-length).
+    std::vector<std::shared_ptr<fusilli::TensorAttr>> inputs;
+    for (auto uid : *hipDnnAttr->input_tensor_uids()) {
+      FUSILLI_ASSIGN_OR_RETURN(auto tensor, importNodeInput(uid, "custom_in"));
+      inputs.push_back(std::move(tensor));
+    }
+
+    // Build fusilli CustomOpAttr.
+    auto fusilliAttr = fusilli::CustomOpAttr()
+                           .setName(customOpId)
+                           .setMlir(opaqueData.mlir)
+                           .setNumOutputs(opaqueData.numOutputs)
+                           .setIsStatic(opaqueData.isStatic);
+
+    // Create custom op node in fusilli graph.
+    auto outputTensors = fusilliGraph.customOp(inputs, fusilliAttr);
+
+    // Import output tensors.
+    auto *outputUids = hipDnnAttr->output_tensor_uids();
+    for (size_t i = 0; i < outputUids->size(); ++i) {
+      FUSILLI_CHECK_ERROR(importNodeOutput(
+          outputUids->Get(static_cast<flatbuffers::uoffset_t>(i)), "custom_out",
+          outputTensors[i]));
+    }
 
     return fusilli::ok();
   }
