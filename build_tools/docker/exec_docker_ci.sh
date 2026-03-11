@@ -31,5 +31,5 @@ docker run --rm \
            -e THEROCK_GIT_TAG="${THEROCK_GIT_TAG}" \
            ${DOCKER_RUN_DEVICE_OPTS} \
            --security-opt seccomp=unconfined \
-           ghcr.io/sjain-stanford/compiler-dev-ubuntu-24.04:main@sha256:0ae9798cc883c4c2b687d43be5612f9e1333d3cd9af20d47ec20efe8f7921c9b \
+           ghcr.io/sjain-stanford/compiler-dev-ubuntu-24.04:main@sha256:daacb4f4b086c9444c45ed69322878db8aa3f0d4a472ea45dbe75d65ba6753f4 \
            "$@"
