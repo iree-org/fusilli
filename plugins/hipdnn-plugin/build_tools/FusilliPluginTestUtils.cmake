@@ -54,6 +54,7 @@ install(
 #    SRCS <file> [<file> ...]
 #    DEPS <dep> [<dep> ...]
 #    [COMPILE_DEFS <def> [<def> ...]]
+#    [ENV <var=value> [<var=value> ...]]
 #  )
 #
 # NAME
@@ -67,13 +68,17 @@ install(
 #
 # COMPILE_DEFS
 #  Compile definitions to add to the target.
+#
+# ENV
+#  Additional environment variables for this test (in addition to the
+#  defaults set for all fusilli plugin tests).
 function(add_fusilli_plugin_test)
   cmake_parse_arguments(
-    ARG                       # prefix
-    ""                        # options
-    "NAME"                    # one value keywords
-    "SRCS;DEPS;COMPILE_DEFS"  # multi-value keywords
-    ${ARGN}                   # extra arguments
+    ARG                            # prefix
+    ""                             # options
+    "NAME"                         # one value keywords
+    "SRCS;DEPS;COMPILE_DEFS;ENV"   # multi-value keywords
+    ${ARGN}                        # extra arguments
   )
 
   if(NOT DEFINED ARG_NAME)
@@ -104,12 +109,21 @@ function(add_fusilli_plugin_test)
     target_compile_definitions(${ARG_NAME} PRIVATE ${ARG_COMPILE_DEFS})
   endif()
 
-  # Register with CTest
+  # Build extra ENVIRONMENT property pairs from the ENV parameter.
+  set(_extra_env_props "")
+  set(_extra_env_lines "")
+  foreach(_extra_env IN LISTS ARG_ENV)
+    list(APPEND _extra_env_props ENVIRONMENT "${_extra_env}")
+    string(APPEND _extra_env_lines "      ENVIRONMENT \"${_extra_env}\"\n")
+  endforeach()
+
+  # Register with CTest (build-tree)
   gtest_discover_tests(${ARG_NAME}
       PROPERTIES
         ENVIRONMENT "HIPDNN_LOG_LEVEL=info"
         ENVIRONMENT "FUSILLI_LOG_INFO=1"
         ENVIRONMENT "FUSILLI_LOG_FILE=stdout"
+        ${_extra_env_props}
   )
 
   # Install test executable
@@ -129,6 +143,7 @@ function(add_fusilli_plugin_test)
       "      ENVIRONMENT \"HIPDNN_LOG_LEVEL=info\"\n"
       "      ENVIRONMENT \"FUSILLI_LOG_INFO=1\"\n"
       "      ENVIRONMENT \"FUSILLI_LOG_FILE=stdout\"\n"
+      "${_extra_env_lines}"
       ")\n"
   )
 endfunction()
