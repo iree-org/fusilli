@@ -23,6 +23,7 @@
 #include "fusilli/attributes/pointwise_attributes.h"
 #include "fusilli/attributes/reduction_attributes.h"
 #include "fusilli/attributes/rmsnorm_attributes.h"
+#include "fusilli/attributes/sdpa_attributes.h"
 #include "fusilli/attributes/tensor_attributes.h"
 #include "fusilli/attributes/types.h"
 #include "fusilli/backend/backend.h"
@@ -40,6 +41,7 @@
 #include "fusilli/node/pointwise_node.h"
 #include "fusilli/node/reduction_node.h"
 #include "fusilli/node/rmsnorm_node.h"
+#include "fusilli/node/sdpa_node.h"
 #include "fusilli/support/cache.h"
 #include "fusilli/support/external_tools.h"
 #include "fusilli/support/extras.h"
@@ -305,6 +307,12 @@ public:
 
   std::shared_ptr<TensorAttr> reduction(const std::shared_ptr<TensorAttr> &x,
                                         ReductionAttr &attributes);
+
+  std::shared_ptr<TensorAttr> sdpa(const std::shared_ptr<TensorAttr> &q,
+                                   const std::shared_ptr<TensorAttr> &k,
+                                   const std::shared_ptr<TensorAttr> &v,
+                                   const std::shared_ptr<TensorAttr> &mask,
+                                   SdpaAttr &attributes);
 
   std::vector<std::shared_ptr<TensorAttr>>
   customOp(std::vector<std::shared_ptr<TensorAttr>> inputs,
@@ -1009,6 +1017,44 @@ Graph::reduction(const std::shared_ptr<TensorAttr> &x,
       std::make_unique<ReductionNode>(std::move(reductionAttr), context));
 
   return y;
+}
+
+// Create an SdpaNode, populate it with the specified attributes, create
+// output tensors and add the node to the graph's sub nodes.
+inline std::shared_ptr<TensorAttr>
+Graph::sdpa(const std::shared_ptr<TensorAttr> &q,
+            const std::shared_ptr<TensorAttr> &k,
+            const std::shared_ptr<TensorAttr> &v,
+            const std::shared_ptr<TensorAttr> &mask, SdpaAttr &sdpaAttr) {
+  // Populate names when not set.
+  if (sdpaAttr.getName().empty())
+    sdpaAttr.setName("sdpa_" + std::to_string(subNodes_.size()));
+  if (q && q->getName().empty())
+    q->setName(sdpaAttr.getName() + "_Q");
+  if (k && k->getName().empty())
+    k->setName(sdpaAttr.getName() + "_K");
+  if (v && v->getName().empty())
+    v->setName(sdpaAttr.getName() + "_V");
+  if (mask && mask->getName().empty())
+    mask->setName(sdpaAttr.getName() + "_MASK");
+
+  FUSILLI_LOG_LABEL_ENDL("INFO: Adding SdpaNode '" << sdpaAttr.getName()
+                                                   << "' to Graph");
+
+  // Set inputs.
+  sdpaAttr.setQ(q).setK(k).setV(v);
+  if (mask)
+    sdpaAttr.setMASK(mask);
+
+  // Set outputs.
+  auto o = outputTensor(sdpaAttr.getName() + "_O");
+  sdpaAttr.setO(o);
+
+  // Create node and add to Graph's subNodes_.
+  subNodes_.emplace_back(
+      std::make_unique<SdpaNode>(std::move(sdpaAttr), context));
+
+  return o;
 }
 
 inline std::vector<std::shared_ptr<TensorAttr>>

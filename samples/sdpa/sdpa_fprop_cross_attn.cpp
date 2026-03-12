@@ -15,7 +15,7 @@
 // length. This is typical in encoder-decoder architectures where the decoder
 // (query) attends to the encoder output (key/value) which has a different
 // length.
-TEST_CASE("SDPA forward: cross attention f16", "[sdpa][custom_op][graph]") {
+TEST_CASE("SDPA forward: cross attention f16", "[sdpa][graph]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   executeSdpa(handle, DataType::Half,
               /*batch=*/1, /*headsQ=*/8, /*headsKV=*/8,

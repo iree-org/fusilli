@@ -11,10 +11,16 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("SDPA forward: causal f16", "[sdpa][graph]") {
+#include <optional>
+
+// XFAIL: dropout is not supported in torch-mlir lowering.
+TEST_CASE("SDPA forward: dropout f16",
+          "[sdpa][custom_op][graph][!shouldfail]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   executeSdpa(handle, DataType::Half,
               /*batch=*/1, /*headsQ=*/8, /*headsKV=*/8,
               /*seqQ=*/64, /*seqKV=*/64, /*headDim=*/64,
-              /*isCausal=*/true);
+              /*isCausal=*/false, /*scale=*/std::nullopt,
+              /*enableGqa=*/false, /*hasAttnMask=*/false,
+              /*dropoutP=*/0.1f);
 }
