@@ -25,6 +25,9 @@ software effectively.
 > The name 'Fusilli' is inspired by the term 'fusion' - a bread-and-butter
 > compiler optimization for improving performance.
 
+> [!TIP]
+> If you're looking for the fusilli hipDNN plugin, it has moved to [`rocm-libraries`](https://github.com/ROCm/rocm-libraries/tree/develop/dnn-providers/fusilli-provider).
+
 ![Fusilli](docs/fusilli.png)
 
 ## Developer Guide
