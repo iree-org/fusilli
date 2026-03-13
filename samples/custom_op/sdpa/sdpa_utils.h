@@ -23,10 +23,101 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
 using namespace fusilli;
+
+// SDPA MLIR templates for torch.aten.scaled_dot_product_attention.
+//
+// Templates are stored as R-string literals so the MLIR structure is
+// directly readable in source. Standard CustomOp placeholders
+// ({FUNC_NAME}, {IN<i>_DTYPE}, {OUT0_DTYPE}) are resolved by
+// CustomOpNode::resolveMlirPlaceholders(). Scalar placeholders
+// ({DROPOUT_P}, {IS_CAUSAL}, {SCALE_CONST}, {SCALE_TYPE}, {ENABLE_GQA})
+// are resolved by buildSdpaMlir().
+//
+// Tensor rank is hardcoded to 4 ([batch, heads, seq_len, head_dim]).
+
+// SDPA template: 3 tensor inputs (Q, K, V), attention mask is none.
+// Positional args: {0}=DROPOUT_P, {1}=IS_CAUSAL, {2}=SCALE_CONST,
+//                  {3}=SCALE_TYPE, {4}=ENABLE_GQA
+// clang-format off
+static constexpr std::string_view kSdpaNoMask = R"mlir(
+  func.func private @{{FUNC_NAME}}(
+      %arg0: !torch.vtensor<[?,?,?,?],{{IN0_DTYPE}}>,
+      %arg1: !torch.vtensor<[?,?,?,?],{{IN1_DTYPE}}>,
+      %arg2: !torch.vtensor<[?,?,?,?],{{IN2_DTYPE}}>)
+      -> !torch.vtensor<[?,?,?,?],{{OUT0_DTYPE}}> {{
+    %none_mask = torch.constant.none
+    %dropout = torch.constant.float {0}
+    %is_causal = torch.constant.bool {1}
+    %scale = {2}
+    %enable_gqa = torch.constant.bool {4}
+    %0 = torch.aten.scaled_dot_product_attention %arg0, %arg1, %arg2,
+        %none_mask, %dropout, %is_causal, %scale, %enable_gqa :
+        !torch.vtensor<[?,?,?,?],{{IN0_DTYPE}}>, !torch.vtensor<[?,?,?,?],{{IN1_DTYPE}}>,
+        !torch.vtensor<[?,?,?,?],{{IN2_DTYPE}}>, !torch.none, !torch.float, !torch.bool,
+        {3}, !torch.bool -> !torch.vtensor<[?,?,?,?],{{OUT0_DTYPE}}>
+    return %0 : !torch.vtensor<[?,?,?,?],{{OUT0_DTYPE}}>
+  }}
+)mlir";
+
+// SDPA template: 4 tensor inputs (Q, K, V, attn_mask).
+// Positional args: same as kSdpaNoMask.
+static constexpr std::string_view kSdpaWithMask = R"mlir(
+  func.func private @{{FUNC_NAME}}(
+      %arg0: !torch.vtensor<[?,?,?,?],{{IN0_DTYPE}}>,
+      %arg1: !torch.vtensor<[?,?,?,?],{{IN1_DTYPE}}>,
+      %arg2: !torch.vtensor<[?,?,?,?],{{IN2_DTYPE}}>,
+      %arg3: !torch.vtensor<[?,?,?,?],{{IN3_DTYPE}}>)
+      -> !torch.vtensor<[?,?,?,?],{{OUT0_DTYPE}}> {{
+    %dropout = torch.constant.float {0}
+    %is_causal = torch.constant.bool {1}
+    %scale = {2}
+    %enable_gqa = torch.constant.bool {4}
+    %0 = torch.aten.scaled_dot_product_attention %arg0, %arg1, %arg2,
+        %arg3, %dropout, %is_causal, %scale, %enable_gqa :
+        !torch.vtensor<[?,?,?,?],{{IN0_DTYPE}}>, !torch.vtensor<[?,?,?,?],{{IN1_DTYPE}}>,
+        !torch.vtensor<[?,?,?,?],{{IN2_DTYPE}}>, !torch.vtensor<[?,?,?,?],{{IN3_DTYPE}}>,
+        !torch.float, !torch.bool,
+        {3}, !torch.bool -> !torch.vtensor<[?,?,?,?],{{OUT0_DTYPE}}>
+    return %0 : !torch.vtensor<[?,?,?,?],{{OUT0_DTYPE}}>
+  }}
+)mlir";
+// clang-format on
+
+/// Builds the MLIR template for torch.aten.scaled_dot_product_attention.
+///
+/// Selects the appropriate R-string template (with/without attn_mask) and
+/// resolves scalar placeholders. Standard CustomOp dtype/name placeholders
+/// are left for CustomOpNode to resolve at emission time.
+///
+/// When hasAttnMask is false: 3 tensor inputs (Q=IN0, K=IN1, V=IN2).
+/// When hasAttnMask is true:  4 tensor inputs (Q=IN0, K=IN1, V=IN2, mask=IN3).
+static std::string buildSdpaMlir(bool hasAttnMask = false,
+                                 float dropoutP = 0.0f, bool isCausal = false,
+                                 std::optional<float> scale = std::nullopt,
+                                 bool enableGqa = false) {
+  // Compute raw values for scalar placeholders.
+  std::string dropoutStr = std::format("{:e}", dropoutP);
+  std::string isCausalStr = isCausal ? "true" : "false";
+  std::string scaleConstStr =
+      scale.has_value() ? std::format("torch.constant.float {:e}", *scale)
+                        : "torch.constant.none";
+  std::string scaleTypeStr = scale.has_value() ? "!torch.float" : "!torch.none";
+  std::string enableGqaStr = enableGqa ? "true" : "false";
+
+  // Resolve all scalar placeholders in a single format pass.
+  return std::vformat(hasAttnMask ? kSdpaWithMask : kSdpaNoMask,
+                      std::make_format_args(dropoutStr,    // {0} DROPOUT_P
+                                            isCausalStr,   // {1} IS_CAUSAL
+                                            scaleConstStr, // {2} SCALE_CONST
+                                            scaleTypeStr,  // {3} SCALE_TYPE
+                                            enableGqaStr   // {4} ENABLE_GQA
+                                            ));
+}
 
 // CPU reference implementation of scaled dot-product attention.
 // Computes SDPA in float precision for numerical verification against the GPU.
@@ -88,8 +179,7 @@ referenceSdpa(float qVal, float kVal, float vVal, float maskVal, int64_t batch,
   return out;
 }
 
-// Build a graph that runs scaled dot-product attention on Q, K, V tensors
-// using the built-in SDPA op.
+// Build a graph that runs scaled dot-product attention on Q, K, V tensors.
 // Shape convention: [batch, heads, seq_len, head_dim].
 static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
                         int64_t headsQ, int64_t headsKV, int64_t seqQ,
@@ -119,9 +209,10 @@ static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
 
   auto graph = std::make_shared<Graph>();
   graph
-      ->setName(std::format("sdpa_b{}hq{}hkv{}sq{}skv{}d{}{}{}{}{}{}", batch,
-                            headsQ, headsKV, seqQ, seqKV, headDim, causalSuffix,
-                            maskSuffix, gqaSuffix, scaleSuffix, dropoutSuffix))
+      ->setName(std::format("sdpa_custom_op_b{}hq{}hkv{}sq{}skv{}d{}{}{}{}{}{}",
+                            batch, headsQ, headsKV, seqQ, seqKV, headDim,
+                            causalSuffix, maskSuffix, gqaSuffix, scaleSuffix,
+                            dropoutSuffix))
       .setIODataType(dt)
       .setIntermediateDataType(dt);
 
@@ -158,21 +249,24 @@ static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
         TensorAttr().setName("mask").setDim(maskDim).setStride(maskStride));
   }
 
-  // Build the SDPA op using the built-in API.
-  SdpaAttr sdpaAttr;
-  sdpaAttr.setName("sdpa")
-      .setDropout(dropoutP)
-      .setIsCausal(isCausal)
-      .setScale(scale)
-      .setEnableGqa(enableGqa);
+  // Build the MLIR template with the given scalar parameters.
+  std::string sdpaMlir =
+      buildSdpaMlir(hasAttnMask, dropoutP, isCausal, scale, enableGqa);
 
-  auto oT = graph->sdpa(qT, kT, vT, maskT, sdpaAttr);
+  CustomOpAttr sdpaAttr;
+  sdpaAttr.setName("sdpa").setMlir(sdpaMlir).setNumOutputs(1);
+
+  std::vector<std::shared_ptr<TensorAttr>> inputs = {qT, kT, vT};
+  if (hasAttnMask)
+    inputs.push_back(maskT);
+
+  auto outs = graph->customOp(inputs, sdpaAttr);
 
   // Output: [batch, headsQ, seqQ, headDim]
   std::vector<int64_t> outDim = {batch, headsQ, seqQ, headDim};
   auto outStride =
       generateStrideFromDim(outDim, getContiguousStrideOrder(outDim.size()));
-  oT->setDim(outDim).setStride(outStride).setDataType(dt).setOutput(true);
+  outs[0]->setDim(outDim).setStride(outStride).setDataType(dt).setOutput(true);
 
   FUSILLI_REQUIRE_OK(graph->validate());
   FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
@@ -181,10 +275,10 @@ static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
   FUSILLI_REQUIRE_ASSIGN(auto kBuf, allocateBufferOfType(handle, kT, dt, 0.01));
   FUSILLI_REQUIRE_ASSIGN(auto vBuf, allocateBufferOfType(handle, vT, dt, 0.01));
   FUSILLI_REQUIRE_ASSIGN(auto outBuf,
-                         allocateBufferOfType(handle, oT, dt, 0.0));
+                         allocateBufferOfType(handle, outs[0], dt, 0.0));
 
   std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
-      variantPack = {{qT, qBuf}, {kT, kBuf}, {vT, vBuf}, {oT, outBuf}};
+      variantPack = {{qT, qBuf}, {kT, kBuf}, {vT, vBuf}, {outs[0], outBuf}};
 
   if (hasAttnMask) {
     FUSILLI_REQUIRE_ASSIGN(auto maskBuf,
