@@ -87,7 +87,7 @@ THEROCK_DIR = PEBBLE_DIR / "TheRock"
 ROCM_LIBRARIES_REPO = "https://github.com/ROCm/rocm-libraries.git"
 IREE_REPO = "https://github.com/iree-org/iree.git"
 IREE_DIR = PEBBLE_DIR / "iree"
-IREE_SUBMODULES = ["third_party/flatcc", "third_party/benchmark"]
+IREE_SUBMODULES = ["third_party/flatcc", "third_party/benchmark", "third_party/printf"]
 HIPDNN_SRC_DIR = PEBBLE_DIR / "rocm-libraries"
 
 # ==============================================================================
