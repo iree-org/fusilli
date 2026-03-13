@@ -35,6 +35,7 @@
 #include "fusilli/node/conv_node.h"
 #include "fusilli/node/custom_op_node.h"
 #include "fusilli/node/layernorm_node.h"
+#include "fusilli/node/rmsnorm_node.h"
 #include "fusilli/node/pointwise_node.h"
 #include "fusilli/support/extras.h"
 
@@ -1141,6 +1142,183 @@ inline std::string LayerNormNode::emitNodePreAsm() const {
                      getOperandTypesAsm(),       // {8}
                      getResultTypesAsm(),        // {9}
                      permuteY                    // {10}
+  );
+}
+
+//===----------------------------------------------------------------------===//
+//
+// RmsNormNode ASM Emitter Methods
+//
+//===----------------------------------------------------------------------===//
+
+// Emits RmsNormNode's operand names in MLIR assembly format.
+//
+// The unique suffix is included to ensure SSA uniqueness when the same
+// tensor is used by multiple operations.
+inline std::string RmsNormNode::getOperandNamesAsm() const {
+  std::ostringstream oss;
+  std::string suffix = rmsnormAttr.getName();
+
+  oss << rmsnormAttr.getX()->getValueNameAsm() << "_" << suffix << "_perm, ";
+  oss << "%normalized_shape_" << suffix << ", ";
+
+  auto sT = rmsnormAttr.getSCALE();
+  oss << (sT ? sT->getValueNameAsm() + "_" + suffix + "_perm, "
+             : "%none_scale_" + suffix + ", ");
+  oss << "%eps_" << suffix;
+
+  return oss.str();
+}
+
+// Emits RmsNormNode's operand types in MLIR assembly format.
+inline std::string RmsNormNode::getOperandTypesAsm() const {
+  std::ostringstream oss;
+
+  oss << rmsnormAttr.getX()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                              /*useLogicalDims=*/true)
+      << ", ";
+  oss << "!torch.list<int>" << ", ";
+
+  auto sT = rmsnormAttr.getSCALE();
+  oss << (sT ? sT->getTensorTypeAsm(/*isValueTensor=*/true,
+                                     /*useLogicalDims=*/true)
+             : "!torch.none")
+      << ", ";
+  oss << "!torch.float";
+
+  return oss.str();
+}
+
+// Emits RmsNormNode's result names in MLIR assembly format.
+//
+// The unique suffix and "_perm" are included to ensure SSA uniqueness when
+// the same tensor is used by multiple operations. This intermediate result
+// is then used by the output permute.
+inline std::string RmsNormNode::getResultNamesAsm() const {
+  std::ostringstream oss;
+  std::string suffix = rmsnormAttr.getName();
+
+  oss << rmsnormAttr.getY()->getValueNameAsm() << "_" << suffix << "_perm";
+
+  if (isTrainingForwardPhase()) {
+    oss << ", ";
+    oss << rmsnormAttr.getINV_RMS()->getValueNameAsm() << "_" << suffix
+        << "_perm";
+  }
+
+  return oss.str();
+}
+
+// Emits RmsNormNode's result types in MLIR assembly format.
+inline std::string RmsNormNode::getResultTypesAsm() const {
+  std::ostringstream oss;
+  oss << rmsnormAttr.getY()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                              /*useLogicalDims=*/true);
+
+  if (isTrainingForwardPhase()) {
+    oss << ", ";
+    oss << rmsnormAttr.getINV_RMS()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                                      /*useLogicalDims=*/true);
+  }
+
+  return oss.str();
+}
+
+// Get normalized_shape list construction ops in MLIR assembly format.
+// normalized_shape is the dimensions to normalize over (typically all dims
+// except batch).
+inline std::string RmsNormNode::getNormalizedShapeOpsAsm() const {
+  return getListOfIntOpsAsm(getNormalizedShape(), /*prefix=*/"normalized_shape",
+                            /*suffix=*/rmsnormAttr.getName());
+}
+
+// Get epsilon extraction op in MLIR assembly format. The scalar constant
+// `torch.vtensor.literal` is emitted once at graph level
+// (Graph::emitNodePreAsm). Here we extract the float value with
+// `torch.aten.item` for use with `torch.aten.rms_norm` which expects
+// `!torch.float`.
+inline std::string RmsNormNode::getEpsilonOpsAsm() const {
+  std::string suffix = rmsnormAttr.getName();
+  auto eps = rmsnormAttr.getEpsilon();
+  std::string tensorName = eps->getValueNameAsm();
+  std::string tensorType =
+      eps->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
+  constexpr std::string_view schema = R"(
+    %eps_{0} = torch.aten.item {1} : {2} -> !torch.float
+)";
+  return std::format(schema,
+                     suffix,     // {0}
+                     tensorName, // {1}
+                     tensorType  // {2}
+  );
+}
+
+// This gets called by the recursive `emitAsmSubtree()` method to emit
+// the pre-assembly for each node (including the main Graph). The schema
+// hard-codes things that are not customizable, and leaves the rest
+// for template replacements using `std::format`. When modifying the
+// schema, take extra caution about double bracing the curly brackets
+// (refer to the comments at the top of this file for details).
+inline std::string RmsNormNode::emitNodePreAsm() const {
+  std::string uniqueSSASuffix = rmsnormAttr.getName();
+  std::string permuteX = getPermuteOpsAsm(rmsnormAttr.getX(), "permute_x",
+                                          uniqueSSASuffix, /*isInput=*/true);
+  std::string permuteY = getPermuteOpsAsm(rmsnormAttr.getY(), "permute_y",
+                                          uniqueSSASuffix, /*isInput=*/false);
+  std::string permuteScale =
+      rmsnormAttr.getSCALE()
+          ? getPermuteOpsAsm(rmsnormAttr.getSCALE(), "permute_scale",
+                             uniqueSSASuffix, /*isInput=*/true)
+          : std::format("%none_scale_{} = torch.constant.none",
+                        uniqueSSASuffix);
+
+  if (isTrainingForwardPhase()) {
+    std::string permuteInvRms =
+        getPermuteOpsAsm(rmsnormAttr.getINV_RMS(), "permute_inv_rms",
+                         uniqueSSASuffix, /*isInput=*/false);
+
+    constexpr std::string_view schema = R"(
+    {0}
+    {1}
+    {2}
+    {3}
+    {4} = torch.aten.native_rms_norm {5} : {6} -> {7}
+    {8}
+    {9}
+    )";
+
+    return std::format(schema,
+                       getNormalizedShapeOpsAsm(), // {0}
+                       getEpsilonOpsAsm(),         // {1}
+                       permuteX,                   // {2}
+                       permuteScale,               // {3}
+                       getResultNamesAsm(),        // {4}
+                       getOperandNamesAsm(),       // {5}
+                       getOperandTypesAsm(),       // {6}
+                       getResultTypesAsm(),        // {7}
+                       permuteY,                   // {8}
+                       permuteInvRms               // {9}
+    );
+  }
+
+  constexpr std::string_view schema = R"(
+    {0}
+    {1}
+    {2}
+    {3}
+    {4} = torch.aten.rms_norm {5} : {6} -> {7}
+    {8}
+  )";
+
+  return std::format(schema, getNormalizedShapeOpsAsm(), // {0}
+                     getEpsilonOpsAsm(),                 // {1}
+                     permuteX,                           // {2}
+                     permuteScale,                       // {3}
+                     getResultNamesAsm(),                // {4}
+                     getOperandNamesAsm(),               // {5}
+                     getOperandTypesAsm(),               // {6}
+                     getResultTypesAsm(),                // {7}
+                     permuteY                            // {8}
   );
 }
 
