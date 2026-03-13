@@ -287,6 +287,11 @@ if(FUSILLI_BUILD_TESTS OR FUSILLI_BUILD_BENCHMARKS)
   # Side-load iree-compile program
   fusilli_find_program(iree-compile INSTALL_INSTRUCTIONS "Please install iree-compile (e.g., pip install iree-base-compiler).")
 
+  # Bake iree-compile path into the binary so it can be found at runtime without
+  # needing it on PATH or setting FUSILLI_EXTERNAL_IREE_COMPILE env var.
+  target_compile_definitions(libfusilli INTERFACE
+    FUSILLI_DEFAULT_IREE_COMPILE="$<TARGET_FILE:iree-compile>")
+
   # Find prebuilt Catch2 library or fetch it if not found
   find_package(Catch2 3 QUIET)
   if(NOT Catch2_FOUND)
