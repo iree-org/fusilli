@@ -35,8 +35,8 @@
 #include "fusilli/node/conv_node.h"
 #include "fusilli/node/custom_op_node.h"
 #include "fusilli/node/layernorm_node.h"
-#include "fusilli/node/rmsnorm_node.h"
 #include "fusilli/node/pointwise_node.h"
+#include "fusilli/node/rmsnorm_node.h"
 #include "fusilli/support/extras.h"
 
 #include <bit> // C++20
@@ -1181,7 +1181,7 @@ inline std::string RmsNormNode::getOperandTypesAsm() const {
 
   auto sT = rmsnormAttr.getSCALE();
   oss << (sT ? sT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                     /*useLogicalDims=*/true)
+                                    /*useLogicalDims=*/true)
              : "!torch.none")
       << ", ";
   oss << "!torch.float";
