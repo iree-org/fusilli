@@ -7,7 +7,8 @@
 // RUN: %{TEST_EXE} | FileCheck %s --check-prefix=TORCH-CHECK
 // TODO: Enable after torch.aten.native_rms_norm is supported by IREE.
 // disabled: %{TEST_EXE} | iree-opt --verify-roundtrip
-// disabled: %{TEST_EXE} stats | FileCheck %s --check-prefix=%{BACKEND}-STATS-CHECK
+// disabled: %{TEST_EXE} stats | FileCheck %s
+// --check-prefix=%{BACKEND}-STATS-CHECK
 
 // clang-format off
 //

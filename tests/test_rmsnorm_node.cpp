@@ -229,9 +229,8 @@ TEST_CASE(
   REQUIRE(rT->getStride() == std::vector<int64_t>{1, 1});
 }
 
-TEST_CASE(
-    "RmsNormNode inferPropertiesNode when SCALE tensor is unspecified",
-    "[rmsnorm_node]") {
+TEST_CASE("RmsNormNode inferPropertiesNode when SCALE tensor is unspecified",
+          "[rmsnorm_node]") {
   Context ctx;
   RmsnormAttr attr;
   attr.setForwardPhase(NormFwdPhase::INFERENCE)
@@ -286,8 +285,7 @@ TEST_CASE(
   }
 }
 
-TEST_CASE("RmsNormNode shape checks on SCALE tensor",
-          "[rmsnorm_node]") {
+TEST_CASE("RmsNormNode shape checks on SCALE tensor", "[rmsnorm_node]") {
   Context ctx;
   RmsnormAttr attr;
 

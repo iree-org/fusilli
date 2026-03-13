@@ -273,8 +273,7 @@ public:
             const std::shared_ptr<TensorAttr> &bias, LayernormAttr &attributes);
   std::array<std::shared_ptr<TensorAttr>, 2>
   rmsnorm(const std::shared_ptr<TensorAttr> &x,
-          const std::shared_ptr<TensorAttr> &scale,
-          RmsnormAttr &attributes);
+          const std::shared_ptr<TensorAttr> &scale, RmsnormAttr &attributes);
   std::shared_ptr<TensorAttr> matmul(const std::shared_ptr<TensorAttr> &a,
                                      const std::shared_ptr<TensorAttr> &b,
                                      MatmulAttr &attributes);
@@ -798,7 +797,7 @@ Graph::rmsnorm(const std::shared_ptr<TensorAttr> &x,
     eps->setName(rmsnormAttr.getName() + "_EPSILON");
 
   FUSILLI_LOG_LABEL_ENDL("INFO: Adding RmsNorm '" << rmsnormAttr.getName()
-                                                   << "' to Graph");
+                                                  << "' to Graph");
 
   // Set inputs.
   rmsnormAttr.setX(x);

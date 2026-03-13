@@ -90,11 +90,10 @@ public:
     // inferPropertiesNode().
     if (sT) {
       if (!sT->getDim().empty()) {
-        FUSILLI_RETURN_ERROR_IF(
-            sT->getDim() != getScaleDim(xT->getDim()),
-            ErrorCode::InvalidAttribute,
-            "RmsNorm input tensor SCALE must have shape as "
-            "tensor X with single batch");
+        FUSILLI_RETURN_ERROR_IF(sT->getDim() != getScaleDim(xT->getDim()),
+                                ErrorCode::InvalidAttribute,
+                                "RmsNorm input tensor SCALE must have shape as "
+                                "tensor X with single batch");
       }
 
       if (!sT->getStride().empty()) {
@@ -148,8 +147,7 @@ public:
     std::shared_ptr<TensorAttr> sT = rmsnormAttr.getSCALE();
     if (sT) {
       INFER_TENSOR_DIM_AND_STRIDE(
-          sT, getScaleDim(xDim),
-          getScaleStride(sT->getDim(), xT->getStride()));
+          sT, getScaleDim(xDim), getScaleStride(sT->getDim(), xT->getStride()));
     }
 
     // Infer shape and stride of output Y tensor.
