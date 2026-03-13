@@ -22,11 +22,16 @@
 namespace fusilli {
 
 inline std::string getIreeCompilePath() {
-  // Check environment variable.
+  // Check environment variable (always takes priority).
   const char *envPath = std::getenv("FUSILLI_EXTERNAL_IREE_COMPILE");
   if (envPath && envPath[0] != '\0') {
     return std::string(envPath);
   }
+
+#if defined(FUSILLI_DEFAULT_IREE_COMPILE)
+  // Use path baked in at CMake configure time.
+  return std::string(FUSILLI_DEFAULT_IREE_COMPILE);
+#endif
 
   // Let the shell search for it.
   return std::string("iree-compile");
