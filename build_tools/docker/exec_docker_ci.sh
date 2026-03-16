@@ -23,13 +23,14 @@ for DEV in /dev/kfd /dev/dri/*; do
   DOCKER_RUN_DEVICE_OPTS+=" --device=${DEV} --group-add=$(stat -c '%g' ${DEV})"
 done
 
-# Bind mounts for the following:
-# - current directory to /workspace in the container
+# Bind mounts current directory to /workspace in the container
 docker run --rm \
            -v "${PWD}":/workspace \
            -e IREE_GIT_TAG="${IREE_GIT_TAG}" \
            -e THEROCK_GIT_TAG="${THEROCK_GIT_TAG}" \
+           -e AMD_ARCH=${AMD_ARCH:-} \
            ${DOCKER_RUN_DEVICE_OPTS} \
-           --security-opt seccomp=unconfined \
-           ghcr.io/sjain-stanford/compiler-dev-ubuntu-24.04:main@sha256:6b5ccb82585e62ecfab4c477b248e1e0d4f29eab39f98ad6732bd6005146e635 \
+           --cap-drop=NET_RAW \
+           --ulimit nofile=4096:4096 \
+           ghcr.io/sjain-stanford/compiler-dev-ubuntu-24.04:main@sha256:a33c63d3bb389053bc9477e0ea8c32a66f92995c98972c1728d86f8383cbd230 \
            "$@"
