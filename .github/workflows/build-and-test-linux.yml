@@ -17,6 +17,8 @@ jobs:
   build-and-test-linux:
     name: "Build & Test :: ${{ matrix.name }}"
     runs-on: ${{ startsWith(matrix.name, 'gpu') && 'linux-mi325-1gpu-ossci-iree-org' || 'azure-linux-scale' }}
+    env:
+      AMD_ARCH: ${{ startsWith(matrix.name, 'gpu') && 'gfx942' || '' }}
     timeout-minutes: 60
     defaults:
       run:
