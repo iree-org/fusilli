@@ -43,6 +43,7 @@ add_fusilli_tests(
     test_matmul_attributes.cpp
     test_pointwise_attributes.cpp
     test_reduction_attributes.cpp
+    test_sdpa_attributes.cpp
   DEPS
     libfusilli
     Catch2::Catch2WithMain)
@@ -56,6 +57,7 @@ add_fusilli_tests(
     test_matmul_node.cpp
     test_pointwise_node.cpp
     test_reduction_node.cpp
+    test_sdpa_node.cpp
   DEPS
     libfusilli
     Catch2::Catch2WithMain)
@@ -175,6 +177,10 @@ add_fusilli_lit_tests(
     lit/test_custom_op_asm_emitter_multi_output_static.cpp
     lit/test_custom_op_asm_emitter_mixed_dtype.cpp
     lit/test_custom_op_asm_emitter_sdpa.cpp
+    lit/test_sdpa_asm_emitter_basic.cpp
+    lit/test_sdpa_asm_emitter_causal.cpp
+    lit/test_sdpa_asm_emitter_with_mask.cpp
+    lit/test_sdpa_asm_emitter_gqa.cpp
     lit/test_reduction_asm_emitter_sum.cpp
     lit/test_reduction_asm_emitter_min.cpp
     lit/test_reduction_asm_emitter_max.cpp

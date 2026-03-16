@@ -94,6 +94,22 @@ add_fusilli_samples(
 )
 
 add_fusilli_samples(
+  PREFIX fusilli_sdpa_custom_op_samples
+  SRCS
+    custom_op/sdpa/sdpa_fprop_basic_mha.cpp
+    custom_op/sdpa/sdpa_fprop_causal.cpp
+    custom_op/sdpa/sdpa_fprop_custom_scale.cpp
+    custom_op/sdpa/sdpa_fprop_with_mask.cpp
+    custom_op/sdpa/sdpa_fprop_dropout.cpp
+    custom_op/sdpa/sdpa_fprop_gqa.cpp
+    custom_op/sdpa/sdpa_fprop_cross_attn.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)
+
+add_fusilli_samples(
   PREFIX fusilli_sdpa_samples
   SRCS
     sdpa/sdpa_fprop_basic_mha.cpp

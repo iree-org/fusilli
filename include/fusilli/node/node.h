@@ -38,6 +38,7 @@ public:
     Matmul,
     Reduction,
     Custom,
+    Sdpa,
   };
 
   explicit INode(const Context &ctx) : context(ctx) {}

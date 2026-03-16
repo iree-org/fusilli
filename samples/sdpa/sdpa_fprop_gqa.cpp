@@ -13,7 +13,7 @@
 
 #include <optional>
 
-TEST_CASE("SDPA forward: GQA f16", "[sdpa][custom_op][graph]") {
+TEST_CASE("SDPA forward: GQA f16", "[sdpa][graph]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   executeSdpa(handle, DataType::Half,
               /*batch=*/1, /*headsQ=*/8, /*headsKV=*/2,

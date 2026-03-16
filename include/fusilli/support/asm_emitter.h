@@ -36,6 +36,7 @@
 #include "fusilli/node/custom_op_node.h"
 #include "fusilli/node/layernorm_node.h"
 #include "fusilli/node/pointwise_node.h"
+#include "fusilli/node/sdpa_node.h"
 #include "fusilli/support/extras.h"
 
 #include <bit> // C++20
@@ -1489,6 +1490,153 @@ inline std::string ReductionNode::emitNodePreAsm() const {
     assert(false && "Unsupported reduction mode");
     return "";
   }
+}
+
+//===----------------------------------------------------------------------===//
+//
+// SdpaNode ASM Emitter Methods
+//
+//===----------------------------------------------------------------------===//
+
+// Emits SdpaNode's operand names in MLIR assembly format.
+//
+// The unique suffix is included to ensure SSA uniqueness when the same
+// tensor is used by multiple operations in a graph.
+inline std::string SdpaNode::getOperandNamesAsm() const {
+  std::string suffix = sdpaAttr.getName();
+  std::ostringstream oss;
+  oss << sdpaAttr.getQ()->getValueNameAsm() << "_" << suffix << "_perm, "
+      << sdpaAttr.getK()->getValueNameAsm() << "_" << suffix << "_perm, "
+      << sdpaAttr.getV()->getValueNameAsm() << "_" << suffix << "_perm";
+  if (sdpaAttr.getMASK())
+    oss << ", " << sdpaAttr.getMASK()->getValueNameAsm() << "_" << suffix
+        << "_perm";
+  else
+    oss << ", %none_mask_" << suffix;
+  return oss.str();
+}
+
+// Emits SdpaNode's operand types in MLIR assembly format.
+inline std::string SdpaNode::getOperandTypesAsm() const {
+  std::ostringstream oss;
+  oss << sdpaAttr.getQ()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                           /*useLogicalDims=*/true)
+      << ", "
+      << sdpaAttr.getK()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                           /*useLogicalDims=*/true)
+      << ", "
+      << sdpaAttr.getV()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                           /*useLogicalDims=*/true)
+      << ", ";
+  if (sdpaAttr.getMASK())
+    oss << sdpaAttr.getMASK()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                                /*useLogicalDims=*/true);
+  else
+    oss << "!torch.none";
+  return oss.str();
+}
+
+// Emits SdpaNode's result names in MLIR assembly format.
+inline std::string SdpaNode::getResultNamesAsm() const {
+  return sdpaAttr.getO()->getValueNameAsm() + "_" + sdpaAttr.getName() +
+         "_perm";
+}
+
+// Emits SdpaNode's result types in MLIR assembly format.
+inline std::string SdpaNode::getResultTypesAsm() const {
+  return sdpaAttr.getO()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                           /*useLogicalDims=*/true);
+}
+
+// Emits the dropout probability constant.
+inline std::string SdpaNode::getDropoutOpsAsm() const {
+  std::string suffix = sdpaAttr.getName();
+  return std::format("%dropout_{0} = torch.constant.float {1:e}", suffix,
+                     sdpaAttr.getDropout());
+}
+
+// Emits the is_causal boolean constant.
+inline std::string SdpaNode::getIsCausalOpsAsm() const {
+  std::string suffix = sdpaAttr.getName();
+  return std::format("%is_causal_{} = torch.constant.bool {}", suffix,
+                     sdpaAttr.getIsCausal() ? "true" : "false");
+}
+
+// Emits the scale constant (float or none).
+inline std::string SdpaNode::getScaleOpsAsm() const {
+  std::string suffix = sdpaAttr.getName();
+  if (sdpaAttr.getScale().has_value())
+    return std::format("%scale_{0} = torch.constant.float {1:e}", suffix,
+                       *sdpaAttr.getScale());
+  return std::format("%scale_{} = torch.constant.none", suffix);
+}
+
+// Emits the enable_gqa boolean constant.
+inline std::string SdpaNode::getEnableGqaOpsAsm() const {
+  std::string suffix = sdpaAttr.getName();
+  return std::format("%enable_gqa_{} = torch.constant.bool {}", suffix,
+                     sdpaAttr.getEnableGqa() ? "true" : "false");
+}
+
+inline std::string SdpaNode::emitNodePreAsm() const {
+  std::string suffix = sdpaAttr.getName();
+
+  // Permute inputs.
+  std::string permuteQ =
+      getPermuteOpsAsm(sdpaAttr.getQ(), "permute_Q", suffix, /*isInput=*/true);
+  std::string permuteK =
+      getPermuteOpsAsm(sdpaAttr.getK(), "permute_K", suffix, /*isInput=*/true);
+  std::string permuteV =
+      getPermuteOpsAsm(sdpaAttr.getV(), "permute_V", suffix, /*isInput=*/true);
+
+  std::string permuteMask;
+  std::string noneMask;
+  if (sdpaAttr.getMASK()) {
+    permuteMask = getPermuteOpsAsm(sdpaAttr.getMASK(), "permute_mask", suffix,
+                                   /*isInput=*/true);
+  } else {
+    noneMask = std::format("%none_mask_{} = torch.constant.none", suffix);
+  }
+
+  // Permute output.
+  std::string permuteO =
+      getPermuteOpsAsm(sdpaAttr.getO(), "permute_O", suffix, /*isInput=*/false);
+
+  // Scale type for the MLIR signature.
+  std::string scaleType =
+      sdpaAttr.getScale().has_value() ? "!torch.float" : "!torch.none";
+
+  constexpr std::string_view schema = R"(
+    {0}
+    {1}
+    {2}
+    {3}
+    {4}
+    {5}
+    {6}
+    {7}
+    {8} = torch.aten.scaled_dot_product_attention {9} : {10}, !torch.float, !torch.bool, {11}, !torch.bool -> {12}
+    {13}
+  )";
+
+  return std::format(schema,
+                     permuteQ,                                     // {0}
+                     permuteK,                                     // {1}
+                     permuteV,                                     // {2}
+                     permuteMask.empty() ? noneMask : permuteMask, // {3}
+                     getDropoutOpsAsm(),                           // {4}
+                     getIsCausalOpsAsm(),                          // {5}
+                     getScaleOpsAsm(),                             // {6}
+                     getEnableGqaOpsAsm(),                         // {7}
+                     getResultNamesAsm(),                          // {8}
+                     getOperandNamesAsm() + ", %dropout_" + suffix +
+                         ", %is_causal_" + suffix + ", %scale_" + suffix +
+                         ", %enable_gqa_" + suffix, // {9}
+                     getOperandTypesAsm(),          // {10}
+                     scaleType,                     // {11}
+                     getResultTypesAsm(),           // {12}
+                     permuteO                       // {13}
+  );
 }
 
 //===----------------------------------------------------------------------===//
