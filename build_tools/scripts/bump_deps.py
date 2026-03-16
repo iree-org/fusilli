@@ -134,33 +134,17 @@ def find_latest_iree_with_wheel() -> str:
     sys.exit(1)
 
 
-def find_latest_therock_version(current_version: str) -> str:
-    """Find the latest TheRock nightly version by probing the CDN.
+def _probe_therock_cdn(prefix: str, num_days: int = 3) -> str | None:
+    """Probe the TheRock CDN for the latest available date with *prefix*.
 
-    Extracts the version prefix from the current version (e.g., ``7.12.0a``
-    from ``7.12.0a20260228``) and checks the three most recent dates.
-
-    Args:
-        current_version: Current TheRock version string from version.json.
+    Checks *num_days* most recent dates (today, yesterday, …).
 
     Returns:
-        Latest available TheRock version string, or the current version if
-        nothing newer is found.
+        The full version string (e.g., ``7.13.0a20260315``) if found, or
+        ``None`` if nothing is available.
     """
-    m = re.match(r"(.+?)(\d{8})$", current_version)
-    if not m:
-        print(
-            f"WARNING: Cannot parse TheRock version '{current_version}', "
-            "keeping current version",
-            file=sys.stderr,
-        )
-        return current_version
-
-    prefix = m.group(1)
-    print(f"TheRock version prefix: {prefix}")
-
     today = datetime.now(timezone.utc)
-    for days_ago in range(3):
+    for days_ago in range(num_days):
         date = today - timedelta(days=days_ago)
         date_str = date.strftime("%Y%m%d")
         candidate = f"{prefix}{date_str}"
@@ -177,6 +161,53 @@ def find_latest_therock_version(current_version: str) -> str:
                     return candidate
         except (urllib.error.URLError, urllib.error.HTTPError):
             continue
+    return None
+
+
+def find_latest_therock_version(current_version: str) -> str:
+    """Find the latest TheRock nightly version by probing the CDN.
+
+    Parses the current version (e.g., ``7.12.0a20260311``) into its
+    components and probes the CDN for the next minor version first (e.g.,
+    ``7.13.0a``), then falls back to the current minor version. This
+    ensures minor-version bumps are picked up automatically.
+
+    Args:
+        current_version: Current TheRock version string from version.json.
+
+    Returns:
+        Latest available TheRock version string, or the current version if
+        nothing newer is found.
+    """
+    m = re.match(r"(\d+)\.(\d+)\.(\d+)([a-z]+)\d{8}$", current_version)
+    if not m:
+        print(
+            f"WARNING: Cannot parse TheRock version '{current_version}', "
+            "keeping current version",
+            file=sys.stderr,
+        )
+        return current_version
+
+    major, minor, patch, pre = (
+        int(m.group(1)),
+        int(m.group(2)),
+        int(m.group(3)),
+        m.group(4),
+    )
+
+    # Probe the next minor version first, then fall back to the current one.
+    next_prefix = f"{major}.{minor + 1}.{patch}{pre}"
+    curr_prefix = f"{major}.{minor}.{patch}{pre}"
+
+    print(f"TheRock current prefix: {curr_prefix}, next minor: {next_prefix}")
+
+    result = _probe_therock_cdn(next_prefix)
+    if result is not None:
+        return result
+
+    result = _probe_therock_cdn(curr_prefix)
+    if result is not None:
+        return result
 
     print(f"WARNING: No newer TheRock version found, keeping {current_version}")
     return current_version
