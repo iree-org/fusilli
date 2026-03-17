@@ -1659,16 +1659,15 @@ inline std::string CustomOpNode::getCallOperandNamesAsm() const {
 }
 
 // Emits CustomOpNode's call operand types in MLIR assembly format.
-// Uses dynamic (all-?) tensor types, or static logical types when
-// isStatic() is set.
+// Uses dynamic (all-?) tensor types.
 inline std::string CustomOpNode::getCallOperandTypesAsm() const {
   std::ostringstream oss;
   interleave(
       inputs.begin(), inputs.end(),
       [&](const std::shared_ptr<TensorAttr> &input) {
         oss << input->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/true,
-                                       /*isDynamic=*/!customOpAttr.isStatic());
+                                       /*useLogicalDims=*/false,
+                                       /*isDynamic=*/true);
       },
       [&] { oss << ", "; });
   return oss.str();
@@ -1686,16 +1685,15 @@ inline std::string CustomOpNode::getCallResultNamesAsm() const {
 }
 
 // Emits CustomOpNode's call result types in MLIR assembly format.
-// Uses dynamic (all-?) tensor types, or static logical types when
-// isStatic() is set.
+// Uses dynamic (all-?) tensor types.
 inline std::string CustomOpNode::getCallResultTypesAsm() const {
   std::ostringstream oss;
   interleave(
       outputs.begin(), outputs.end(),
       [&](const std::shared_ptr<TensorAttr> &output) {
         oss << output->getTensorTypeAsm(/*isValueTensor=*/true,
-                                        /*useLogicalDims=*/true,
-                                        /*isDynamic=*/!customOpAttr.isStatic());
+                                        /*useLogicalDims=*/false,
+                                        /*isDynamic=*/true);
       },
       [&] { oss << ", "; });
   return oss.str();
@@ -1715,11 +1713,8 @@ inline std::string CustomOpNode::getStaticToDynamicCastAsm(
     bool isInput, const std::string &operandOverride) const {
   std::string staticType =
       tensor->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
-  // When isStatic(), isDynamic=false so dynamicType equals staticType,
-  // making the cast an identity no-op.
-  std::string dynamicType =
-      tensor->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true,
-                               /*isDynamic=*/!customOpAttr.isStatic());
+  std::string dynamicType = tensor->getTensorTypeAsm(
+      /*isValueTensor=*/true, /*useLogicalDims=*/false, /*isDynamic=*/true);
 
   std::string resultName =
       tensor->getValueNameAsm() + "_" + suffix + (isInput ? "_dyn" : "_perm");
