@@ -1659,14 +1659,14 @@ inline std::string CustomOpNode::getCallOperandNamesAsm() const {
 }
 
 // Emits CustomOpNode's call operand types in MLIR assembly format.
-// Uses dynamic (all-?) tensor types.
+// Uses dynamic (all-?) logical tensor types.
 inline std::string CustomOpNode::getCallOperandTypesAsm() const {
   std::ostringstream oss;
   interleave(
       inputs.begin(), inputs.end(),
       [&](const std::shared_ptr<TensorAttr> &input) {
         oss << input->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/false,
+                                       /*useLogicalDims=*/true,
                                        /*isDynamic=*/true);
       },
       [&] { oss << ", "; });
@@ -1685,14 +1685,14 @@ inline std::string CustomOpNode::getCallResultNamesAsm() const {
 }
 
 // Emits CustomOpNode's call result types in MLIR assembly format.
-// Uses dynamic (all-?) tensor types.
+// Uses dynamic (all-?) logical tensor types.
 inline std::string CustomOpNode::getCallResultTypesAsm() const {
   std::ostringstream oss;
   interleave(
       outputs.begin(), outputs.end(),
       [&](const std::shared_ptr<TensorAttr> &output) {
         oss << output->getTensorTypeAsm(/*isValueTensor=*/true,
-                                        /*useLogicalDims=*/false,
+                                        /*useLogicalDims=*/true,
                                         /*isDynamic=*/true);
       },
       [&] { oss << ", "; });

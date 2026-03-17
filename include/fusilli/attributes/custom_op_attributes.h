@@ -30,6 +30,15 @@ public:
 
   // Sets the MLIR function definition for this custom op.
   //
+  // IMPORTANT: The MLIR function must be written in terms of logical
+  // dimensions, not physical (storage) dimensions. The emitter automatically
+  // inserts permute ops around the custom op call to convert between the
+  // physical layout of graph tensors and the logical layout expected by the
+  // custom function. For example, if a tensor has dim={4,8} with transposed
+  // stride={1,4} (physical layout [8,4]), the emitter permutes it to logical
+  // [4,8] before passing it to the custom function. The custom MLIR should
+  // therefore use [4,8], not [8,4].
+  //
   // The string may contain placeholders that are resolved at emission time
   // by `CustomOpNode::resolveMlirPlaceholders()`:
   //
@@ -50,6 +59,11 @@ public:
     return *this;
   }
 
+  CustomOpAttr &setNumOutputs(size_t numOutputs) {
+    numOutputs_ = numOutputs;
+    return *this;
+  }
+
   // Getters:
   const std::string &getName() const { return name_; }
 
@@ -57,10 +71,6 @@ public:
   const std::string &getMlir() const { return mlir_; }
 
   size_t getNumOutputs() const { return numOutputs_; }
-  CustomOpAttr &setNumOutputs(size_t numOutputs) {
-    numOutputs_ = numOutputs;
-    return *this;
-  }
 
 private:
   std::string name_;
