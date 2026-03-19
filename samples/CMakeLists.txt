@@ -50,6 +50,7 @@ add_fusilli_samples(
     matmul/matmul_basic_with_bias.cpp
     matmul/matmul_batched.cpp
     matmul/matmul_batched_with_bias.cpp
+    matmul/matmul_int4_fp16.cpp
   DEPS
     libfusilli
     libutils
