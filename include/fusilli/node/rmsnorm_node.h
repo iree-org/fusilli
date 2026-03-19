@@ -91,11 +91,11 @@ public:
     // inferPropertiesNode().
     if (sT) {
       if (!sT->getDim().empty()) {
-        FUSILLI_RETURN_ERROR_IF(
-            sT->getDim() != norm_utils::getScaleBiasDim(xT->getDim()),
-            ErrorCode::InvalidAttribute,
-            "RmsNorm input tensor SCALE must have shape as "
-            "tensor X with single batch");
+        FUSILLI_RETURN_ERROR_IF(sT->getDim() !=
+                                    norm_utils::getScaleBiasDim(xT->getDim()),
+                                ErrorCode::InvalidAttribute,
+                                "RmsNorm input tensor SCALE must have shape as "
+                                "tensor X with single batch");
       }
 
       if (!sT->getStride().empty()) {

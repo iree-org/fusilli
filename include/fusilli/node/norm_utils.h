@@ -24,8 +24,8 @@ namespace fusilli::norm_utils {
 // Returns the shape over which normalization is applied:
 // the input tensor's shape excluding the batch dimension,
 // as normalization is computed independently for each sample in the batch.
-inline std::vector<int64_t>
-getNormalizedShape(const std::vector<int64_t> &xDim, size_t batchDim = 0) {
+inline std::vector<int64_t> getNormalizedShape(const std::vector<int64_t> &xDim,
+                                               size_t batchDim = 0) {
   std::vector<int64_t> shape;
   shape.reserve(xDim.size() - 1);
   for (size_t i = 0; i < xDim.size(); ++i) {
@@ -50,8 +50,8 @@ getTrainingForwardOutputDimAndStride(const std::vector<int64_t> &xDim,
 
 // Returns the expected shape for scale (and bias) tensors:
 // input X tensor's dims with single batch.
-inline std::vector<int64_t>
-getScaleBiasDim(const std::vector<int64_t> &xDim, size_t batchDim = 0) {
+inline std::vector<int64_t> getScaleBiasDim(const std::vector<int64_t> &xDim,
+                                            size_t batchDim = 0) {
   auto dim = xDim;
   dim[batchDim] = 1;
   return dim;
@@ -91,9 +91,9 @@ inline void inferDimAndStride(std::shared_ptr<TensorAttr> &tensor,
 // Infers dim and stride of a scale/bias tensor.
 // Stride depends on the tensor's dim (which may be just-inferred), so dim
 // must be set before computing stride.
-inline void inferScaleBiasDimAndStride(
-    std::shared_ptr<TensorAttr> &tensor,
-    const std::vector<int64_t> &xDim, const std::vector<int64_t> &xStride) {
+inline void inferScaleBiasDimAndStride(std::shared_ptr<TensorAttr> &tensor,
+                                       const std::vector<int64_t> &xDim,
+                                       const std::vector<int64_t> &xStride) {
   inferDim(tensor, getScaleBiasDim(xDim));
   inferStride(tensor, getScaleBiasStride(tensor->getDim(), xStride));
 }
