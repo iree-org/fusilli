@@ -399,4 +399,22 @@ TEST_CASE("RmsNormNode postValidateNode detects incorrect shapes and strides",
     REQUIRE(status.getMessage() ==
             "RmsNorm output INV_RMS tensor must have unit strides");
   }
+
+  SECTION("TRAINING forward phase is not yet supported") {
+    attr.setForwardPhase(NormFwdPhase::TRAINING)
+        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
+    attr.setX(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
+    attr.setY(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
+    attr.setINV_RMS(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({n, 1, 1}).setStride({1, 1, 1})));
+    RmsNormNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+    auto status = node.postValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::NotImplemented);
+  }
 }

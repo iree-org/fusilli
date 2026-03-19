@@ -42,7 +42,7 @@ public:
   RmsNormNode(RmsnormAttr &&attr, const Context &ctx)
       : NodeCRTP(ctx), rmsnormAttr(std::move(attr)) {}
 
-  // ASM emitter methods.
+  // ASM emitter methods (inference mode only).
   std::string emitNodePreAsm() const override final;
   std::string getOperandNamesAsm() const;
   std::string getOperandTypesAsm() const;
@@ -199,6 +199,11 @@ public:
           stride != rT->getStride(), ErrorCode::InvalidAttribute,
           "RmsNorm output INV_RMS tensor must have unit strides");
     }
+
+    FUSILLI_RETURN_ERROR_IF(
+        isTrainingForwardPhase(), ErrorCode::NotImplemented,
+        "RmsNorm training mode is not yet supported: torch-mlir does not "
+        "lower the training variant");
 
     return ok();
   }

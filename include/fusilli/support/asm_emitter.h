@@ -1200,12 +1200,6 @@ inline std::string RmsNormNode::getResultNamesAsm() const {
 
   oss << rmsnormAttr.getY()->getValueNameAsm() << "_" << suffix << "_perm";
 
-  if (isTrainingForwardPhase()) {
-    oss << ", ";
-    oss << rmsnormAttr.getINV_RMS()->getValueNameAsm() << "_" << suffix
-        << "_perm";
-  }
-
   return oss.str();
 }
 
@@ -1214,12 +1208,6 @@ inline std::string RmsNormNode::getResultTypesAsm() const {
   std::ostringstream oss;
   oss << rmsnormAttr.getY()->getTensorTypeAsm(/*isValueTensor=*/true,
                                               /*useLogicalDims=*/true);
-
-  if (isTrainingForwardPhase()) {
-    oss << ", ";
-    oss << rmsnormAttr.getINV_RMS()->getTensorTypeAsm(/*isValueTensor=*/true,
-                                                      /*useLogicalDims=*/true);
-  }
 
   return oss.str();
 }
@@ -1253,13 +1241,12 @@ inline std::string RmsNormNode::getEpsilonOpsAsm() const {
   );
 }
 
-// This gets called by the recursive `emitAsmSubtree()` method to emit
-// the pre-assembly for each node (including the main Graph). The schema
-// hard-codes things that are not customizable, and leaves the rest
-// for template replacements using `std::format`. When modifying the
-// schema, take extra caution about double bracing the curly brackets
-// (refer to the comments at the top of this file for details).
+// Emits MLIR assembly for inference-mode RmsNorm. Training mode ASM emission
+// is not yet supported as torch-mlir does not lower the training variant.
 inline std::string RmsNormNode::emitNodePreAsm() const {
+  assert(!isTrainingForwardPhase() &&
+         "RmsNorm training mode ASM emission is not yet supported");
+
   std::string uniqueSSASuffix = rmsnormAttr.getName();
   std::string permuteX = getPermuteOpsAsm(rmsnormAttr.getX(), "permute_x",
                                           uniqueSSASuffix, /*isInput=*/true);
@@ -1271,35 +1258,6 @@ inline std::string RmsNormNode::emitNodePreAsm() const {
                              uniqueSSASuffix, /*isInput=*/true)
           : std::format("%none_scale_{} = torch.constant.none",
                         uniqueSSASuffix);
-
-  if (isTrainingForwardPhase()) {
-    std::string permuteInvRms =
-        getPermuteOpsAsm(rmsnormAttr.getINV_RMS(), "permute_inv_rms",
-                         uniqueSSASuffix, /*isInput=*/false);
-
-    constexpr std::string_view schema = R"(
-    {0}
-    {1}
-    {2}
-    {3}
-    {4} = torch.aten.native_rms_norm {5} : {6} -> {7}
-    {8}
-    {9}
-    )";
-
-    return std::format(schema,
-                       getNormalizedShapeOpsAsm(), // {0}
-                       getEpsilonOpsAsm(),         // {1}
-                       permuteX,                   // {2}
-                       permuteScale,               // {3}
-                       getResultNamesAsm(),        // {4}
-                       getOperandNamesAsm(),       // {5}
-                       getOperandTypesAsm(),       // {6}
-                       getResultTypesAsm(),        // {7}
-                       permuteY,                   // {8}
-                       permuteInvRms               // {9}
-    );
-  }
 
   constexpr std::string_view schema = R"(
     {0}
