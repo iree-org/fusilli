@@ -523,6 +523,18 @@ Buffer::allocate(const Handle &handle,
           ") does not match product of bufferShape dimensions (" +
           std::to_string(expectedSize) + ")");
 
+  // For sub-byte types, pack elements before upload. For byte-aligned types,
+  // use the data directly.
+  std::vector<uint8_t> scratch;
+  iree_const_byte_span_t uploadData;
+  if constexpr (kIsSubByteElement<T>) {
+    scratch = T::pack(bufferData);
+    uploadData = iree_make_const_byte_span(scratch.data(), scratch.size());
+  } else {
+    uploadData = iree_make_const_byte_span(bufferData.data(),
+                                           bufferData.size() * sizeof(T));
+  }
+
   iree_hal_buffer_view_t *rawBufferView = nullptr;
   iree_hal_buffer_params_t bufferParams = {
       // Intended usage of this buffer (transfers, dispatches, etc):
@@ -535,17 +547,8 @@ Buffer::allocate(const Handle &handle,
   FUSILLI_CHECK_ERROR(iree_hal_buffer_view_allocate_buffer_copy(
       // IREE HAL device and allocator:
       handle.getDevice(), iree_hal_device_allocator(handle.getDevice()),
-      // Shape rank and dimensions:
-      bufferShape.size(), bufferShape.data(),
-      // Element type:
-      getIreeHalElementTypeForT<T>(),
-      // Encoding type:
-      IREE_HAL_ENCODING_TYPE_DENSE_ROW_MAJOR, bufferParams,
-      // The actual heap buffer to wrap or clone and its allocator:
-      iree_make_const_byte_span(bufferData.data(),
-                                bufferData.size() * sizeof(T)),
-      // Buffer view + storage are returned and owned by the caller
-      // (this Buffer object in this case):
+      bufferShape.size(), bufferShape.data(), getIreeHalElementTypeForT<T>(),
+      IREE_HAL_ENCODING_TYPE_DENSE_ROW_MAJOR, bufferParams, uploadData,
       &rawBufferView));
 
   return ok(Buffer(IreeHalBufferViewUniquePtrType(rawBufferView)));
@@ -601,7 +604,8 @@ inline ErrorOr<Buffer> Buffer::allocateRaw(const Handle &handle,
 }
 
 // Reads device buffer by initiating a device-to-host transfer and
-// populating `outData`.
+// populating `outData`. For sub-byte types (Int4), unpacks the IREE dense
+// encoding (nibble-packed) back to one element per vector entry.
 template <typename T>
 inline ErrorObject Buffer::read(const Handle &handle, std::vector<T> &outData) {
   FUSILLI_LOG_LABEL_ENDL("INFO: Reading device buffer through D2H transfer");
@@ -610,16 +614,25 @@ inline ErrorObject Buffer::read(const Handle &handle, std::vector<T> &outData) {
 
   // Get the underlying buffer from the buffer view.
   iree_hal_buffer_t *buffer = iree_hal_buffer_view_buffer(getBufferView());
-
-  // Resize output vector `outData` based on buffer size.
   iree_device_size_t byteLength =
       iree_hal_buffer_view_byte_length(getBufferView());
-  outData.resize(byteLength / sizeof(T));
 
-  // Copy results back from device.
-  FUSILLI_CHECK_ERROR(iree_hal_device_transfer_d2h(
-      handle.getDevice(), buffer, 0, outData.data(), byteLength,
-      IREE_HAL_TRANSFER_BUFFER_FLAG_DEFAULT, iree_infinite_timeout()));
+  if constexpr (kIsSubByteElement<T>) {
+    // Sub-byte: D2H into intermediate buffer, then unpack.
+    iree_host_size_t elementCount =
+        iree_hal_buffer_view_element_count(getBufferView());
+    std::vector<uint8_t> rawBytes(byteLength);
+    FUSILLI_CHECK_ERROR(iree_hal_device_transfer_d2h(
+        handle.getDevice(), buffer, 0, rawBytes.data(), byteLength,
+        IREE_HAL_TRANSFER_BUFFER_FLAG_DEFAULT, iree_infinite_timeout()));
+    outData = T::unpack(rawBytes.data(), elementCount);
+  } else {
+    // Byte-aligned: D2H directly into outData (zero-copy).
+    outData.resize(byteLength / sizeof(T));
+    FUSILLI_CHECK_ERROR(iree_hal_device_transfer_d2h(
+        handle.getDevice(), buffer, 0, outData.data(), byteLength,
+        IREE_HAL_TRANSFER_BUFFER_FLAG_DEFAULT, iree_infinite_timeout()));
+  }
 
   return ok();
 }
