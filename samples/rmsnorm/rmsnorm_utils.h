@@ -9,6 +9,7 @@
 #define FUSILLI_SAMPLES_RMSNORM_RMSNORM_UTILS_H
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <tuple>
@@ -25,6 +26,9 @@ namespace fusilli::rmsnorm_utils {
 inline std::tuple<std::vector<float>, std::vector<float>>
 generateIOTensorsForInferForward(int64_t n, int64_t c, int64_t h, int64_t w,
                                  float scale, float eps) {
+  // The two-value pattern splits each batch in half, so c*h*w must be even.
+  assert(c * h * w % 2 == 0 && "c * h * w must be even for two-value pattern");
+
   // For each batch b, we fill:
   //   - first half of elements with x0 = 2*b + 1
   //   - second half of elements with x1 = 2*b + 3

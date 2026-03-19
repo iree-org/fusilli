@@ -19,6 +19,7 @@
 #include "fusilli/attributes/tensor_attributes.h"
 #include "fusilli/graph/context.h"
 #include "fusilli/node/node.h"
+#include "fusilli/node/norm_utils.h"
 #include "fusilli/support/logging.h"
 
 #include <cstddef>
@@ -90,10 +91,11 @@ public:
     // inferPropertiesNode().
     if (sT) {
       if (!sT->getDim().empty()) {
-        FUSILLI_RETURN_ERROR_IF(sT->getDim() != getScaleDim(xT->getDim()),
-                                ErrorCode::InvalidAttribute,
-                                "RmsNorm input tensor SCALE must have shape as "
-                                "tensor X with single batch");
+        FUSILLI_RETURN_ERROR_IF(
+            sT->getDim() != norm_utils::getScaleBiasDim(xT->getDim()),
+            ErrorCode::InvalidAttribute,
+            "RmsNorm input tensor SCALE must have shape as "
+            "tensor X with single batch");
       }
 
       if (!sT->getStride().empty()) {
@@ -137,31 +139,24 @@ public:
 
     const std::vector<int64_t> &xDim = xT->getDim();
 
-#define INFER_TENSOR_DIM_AND_STRIDE(TENSOR, DIM, STRIDE)                       \
-  if (TENSOR->getDim().empty())                                                \
-    TENSOR->setDim(DIM);                                                       \
-  if (TENSOR->getStride().empty())                                             \
-    TENSOR->setStride(STRIDE);
-
     // Infer shape and stride of input SCALE tensor if they're not set.
     std::shared_ptr<TensorAttr> sT = rmsnormAttr.getSCALE();
     if (sT) {
-      INFER_TENSOR_DIM_AND_STRIDE(
-          sT, getScaleDim(xDim), getScaleStride(sT->getDim(), xT->getStride()));
+      norm_utils::inferScaleBiasDimAndStride(sT, xDim, xT->getStride());
     }
 
     // Infer shape and stride of output Y tensor.
     // When stride is unspecified, preserve the stride order of xT.
-    INFER_TENSOR_DIM_AND_STRIDE(yT, xDim, xT->getStride());
+    norm_utils::inferDimAndStride(yT, xDim, xT->getStride());
 
     if (isTrainingForwardPhase()) {
-      const auto &[dim, stride] = getTrainingForwardOutputDimAndStride(xDim);
+      const auto &[dim, stride] =
+          norm_utils::getTrainingForwardOutputDimAndStride(xDim);
 
       // Infer shape and stride of output INV_RMS tensor.
       std::shared_ptr<TensorAttr> rT = rmsnormAttr.getINV_RMS();
-      INFER_TENSOR_DIM_AND_STRIDE(rT, dim, stride);
+      norm_utils::inferDimAndStride(rT, dim, stride);
     }
-#undef INFER_TENSOR_DIM_AND_STRIDE
 
     return ok();
   }
@@ -188,7 +183,8 @@ public:
                                 "defined by its stride");
 
     if (isTrainingForwardPhase()) {
-      const auto &[dim, stride] = getTrainingForwardOutputDimAndStride(xDim);
+      const auto &[dim, stride] =
+          norm_utils::getTrainingForwardOutputDimAndStride(xDim);
 
       std::shared_ptr<TensorAttr> rT = rmsnormAttr.getINV_RMS();
 
@@ -212,42 +208,8 @@ private:
     return rmsnormAttr.getForwardPhase() == NormFwdPhase::TRAINING;
   }
 
-  // Returns the shape over which normalization is applied:
-  // the input tensor's shape excluding the batch dimension (dim 0),
-  // as normalization is computed independently for each sample in the batch.
   std::vector<int64_t> getNormalizedShape() const {
-    const std::vector<int64_t> &xDim = rmsnormAttr.getX()->getDim();
-    std::vector<int64_t> normalizedShape(xDim.cbegin() + 1, xDim.cend());
-    return normalizedShape;
-  }
-
-  std::pair<std::vector<int64_t>, std::vector<int64_t>>
-  getTrainingForwardOutputDimAndStride(const std::vector<int64_t> &xDim) const {
-    // The INV_RMS tensor has shape [B, 1, ..., 1]
-    std::vector<int64_t> dim(xDim.size(), 1);
-    dim[0] = xDim[0];
-
-    // Since INV_RMS tensor has shape [B, 1, ..., 1],
-    // strides are always equal to [1, 1, ..., 1] for both contiguous and
-    // channels-last layouts.
-    std::vector<int64_t> stride(dim.size(), 1);
-    return {dim, stride};
-  }
-
-  std::vector<int64_t> getScaleDim(const std::vector<int64_t> &xDim) const {
-    // The SCALE tensor is input X tensor's dims with single batch.
-    auto dim = xDim;
-    dim[0] = 1;
-    return dim;
-  }
-
-  std::vector<int64_t>
-  getScaleStride(const std::vector<int64_t> &scaleDim,
-                 const std::vector<int64_t> &xStride) const {
-    // The SCALE tensor has stride based on input stride order.
-    const auto strideOrder =
-        generateStrideOrderPreservingFormat(xStride, scaleDim.size());
-    return generateStrideFromDim(scaleDim, strideOrder);
+    return norm_utils::getNormalizedShape(rmsnormAttr.getX()->getDim());
   }
 };
 

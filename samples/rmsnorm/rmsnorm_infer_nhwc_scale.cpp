@@ -64,12 +64,13 @@ TEST_CASE("RMS normalization; inference mode; NHWC layout; with scale",
 
   auto [graph, xT, scaleT, yT] = buildNewGraph(handle);
 
+  constexpr float scale = 2.0f;
   auto [inputVals, expectedVals] =
-      rmsnorm_utils::generateIOTensorsForInferForward(n, c, h, w, 1.f, eps);
+      rmsnorm_utils::generateIOTensorsForInferForward(n, c, h, w, scale, eps);
 
-  // Scale tensor is all ones (identity).
+  // Use a non-unity scale to verify scale is actually applied.
   size_t scaleSize = 1 * c * h * w;
-  std::vector<float> scaleVals(scaleSize, 1.0f);
+  std::vector<float> scaleVals(scaleSize, scale);
 
   FUSILLI_REQUIRE_ASSIGN(auto xBuf,
                          allocateBufferOfType(handle, xT, inputVals));

@@ -807,11 +807,10 @@ Graph::rmsnorm(const std::shared_ptr<TensorAttr> &x,
   std::shared_ptr<TensorAttr> y = outputTensor(rmsnormAttr.getName() + "_Y");
   rmsnormAttr.setY(y);
 
-  std::shared_ptr<TensorAttr> r;
-  if (rmsnormAttr.getForwardPhase() == NormFwdPhase::TRAINING) {
+  std::shared_ptr<TensorAttr> r = nullptr;
+  if (rmsnormAttr.getForwardPhase() == NormFwdPhase::TRAINING)
     r = outputTensor(rmsnormAttr.getName() + "_INV_RMS");
-    rmsnormAttr.setINV_RMS(r);
-  }
+  rmsnormAttr.setINV_RMS(r);
 
   // Create node and add to Graph's subNodes_.
   subNodes_.emplace_back(
