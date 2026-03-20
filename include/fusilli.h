@@ -31,6 +31,7 @@
 
 // Attributes / Types:
 #include "fusilli/attributes/attributes.h"           // IWYU pragma: export
+#include "fusilli/attributes/batchnorm_attributes.h" // IWYU pragma: export
 #include "fusilli/attributes/common.h"               // IWYU pragma: export
 #include "fusilli/attributes/conv_attributes.h"      // IWYU pragma: export
 #include "fusilli/attributes/custom_op_attributes.h" // IWYU pragma: export
@@ -42,6 +43,7 @@
 #include "fusilli/attributes/types.h"                // IWYU pragma: export
 
 // Nodes:
+#include "fusilli/node/batchnorm_node.h" // IWYU pragma: export
 #include "fusilli/node/conv_node.h"      // IWYU pragma: export
 #include "fusilli/node/custom_op_node.h" // IWYU pragma: export
 #include "fusilli/node/layernorm_node.h" // IWYU pragma: export

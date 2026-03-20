@@ -32,6 +32,7 @@
 #include "fusilli/attributes/types.h"
 #include "fusilli/external/torch_types.h"
 #include "fusilli/graph/graph.h"
+#include "fusilli/node/batchnorm_node.h"
 #include "fusilli/node/conv_node.h"
 #include "fusilli/node/custom_op_node.h"
 #include "fusilli/node/layernorm_node.h"
@@ -935,6 +936,278 @@ inline std::string ConvDGradNode::emitNodePreAsm() const {
                                    permuteDX                 // {12}
   );
   return output;
+}
+
+//===----------------------------------------------------------------------===//
+//
+// BatchNormNode ASM Emitter Methods
+//
+//===----------------------------------------------------------------------===//
+
+// Emits BatchNormNode's operand names in MLIR assembly format.
+//
+// The operand order for torch.aten.batch_norm / torch.aten.native_batch_norm:
+//   input, weight?, bias?, running_mean?, running_var?, training, momentum, eps
+//   (batch_norm also takes cudnn_enabled)
+//
+// For 1D tensors (scale, bias, mean, var) no permutation is applied; they are
+// referenced directly by their SSA value name.
+inline std::string BatchNormNode::getOperandNamesAsm() const {
+  std::ostringstream oss;
+  std::string suffix = batchnormAttr.getName();
+
+  // Input X (permuted to logical NCHW).
+  oss << batchnormAttr.getX()->getValueNameAsm() << "_" << suffix << "_perm, ";
+
+  // Optional scale / bias (1D, referenced directly).
+  auto getOptional1DName = [&](const std::shared_ptr<TensorAttr> &t,
+                               const std::string &name) -> std::string {
+    return t ? t->getValueNameAsm() + ", "
+             : "%none_" + name + "_" + suffix + ", ";
+  };
+  oss << getOptional1DName(batchnormAttr.getSCALE(), "scale");
+  oss << getOptional1DName(batchnormAttr.getBIAS(), "bias");
+  oss << getOptional1DName(batchnormAttr.getMEAN(), "mean");
+  oss << getOptional1DName(batchnormAttr.getVAR(), "var");
+
+  oss << "%training_" << suffix << ", ";
+  oss << "%momentum_" << suffix << ", ";
+  oss << "%eps_" << suffix;
+
+  return oss.str();
+}
+
+// Emits BatchNormNode's operand types in MLIR assembly format.
+inline std::string BatchNormNode::getOperandTypesAsm() const {
+  std::ostringstream oss;
+  std::string suffix = batchnormAttr.getName();
+
+  // Input X type (logical dims).
+  oss << batchnormAttr.getX()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                                /*useLogicalDims=*/true)
+      << ", ";
+
+  // Optional scale / bias / running mean / var types.
+  auto getOptional1DType =
+      [&](const std::shared_ptr<TensorAttr> &t) -> std::string {
+    return t ? t->getTensorTypeAsm(/*isValueTensor=*/true,
+                                   /*useLogicalDims=*/true)
+             : "!torch.none";
+  };
+  oss << getOptional1DType(batchnormAttr.getSCALE()) << ", ";
+  oss << getOptional1DType(batchnormAttr.getBIAS()) << ", ";
+  oss << getOptional1DType(batchnormAttr.getMEAN()) << ", ";
+  oss << getOptional1DType(batchnormAttr.getVAR()) << ", ";
+
+  oss << "!torch.bool, ";
+  oss << "!torch.float, ";
+  oss << "!torch.float";
+
+  return oss.str();
+}
+
+// Emits BatchNormNode's result names in MLIR assembly format.
+//
+// Both inference and training use torch.aten.native_batch_norm which always
+// returns three tensors: (output, saved_mean, saved_invstd).
+// For training, all three are named after the corresponding output tensors.
+// For inference, the last two are discarded placeholder names.
+inline std::string BatchNormNode::getResultNamesAsm() const {
+  std::ostringstream oss;
+  std::string suffix = batchnormAttr.getName();
+
+  oss << batchnormAttr.getY()->getValueNameAsm() << "_" << suffix << "_perm";
+
+  if (isTrainingForwardPhase()) {
+    oss << ", ";
+    oss << batchnormAttr.getSAVED_MEAN()->getValueNameAsm() << "_" << suffix
+        << "_perm" << ", ";
+    oss << batchnormAttr.getSAVED_INV_VARIANCE()->getValueNameAsm() << "_"
+        << suffix << "_perm";
+  } else {
+    // Inference: native_batch_norm still returns 3 tensors; discard last two.
+    oss << ", %_infer_saved_mean_" << suffix << "_perm";
+    oss << ", %_infer_saved_invstd_" << suffix << "_perm";
+  }
+
+  return oss.str();
+}
+
+// Emits BatchNormNode's result types in MLIR assembly format.
+//
+// Both inference and training emit three result types because
+// torch.aten.native_batch_norm always returns (output, saved_mean,
+// saved_invstd).
+inline std::string BatchNormNode::getResultTypesAsm() const {
+  std::ostringstream oss;
+  oss << batchnormAttr.getY()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                                /*useLogicalDims=*/true);
+
+  if (isTrainingForwardPhase()) {
+    oss << ", ";
+    oss << batchnormAttr.getSAVED_MEAN()->getTensorTypeAsm(
+               /*isValueTensor=*/true,
+               /*useLogicalDims=*/true)
+        << ", ";
+    oss << batchnormAttr.getSAVED_INV_VARIANCE()->getTensorTypeAsm(
+        /*isValueTensor=*/true,
+        /*useLogicalDims=*/true);
+  } else {
+    // Inference: use MEAN/VAR types for the two discarded native_batch_norm
+    // outputs (saved_mean and saved_invstd are the same shape as running
+    // stats).
+    oss << ", ";
+    oss << batchnormAttr.getMEAN()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                                     /*useLogicalDims=*/true)
+        << ", ";
+    oss << batchnormAttr.getVAR()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                                    /*useLogicalDims=*/true);
+  }
+
+  return oss.str();
+}
+
+// Get epsilon extraction op in MLIR assembly format.
+inline std::string BatchNormNode::getEpsilonOpsAsm() const {
+  std::string suffix = batchnormAttr.getName();
+  auto eps = batchnormAttr.getEpsilon();
+  std::string tensorName = eps->getValueNameAsm();
+  std::string tensorType =
+      eps->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
+  constexpr std::string_view schema = R"(
+    %eps_{0} = torch.aten.item {1} : {2} -> !torch.float
+)";
+  return std::format(schema,
+                     suffix,     // {0}
+                     tensorName, // {1}
+                     tensorType  // {2}
+  );
+}
+
+// Get momentum extraction op in MLIR assembly format.
+inline std::string BatchNormNode::getMomentumOpsAsm() const {
+  std::string suffix = batchnormAttr.getName();
+  auto mom = batchnormAttr.getMomentum();
+  std::string tensorName = mom->getValueNameAsm();
+  std::string tensorType =
+      mom->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
+  constexpr std::string_view schema = R"(
+    %momentum_{0} = torch.aten.item {1} : {2} -> !torch.float
+)";
+  return std::format(schema,
+                     suffix,     // {0}
+                     tensorName, // {1}
+                     tensorType  // {2}
+  );
+}
+
+// Emits the MLIR assembly for the BatchNormNode.
+//
+// Both inference and training use `torch.aten.native_batch_norm` (three
+// outputs). For inference, training=false and the last two outputs (saved_mean,
+// saved_invstd) are discarded placeholders.
+inline std::string BatchNormNode::emitNodePreAsm() const {
+  std::string suffix = batchnormAttr.getName();
+
+  std::string permuteX = getPermuteOpsAsm(batchnormAttr.getX(), "permute_x",
+                                          suffix, /*isInput=*/true);
+  std::string permuteY = getPermuteOpsAsm(batchnormAttr.getY(), "permute_y",
+                                          suffix, /*isInput=*/false);
+
+  // Emit "none" declarations for optional 1D inputs that are not provided.
+  // Returns empty string when tensor is present (nothing to emit),
+  // or a `torch.constant.none` decl (no leading spaces; schema provides
+  // indent).
+  auto getNoneOrEmpty = [&](const std::shared_ptr<TensorAttr> &t,
+                            const std::string &name) -> std::string {
+    if (t)
+      return "";
+    return std::format("%none_{}_{} = torch.constant.none", name, suffix);
+  };
+
+  std::string scaleNone = getNoneOrEmpty(batchnormAttr.getSCALE(), "scale");
+  std::string biasNone = getNoneOrEmpty(batchnormAttr.getBIAS(), "bias");
+  std::string meanNone = getNoneOrEmpty(batchnormAttr.getMEAN(), "mean");
+  std::string varNone = getNoneOrEmpty(batchnormAttr.getVAR(), "var");
+
+  if (isTrainingForwardPhase()) {
+    std::string permuteSavedMean =
+        getPermuteOpsAsm(batchnormAttr.getSAVED_MEAN(), "permute_saved_mean",
+                         suffix, /*isInput=*/false);
+    std::string permuteSavedInvVar = getPermuteOpsAsm(
+        batchnormAttr.getSAVED_INV_VARIANCE(), "permute_saved_inv_variance",
+        suffix, /*isInput=*/false);
+
+    // Training schema uses torch.aten.native_batch_norm.
+    // Each optional 1D operand slot ({4}-{7}) is on its own schema line.
+    // When the tensor is provided, the slot is empty (line becomes blank,
+    // which the indentation checker skips). When not provided, the slot
+    // holds a torch.constant.none decl (no leading spaces; schema provides
+    // the 4-space indent).
+    constexpr std::string_view schema = R"(
+    {1}
+    {2}
+    {3}
+    {4}
+    {5}
+    {6}
+    {7}
+    %training_{0} = torch.constant.bool true
+    {8} = torch.aten.native_batch_norm {9} : {10} -> {11}
+    {12}
+    {13}
+    {14}
+    )";
+
+    return std::format(schema,
+                       suffix,               // {0}
+                       getEpsilonOpsAsm(),   // {1}
+                       getMomentumOpsAsm(),  // {2}
+                       permuteX,             // {3}
+                       scaleNone,            // {4}
+                       biasNone,             // {5}
+                       meanNone,             // {6}
+                       varNone,              // {7}
+                       getResultNamesAsm(),  // {8}
+                       getOperandNamesAsm(), // {9}
+                       getOperandTypesAsm(), // {10}
+                       getResultTypesAsm(),  // {11}
+                       permuteY,             // {12}
+                       permuteSavedMean,     // {13}
+                       permuteSavedInvVar    // {14}
+    );
+  }
+
+  // Inference schema uses torch.aten.native_batch_norm with training=false.
+  // The last two results (saved_mean, saved_invstd) are discarded.
+  constexpr std::string_view schema = R"(
+    {1}
+    {2}
+    {3}
+    {4}
+    {5}
+    {6}
+    {7}
+    %training_{0} = torch.constant.bool false
+    {8} = torch.aten.native_batch_norm {9} : {10} -> {11}
+    {12}
+  )";
+
+  return std::format(schema,
+                     suffix,               // {0}
+                     getEpsilonOpsAsm(),   // {1}
+                     getMomentumOpsAsm(),  // {2}
+                     permuteX,             // {3}
+                     scaleNone,            // {4}
+                     biasNone,             // {5}
+                     meanNone,             // {6}
+                     varNone,              // {7}
+                     getResultNamesAsm(),  // {8}
+                     getOperandNamesAsm(), // {9}
+                     getOperandTypesAsm(), // {10}
+                     getResultTypesAsm(),  // {11}
+                     permuteY              // {12}
+  );
 }
 
 //===----------------------------------------------------------------------===//
