@@ -67,7 +67,7 @@ public:
       : NodeCRTP(ctx), convFPropAttr(std::move(attr)) {}
 
   // MLIR assembly emitter helper methods.
-  std::string emitNodePreAsm() const override final;
+  ErrorOr<std::string> emitNodePreAsm() const override final;
   std::string getOperandNamesAsm() const;
   std::string getOperandTypesAsm() const;
   std::string getResultNamesAsm() const;
@@ -260,7 +260,7 @@ public:
       : NodeCRTP(ctx), convWGradAttr(std::move(attr)) {}
 
   // MLIR assembly emitter helper methods.
-  std::string emitNodePreAsm() const override final;
+  ErrorOr<std::string> emitNodePreAsm() const override final;
   std::string getOperandNamesAsm() const;
   std::string getOperandTypesAsm() const;
   std::string getResultNamesAsm() const;
@@ -433,7 +433,7 @@ public:
       : NodeCRTP(ctx), convDGradAttr(std::move(attr)) {}
 
   // MLIR assembly emitter helper methods.
-  std::string emitNodePreAsm() const override final;
+  ErrorOr<std::string> emitNodePreAsm() const override final;
   std::string getOperandNamesAsm() const;
   std::string getOperandTypesAsm() const;
   std::string getResultNamesAsm() const;
