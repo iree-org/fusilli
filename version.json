@@ -1,5 +1,5 @@
 {
   "package-version": "0.0.1.dev",
-  "iree-version": "3.11.0rc20260316",
-  "therock-version": "7.12.0a20260311"
+  "iree-version": "3.11.0rc20260323",
+  "therock-version": "7.13.0a20260323"
 }
