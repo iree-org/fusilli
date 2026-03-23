@@ -39,6 +39,7 @@
 #include "fusilli/graph/graph.h"
 #include "fusilli/support/logging.h"
 
+#include <iree/async/util/proactor_pool.h>
 #include <iree/hal/api.h>
 #include <iree/hal/drivers/hip/api.h>
 #include <iree/hal/drivers/init.h>
@@ -132,10 +133,21 @@ inline ErrorObject Handle::createCPUDevice() {
       iree_make_cstring_view(kHalDriver.at(backend_)), iree_allocator_system(),
       &driver));
 
+  // Create a proactor pool for async I/O.
+  iree_async_proactor_pool_t *proactor_pool = nullptr;
+  FUSILLI_CHECK_ERROR(iree_async_proactor_pool_create(
+      iree_numa_node_count(), /*node_ids=*/nullptr,
+      iree_async_proactor_pool_options_default(), iree_allocator_system(),
+      &proactor_pool));
+
   // Create the default device from the driver.
   iree_hal_device_t *rawDevice = nullptr;
+  iree_hal_device_create_params_t create_params =
+      iree_hal_device_create_params_default();
+  create_params.proactor_pool = proactor_pool;
   iree_status_t status = iree_hal_driver_create_default_device(
-      driver, iree_allocator_system(), &rawDevice);
+      driver, &create_params, iree_allocator_system(), &rawDevice);
+  iree_async_proactor_pool_release(proactor_pool);
   iree_hal_driver_release(driver);
   FUSILLI_CHECK_ERROR(status);
 
@@ -171,11 +183,22 @@ inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
       iree_make_cstring_view(kHalDriver.at(backend_)), &driverOptions, &params,
       iree_allocator_system(), &driver));
 
+  // Create a proactor pool for async I/O.
+  iree_async_proactor_pool_t *proactor_pool = nullptr;
+  FUSILLI_CHECK_ERROR(iree_async_proactor_pool_create(
+      iree_numa_node_count(), /*node_ids=*/nullptr,
+      iree_async_proactor_pool_options_default(), iree_allocator_system(),
+      &proactor_pool));
+
   // Create device from the driver.
   iree_hal_device_t *rawDevice = nullptr;
+  iree_hal_device_create_params_t create_params =
+      iree_hal_device_create_params_default();
+  create_params.proactor_pool = proactor_pool;
   iree_status_t status = iree_hal_driver_create_device_by_id(
       driver, HIP_DEVICE_ID_TO_IREE_DEVICE_ID(deviceId), /*param_count=*/0,
-      /*params=*/nullptr, iree_allocator_system(), &rawDevice);
+      /*params=*/nullptr, &create_params, iree_allocator_system(), &rawDevice);
+  iree_async_proactor_pool_release(proactor_pool);
   iree_hal_driver_release(driver);
   FUSILLI_CHECK_ERROR(status);
 
