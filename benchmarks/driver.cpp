@@ -1228,21 +1228,9 @@ static ErrorObject runMatmulBenchmark(const MatmulOptions &matmulOpts,
   return ok();
 }
 
-// Validate and run SDPA benchmark
+// Run SDPA benchmark
 static ErrorObject runSdpaBenchmark(const SdpaOptions &sdpaOpts, int64_t iter,
                                     int64_t deviceId, bool dump) {
-  // Validate GQA constraints
-  if (sdpaOpts.enableGqa) {
-    FUSILLI_RETURN_ERROR_IF(sdpaOpts.headsQ % sdpaOpts.headsKV != 0,
-                            ErrorCode::InvalidArgument,
-                            "GQA requires headsQ to be a multiple of headsKV");
-  } else {
-    FUSILLI_RETURN_ERROR_IF(sdpaOpts.headsQ != sdpaOpts.headsKV,
-                            ErrorCode::InvalidArgument,
-                            "Standard MHA requires headsQ == headsKV "
-                            "(use --gqa for grouped query attention)");
-  }
-
   DataType sdpaIOType = kMlirTypeAsmToDataType.at(sdpaOpts.type);
 
   ErrorObject status =
