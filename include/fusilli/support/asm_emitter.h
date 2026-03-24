@@ -981,7 +981,6 @@ inline std::string BatchNormNode::getOperandNamesAsm() const {
 // Emits BatchNormNode's operand types in MLIR assembly format.
 inline std::string BatchNormNode::getOperandTypesAsm() const {
   std::ostringstream oss;
-  std::string suffix = batchnormAttr.getName();
 
   // Input X type (logical dims).
   oss << batchnormAttr.getX()->getTensorTypeAsm(/*isValueTensor=*/true,

@@ -6,8 +6,6 @@
 
 #include <fusilli.h>
 
-#include "utils.h"
-
 #include <catch2/catch_test_macros.hpp>
 #include <cstdint>
 #include <memory>
@@ -63,7 +61,9 @@ TEST_CASE("BatchNormNode preValidateNode detects missing attributes",
     BatchnormAttr attr;
     attr.setForwardPhase(NormFwdPhase::INFERENCE);
     attr.setX(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({2, 4, 8, 8}).setStride({4 * 8 * 8, 8 * 8, 8, 1})));
+        TensorAttr()
+            .setDim({2, 4, 8, 8})
+            .setStride({4LL * 8 * 8, 8LL * 8, 8, 1})));
     attr.setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setMomentum(std::make_shared<TensorAttr>(0.1f));
     BatchNormNode node(std::move(attr), ctx);
@@ -78,9 +78,13 @@ TEST_CASE("BatchNormNode preValidateNode detects missing attributes",
     BatchnormAttr attr;
     attr.setForwardPhase(NormFwdPhase::INFERENCE);
     attr.setX(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({2, 4, 8, 8}).setStride({4 * 8 * 8, 8 * 8, 8, 1})));
+        TensorAttr()
+            .setDim({2, 4, 8, 8})
+            .setStride({4LL * 8 * 8, 8LL * 8, 8, 1})));
     attr.setY(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({2, 4, 8, 8}).setStride({4 * 8 * 8, 8 * 8, 8, 1})));
+        TensorAttr()
+            .setDim({2, 4, 8, 8})
+            .setStride({4LL * 8 * 8, 8LL * 8, 8, 1})));
     attr.setMEAN(
         std::make_shared<TensorAttr>(TensorAttr().setDim({4}).setStride({1})));
     attr.setVAR(
@@ -98,9 +102,13 @@ TEST_CASE("BatchNormNode preValidateNode detects missing attributes",
     BatchnormAttr attr;
     attr.setForwardPhase(NormFwdPhase::INFERENCE);
     attr.setX(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({2, 4, 8, 8}).setStride({4 * 8 * 8, 8 * 8, 8, 1})));
+        TensorAttr()
+            .setDim({2, 4, 8, 8})
+            .setStride({4LL * 8 * 8, 8LL * 8, 8, 1})));
     attr.setY(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({2, 4, 8, 8}).setStride({4 * 8 * 8, 8 * 8, 8, 1})));
+        TensorAttr()
+            .setDim({2, 4, 8, 8})
+            .setStride({4LL * 8 * 8, 8LL * 8, 8, 1})));
     attr.setMEAN(
         std::make_shared<TensorAttr>(TensorAttr().setDim({4}).setStride({1})));
     attr.setVAR(
@@ -118,9 +126,13 @@ TEST_CASE("BatchNormNode preValidateNode detects missing attributes",
     BatchnormAttr attr;
     attr.setForwardPhase(NormFwdPhase::INFERENCE);
     attr.setX(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({2, 4, 8, 8}).setStride({4 * 8 * 8, 8 * 8, 8, 1})));
+        TensorAttr()
+            .setDim({2, 4, 8, 8})
+            .setStride({4LL * 8 * 8, 8LL * 8, 8, 1})));
     attr.setY(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({2, 4, 8, 8}).setStride({4 * 8 * 8, 8 * 8, 8, 1})));
+        TensorAttr()
+            .setDim({2, 4, 8, 8})
+            .setStride({4LL * 8 * 8, 8LL * 8, 8, 1})));
     attr.setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setMomentum(std::make_shared<TensorAttr>(0.1f));
     BatchNormNode node(std::move(attr), ctx);
@@ -135,9 +147,13 @@ TEST_CASE("BatchNormNode preValidateNode detects missing attributes",
     BatchnormAttr attr;
     attr.setForwardPhase(NormFwdPhase::INFERENCE);
     attr.setX(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({2, 4, 8, 8}).setStride({4 * 8 * 8, 8 * 8, 8, 1})));
+        TensorAttr()
+            .setDim({2, 4, 8, 8})
+            .setStride({4LL * 8 * 8, 8LL * 8, 8, 1})));
     attr.setY(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({2, 4, 8, 8}).setStride({4 * 8 * 8, 8 * 8, 8, 1})));
+        TensorAttr()
+            .setDim({2, 4, 8, 8})
+            .setStride({4LL * 8 * 8, 8LL * 8, 8, 1})));
     attr.setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setMomentum(std::make_shared<TensorAttr>(0.1f));
     attr.setMEAN(
@@ -154,9 +170,13 @@ TEST_CASE("BatchNormNode preValidateNode detects missing attributes",
     BatchnormAttr attr;
     attr.setForwardPhase(NormFwdPhase::TRAINING);
     attr.setX(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({2, 4, 8, 8}).setStride({4 * 8 * 8, 8 * 8, 8, 1})));
+        TensorAttr()
+            .setDim({2, 4, 8, 8})
+            .setStride({4LL * 8 * 8, 8LL * 8, 8, 1})));
     attr.setY(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({2, 4, 8, 8}).setStride({4 * 8 * 8, 8 * 8, 8, 1})));
+        TensorAttr()
+            .setDim({2, 4, 8, 8})
+            .setStride({4LL * 8 * 8, 8LL * 8, 8, 1})));
     attr.setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setMomentum(std::make_shared<TensorAttr>(0.1f));
     BatchNormNode node(std::move(attr), ctx);
