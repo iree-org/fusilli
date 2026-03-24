@@ -22,9 +22,9 @@ Configs:
   cpu-debug-tidy    clang-18, Debug, logging, clang-tidy
   cpu-release       clang-18, Release, logging
   gpu-asan          clang-18, Debug, AMDGPU, ASAN + UBSAN
-  gpu-debug         clang-22, Debug, AMDGPU, logging
-  gpu-debug-tidy    clang-22, Debug, AMDGPU, logging, clang-tidy
-  gpu-release       clang-22, Release, AMDGPU, logging
+  gpu-debug         clang-23, Debug, AMDGPU, logging
+  gpu-debug-tidy    clang-23, Debug, AMDGPU, logging, clang-tidy
+  gpu-release       clang-23, Release, AMDGPU, logging
 
 Options:
   --source-dir DIR       Source directory (default: REPO_ROOT)
@@ -162,8 +162,8 @@ case "${CONFIG}" in
     ;;
   gpu-debug)
     CMAKE_OPTIONS+=(
-      -DCMAKE_C_COMPILER=clang-22
-      -DCMAKE_CXX_COMPILER=clang++-22
+      -DCMAKE_C_COMPILER=clang-23
+      -DCMAKE_CXX_COMPILER=clang++-23
       -DCMAKE_BUILD_TYPE=Debug
       -DFUSILLI_SYSTEMS_AMDGPU=ON
       -DFUSILLI_ENABLE_LOGGING=ON
@@ -175,8 +175,8 @@ case "${CONFIG}" in
     ;;
   gpu-debug-tidy)
     CMAKE_OPTIONS+=(
-      -DCMAKE_C_COMPILER=clang-22
-      -DCMAKE_CXX_COMPILER=clang++-22
+      -DCMAKE_C_COMPILER=clang-23
+      -DCMAKE_CXX_COMPILER=clang++-23
       -DCMAKE_BUILD_TYPE=Debug
       -DFUSILLI_SYSTEMS_AMDGPU=ON
       -DFUSILLI_ENABLE_LOGGING=ON
@@ -188,8 +188,8 @@ case "${CONFIG}" in
     ;;
   gpu-release)
     CMAKE_OPTIONS+=(
-      -DCMAKE_C_COMPILER=clang-22
-      -DCMAKE_CXX_COMPILER=clang++-22
+      -DCMAKE_C_COMPILER=clang-23
+      -DCMAKE_CXX_COMPILER=clang++-23
       -DCMAKE_BUILD_TYPE=Release
       -DFUSILLI_SYSTEMS_AMDGPU=ON
       -DFUSILLI_ENABLE_LOGGING=ON
