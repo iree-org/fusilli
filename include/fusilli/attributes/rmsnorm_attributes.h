@@ -1,0 +1,69 @@
+// Copyright 2026 Advanced Micro Devices, Inc.
+//
+// Licensed under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+//===----------------------------------------------------------------------===//
+//
+// This file contains attributes (compile-time constant metadata) for
+// RMS normalization nodes.
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef FUSILLI_ATTRIBUTES_RMSNORM_ATTRIBUTES_H
+#define FUSILLI_ATTRIBUTES_RMSNORM_ATTRIBUTES_H
+
+#include "fusilli/attributes/attributes.h"
+#include "fusilli/attributes/common.h"
+#include "fusilli/attributes/tensor_attributes.h"
+
+#include <cstdint>
+#include <memory>
+#include <unordered_map>
+
+namespace fusilli {
+
+class RmsnormAttr : public AttributesCRTP<RmsnormAttr> {
+public:
+  // Names for Tensor Inputs and Outputs.
+  enum class InputNames : uint8_t { X, SCALE, EPSILON };
+  enum class OutputNames : uint8_t { Y, INV_RMS };
+
+  std::unordered_map<InputNames, std::shared_ptr<TensorAttr>> inputs;
+  std::unordered_map<OutputNames, std::shared_ptr<TensorAttr>> outputs;
+
+  // Setters:
+  FUSILLI_GENERIC_INPUT_TENSOR_SETTER(RmsnormAttr, InputNames, X)
+  FUSILLI_GENERIC_INPUT_TENSOR_SETTER(RmsnormAttr, InputNames, SCALE)
+  FUSILLI_GENERIC_OUTPUT_TENSOR_SETTER(RmsnormAttr, OutputNames, Y)
+  FUSILLI_GENERIC_OUTPUT_TENSOR_SETTER(RmsnormAttr, OutputNames, INV_RMS)
+
+  RmsnormAttr &setEpsilon(const std::shared_ptr<TensorAttr> &epsilon) {
+    return setInput(InputNames::EPSILON, epsilon);
+  }
+
+  RmsnormAttr &setForwardPhase(NormFwdPhase forwardPhase) {
+    forwardPhase_ = forwardPhase;
+    return *this;
+  }
+
+  // Getters:
+  FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, X)
+  FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, SCALE)
+  FUSILLI_GENERIC_OUTPUT_TENSOR_GETTER(OutputNames, Y)
+  FUSILLI_GENERIC_OUTPUT_TENSOR_GETTER(OutputNames, INV_RMS)
+
+  std::shared_ptr<TensorAttr> getEpsilon() const {
+    return getInput(InputNames::EPSILON);
+  }
+
+  NormFwdPhase getForwardPhase() const { return forwardPhase_; }
+
+private:
+  NormFwdPhase forwardPhase_ = NormFwdPhase::NOT_SET;
+};
+
+} // namespace fusilli
+
+#endif // FUSILLI_ATTRIBUTES_RMSNORM_ATTRIBUTES_H

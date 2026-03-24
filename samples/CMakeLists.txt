@@ -72,6 +72,18 @@ add_fusilli_samples(
 )
 
 add_fusilli_samples(
+  PREFIX fusilli_rmsnorm_samples
+  SRCS
+    rmsnorm/rmsnorm_infer_nchw.cpp
+    rmsnorm/rmsnorm_infer_nchw_scale.cpp
+    rmsnorm/rmsnorm_infer_nhwc_scale.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)
+
+add_fusilli_samples(
   PREFIX fusilli_reduction_samples
   SRCS
     reduction/reduction_ops.cpp
