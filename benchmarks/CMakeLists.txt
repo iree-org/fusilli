@@ -388,8 +388,8 @@ add_fusilli_benchmark(
 )
 
 add_fusilli_benchmark(
-  NAME fusilli_benchmark_sdpa_mha_f16_custom_scale
+  NAME fusilli_benchmark_sdpa_mha_f16_explicit_scale
   DRIVER fusilli_benchmark_driver
   ARGS
-    --device 0 --iter 10 sdpa -B 1 --heads_q 8 --heads_kv 8 --seq_q 64 --seq_kv 64 -d 64 -t f16 --scale 0.5
+    --device 0 --iter 10 sdpa -B 1 --heads_q 8 --heads_kv 8 --seq_q 64 --seq_kv 64 -d 64 -t f16 --scale 0.125
 )
