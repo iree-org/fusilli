@@ -156,7 +156,7 @@ if(IREE_SOURCE_DIR)
   add_subdirectory(${IREE_SOURCE_DIR} fusilli_iree SYSTEM EXCLUDE_FROM_ALL)
 else()
   message(STATUS "Fetching IREE sources from tag ${IREE_GIT_TAG}")
-  set(IREE_SUBMODULES "third_party/benchmark third_party/flatcc third_party/hip-build-deps third_party/printf")
+  set(IREE_SUBMODULES "third_party/benchmark third_party/flatcc third_party/hip-build-deps")
   FetchContent_Declare(
     fusilli_iree
     GIT_REPOSITORY https://github.com/iree-org/iree.git
