@@ -19,6 +19,7 @@
 #include "fusilli/attributes/tensor_attributes.h"
 #include "fusilli/graph/context.h"
 #include "fusilli/node/node.h"
+#include "fusilli/node/norm_utils.h"
 #include "fusilli/support/logging.h"
 
 #include <cstddef>
@@ -42,7 +43,7 @@ public:
       : NodeCRTP(ctx), layernormAttr(std::move(attr)) {}
 
   // ASM emitter methods.
-  std::string emitNodePreAsm() const override final;
+  ErrorOr<std::string> emitNodePreAsm() const override final;
   std::string getOperandNamesAsm() const;
   std::string getOperandTypesAsm() const;
   std::string getResultNamesAsm() const;
@@ -93,7 +94,7 @@ public:
     if (sT) {
       if (!sT->getDim().empty()) {
         FUSILLI_RETURN_ERROR_IF(
-            sT->getDim() != getScaleBiasDim(xT->getDim()),
+            sT->getDim() != norm_utils::getScaleBiasDim(xT->getDim()),
             ErrorCode::InvalidAttribute,
             "LayerNorm input tensor SCALE must have shape as "
             "tensor X with single batch");
@@ -115,7 +116,7 @@ public:
     if (bT) {
       if (!bT->getDim().empty()) {
         FUSILLI_RETURN_ERROR_IF(
-            bT->getDim() != getScaleBiasDim(xT->getDim()),
+            bT->getDim() != norm_utils::getScaleBiasDim(xT->getDim()),
             ErrorCode::InvalidAttribute,
             "LayerNorm input tensor BIAS must have shape as "
             "tensor X with single batch");
@@ -166,44 +167,34 @@ public:
 
     const std::vector<int64_t> &xDim = xT->getDim();
 
-#define INFER_TENSOR_DIM_AND_STRIDE(TENSOR, DIM, STRIDE)                       \
-  if (TENSOR->getDim().empty())                                                \
-    TENSOR->setDim(DIM);                                                       \
-  if (TENSOR->getStride().empty())                                             \
-    TENSOR->setStride(STRIDE);
-
     // Infer shape and stride of input SCALE tensor if they're not set.
     std::shared_ptr<TensorAttr> sT = layernormAttr.getSCALE();
     if (sT) {
-      INFER_TENSOR_DIM_AND_STRIDE(
-          sT, getScaleBiasDim(xDim),
-          getScaleBiasStride(sT->getDim(), xT->getStride()));
+      norm_utils::inferScaleBiasDimAndStride(sT, xDim, xT->getStride());
     }
 
     // Infer shape and stride of input BIAS tensor if they're not set.
     std::shared_ptr<TensorAttr> bT = layernormAttr.getBIAS();
     if (bT) {
-      INFER_TENSOR_DIM_AND_STRIDE(
-          bT, getScaleBiasDim(xDim),
-          getScaleBiasStride(bT->getDim(), xT->getStride()));
+      norm_utils::inferScaleBiasDimAndStride(bT, xDim, xT->getStride());
     }
 
     // Infer shape and stride of output Y tensor.
     // When stride is unspecified, preserve the stride order of xT.
-    INFER_TENSOR_DIM_AND_STRIDE(yT, xDim, xT->getStride());
+    norm_utils::inferDimAndStride(yT, xDim, xT->getStride());
 
     if (isTrainingForwardPhase()) {
-      const auto &[dim, stride] = getTrainingForwardOutputDimAndStride(xDim);
+      const auto &[dim, stride] =
+          norm_utils::getTrainingForwardOutputDimAndStride(xDim);
 
       // Infer shape and stride of output MEAN tensor.
       std::shared_ptr<TensorAttr> mT = layernormAttr.getMEAN();
-      INFER_TENSOR_DIM_AND_STRIDE(mT, dim, stride);
+      norm_utils::inferDimAndStride(mT, dim, stride);
 
       // Infer shape and stride of output INV_VARIANCE tensor.
       std::shared_ptr<TensorAttr> vT = layernormAttr.getINV_VARIANCE();
-      INFER_TENSOR_DIM_AND_STRIDE(vT, dim, stride);
+      norm_utils::inferDimAndStride(vT, dim, stride);
     }
-#undef INFER_TENSOR_DIM_AND_STRIDE
 
     return ok();
   }
@@ -230,7 +221,8 @@ public:
                                 "defined by its stride");
 
     if (isTrainingForwardPhase()) {
-      const auto &[dim, stride] = getTrainingForwardOutputDimAndStride(xDim);
+      const auto &[dim, stride] =
+          norm_utils::getTrainingForwardOutputDimAndStride(xDim);
 
       std::shared_ptr<TensorAttr> mT = layernormAttr.getMEAN();
       std::shared_ptr<TensorAttr> vT = layernormAttr.getINV_VARIANCE();
@@ -266,42 +258,8 @@ private:
     return layernormAttr.getForwardPhase() == NormFwdPhase::TRAINING;
   }
 
-  // Returns the shape over which normalization is applied:
-  // the input tensor's shape excluding the batch dimension (dim 0),
-  // as normalization is computed independently for each sample in the batch.
   std::vector<int64_t> getNormalizedShape() const {
-    const std::vector<int64_t> &xDim = layernormAttr.getX()->getDim();
-    std::vector<int64_t> normalizedShape(xDim.cbegin() + 1, xDim.cend());
-    return normalizedShape;
-  }
-
-  std::pair<std::vector<int64_t>, std::vector<int64_t>>
-  getTrainingForwardOutputDimAndStride(const std::vector<int64_t> &xDim) const {
-    // The MEAN and INV_VARIANCE tensors have shape [B, 1, ..., 1]
-    std::vector<int64_t> dim(xDim.size(), 1);
-    dim[0] = xDim[0];
-
-    // Since MEAN and INV_VARIANCE tensors have shape [B, 1, ..., 1],
-    // strides are always equal to [1, 1, ..., 1] for both contiguous and
-    // channels-last layouts.
-    std::vector<int64_t> stride(dim.size(), 1);
-    return {dim, stride};
-  }
-
-  std::vector<int64_t> getScaleBiasDim(const std::vector<int64_t> &xDim) const {
-    // The SCALE and BIAS tensors are input X tensor's dims with single batch.
-    auto dim = xDim;
-    dim[0] = 1;
-    return dim;
-  }
-
-  std::vector<int64_t>
-  getScaleBiasStride(const std::vector<int64_t> &scaleBiasDim,
-                     const std::vector<int64_t> &xStride) const {
-    // The SCALE and BIAS tensors have stride based on input stride order.
-    const auto strideOrder =
-        generateStrideOrderPreservingFormat(xStride, scaleBiasDim.size());
-    return generateStrideFromDim(scaleBiasDim, strideOrder);
+    return norm_utils::getNormalizedShape(layernormAttr.getX()->getDim());
   }
 };
 

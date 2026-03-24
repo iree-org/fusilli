@@ -22,6 +22,7 @@
 #include "fusilli/attributes/matmul_attributes.h"
 #include "fusilli/attributes/pointwise_attributes.h"
 #include "fusilli/attributes/reduction_attributes.h"
+#include "fusilli/attributes/rmsnorm_attributes.h"
 #include "fusilli/attributes/tensor_attributes.h"
 #include "fusilli/attributes/types.h"
 #include "fusilli/backend/backend.h"
@@ -38,6 +39,7 @@
 #include "fusilli/node/node.h"
 #include "fusilli/node/pointwise_node.h"
 #include "fusilli/node/reduction_node.h"
+#include "fusilli/node/rmsnorm_node.h"
 #include "fusilli/support/cache.h"
 #include "fusilli/support/external_tools.h"
 #include "fusilli/support/extras.h"
@@ -278,6 +280,9 @@ public:
   layernorm(const std::shared_ptr<TensorAttr> &x,
             const std::shared_ptr<TensorAttr> &scale,
             const std::shared_ptr<TensorAttr> &bias, LayernormAttr &attributes);
+  std::array<std::shared_ptr<TensorAttr>, 2>
+  rmsnorm(const std::shared_ptr<TensorAttr> &x,
+          const std::shared_ptr<TensorAttr> &scale, RmsnormAttr &attributes);
   std::shared_ptr<TensorAttr> matmul(const std::shared_ptr<TensorAttr> &a,
                                      const std::shared_ptr<TensorAttr> &b,
                                      MatmulAttr &attributes);
@@ -310,7 +315,7 @@ public:
         !isValidated_, ErrorCode::NotValidated,
         "Graph must be validated before emitting MLIR assembly");
     std::ostringstream oss;
-    emitAsmSubtree(oss);
+    FUSILLI_CHECK_ERROR(emitAsmSubtree(oss));
     FUSILLI_LOG_ENDL(oss.str());
     return ok(oss.str());
   }
@@ -582,8 +587,8 @@ private:
   ErrorObject postValidateNode() const override final { return ok(); }
 
   // MLIR assembly emitter helper methods.
-  std::string emitNodePreAsm() const override final;
-  std::string emitNodePostAsm() const override final;
+  ErrorOr<std::string> emitNodePreAsm() const override final;
+  ErrorOr<std::string> emitNodePostAsm() const override final;
   std::string getOperandNamesAndTypesAsm() const;
   std::string getResultNamesAndTypesAsm() const;
 
@@ -835,6 +840,46 @@ Graph::layernorm(const std::shared_ptr<TensorAttr> &x,
   // necessary in methods where a single local variable is returned
   // as NRVO would handle it.
   return {std::move(y), std::move(m), std::move(v)};
+}
+
+// Create a RmsNormNode, populate it with the specified attributes, create
+// output tensors and add the node to the graph's sub nodes.
+inline std::array<std::shared_ptr<TensorAttr>, 2>
+Graph::rmsnorm(const std::shared_ptr<TensorAttr> &x,
+               const std::shared_ptr<TensorAttr> &scale,
+               RmsnormAttr &rmsnormAttr) {
+  // Populate names when not set.
+  if (rmsnormAttr.getName().empty())
+    rmsnormAttr.setName("rmsnorm_" + std::to_string(subNodes_.size()));
+  if (x && x->getName().empty())
+    x->setName(rmsnormAttr.getName() + "_X");
+  if (scale && scale->getName().empty())
+    scale->setName(rmsnormAttr.getName() + "_SCALE");
+  auto eps = rmsnormAttr.getEpsilon();
+  if (eps && eps->getName().empty())
+    eps->setName(rmsnormAttr.getName() + "_EPSILON");
+
+  FUSILLI_LOG_LABEL_ENDL("INFO: Adding RmsNorm '" << rmsnormAttr.getName()
+                                                  << "' to Graph");
+
+  // Set inputs.
+  rmsnormAttr.setX(x);
+  rmsnormAttr.setSCALE(scale);
+
+  // Set outputs.
+  std::shared_ptr<TensorAttr> y = outputTensor(rmsnormAttr.getName() + "_Y");
+  rmsnormAttr.setY(y);
+
+  std::shared_ptr<TensorAttr> r = nullptr;
+  if (rmsnormAttr.getForwardPhase() == NormFwdPhase::TRAINING)
+    r = outputTensor(rmsnormAttr.getName() + "_INV_RMS");
+  rmsnormAttr.setINV_RMS(r);
+
+  // Create node and add to Graph's subNodes_.
+  subNodes_.emplace_back(
+      std::make_unique<RmsNormNode>(std::move(rmsnormAttr), context));
+
+  return {std::move(y), std::move(r)};
 }
 
 // Create a MatmulNode, populate it with the specified attributes, create
