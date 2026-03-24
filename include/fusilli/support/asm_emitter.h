@@ -296,6 +296,27 @@ inline std::string TensorAttr::getValueNameAsm(bool isOutputAliased) const {
   return "%" + filtered + (isOutputAliased ? "_" : "");
 }
 
+// Emits a builtin ranked tensor type in MLIR assembly format.
+// Uses physical dims (the actual memory layout) of the tensor.
+//
+// Example:
+//    tensor with physical dims [16, 16, 8, 4] and DataType::Float
+//    --> "tensor<16x16x8x4xf32>"
+inline std::string
+getBuiltinTensorTypeAsm(const std::shared_ptr<TensorAttr> &tensor) {
+  assert(!tensor->getDim().empty() &&
+         "getBuiltinTensorTypeAsm expects non-empty dims");
+  assert(tensor->getDataType() != DataType::NotSet &&
+         "getBuiltinTensorTypeAsm expects a valid data type");
+
+  std::ostringstream oss;
+  oss << "tensor<";
+  for (auto dim : tensor->getPhysicalDim())
+    oss << dim << "x";
+  oss << kDataTypeToMlirTypeAsm.at(tensor->getDataType()) << ">";
+  return oss.str();
+}
+
 //===----------------------------------------------------------------------===//
 //
 // Graph ASM Emitter Methods
@@ -1349,6 +1370,75 @@ inline ErrorOr<std::string> MatmulNode::emitNodePreAsm() const {
   );
 
   return output;
+}
+
+//===----------------------------------------------------------------------===//
+//
+// BlockedMatmulNode ASM Emitter Methods
+//
+//===----------------------------------------------------------------------===//
+
+// Emits blocked matmul as linalg.mmt4d with torch_c casts.
+//
+// The emitter operates on physical tensor layouts directly (no permute ops).
+// Function arguments are in physical layout; torch_c casts bridge to builtin
+// tensors for linalg.mmt4d, then cast the result back to torch.
+//
+// Generated MLIR pattern:
+//   %lhs = torch_c.to_builtin_tensor %arg_lhs : !torch.vtensor<[phys],dt> ->
+//   tensor<physxdt> %rhs = torch_c.to_builtin_tensor %arg_rhs :
+//   !torch.vtensor<[phys],dt> -> tensor<physxdt> %cst = arith.constant 0.0 : dt
+//   %empty = tensor.empty() : tensor<out_physxdt>
+//   %fill = linalg.fill ins(%cst : dt) outs(%empty : ...) -> ...
+//   %mmt4d = linalg.mmt4d ins(%lhs, %rhs : ...) outs(%fill : ...) -> ...
+//   %result = torch_c.from_builtin_tensor %mmt4d : ... ->
+//   !torch.vtensor<[phys],dt>
+inline std::string BlockedMatmulNode::emitNodePreAsm() const {
+  auto lhsT = blockedMatmulAttr.getLHS();
+  auto rhsT = blockedMatmulAttr.getRHS();
+  auto outT = blockedMatmulAttr.getRESULT();
+  std::string suffix = blockedMatmulAttr.getName();
+
+  std::string lhsTorchType = lhsT->getTensorTypeAsm(/*isValueTensor=*/true,
+                                                    /*useLogicalDims=*/false);
+  std::string rhsTorchType = rhsT->getTensorTypeAsm(/*isValueTensor=*/true,
+                                                    /*useLogicalDims=*/false);
+  std::string outTorchType = outT->getTensorTypeAsm(/*isValueTensor=*/true,
+                                                    /*useLogicalDims=*/false);
+
+  std::string lhsBuiltinType = getBuiltinTensorTypeAsm(lhsT);
+  std::string rhsBuiltinType = getBuiltinTensorTypeAsm(rhsT);
+  std::string outBuiltinType = getBuiltinTensorTypeAsm(outT);
+
+  std::string mlirType = kDataTypeToMlirTypeAsm.at(outT->getDataType());
+
+  std::string lhsName = lhsT->getValueNameAsm();
+  std::string rhsName = rhsT->getValueNameAsm();
+  std::string outName = outT->getValueNameAsm();
+
+  constexpr std::string_view schema = R"(
+    %{0}_lhs_builtin = torch_c.to_builtin_tensor {1} : {2} -> {3}
+    %{0}_rhs_builtin = torch_c.to_builtin_tensor {4} : {5} -> {6}
+    %{0}_cst = arith.constant 0.000000e+00 : {7}
+    %{0}_empty = tensor.empty() : {8}
+    %{0}_fill = linalg.fill ins(%{0}_cst : {7}) outs(%{0}_empty : {8}) -> {8}
+    %{0}_mmt4d = linalg.mmt4d ins(%{0}_lhs_builtin, %{0}_rhs_builtin : {3}, {6}) outs(%{0}_fill : {8}) -> {8}
+    {9} = torch_c.from_builtin_tensor %{0}_mmt4d : {8} -> {10}
+  )";
+
+  return std::format(schema,
+                     suffix,         // {0} unique prefix
+                     lhsName,        // {1} LHS SSA name
+                     lhsTorchType,   // {2} LHS torch type
+                     lhsBuiltinType, // {3} LHS builtin type
+                     rhsName,        // {4} RHS SSA name
+                     rhsTorchType,   // {5} RHS torch type
+                     rhsBuiltinType, // {6} RHS builtin type
+                     mlirType,       // {7} scalar element type
+                     outBuiltinType, // {8} OUT builtin type
+                     outName,        // {9} OUT SSA name
+                     outTorchType    // {10} OUT torch type
+  );
 }
 
 //===----------------------------------------------------------------------===//

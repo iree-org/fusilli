@@ -57,6 +57,16 @@ add_fusilli_samples(
 )
 
 add_fusilli_samples(
+  PREFIX fusilli_blocked_matmul_samples
+  SRCS
+    blocked_matmul/blocked_matmul_basic.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)
+
+add_fusilli_samples(
   PREFIX fusilli_layernorm_samples
   SRCS
     layernorm/layernorm_infer_nchw.cpp

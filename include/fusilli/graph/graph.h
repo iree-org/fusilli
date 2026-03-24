@@ -14,6 +14,7 @@
 #ifndef FUSILLI_GRAPH_GRAPH_H
 #define FUSILLI_GRAPH_GRAPH_H
 
+#include "fusilli/attributes/blocked_matmul_attributes.h"
 #include "fusilli/attributes/common.h"
 #include "fusilli/attributes/conv_attributes.h"
 #include "fusilli/attributes/custom_op_attributes.h"
@@ -30,6 +31,7 @@
 #include "fusilli/backend/compile_session.h"
 #include "fusilli/backend/handle.h"
 #include "fusilli/graph/context.h"
+#include "fusilli/node/blocked_matmul_node.h"
 #include "fusilli/node/conv_node.h"
 #include "fusilli/node/custom_op_node.h"
 #include "fusilli/node/layernorm_node.h"
@@ -277,6 +279,10 @@ public:
   std::shared_ptr<TensorAttr> matmul(const std::shared_ptr<TensorAttr> &a,
                                      const std::shared_ptr<TensorAttr> &b,
                                      MatmulAttr &attributes);
+  std::shared_ptr<TensorAttr>
+  blockedMatmul(const std::shared_ptr<TensorAttr> &lhs,
+                const std::shared_ptr<TensorAttr> &rhs,
+                BlockedMatmulAttr &attributes);
   std::shared_ptr<TensorAttr> pointwise(const std::shared_ptr<TensorAttr> &in,
                                         PointwiseAttr &attributes);
 
@@ -847,6 +853,33 @@ Graph::matmul(const std::shared_ptr<TensorAttr> &a,
       std::make_unique<MatmulNode>(std::move(matmulAttr), context));
 
   return c;
+}
+
+// Create a BlockedMatmulNode, populate it with the specified attributes, create
+// output tensors and add the node to the graph's sub nodes.
+inline std::shared_ptr<TensorAttr>
+Graph::blockedMatmul(const std::shared_ptr<TensorAttr> &lhs,
+                     const std::shared_ptr<TensorAttr> &rhs,
+                     BlockedMatmulAttr &bmAttr) {
+  if (bmAttr.getName().empty())
+    bmAttr.setName("blocked_matmul_" + std::to_string(subNodes_.size()));
+  if (lhs && lhs->getName().empty())
+    lhs->setName(bmAttr.getName() + "_LHS");
+  if (rhs && rhs->getName().empty())
+    rhs->setName(bmAttr.getName() + "_RHS");
+
+  FUSILLI_LOG_LABEL_ENDL("INFO: Adding BlockedMatmulNode '" << bmAttr.getName()
+                                                            << "' to Graph");
+
+  bmAttr.setLHS(lhs).setRHS(rhs);
+
+  auto out = outputTensor(bmAttr.getName() + "_RESULT");
+  bmAttr.setRESULT(out);
+
+  subNodes_.emplace_back(
+      std::make_unique<BlockedMatmulNode>(std::move(bmAttr), context));
+
+  return out;
 }
 
 // Create a PointwiseNode for single operand cases (e.g. RELU), populate it with
