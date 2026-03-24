@@ -30,27 +30,29 @@
 #include "fusilli/support/target_platform.h" // IWYU pragma: export
 
 // Attributes / Types:
-#include "fusilli/attributes/attributes.h"           // IWYU pragma: export
-#include "fusilli/attributes/common.h"               // IWYU pragma: export
-#include "fusilli/attributes/conv_attributes.h"      // IWYU pragma: export
-#include "fusilli/attributes/custom_op_attributes.h" // IWYU pragma: export
-#include "fusilli/attributes/layernorm_attributes.h" // IWYU pragma: export
-#include "fusilli/attributes/matmul_attributes.h"    // IWYU pragma: export
-#include "fusilli/attributes/pointwise_attributes.h" // IWYU pragma: export
-#include "fusilli/attributes/reduction_attributes.h" // IWYU pragma: export
-#include "fusilli/attributes/rmsnorm_attributes.h"   // IWYU pragma: export
-#include "fusilli/attributes/tensor_attributes.h"    // IWYU pragma: export
-#include "fusilli/attributes/types.h"                // IWYU pragma: export
+#include "fusilli/attributes/attributes.h"                // IWYU pragma: export
+#include "fusilli/attributes/blocked_matmul_attributes.h" // IWYU pragma: export
+#include "fusilli/attributes/common.h"                    // IWYU pragma: export
+#include "fusilli/attributes/conv_attributes.h"           // IWYU pragma: export
+#include "fusilli/attributes/custom_op_attributes.h"      // IWYU pragma: export
+#include "fusilli/attributes/layernorm_attributes.h"      // IWYU pragma: export
+#include "fusilli/attributes/matmul_attributes.h"         // IWYU pragma: export
+#include "fusilli/attributes/pointwise_attributes.h"      // IWYU pragma: export
+#include "fusilli/attributes/reduction_attributes.h"      // IWYU pragma: export
+#include "fusilli/attributes/rmsnorm_attributes.h"        // IWYU pragma: export
+#include "fusilli/attributes/tensor_attributes.h"         // IWYU pragma: export
+#include "fusilli/attributes/types.h"                     // IWYU pragma: export
 
 // Nodes:
-#include "fusilli/node/conv_node.h"      // IWYU pragma: export
-#include "fusilli/node/custom_op_node.h" // IWYU pragma: export
-#include "fusilli/node/layernorm_node.h" // IWYU pragma: export
-#include "fusilli/node/matmul_node.h"    // IWYU pragma: export
-#include "fusilli/node/node.h"           // IWYU pragma: export
-#include "fusilli/node/pointwise_node.h" // IWYU pragma: export
-#include "fusilli/node/reduction_node.h" // IWYU pragma: export
-#include "fusilli/node/rmsnorm_node.h"   // IWYU pragma: export
+#include "fusilli/node/blocked_matmul_node.h" // IWYU pragma: export
+#include "fusilli/node/conv_node.h"           // IWYU pragma: export
+#include "fusilli/node/custom_op_node.h"      // IWYU pragma: export
+#include "fusilli/node/layernorm_node.h"      // IWYU pragma: export
+#include "fusilli/node/matmul_node.h"         // IWYU pragma: export
+#include "fusilli/node/node.h"                // IWYU pragma: export
+#include "fusilli/node/pointwise_node.h"      // IWYU pragma: export
+#include "fusilli/node/reduction_node.h"      // IWYU pragma: export
+#include "fusilli/node/rmsnorm_node.h"        // IWYU pragma: export
 
 // Backend:
 #include "fusilli/backend/backend.h"         // IWYU pragma: export

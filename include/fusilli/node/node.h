@@ -37,6 +37,7 @@ public:
     LayerNorm,
     RmsNorm,
     Matmul,
+    BlockedMatmul,
     Reduction,
     Custom,
   };
