@@ -1,7 +1,8 @@
-# Test one benchmark per subcommand (conv, layernorm, matmul)
+# Test one benchmark per subcommand (conv, layernorm, matmul, sdpa)
 --device 0 --iter 2 conv -F 1 -n 16 -c 8 -H 8 -W 8 -k 8 -y 3 -x 3 -p 1 -q 1 -u 1 -v 1 -l 1 -j 1 --in_layout NHWC --out_layout NHWC --fil_layout NHWC --spatial_dim 2
 --device 0 --iter 2 layernorm -X 2x3x128 -F 1 -t f32 --layout NCH
 --device 0 --iter 2 matmul -M 16 -N 32 -K 64 --a_type f32 --b_type f32 --out_type f32
+--device 0 --iter 2 sdpa -B 1 --heads_q 8 --heads_kv 8 --seq_q 64 --seq_kv 64 -d 64 -t f16
 
 # Test skipping benchmarks
 [SKIP] --device 0 --iter 2 conv -F 1 -n 16 -c 8 -H 8 -W 8 -k 8 -y 3 -x 3 -p 1 -q 1 -u 1 -v 1 -l 1 -j 1 --in_layout NHWC --out_layout NHWC --fil_layout NHWC --spatial_dim 2

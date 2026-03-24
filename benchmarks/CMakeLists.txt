@@ -12,6 +12,9 @@ target_link_libraries(fusilli_benchmark_driver PRIVATE
   libutils
   CLI11::CLI11
 )
+target_include_directories(fusilli_benchmark_driver PRIVATE
+  ${CMAKE_SOURCE_DIR}/samples/sdpa
+)
 set_target_properties(
   fusilli_benchmark_driver PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/benchmarks
@@ -332,4 +335,61 @@ add_fusilli_benchmark(
   DRIVER fusilli_benchmark_driver
   ARGS
     --device 0 --iter 10 matmul -M 64 -N 32 -K 16 -B 10 --a_type f32 --b_type f32 --out_type f32 --bias_type f32 --transA --transB --bias
+)
+
+# Scaled dot-product attention benchmarks
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_sdpa_mha_f16
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 sdpa -B 1 --heads_q 8 --heads_kv 8 --seq_q 64 --seq_kv 64 -d 64 -t f16
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_sdpa_mha_f16_causal
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 sdpa -B 1 --heads_q 8 --heads_kv 8 --seq_q 64 --seq_kv 64 -d 64 -t f16 --causal
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_sdpa_mha_f16_mask
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 sdpa -B 1 --heads_q 8 --heads_kv 8 --seq_q 64 --seq_kv 64 -d 64 -t f16 --mask
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_sdpa_gqa_f16
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 sdpa -B 2 --heads_q 16 --heads_kv 4 --seq_q 128 --seq_kv 128 -d 64 -t f16 --gqa
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_sdpa_gqa_f16_causal
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 sdpa -B 2 --heads_q 16 --heads_kv 4 --seq_q 128 --seq_kv 128 -d 64 -t f16 --gqa --causal
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_sdpa_mha_bf16
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 sdpa -B 4 --heads_q 32 --heads_kv 32 --seq_q 256 --seq_kv 256 -d 128 -t bf16
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_sdpa_mha_f16_cross_attn
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 sdpa -B 2 --heads_q 8 --heads_kv 8 --seq_q 128 --seq_kv 64 -d 64 -t f16
+)
+
+add_fusilli_benchmark(
+  NAME fusilli_benchmark_sdpa_mha_f16_custom_scale
+  DRIVER fusilli_benchmark_driver
+  ARGS
+    --device 0 --iter 10 sdpa -B 1 --heads_q 8 --heads_kv 8 --seq_q 64 --seq_kv 64 -d 64 -t f16 --scale 0.5
 )
