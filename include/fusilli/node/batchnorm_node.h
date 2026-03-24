@@ -53,7 +53,7 @@ public:
       : NodeCRTP(ctx), batchnormAttr(std::move(attr)) {}
 
   // ASM emitter methods.
-  std::string emitNodePreAsm() const override final;
+  ErrorOr<std::string> emitNodePreAsm() const override final;
   std::string getOperandNamesAsm() const;
   std::string getOperandTypesAsm() const;
   std::string getResultNamesAsm() const;

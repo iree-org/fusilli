@@ -1107,7 +1107,7 @@ inline std::string BatchNormNode::getMomentumOpsAsm() const {
 // Both inference and training use `torch.aten.native_batch_norm` (three
 // outputs). For inference, training=false and the last two outputs (saved_mean,
 // saved_invstd) are discarded placeholders.
-inline std::string BatchNormNode::emitNodePreAsm() const {
+inline ErrorOr<std::string> BatchNormNode::emitNodePreAsm() const {
   std::string suffix = batchnormAttr.getName();
 
   std::string permuteX = getPermuteOpsAsm(batchnormAttr.getX(), "permute_x",
