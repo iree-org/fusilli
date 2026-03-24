@@ -369,11 +369,11 @@ inline std::string Graph::getResultNamesAndTypesAsm() const {
 // for template replacements using `std::format`. When modifying the
 // schema, take extra caution about double bracing the curly brackets
 // (refer to the comments at the top of this file for details).
-inline std::string Graph::emitNodePreAsm() const {
+inline ErrorOr<std::string> Graph::emitNodePreAsm() const {
   // Collect module-scope declarations from sub-nodes
   // (e.g., custom op function definitions).
   std::ostringstream moduleScopeOss;
-  collectModuleScopeAsm(moduleScopeOss);
+  FUSILLI_CHECK_ERROR(collectModuleScopeAsm(moduleScopeOss));
 
   constexpr std::string_view schema = R"(
 module @module {{
@@ -403,7 +403,7 @@ module @module {{
 // for template replacements using `std::format`. When modifying the
 // schema, take extra caution about double bracing the curly brackets
 // (refer to the comments at the top of this file for details).
-inline std::string Graph::emitNodePostAsm() const {
+inline ErrorOr<std::string> Graph::emitNodePostAsm() const {
   std::ostringstream oss;
   interleave(
       fullGraphOutputsSorted_.begin(), fullGraphOutputsSorted_.end(),
@@ -537,7 +537,7 @@ inline std::string ConvFPropNode::getDilationOpsAsm() const {
 // for template replacements using `std::format`. When modifying the
 // schema, take extra caution about double bracing the curly brackets
 // (refer to the comments at the top of this file for details).
-inline std::string ConvFPropNode::emitNodePreAsm() const {
+inline ErrorOr<std::string> ConvFPropNode::emitNodePreAsm() const {
   // `torch.aten.convolution` signature from GeneratedTorchOps.td
   // https://github.com/llvm/torch-mlir/blob/main/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
   //
@@ -727,7 +727,7 @@ inline std::string ConvWGradNode::getPermuteEmptyWOpsAsm() const {
   return oss.str() + output;
 }
 
-inline std::string ConvWGradNode::emitNodePreAsm() const {
+inline ErrorOr<std::string> ConvWGradNode::emitNodePreAsm() const {
   constexpr std::string_view schema = R"(
     %bias_{0} = torch.constant.none
     %transposed_{0} = torch.constant.bool false
@@ -890,7 +890,7 @@ inline std::string ConvDGradNode::getPermuteEmptyXOpsAsm() const {
   return oss.str() + output;
 }
 
-inline std::string ConvDGradNode::emitNodePreAsm() const {
+inline ErrorOr<std::string> ConvDGradNode::emitNodePreAsm() const {
   constexpr std::string_view schema = R"(
     %bias_{0} = torch.constant.none
     %transposed_{0} = torch.constant.bool false
@@ -1066,7 +1066,7 @@ inline std::string LayerNormNode::getEpsilonOpsAsm() const {
 // for template replacements using `std::format`. When modifying the
 // schema, take extra caution about double bracing the curly brackets
 // (refer to the comments at the top of this file for details).
-inline std::string LayerNormNode::emitNodePreAsm() const {
+inline ErrorOr<std::string> LayerNormNode::emitNodePreAsm() const {
   std::string uniqueSSASuffix = layernormAttr.getName();
   std::string permuteX = getPermuteOpsAsm(layernormAttr.getX(), "permute_x",
                                           uniqueSSASuffix, /*isInput=*/true);
@@ -1243,9 +1243,10 @@ inline std::string RmsNormNode::getEpsilonOpsAsm() const {
 
 // Emits MLIR assembly for inference-mode RmsNorm. Training mode ASM emission
 // is not yet supported as torch-mlir does not lower the training variant.
-inline std::string RmsNormNode::emitNodePreAsm() const {
-  assert(!isTrainingForwardPhase() &&
-         "RmsNorm training mode ASM emission is not yet supported");
+inline ErrorOr<std::string> RmsNormNode::emitNodePreAsm() const {
+  FUSILLI_RETURN_ERROR_IF(
+      isTrainingForwardPhase(), ErrorCode::InternalError,
+      "RmsNorm training mode ASM emission is not yet supported");
 
   std::string uniqueSSASuffix = rmsnormAttr.getName();
   std::string permuteX = getPermuteOpsAsm(rmsnormAttr.getX(), "permute_x",
@@ -1321,7 +1322,7 @@ inline std::string MatmulNode::getResultTypesAsm() const {
                                              /*useLogicalDims=*/true);
 }
 
-inline std::string MatmulNode::emitNodePreAsm() const {
+inline ErrorOr<std::string> MatmulNode::emitNodePreAsm() const {
   constexpr std::string_view schema = R"(
     {0}
     {1}
@@ -1435,7 +1436,7 @@ inline std::string PointwiseNode::getResultNamesAndTypesAsm() const {
     );                                                                         \
   }
 
-inline std::string PointwiseNode::emitNodePreAsm() const {
+inline ErrorOr<std::string> PointwiseNode::emitNodePreAsm() const {
   std::string uniqueSSASuffix = pointwiseAttr.getName();
 
   // Generate permute operations for inputs and output using the standard
@@ -1498,8 +1499,7 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(SUB, torch.aten.sub.Tensor)
 
   default:
-    assert(false && "Unsupported pointwise mode");
-    return "";
+    return error(ErrorCode::InternalError, "Unsupported pointwise mode");
   }
 }
 
@@ -1542,7 +1542,7 @@ inline std::string ReductionNode::getResultTypesAsm() const {
                                                 /*useLogicalDims=*/true);
 }
 
-inline std::string ReductionNode::emitNodePreAsm() const {
+inline ErrorOr<std::string> ReductionNode::emitNodePreAsm() const {
   const auto &xT = reductionAttr.getX();
   const auto &yT = reductionAttr.getY();
 
@@ -1622,8 +1622,7 @@ inline std::string ReductionNode::emitNodePreAsm() const {
     );
   }
   default:
-    assert(false && "Unsupported reduction mode");
-    return "";
+    return error(ErrorCode::InternalError, "Unsupported reduction mode");
   }
 }
 
@@ -1636,7 +1635,7 @@ inline std::string ReductionNode::emitNodePreAsm() const {
 // Returns the user's MLIR function definition with placeholders resolved
 // for placement at module scope (alongside @main). Ensures a trailing
 // newline so that consecutive definitions don't merge into one line.
-inline std::string CustomOpNode::emitModuleScopeAsm() const {
+inline ErrorOr<std::string> CustomOpNode::emitModuleScopeAsm() const {
   std::string mlir = resolveMlirPlaceholders();
   if (!mlir.empty() && mlir.back() != '\n')
     mlir += '\n';
@@ -1744,7 +1743,7 @@ inline std::string CustomOpNode::getStaticToDynamicCastAsm(
 //   3. func.call to the custom function
 //   4. Cast outputs dynamic -> static logical
 //   5. Permute outputs logical -> physical
-inline std::string CustomOpNode::emitNodePreAsm() const {
+inline ErrorOr<std::string> CustomOpNode::emitNodePreAsm() const {
   std::ostringstream oss;
   std::string suffix = customOpAttr.getName();
 

@@ -306,7 +306,7 @@ public:
         !isValidated_, ErrorCode::NotValidated,
         "Graph must be validated before emitting MLIR assembly");
     std::ostringstream oss;
-    emitAsmSubtree(oss);
+    FUSILLI_CHECK_ERROR(emitAsmSubtree(oss));
     FUSILLI_LOG_ENDL(oss.str());
     return ok(oss.str());
   }
@@ -578,8 +578,8 @@ private:
   ErrorObject postValidateNode() const override final { return ok(); }
 
   // MLIR assembly emitter helper methods.
-  std::string emitNodePreAsm() const override final;
-  std::string emitNodePostAsm() const override final;
+  ErrorOr<std::string> emitNodePreAsm() const override final;
+  ErrorOr<std::string> emitNodePostAsm() const override final;
   std::string getOperandNamesAndTypesAsm() const;
   std::string getResultNamesAndTypesAsm() const;
 
