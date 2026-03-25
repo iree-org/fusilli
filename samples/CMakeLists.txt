@@ -72,6 +72,20 @@ add_fusilli_samples(
 )
 
 add_fusilli_samples(
+  PREFIX fusilli_batchnorm_samples
+  SRCS
+    batchnorm/batchnorm_infer_nchw.cpp
+    batchnorm/batchnorm_infer_nchw_scale_bias.cpp
+    batchnorm/batchnorm_infer_nhwc_scale_bias.cpp
+    batchnorm/batchnorm_train_nchw.cpp
+    batchnorm/batchnorm_train_nchw_scale_bias.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)
+
+add_fusilli_samples(
   PREFIX fusilli_rmsnorm_samples
   SRCS
     rmsnorm/rmsnorm_infer_nchw.cpp

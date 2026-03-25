@@ -34,7 +34,7 @@
 // AMDGPU-STATS-CHECK: "transient-memory-size": 0
 // AMDGPU-STATS-CHECK: "dispatch-count": 1
 // CPU-STATS-CHECK: "transient-memory-size": 0
-// CPU-STATS-CHECK: "dispatch-count": 1
+// CPU-STATS-CHECK: "dispatch-count": 4
 //
 // clang-format on
 
