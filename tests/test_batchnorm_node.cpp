@@ -6,6 +6,8 @@
 
 #include <fusilli.h>
 
+#include "utils.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <cstdint>
 #include <memory>
@@ -246,9 +248,189 @@ TEST_CASE("BatchNormNode inferPropertiesNode infers Y shape from X",
 
   BatchNormNode node(std::move(attr), ctx);
 
-  REQUIRE(!isError(node.preValidateNode()));
-  REQUIRE(!isError(node.inferPropertiesNode()));
+  FUSILLI_REQUIRE_OK(node.preValidateNode());
+  FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
 
   REQUIRE(yT->getDim() == std::vector<int64_t>({n, c, h, w}));
   REQUIRE(yT->getStride() == xT->getStride());
+}
+
+TEST_CASE("BatchNormNode inferPropertiesNode infers SAVED outputs and 1D "
+          "tensors in training mode",
+          "[batchnorm_node]") {
+  int64_t n = 2, c = 4, h = 8, w = 8;
+  Context ctx;
+  ctx.setIODataType(DataType::Float).setComputeDataType(DataType::Float);
+
+  auto xT = std::make_shared<TensorAttr>(
+      TensorAttr()
+          .setName("x")
+          .setDim({n, c, h, w})
+          .setDataType(DataType::Float)
+          .setStride({c * h * w, h * w, w, 1})); // NCHW
+  auto scaleT = std::make_shared<TensorAttr>(
+      TensorAttr().setName("scale").setDataType(DataType::Float));
+  auto biasT = std::make_shared<TensorAttr>(
+      TensorAttr().setName("bias").setDataType(DataType::Float));
+  auto epsT = std::make_shared<TensorAttr>(TensorAttr(1e-5f).setName("eps"));
+  auto momT = std::make_shared<TensorAttr>(TensorAttr(0.1f).setName("mom"));
+  auto yT = std::make_shared<TensorAttr>(
+      TensorAttr().setName("y").setIsVirtual(true));
+  auto smT = std::make_shared<TensorAttr>(
+      TensorAttr().setName("saved_mean").setIsVirtual(true));
+  auto sivT = std::make_shared<TensorAttr>(
+      TensorAttr().setName("saved_inv_var").setIsVirtual(true));
+
+  BatchnormAttr attr;
+  attr.setName("bn")
+      .setForwardPhase(NormFwdPhase::TRAINING)
+      .setX(xT)
+      .setSCALE(scaleT)
+      .setBIAS(biasT)
+      .setEpsilon(epsT)
+      .setMomentum(momT)
+      .setY(yT)
+      .setSAVED_MEAN(smT)
+      .setSAVED_INV_VARIANCE(sivT);
+
+  BatchNormNode node(std::move(attr), ctx);
+
+  FUSILLI_REQUIRE_OK(node.preValidateNode());
+  FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+  // Y shape matches X.
+  REQUIRE(yT->getDim() == std::vector<int64_t>({n, c, h, w}));
+  REQUIRE(yT->getStride() == xT->getStride());
+
+  // SAVED outputs are inferred as 1D [c] with unit stride.
+  REQUIRE(smT->getDim() == std::vector<int64_t>({c}));
+  REQUIRE(smT->getStride() == std::vector<int64_t>({1}));
+  REQUIRE(sivT->getDim() == std::vector<int64_t>({c}));
+  REQUIRE(sivT->getStride() == std::vector<int64_t>({1}));
+
+  // Optional 1D tensors (scale, bias) are inferred as [c] with unit stride.
+  REQUIRE(scaleT->getDim() == std::vector<int64_t>({c}));
+  REQUIRE(scaleT->getStride() == std::vector<int64_t>({1}));
+  REQUIRE(biasT->getDim() == std::vector<int64_t>({c}));
+  REQUIRE(biasT->getStride() == std::vector<int64_t>({1}));
+}
+
+TEST_CASE("BatchNormNode postValidateNode validates output shapes",
+          "[batchnorm_node]") {
+  int64_t n = 2, c = 4, h = 8, w = 8;
+  Context ctx;
+  ctx.setIODataType(DataType::Float).setComputeDataType(DataType::Float);
+
+  SECTION("Valid inference node passes postValidateNode") {
+    auto xT = std::make_shared<TensorAttr>(
+        TensorAttr()
+            .setName("x")
+            .setDim({n, c, h, w})
+            .setDataType(DataType::Float)
+            .setStride({c * h * w, h * w, w, 1}));
+    auto meanT = std::make_shared<TensorAttr>(TensorAttr()
+                                                  .setName("mean")
+                                                  .setDim({c})
+                                                  .setDataType(DataType::Float)
+                                                  .setStride({1}));
+    auto varT = std::make_shared<TensorAttr>(TensorAttr()
+                                                 .setName("var")
+                                                 .setDim({c})
+                                                 .setDataType(DataType::Float)
+                                                 .setStride({1}));
+    auto epsT = std::make_shared<TensorAttr>(TensorAttr(1e-5f).setName("eps"));
+    auto momT = std::make_shared<TensorAttr>(TensorAttr(0.1f).setName("mom"));
+    auto yT = std::make_shared<TensorAttr>(
+        TensorAttr().setName("y").setIsVirtual(true));
+
+    BatchnormAttr attr;
+    attr.setName("bn")
+        .setForwardPhase(NormFwdPhase::INFERENCE)
+        .setX(xT)
+        .setMEAN(meanT)
+        .setVAR(varT)
+        .setEpsilon(epsT)
+        .setMomentum(momT)
+        .setY(yT);
+
+    BatchNormNode node(std::move(attr), ctx);
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+    FUSILLI_REQUIRE_OK(node.postValidateNode());
+  }
+
+  SECTION("Y shape mismatch fails postValidateNode") {
+    auto xT = std::make_shared<TensorAttr>(
+        TensorAttr()
+            .setName("x")
+            .setDim({n, c, h, w})
+            .setDataType(DataType::Float)
+            .setStride({c * h * w, h * w, w, 1}));
+    auto meanT = std::make_shared<TensorAttr>(
+        TensorAttr().setName("mean").setDim({c}).setStride({1}));
+    auto varT = std::make_shared<TensorAttr>(
+        TensorAttr().setName("var").setDim({c}).setStride({1}));
+    auto epsT = std::make_shared<TensorAttr>(TensorAttr(1e-5f).setName("eps"));
+    auto momT = std::make_shared<TensorAttr>(TensorAttr(0.1f).setName("mom"));
+    // Y has wrong shape.
+    auto yT = std::make_shared<TensorAttr>(
+        TensorAttr()
+            .setName("y")
+            .setDim({n, c, h + 1, w})
+            .setStride({c * h * w, h * w, w, 1}));
+
+    BatchnormAttr attr;
+    attr.setName("bn")
+        .setForwardPhase(NormFwdPhase::INFERENCE)
+        .setX(xT)
+        .setMEAN(meanT)
+        .setVAR(varT)
+        .setEpsilon(epsT)
+        .setMomentum(momT)
+        .setY(yT);
+
+    BatchNormNode node(std::move(attr), ctx);
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    auto status = node.postValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+  }
+
+  SECTION("Valid training node passes postValidateNode") {
+    auto xT = std::make_shared<TensorAttr>(
+        TensorAttr()
+            .setName("x")
+            .setDim({n, c, h, w})
+            .setDataType(DataType::Float)
+            .setStride({c * h * w, h * w, w, 1}));
+    auto scaleT = std::make_shared<TensorAttr>(
+        TensorAttr().setName("scale").setDim({c}).setStride({1}));
+    auto biasT = std::make_shared<TensorAttr>(
+        TensorAttr().setName("bias").setDim({c}).setStride({1}));
+    auto epsT = std::make_shared<TensorAttr>(TensorAttr(1e-5f).setName("eps"));
+    auto momT = std::make_shared<TensorAttr>(TensorAttr(0.1f).setName("mom"));
+    auto yT = std::make_shared<TensorAttr>(
+        TensorAttr().setName("y").setIsVirtual(true));
+    auto smT = std::make_shared<TensorAttr>(
+        TensorAttr().setName("saved_mean").setIsVirtual(true));
+    auto sivT = std::make_shared<TensorAttr>(
+        TensorAttr().setName("saved_inv_var").setIsVirtual(true));
+
+    BatchnormAttr attr;
+    attr.setName("bn")
+        .setForwardPhase(NormFwdPhase::TRAINING)
+        .setX(xT)
+        .setSCALE(scaleT)
+        .setBIAS(biasT)
+        .setEpsilon(epsT)
+        .setMomentum(momT)
+        .setY(yT)
+        .setSAVED_MEAN(smT)
+        .setSAVED_INV_VARIANCE(sivT);
+
+    BatchNormNode node(std::move(attr), ctx);
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+    FUSILLI_REQUIRE_OK(node.postValidateNode());
+  }
 }

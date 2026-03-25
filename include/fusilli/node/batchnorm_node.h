@@ -94,28 +94,6 @@ public:
                                 "' is neither contiguous nor channels-last as "
                                 "defined by its stride");
 
-    int64_t c = getChannelDim();
-
-    // Validate optional 1D inputs (scale, bias, mean, var) if provided.
-    auto validate1DTensor = [&](const std::shared_ptr<TensorAttr> &t,
-                                const std::string &name) -> ErrorObject {
-      if (!t)
-        return ok();
-      if (!t->getDim().empty()) {
-        FUSILLI_RETURN_ERROR_IF(
-            t->getDim().size() != 1 || t->getDim()[0] != c,
-            ErrorCode::InvalidAttribute,
-            "BatchNorm tensor " + name +
-                " must be 1D with size equal to channel dimension C");
-      }
-      return ok();
-    };
-
-    FUSILLI_CHECK_ERROR(validate1DTensor(batchnormAttr.getSCALE(), "SCALE"));
-    FUSILLI_CHECK_ERROR(validate1DTensor(batchnormAttr.getBIAS(), "BIAS"));
-    FUSILLI_CHECK_ERROR(validate1DTensor(batchnormAttr.getMEAN(), "MEAN"));
-    FUSILLI_CHECK_ERROR(validate1DTensor(batchnormAttr.getVAR(), "VAR"));
-
     // Inference requires running mean and variance.
     if (isInferenceForwardPhase()) {
       FUSILLI_RETURN_ERROR_IF(!batchnormAttr.getMEAN(),
@@ -170,29 +148,22 @@ public:
     const std::vector<int64_t> channel1DDim = {xDim[1]};
     const std::vector<int64_t> channel1DStride = {1};
 
-#define INFER_1D_TENSOR(TENSOR)                                                \
-  if (TENSOR->getDim().empty())                                                \
-    TENSOR->setDim(channel1DDim);                                              \
-  if (TENSOR->getStride().empty())                                             \
-    TENSOR->setStride(channel1DStride);
+    auto infer1DTensor = [&](const std::shared_ptr<TensorAttr> &t) {
+      if (t->getDim().empty())
+        t->setDim(channel1DDim);
+      if (t->getStride().empty())
+        t->setStride(channel1DStride);
+    };
 
     // Infer 1D channel tensors.
-    std::shared_ptr<TensorAttr> sT = batchnormAttr.getSCALE();
-    if (sT) {
-      INFER_1D_TENSOR(sT);
-    }
-    std::shared_ptr<TensorAttr> bT = batchnormAttr.getBIAS();
-    if (bT) {
-      INFER_1D_TENSOR(bT);
-    }
-    std::shared_ptr<TensorAttr> meanT = batchnormAttr.getMEAN();
-    if (meanT) {
-      INFER_1D_TENSOR(meanT);
-    }
-    std::shared_ptr<TensorAttr> varT = batchnormAttr.getVAR();
-    if (varT) {
-      INFER_1D_TENSOR(varT);
-    }
+    if (auto sT = batchnormAttr.getSCALE())
+      infer1DTensor(sT);
+    if (auto bT = batchnormAttr.getBIAS())
+      infer1DTensor(bT);
+    if (auto meanT = batchnormAttr.getMEAN())
+      infer1DTensor(meanT);
+    if (auto varT = batchnormAttr.getVAR())
+      infer1DTensor(varT);
 
     // Infer shape and stride of output Y tensor (same as X).
     if (yT->getDim().empty())
@@ -202,13 +173,9 @@ public:
 
     // Infer saved statistics shapes for training.
     if (isTrainingForwardPhase()) {
-      std::shared_ptr<TensorAttr> smT = batchnormAttr.getSAVED_MEAN();
-      INFER_1D_TENSOR(smT);
-      std::shared_ptr<TensorAttr> sivT = batchnormAttr.getSAVED_INV_VARIANCE();
-      INFER_1D_TENSOR(sivT);
+      infer1DTensor(batchnormAttr.getSAVED_MEAN());
+      infer1DTensor(batchnormAttr.getSAVED_INV_VARIANCE());
     }
-
-#undef INFER_1D_TENSOR
 
     return ok();
   }
