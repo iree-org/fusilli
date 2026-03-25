@@ -32,11 +32,10 @@ TEST_CASE("Batch normalization; inference mode; NHWC layout; scale, bias",
     graph->setName("batchnorm_infer_sample_nhwc_scale_bias");
     graph->setIODataType(DataType::Float).setComputeDataType(DataType::Float);
 
-    auto xT =
-        graph->tensor(TensorAttr()
-                          .setName("x")
-                          .setDim({n, c, h, w})
-                          .setStride({c * h * w, 1, c * w, c})); // NHWC
+    auto xT = graph->tensor(TensorAttr()
+                                .setName("x")
+                                .setDim({n, c, h, w})
+                                .setStride({c * h * w, 1, c * w, c})); // NHWC
 
     // Shape and strides inferred by inferPropertiesNode().
     auto sT = graph->tensor(TensorAttr().setName("scale"));
@@ -89,7 +88,7 @@ TEST_CASE("Batch normalization; inference mode; NHWC layout; scale, bias",
 
   const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
       variantPack = {
-          {xT, xBuf}, {sT, sBuf},    {bT, bBuf},
+          {xT, xBuf},       {sT, sBuf},     {bT, bBuf},
           {meanT, meanBuf}, {varT, varBuf}, {yT, yBuf},
       };
 

@@ -87,7 +87,7 @@ TEST_CASE("Batch normalization; inference mode; NCHW layout; scale, bias",
 
   const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
       variantPack = {
-          {xT, xBuf}, {sT, sBuf},    {bT, bBuf},
+          {xT, xBuf},       {sT, sBuf},     {bT, bBuf},
           {meanT, meanBuf}, {varT, varBuf}, {yT, yBuf},
       };
 

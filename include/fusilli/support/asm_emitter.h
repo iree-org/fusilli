@@ -211,7 +211,8 @@ getScalarConstantAsm(const std::shared_ptr<TensorAttr> &tensor) {
 //   getScalarItemOpsAsm("eps", epsilonTensor, "bn0")
 //
 // generates:
-//   %eps_bn0 = torch.aten.item %bn0_EPSILON : !torch.vtensor<[1],f32> -> !torch.float
+//   %eps_bn0 = torch.aten.item %bn0_EPSILON : !torch.vtensor<[1],f32> ->
+//   !torch.float
 inline std::string getScalarItemOpsAsm(const std::string &prefix,
                                        const std::shared_ptr<TensorAttr> &t,
                                        const std::string &suffix) {
@@ -975,9 +976,10 @@ inline ErrorOr<std::string> ConvDGradNode::emitNodePreAsm() const {
 //
 // Example (inference, NCHW [4,16,8,8] input, no scale/bias):
 //
-//   %eps_bn = torch.aten.item %EPSILON : !torch.vtensor<[1],f32> -> !torch.float
-//   %momentum_bn = torch.aten.item %MOMENTUM : !torch.vtensor<[1],f32> -> !torch.float
-//   %permute_x_val_0_bn = torch.constant.int 0
+//   %eps_bn = torch.aten.item %EPSILON : !torch.vtensor<[1],f32> ->
+//   !torch.float %momentum_bn = torch.aten.item %MOMENTUM :
+//   !torch.vtensor<[1],f32> -> !torch.float %permute_x_val_0_bn =
+//   torch.constant.int 0
 //   ...
 //   %X_bn_perm = torch.aten.permute %X, %permute_x_bn : ...
 //   %none_scale_bn = torch.constant.none

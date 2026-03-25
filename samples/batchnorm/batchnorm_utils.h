@@ -32,8 +32,8 @@ inline std::tuple<std::vector<float>, std::vector<float>, std::vector<float>,
 generateNchwForInferForward(int64_t n, int64_t c, int64_t h, int64_t w,
                             float scale, float bias, float eps) {
   const size_t totalSize = static_cast<size_t>(n * c * h * w);
-  std::vector<float> inputVals(totalSize), meanVals(c, 0.0f),
-      varVals(c, 1.0f), expectedVals(totalSize);
+  std::vector<float> inputVals(totalSize), meanVals(c, 0.0f), varVals(c, 1.0f),
+      expectedVals(totalSize);
 
   const float invStd = 1.0f / std::sqrt(1.0f + eps);
 

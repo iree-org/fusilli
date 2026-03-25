@@ -52,9 +52,7 @@ TEST_CASE("Batch normalization; training mode; NCHW layout; no scale/bias",
 
     yT->setName("y").setDataType(DataType::Float).setOutput(true);
     smT->setName("saved_mean").setDataType(DataType::Float).setOutput(true);
-    sivT->setName("saved_inv_var")
-        .setDataType(DataType::Float)
-        .setOutput(true);
+    sivT->setName("saved_inv_var").setDataType(DataType::Float).setOutput(true);
 
     FUSILLI_REQUIRE_OK(graph->validate());
     FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));

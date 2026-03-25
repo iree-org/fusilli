@@ -322,12 +322,12 @@ TEST_CASE("BatchNormNode postValidateNode validates output shapes",
   ctx.setIODataType(DataType::Float).setComputeDataType(DataType::Float);
 
   SECTION("Valid inference node passes postValidateNode") {
-    auto xT = std::make_shared<TensorAttr>(
-        TensorAttr()
-            .setName("x")
-            .setDim({n, c, h, w})
-            .setDataType(DataType::Float)
-            .setStride({c * h * w, h * w, w, 1}));
+    auto xT =
+        std::make_shared<TensorAttr>(TensorAttr()
+                                         .setName("x")
+                                         .setDim({n, c, h, w})
+                                         .setDataType(DataType::Float)
+                                         .setStride({c * h * w, h * w, w, 1}));
     auto meanT = std::make_shared<TensorAttr>(TensorAttr()
                                                   .setName("mean")
                                                   .setDim({c})
@@ -360,12 +360,12 @@ TEST_CASE("BatchNormNode postValidateNode validates output shapes",
   }
 
   SECTION("Y shape mismatch fails postValidateNode") {
-    auto xT = std::make_shared<TensorAttr>(
-        TensorAttr()
-            .setName("x")
-            .setDim({n, c, h, w})
-            .setDataType(DataType::Float)
-            .setStride({c * h * w, h * w, w, 1}));
+    auto xT =
+        std::make_shared<TensorAttr>(TensorAttr()
+                                         .setName("x")
+                                         .setDim({n, c, h, w})
+                                         .setDataType(DataType::Float)
+                                         .setStride({c * h * w, h * w, w, 1}));
     auto meanT = std::make_shared<TensorAttr>(
         TensorAttr().setName("mean").setDim({c}).setStride({1}));
     auto varT = std::make_shared<TensorAttr>(
@@ -373,11 +373,11 @@ TEST_CASE("BatchNormNode postValidateNode validates output shapes",
     auto epsT = std::make_shared<TensorAttr>(TensorAttr(1e-5f).setName("eps"));
     auto momT = std::make_shared<TensorAttr>(TensorAttr(0.1f).setName("mom"));
     // Y has wrong shape.
-    auto yT = std::make_shared<TensorAttr>(
-        TensorAttr()
-            .setName("y")
-            .setDim({n, c, h + 1, w})
-            .setStride({c * h * w, h * w, w, 1}));
+    auto yT =
+        std::make_shared<TensorAttr>(TensorAttr()
+                                         .setName("y")
+                                         .setDim({n, c, h + 1, w})
+                                         .setStride({c * h * w, h * w, w, 1}));
 
     BatchnormAttr attr;
     attr.setName("bn")
@@ -397,12 +397,12 @@ TEST_CASE("BatchNormNode postValidateNode validates output shapes",
   }
 
   SECTION("Valid training node passes postValidateNode") {
-    auto xT = std::make_shared<TensorAttr>(
-        TensorAttr()
-            .setName("x")
-            .setDim({n, c, h, w})
-            .setDataType(DataType::Float)
-            .setStride({c * h * w, h * w, w, 1}));
+    auto xT =
+        std::make_shared<TensorAttr>(TensorAttr()
+                                         .setName("x")
+                                         .setDim({n, c, h, w})
+                                         .setDataType(DataType::Float)
+                                         .setStride({c * h * w, h * w, w, 1}));
     auto scaleT = std::make_shared<TensorAttr>(
         TensorAttr().setName("scale").setDim({c}).setStride({1}));
     auto biasT = std::make_shared<TensorAttr>(
