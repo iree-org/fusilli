@@ -23,19 +23,19 @@ using namespace fusilli;
 //
 // Placeholders resolved at emission time:
 //   {FUNC_NAME}  — CustomOpAttr name (e.g., "my_neg")
-//   {IN0_DTYPE}  — input 0's MLIR element type (e.g., "f32", "f16")
-//   {OUT0_DTYPE} — output 0's MLIR element type
+//   {IN0_TYPE}   — input 0's full value tensor type (e.g.,
+//                   "!torch.vtensor<[4],f32>")
+//   {OUT0_TYPE}  — output 0's full value tensor type
 //
-// The function signature uses `!torch.vtensor<[?],dtype>` with dynamic
-// dimensions — fusilli inserts static-to-dynamic casts before the call and
-// dynamic-to-static casts after.
+// The function signature uses `{IN0_TYPE}` etc. which resolve to fully static
+// types — fusilli generates identity casts around the call.
 static std::string getCustomNegateMlir() {
   return R"(
-  func.func private @{FUNC_NAME}(%arg0: !torch.vtensor<[?],{IN0_DTYPE}>)
-                                    -> !torch.vtensor<[?],{OUT0_DTYPE}> {
-    %0 = torch.aten.neg %arg0 : !torch.vtensor<[?],{IN0_DTYPE}>
-        -> !torch.vtensor<[?],{OUT0_DTYPE}>
-    return %0 : !torch.vtensor<[?],{OUT0_DTYPE}>
+  func.func private @{FUNC_NAME}(%arg0: {IN0_TYPE})
+                                    -> {OUT0_TYPE} {
+    %0 = torch.aten.neg %arg0 : {IN0_TYPE}
+        -> {OUT0_TYPE}
+    return %0 : {OUT0_TYPE}
   }
 )";
 }
