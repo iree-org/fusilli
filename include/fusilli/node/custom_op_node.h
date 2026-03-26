@@ -43,10 +43,6 @@ public:
   ErrorOr<std::string> emitNodePreAsm() const override final;
 
   // ASM emission helpers (definitions in asm_emitter.h).
-  std::string
-  getStaticToDynamicCastAsm(const std::shared_ptr<TensorAttr> &tensor,
-                            const std::string &suffix, bool isInput,
-                            const std::string &operandOverride = "") const;
   std::string getCallOperandNamesAsm() const;
   std::string getCallOperandTypesAsm() const;
   std::string getCallResultNamesAsm() const;
@@ -89,23 +85,14 @@ public:
     return ok();
   }
 
-  // Resolves `{FUNC_NAME}`, `{IN<i>_DTYPE}`, and `{OUT<i>_DTYPE}` placeholders
-  // in the MLIR template using the node's name and tensor data types.
-  std::string resolveMlirPlaceholders() const {
-    std::string mlir = customOpAttr.getMlir();
-    replaceAll(mlir, "{FUNC_NAME}", customOpAttr.getName());
-    for (size_t i = 0; i < inputs.size(); ++i) {
-      const std::string &mlirDtype =
-          kDataTypeToMlirTypeAsm.at(inputs[i]->getDataType());
-      replaceAll(mlir, "{IN" + std::to_string(i) + "_DTYPE}", mlirDtype);
-    }
-    for (size_t i = 0; i < outputs.size(); ++i) {
-      const std::string &mlirDtype =
-          kDataTypeToMlirTypeAsm.at(outputs[i]->getDataType());
-      replaceAll(mlir, "{OUT" + std::to_string(i) + "_DTYPE}", mlirDtype);
-    }
-    return mlir;
-  }
+  // Resolves all placeholders in the MLIR template:
+  //   {FUNC_NAME}                    — node name
+  //   {IN<i>_DTYPE}/{OUT<i>_DTYPE}   — element type (e.g., "f32")
+  //   {IN<i>_TYPE}/{OUT<i>_TYPE}     — full value tensor type
+  //   {IN<i>_DIM<j>}/{OUT<i>_DIM<j>} — single logical dimension
+  //
+  // Definition in asm_emitter.h (needs getTensorTypeAsm()).
+  std::string resolveMlirPlaceholders() const;
 
   ErrorObject inferPropertiesNode() override final {
     FUSILLI_LOG_LABEL_ENDL("INFO: Inferring properties for CustomOpNode '"

@@ -20,10 +20,10 @@
 // Module-scope custom function definition:
 // CHECK:       module @module {
 // CHECK:         func.func private @sdpa(
-// CHECK:             %arg0: !torch.vtensor<[?,?,?,?],f16>,
-// CHECK:             %arg1: !torch.vtensor<[?,?,?,?],f16>,
-// CHECK:             %arg2: !torch.vtensor<[?,?,?,?],f16>)
-// CHECK:             -> !torch.vtensor<[?,?,?,?],f16> {
+// CHECK:             %arg0: !torch.vtensor<[1,8,64,64],f16>,
+// CHECK:             %arg1: !torch.vtensor<[1,8,64,64],f16>,
+// CHECK:             %arg2: !torch.vtensor<[1,8,64,64],f16>)
+// CHECK:             -> !torch.vtensor<[1,8,64,64],f16> {
 // CHECK:           %none_mask = torch.constant.none
 // CHECK:           %dropout = torch.constant.float 0.000000e+00
 // CHECK:           %is_causal = torch.constant.bool false
@@ -31,10 +31,10 @@
 // CHECK:           %enable_gqa = torch.constant.bool false
 // CHECK:           %0 = torch.aten.scaled_dot_product_attention %arg0, %arg1, %arg2,
 // CHECK:               %none_mask, %dropout, %is_causal, %scale, %enable_gqa :
-// CHECK:               !torch.vtensor<[?,?,?,?],f16>, !torch.vtensor<[?,?,?,?],f16>,
-// CHECK:               !torch.vtensor<[?,?,?,?],f16>, !torch.none, !torch.float, !torch.bool,
-// CHECK:               !torch.none, !torch.bool -> !torch.vtensor<[?,?,?,?],f16>
-// CHECK:           return %0 : !torch.vtensor<[?,?,?,?],f16>
+// CHECK:               !torch.vtensor<[1,8,64,64],f16>, !torch.vtensor<[1,8,64,64],f16>,
+// CHECK:               !torch.vtensor<[1,8,64,64],f16>, !torch.none, !torch.float, !torch.bool,
+// CHECK:               !torch.none, !torch.bool -> !torch.vtensor<[1,8,64,64],f16>
+// CHECK:           return %0 : !torch.vtensor<[1,8,64,64],f16>
 // CHECK:         }
 //
 // Main function with casts and call:
@@ -43,11 +43,7 @@
 // CHECK-SAME:      %k: !torch.vtensor<[1,8,64,64],f16>
 // CHECK-SAME:      %q: !torch.vtensor<[1,8,64,64],f16>
 // CHECK-SAME:      %v: !torch.vtensor<[1,8,64,64],f16>
-// CHECK:           %q_sdpa_i0_dyn = torch.tensor_static_info_cast %q_sdpa_i0_perm : !torch.vtensor<[1,8,64,64],f16> to !torch.vtensor<[?,?,?,?],f16>
-// CHECK:           %k_sdpa_i1_dyn = torch.tensor_static_info_cast %k_sdpa_i1_perm : !torch.vtensor<[1,8,64,64],f16> to !torch.vtensor<[?,?,?,?],f16>
-// CHECK:           %v_sdpa_i2_dyn = torch.tensor_static_info_cast %v_sdpa_i2_perm : !torch.vtensor<[1,8,64,64],f16> to !torch.vtensor<[?,?,?,?],f16>
-// CHECK:           %sdpa_OUT_0_sdpa_dyn = func.call @sdpa(%q_sdpa_i0_dyn, %k_sdpa_i1_dyn, %v_sdpa_i2_dyn) : (!torch.vtensor<[?,?,?,?],f16>, !torch.vtensor<[?,?,?,?],f16>, !torch.vtensor<[?,?,?,?],f16>) -> !torch.vtensor<[?,?,?,?],f16>
-// CHECK:           %sdpa_OUT_0_sdpa_perm = torch.tensor_static_info_cast %sdpa_OUT_0_sdpa_dyn : !torch.vtensor<[?,?,?,?],f16> to !torch.vtensor<[1,8,64,64],f16>
+// CHECK:           %sdpa_OUT_0_sdpa_perm = func.call @sdpa(%q_sdpa_i0_perm, %k_sdpa_i1_perm, %v_sdpa_i2_perm) : (!torch.vtensor<[1,8,64,64],f16>, !torch.vtensor<[1,8,64,64],f16>, !torch.vtensor<[1,8,64,64],f16>) -> !torch.vtensor<[1,8,64,64],f16>
 // CHECK:           torch.overwrite.tensor.contents %sdpa_OUT_0 overwrites %sdpa_OUT_0_
 // CHECK:           return
 // CHECK:         }
@@ -87,10 +83,10 @@ int main() {
   // Inline MLIR template for SDPA (no attention mask, default scalar params).
   std::string sdpaMlir = R"mlir(
   func.func private @{FUNC_NAME}(
-      %arg0: !torch.vtensor<[?,?,?,?],{IN0_DTYPE}>,
-      %arg1: !torch.vtensor<[?,?,?,?],{IN1_DTYPE}>,
-      %arg2: !torch.vtensor<[?,?,?,?],{IN2_DTYPE}>)
-      -> !torch.vtensor<[?,?,?,?],{OUT0_DTYPE}> {
+      %arg0: {IN0_TYPE},
+      %arg1: {IN1_TYPE},
+      %arg2: {IN2_TYPE})
+      -> {OUT0_TYPE} {
     %none_mask = torch.constant.none
     %dropout = torch.constant.float 0.000000e+00
     %is_causal = torch.constant.bool false
@@ -98,10 +94,10 @@ int main() {
     %enable_gqa = torch.constant.bool false
     %0 = torch.aten.scaled_dot_product_attention %arg0, %arg1, %arg2,
         %none_mask, %dropout, %is_causal, %scale, %enable_gqa :
-        !torch.vtensor<[?,?,?,?],{IN0_DTYPE}>, !torch.vtensor<[?,?,?,?],{IN1_DTYPE}>,
-        !torch.vtensor<[?,?,?,?],{IN2_DTYPE}>, !torch.none, !torch.float, !torch.bool,
-        !torch.none, !torch.bool -> !torch.vtensor<[?,?,?,?],{OUT0_DTYPE}>
-    return %0 : !torch.vtensor<[?,?,?,?],{OUT0_DTYPE}>
+        {IN0_TYPE}, {IN1_TYPE},
+        {IN2_TYPE}, !torch.none, !torch.float, !torch.bool,
+        !torch.none, !torch.bool -> {OUT0_TYPE}
+    return %0 : {OUT0_TYPE}
   }
 )mlir";
 

@@ -15,18 +15,17 @@
 // clang-format off
 //
 // CHECK:       module @module {
-// CHECK:         func.func private @my_split(%arg0: !torch.vtensor<[?],f32>)
-// CHECK:             -> (!torch.vtensor<[?],f32>, !torch.vtensor<[?],f32>) {
-// CHECK:           return %arg0, %arg0 : !torch.vtensor<[?],f32>, !torch.vtensor<[?],f32>
+// CHECK:         func.func private @my_split(%arg0: !torch.vtensor<[4],f32>)
+// CHECK:             -> (!torch.vtensor<[4],f32>, !torch.vtensor<[4],f32>) {
+// CHECK:           return %arg0, %arg0 : !torch.vtensor<[4],f32>, !torch.vtensor<[4],f32>
 // CHECK:         }
 // CHECK:         func.func @main(
 // CHECK-SAME:      %{{[^:]*}}: !torch.tensor<[4],f32>
 // CHECK-SAME:      %{{[^:]*}}: !torch.tensor<[4],f32>
 // CHECK-SAME:      %a: !torch.vtensor<[4],f32>
-// CHECK:           %{{.*}} = torch.tensor_static_info_cast %{{.*}} : !torch.vtensor<[4],f32> to !torch.vtensor<[?],f32>
-// CHECK:           %{{.*}}:2 = func.call @my_split(%{{.*}}) : (!torch.vtensor<[?],f32>) -> (!torch.vtensor<[?],f32>, !torch.vtensor<[?],f32>)
-// CHECK:           %{{.*}} = torch.tensor_static_info_cast %{{.*}}#0 : !torch.vtensor<[?],f32> to !torch.vtensor<[4],f32>
-// CHECK:           %{{.*}} = torch.tensor_static_info_cast %{{.*}}#1 : !torch.vtensor<[?],f32> to !torch.vtensor<[4],f32>
+// CHECK:           %{{.*}}:2 = func.call @my_split(%{{.*}}_perm) : (!torch.vtensor<[4],f32>) -> (!torch.vtensor<[4],f32>, !torch.vtensor<[4],f32>)
+// CHECK:           %{{.*}} = torch.aten.permute %{{.*}}#0
+// CHECK:           %{{.*}} = torch.aten.permute %{{.*}}#1
 // CHECK:           torch.overwrite.tensor.contents %{{.*}} overwrites %{{.*}}
 // CHECK:           torch.overwrite.tensor.contents %{{.*}} overwrites %{{.*}}
 // CHECK:           return
@@ -54,9 +53,9 @@ int main() {
           DataType::Float));
 
   std::string splitMlir = R"(
-  func.func private @{FUNC_NAME}(%arg0: !torch.vtensor<[?],{IN0_DTYPE}>)
-      -> (!torch.vtensor<[?],{OUT0_DTYPE}>, !torch.vtensor<[?],{OUT1_DTYPE}>) {
-    return %arg0, %arg0 : !torch.vtensor<[?],{OUT0_DTYPE}>, !torch.vtensor<[?],{OUT1_DTYPE}>
+  func.func private @{FUNC_NAME}(%arg0: {IN0_TYPE})
+      -> ({OUT0_TYPE}, {OUT1_TYPE}) {
+    return %arg0, %arg0 : {IN0_TYPE}, {IN0_TYPE}
   }
 )";
 
