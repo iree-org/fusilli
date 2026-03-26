@@ -17,25 +17,25 @@
 // clang-format off
 //
 // CHECK:       module @module {
-// CHECK:         func.func private @my_add(%arg0: !torch.vtensor<[?],f32>,
-// CHECK:                                    %arg1: !torch.vtensor<[?],f32>)
-// CHECK:                                    -> !torch.vtensor<[?],f32> {
+// CHECK:         func.func private @my_add(%arg0: !torch.vtensor<[4],f32>,
+// CHECK:                                    %arg1: !torch.vtensor<[4],f32>)
+// CHECK:                                    -> !torch.vtensor<[4],f32> {
 // CHECK:           %int1 = torch.constant.int 1
 // CHECK:           %0 = torch.aten.add.Tensor %arg0, %arg1, %int1
-// CHECK:               : !torch.vtensor<[?],f32>, !torch.vtensor<[?],f32>, !torch.int
-// CHECK:               -> !torch.vtensor<[?],f32>
-// CHECK:           return %0 : !torch.vtensor<[?],f32>
+// CHECK:               : !torch.vtensor<[4],f32>, !torch.vtensor<[4],f32>, !torch.int
+// CHECK:               -> !torch.vtensor<[4],f32>
+// CHECK:           return %0 : !torch.vtensor<[4],f32>
 // CHECK:         }
 // CHECK:         func.func @main(
 // CHECK-SAME:      %my_add_OUT_0_: !torch.tensor<[4],f32>
 // CHECK-SAME:      %a: !torch.vtensor<[4],f32>
 // CHECK-SAME:      %b: !torch.vtensor<[4],f32>
 // CHECK:           %a_my_add_i0_perm = torch.aten.permute %a
-// CHECK:           %a_my_add_i0_dyn = torch.tensor_static_info_cast %a_my_add_i0_perm : !torch.vtensor<[4],f32> to !torch.vtensor<[?],f32>
+// CHECK:           %a_my_add_i0_dyn = torch.tensor_static_info_cast %a_my_add_i0_perm : !torch.vtensor<[4],f32> to !torch.vtensor<[4],f32>
 // CHECK:           %b_my_add_i1_perm = torch.aten.permute %b
-// CHECK:           %b_my_add_i1_dyn = torch.tensor_static_info_cast %b_my_add_i1_perm : !torch.vtensor<[4],f32> to !torch.vtensor<[?],f32>
-// CHECK:           %my_add_OUT_0_my_add_dyn = func.call @my_add(%a_my_add_i0_dyn, %b_my_add_i1_dyn) : (!torch.vtensor<[?],f32>, !torch.vtensor<[?],f32>) -> !torch.vtensor<[?],f32>
-// CHECK:           %my_add_OUT_0_my_add_perm = torch.tensor_static_info_cast %my_add_OUT_0_my_add_dyn : !torch.vtensor<[?],f32> to !torch.vtensor<[4],f32>
+// CHECK:           %b_my_add_i1_dyn = torch.tensor_static_info_cast %b_my_add_i1_perm : !torch.vtensor<[4],f32> to !torch.vtensor<[4],f32>
+// CHECK:           %my_add_OUT_0_my_add_dyn = func.call @my_add(%a_my_add_i0_dyn, %b_my_add_i1_dyn) : (!torch.vtensor<[4],f32>, !torch.vtensor<[4],f32>) -> !torch.vtensor<[4],f32>
+// CHECK:           %my_add_OUT_0_my_add_perm = torch.tensor_static_info_cast %my_add_OUT_0_my_add_dyn : !torch.vtensor<[4],f32> to !torch.vtensor<[4],f32>
 // CHECK:           %my_add_OUT_0 = torch.aten.permute %my_add_OUT_0_my_add_perm
 // CHECK:           torch.overwrite.tensor.contents %my_add_OUT_0 overwrites %my_add_OUT_0_
 // CHECK:           return
@@ -65,14 +65,14 @@ int main() {
           DataType::Float));
 
   std::string addMlir = R"(
-  func.func private @{FUNC_NAME}(%arg0: !torch.vtensor<[?],{IN0_DTYPE}>,
-                                   %arg1: !torch.vtensor<[?],{IN1_DTYPE}>)
-                                   -> !torch.vtensor<[?],{OUT0_DTYPE}> {
+  func.func private @{FUNC_NAME}(%arg0: {IN0_TYPE},
+                                   %arg1: {IN1_TYPE})
+                                   -> {OUT0_TYPE} {
     %int1 = torch.constant.int 1
     %0 = torch.aten.add.Tensor %arg0, %arg1, %int1
-        : !torch.vtensor<[?],{IN0_DTYPE}>, !torch.vtensor<[?],{IN1_DTYPE}>, !torch.int
-        -> !torch.vtensor<[?],{OUT0_DTYPE}>
-    return %0 : !torch.vtensor<[?],{OUT0_DTYPE}>
+        : {IN0_TYPE}, {IN1_TYPE}, !torch.int
+        -> {OUT0_TYPE}
+    return %0 : {OUT0_TYPE}
   }
 )";
 

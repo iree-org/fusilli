@@ -42,14 +42,22 @@ public:
   // The string may contain placeholders that are resolved at emission time
   // by `CustomOpNode::resolveMlirPlaceholders()`:
   //
-  //   {FUNC_NAME}   — replaced with the node's unique name (from setName()).
-  //   {IN0_DTYPE}   — replaced with input 0's MLIR element type (e.g., "f32").
-  //   {OUT0_DTYPE}  — replaced with output 0's MLIR element type.
+  //   {FUNC_NAME}    — replaced with the node's unique name (from setName()).
+  //   {IN0_DTYPE}    — replaced with input 0's MLIR element type (e.g., "f32").
+  //   {OUT0_DTYPE}   — replaced with output 0's MLIR element type.
+  //   {IN0_TYPE}     — replaced with input 0's full value tensor type
+  //                     (e.g., "!torch.vtensor<[4,8],f32>").
+  //   {OUT0_TYPE}    — replaced with output 0's full value tensor type.
+  //   {IN0_DIM0}     — replaced with input 0's logical dimension 0 (e.g., "4").
+  //   {OUT0_DIM0}    — replaced with output 0's logical dimension 0.
+  //
+  // All indices are 0-based and generalize to any input/output/dimension count
+  // (e.g., {IN2_TYPE}, {OUT1_DIM3}).
   //
   // Example:
-  //   func.func private @{FUNC_NAME}(%arg0: !torch.vtensor<[?],{IN0_DTYPE}>,
-  //                                    %arg1: !torch.vtensor<[?],{IN1_DTYPE}>)
-  //                                    -> !torch.vtensor<[?],{OUT0_DTYPE}> {
+  //   func.func private @{FUNC_NAME}(%arg0: {IN0_TYPE},
+  //                                    %arg1: {IN1_TYPE})
+  //                                    -> {OUT0_TYPE} {
   //     ...
   //   }
   //

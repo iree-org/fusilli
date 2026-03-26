@@ -1632,9 +1632,36 @@ inline ErrorOr<std::string> ReductionNode::emitNodePreAsm() const {
 //
 //===----------------------------------------------------------------------===//
 
-// Returns the user's MLIR function definition with placeholders resolved
-// for placement at module scope (alongside @main). Ensures a trailing
-// newline so that consecutive definitions don't merge into one line.
+inline std::string CustomOpNode::resolveMlirPlaceholders() const {
+  std::string mlir = customOpAttr.getMlir();
+  replaceAll(mlir, "{FUNC_NAME}", customOpAttr.getName());
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    std::string iStr = std::to_string(i);
+    replaceAll(mlir, "{IN" + iStr + "_DTYPE}",
+               kDataTypeToMlirTypeAsm.at(inputs[i]->getDataType()));
+    replaceAll(mlir, "{IN" + iStr + "_TYPE}",
+               inputs[i]->getTensorTypeAsm(/*isValueTensor=*/true,
+                                           /*useLogicalDims=*/true));
+    const auto &dims = inputs[i]->getDim();
+    for (size_t d = 0; d < dims.size(); ++d)
+      replaceAll(mlir, "{IN" + iStr + "_DIM" + std::to_string(d) + "}",
+                 std::to_string(dims[d]));
+  }
+  for (size_t i = 0; i < outputs.size(); ++i) {
+    std::string iStr = std::to_string(i);
+    replaceAll(mlir, "{OUT" + iStr + "_DTYPE}",
+               kDataTypeToMlirTypeAsm.at(outputs[i]->getDataType()));
+    replaceAll(mlir, "{OUT" + iStr + "_TYPE}",
+               outputs[i]->getTensorTypeAsm(/*isValueTensor=*/true,
+                                            /*useLogicalDims=*/true));
+    const auto &dims = outputs[i]->getDim();
+    for (size_t d = 0; d < dims.size(); ++d)
+      replaceAll(mlir, "{OUT" + iStr + "_DIM" + std::to_string(d) + "}",
+                 std::to_string(dims[d]));
+  }
+  return mlir;
+}
+
 inline ErrorOr<std::string> CustomOpNode::emitModuleScopeAsm() const {
   std::string mlir = resolveMlirPlaceholders();
   if (!mlir.empty() && mlir.back() != '\n')
@@ -1659,15 +1686,14 @@ inline std::string CustomOpNode::getCallOperandNamesAsm() const {
 }
 
 // Emits CustomOpNode's call operand types in MLIR assembly format.
-// Uses dynamic (all-?) logical tensor types.
+// Uses static logical tensor types (matching the func.func signature).
 inline std::string CustomOpNode::getCallOperandTypesAsm() const {
   std::ostringstream oss;
   interleave(
       inputs.begin(), inputs.end(),
       [&](const std::shared_ptr<TensorAttr> &input) {
         oss << input->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/true,
-                                       /*isDynamic=*/true);
+                                       /*useLogicalDims=*/true);
       },
       [&] { oss << ", "; });
   return oss.str();
@@ -1685,36 +1711,35 @@ inline std::string CustomOpNode::getCallResultNamesAsm() const {
 }
 
 // Emits CustomOpNode's call result types in MLIR assembly format.
-// Uses dynamic (all-?) logical tensor types.
+// Uses static logical tensor types (matching the func.func signature).
 inline std::string CustomOpNode::getCallResultTypesAsm() const {
   std::ostringstream oss;
   interleave(
       outputs.begin(), outputs.end(),
       [&](const std::shared_ptr<TensorAttr> &output) {
         oss << output->getTensorTypeAsm(/*isValueTensor=*/true,
-                                        /*useLogicalDims=*/true,
-                                        /*isDynamic=*/true);
+                                        /*useLogicalDims=*/true);
       },
       [&] { oss << ", "; });
   return oss.str();
 }
 
-// Emits a static-to-dynamic or dynamic-to-static cast for a tensor.
+// Emits an identity cast for a tensor (both sides use static logical types).
 //
-// When isInput=true (static logical -> dynamic):
+// When isInput=true:
 //   %name_suffix_dyn = torch.tensor_static_info_cast %name_suffix_perm
-//       : static_logical_type to dynamic_type
+//       : static_logical_type to static_logical_type
 //
-// When isInput=false (dynamic -> static logical):
+// When isInput=false:
 //   %name_suffix_perm = torch.tensor_static_info_cast %name_suffix_dyn
-//       : dynamic_type to static_logical_type
+//       : static_logical_type to static_logical_type
 inline std::string CustomOpNode::getStaticToDynamicCastAsm(
     const std::shared_ptr<TensorAttr> &tensor, const std::string &suffix,
     bool isInput, const std::string &operandOverride) const {
   std::string staticType =
       tensor->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
-  std::string dynamicType = tensor->getTensorTypeAsm(
-      /*isValueTensor=*/true, /*useLogicalDims=*/false, /*isDynamic=*/true);
+  std::string dynamicType =
+      tensor->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
 
   std::string resultName =
       tensor->getValueNameAsm() + "_" + suffix + (isInput ? "_dyn" : "_perm");
