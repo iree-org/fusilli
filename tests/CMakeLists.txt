@@ -99,6 +99,7 @@ add_fusilli_tests(
     test_dllib.cpp
     test_extras.cpp
     test_float_types.cpp
+    test_int_types.cpp
     test_memstream.cpp
     test_process.cpp
     test_ssa_validation.cpp
