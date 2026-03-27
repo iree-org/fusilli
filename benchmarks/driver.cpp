@@ -6,6 +6,7 @@
 
 #include <fusilli.h>
 
+#include "sdpa_utils.h"
 #include "utils.h"
 
 #include <CLI/CLI.hpp>
@@ -18,6 +19,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -60,6 +62,16 @@ struct LayerNormOptions {
   int64_t forw;
   float eps;
   bool elementwiseAffine{false};
+};
+
+struct SdpaOptions {
+  int64_t batch, headsQ, headsKV, seqQ, seqKV, headDim;
+  std::string type;
+  std::optional<float> scale{std::nullopt};
+  float dropoutP{0.0f};
+  bool isCausal{false};
+  bool enableGqa{false};
+  bool hasAttnMask{false};
 };
 
 struct MatmulOptions {
@@ -592,6 +604,140 @@ static ErrorObject benchmarkLayerNormFwd(const LayerNormOptions &opts,
   return ok();
 }
 
+static ErrorObject benchmarkSdpaFwd(const SdpaOptions &opts,
+                                    DataType sdpaIOType, int64_t iter,
+                                    int64_t deviceId, bool dump) {
+#if defined(FUSILLI_ENABLE_AMDGPU)
+  FUSILLI_ASSIGN_OR_RETURN(Handle handle,
+                           Handle::create(Backend::AMDGPU, deviceId));
+#else
+  FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(Backend::CPU));
+#endif
+
+  std::optional<float> scale = opts.scale;
+
+  // Q: [batch, headsQ, seqQ, headDim]
+  std::vector<int64_t> qDim = {opts.batch, opts.headsQ, opts.seqQ,
+                               opts.headDim};
+  auto qStride =
+      generateStrideFromDim(qDim, getContiguousStrideOrder(qDim.size()));
+
+  // K: [batch, headsKV, seqKV, headDim]
+  std::vector<int64_t> kDim = {opts.batch, opts.headsKV, opts.seqKV,
+                               opts.headDim};
+  auto kStride =
+      generateStrideFromDim(kDim, getContiguousStrideOrder(kDim.size()));
+
+  // V: [batch, headsKV, seqKV, headDim]
+  std::vector<int64_t> vDim = kDim;
+  auto vStride = kStride;
+
+  Graph graph;
+  std::string causalSuffix = opts.isCausal ? "_causal" : "";
+  std::string maskSuffix = opts.hasAttnMask ? "_mask" : "";
+  std::string gqaSuffix = opts.enableGqa ? "_gqa" : "";
+  std::string scaleSuffix =
+      scale.has_value() ? std::format("_scale{:g}", *scale) : "";
+  std::string dropoutSuffix =
+      opts.dropoutP > 0.0f ? std::format("_dropout{:g}", opts.dropoutP) : "";
+
+  auto graphName = std::format(
+      "benchmark_sdpa_b{}hq{}hkv{}sq{}skv{}d{}_type{}{}{}{}{}{}", opts.batch,
+      opts.headsQ, opts.headsKV, opts.seqQ, opts.seqKV, opts.headDim,
+      kDataTypeToMlirTypeAsm.at(sdpaIOType), causalSuffix, maskSuffix,
+      gqaSuffix, scaleSuffix, dropoutSuffix);
+  graph.setName(graphName);
+
+  graph.setIODataType(DataType::Float)
+      .setComputeDataType(DataType::Float)
+      .setIntermediateDataType(DataType::Float);
+
+  auto qT = graph.tensor(
+      TensorAttr().setName("q").setDim(qDim).setStride(qStride).setDataType(
+          sdpaIOType));
+
+  auto kT = graph.tensor(
+      TensorAttr().setName("k").setDim(kDim).setStride(kStride).setDataType(
+          sdpaIOType));
+
+  auto vT = graph.tensor(
+      TensorAttr().setName("v").setDim(vDim).setStride(vStride).setDataType(
+          sdpaIOType));
+
+  // Attention mask: [batch, 1, seqQ, seqKV] -- broadcast across heads.
+  std::shared_ptr<TensorAttr> maskT;
+  if (opts.hasAttnMask) {
+    std::vector<int64_t> maskDim = {opts.batch, 1, opts.seqQ, opts.seqKV};
+    auto maskStride = generateStrideFromDim(
+        maskDim, getContiguousStrideOrder(maskDim.size()));
+    maskT = graph.tensor(TensorAttr()
+                             .setName("mask")
+                             .setDim(maskDim)
+                             .setStride(maskStride)
+                             .setDataType(sdpaIOType));
+  }
+
+  // Build the MLIR template with scalar parameters.
+  std::string sdpaMlir = buildSdpaMlir(opts.hasAttnMask, opts.dropoutP,
+                                       opts.isCausal, scale, opts.enableGqa);
+
+  CustomOpAttr sdpaAttr;
+  sdpaAttr.setName("sdpa").setMlir(sdpaMlir).setNumOutputs(1);
+
+  std::vector<std::shared_ptr<TensorAttr>> inputs = {qT, kT, vT};
+  if (opts.hasAttnMask)
+    inputs.push_back(maskT);
+
+  auto outs = graph.customOp(inputs, sdpaAttr);
+
+  // Output: [batch, headsQ, seqQ, headDim]
+  std::vector<int64_t> outDim = {opts.batch, opts.headsQ, opts.seqQ,
+                                 opts.headDim};
+  auto outStride =
+      generateStrideFromDim(outDim, getContiguousStrideOrder(outDim.size()));
+  outs[0]
+      ->setDim(outDim)
+      .setStride(outStride)
+      .setDataType(sdpaIOType)
+      .setOutput(true);
+
+  // Validate, infer missing properties
+  FUSILLI_CHECK_ERROR(graph.validate());
+
+  // Compile
+  FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
+
+  // Allocate input and output buffers.
+  FUSILLI_ASSIGN_OR_RETURN(auto qBuf,
+                           allocateBufferOfType(handle, qT, sdpaIOType, 0.01f));
+  FUSILLI_ASSIGN_OR_RETURN(auto kBuf,
+                           allocateBufferOfType(handle, kT, sdpaIOType, 0.01f));
+  FUSILLI_ASSIGN_OR_RETURN(auto vBuf,
+                           allocateBufferOfType(handle, vT, sdpaIOType, 0.01f));
+  FUSILLI_ASSIGN_OR_RETURN(
+      auto outBuf, allocateBufferOfType(handle, outs[0], sdpaIOType, 0.0f));
+
+  // Create variant pack.
+  std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
+      variantPack = {{qT, qBuf}, {kT, kBuf}, {vT, vBuf}, {outs[0], outBuf}};
+
+  if (opts.hasAttnMask) {
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto maskBuf, allocateBufferOfType(handle, maskT, sdpaIOType, -1.0f));
+    variantPack[maskT] = maskBuf;
+  }
+
+  // Allocate workspace buffer if needed.
+  FUSILLI_ASSIGN_OR_RETURN(auto workspace,
+                           allocateWorkspace(handle, graph.getWorkspaceSize()));
+
+  // Execute graph `iter` times.
+  for (size_t i = 0; i < iter; ++i)
+    FUSILLI_CHECK_ERROR(graph.execute(handle, variantPack, workspace));
+
+  return ok();
+}
+
 static ErrorObject benchmarkMatmul(const MatmulOptions &opts, DataType aType,
                                    DataType bType, DataType outType,
                                    DataType biasType, int64_t iter,
@@ -917,6 +1063,53 @@ static CLI::App *registerMatmulOptions(CLI::App &mainApp,
   return matmulApp;
 }
 
+// Register SDPA options to CLI app
+static CLI::App *registerSdpaOptions(CLI::App &mainApp, SdpaOptions &sdpaOpts) {
+  CLI::App *sdpaApp = mainApp.add_subcommand(
+      "sdpa", "Fusilli Benchmark Scaled Dot-Product Attention");
+
+  // sdpaApp CLI Options - bind to SdpaOptions members
+  sdpaApp->add_option("--batch,-B", sdpaOpts.batch, "Batch size")
+      ->required()
+      ->check(kIsPositiveInteger);
+  sdpaApp->add_option("--heads_q", sdpaOpts.headsQ, "Number of query heads")
+      ->required()
+      ->check(kIsPositiveInteger);
+  sdpaApp
+      ->add_option("--heads_kv", sdpaOpts.headsKV, "Number of key/value heads")
+      ->required()
+      ->check(kIsPositiveInteger);
+  sdpaApp->add_option("--seq_q", sdpaOpts.seqQ, "Query sequence length")
+      ->required()
+      ->check(kIsPositiveInteger);
+  sdpaApp->add_option("--seq_kv", sdpaOpts.seqKV, "Key/value sequence length")
+      ->required()
+      ->check(kIsPositiveInteger);
+  sdpaApp->add_option("--head_dim,-d", sdpaOpts.headDim, "Head dimension")
+      ->required()
+      ->check(kIsPositiveInteger);
+  sdpaApp->add_option("--type,-t", sdpaOpts.type, "Data type (f32, f16, bf16)")
+      ->required()
+      ->check(kIsValidDataType);
+  sdpaApp->add_option("--scale,-s", sdpaOpts.scale,
+                      "Attention scale (default: 1/sqrt(head_dim))");
+  sdpaApp->add_option("--dropout,-p", sdpaOpts.dropoutP, "Dropout probability")
+      ->default_val(0.0f);
+
+  // sdpaApp CLI Flags:
+  auto *maskFlag = sdpaApp->add_flag("--mask", sdpaOpts.hasAttnMask,
+                                     "Use explicit attention mask");
+  // Causal and explicit mask are mutually exclusive.
+  auto *causalFlag = sdpaApp->add_flag("--causal", sdpaOpts.isCausal,
+                                       "Use causal attention mask");
+  causalFlag->excludes(maskFlag);
+  sdpaApp->add_flag("--gqa", sdpaOpts.enableGqa,
+                    "Enable grouped query attention (headsQ must be a "
+                    "multiple of headsKV)");
+
+  return sdpaApp;
+}
+
 // Validate and run convolution benchmark
 static ErrorObject runConvBenchmark(const ConvOptions &convOpts, int64_t iter,
                                     int64_t deviceId, bool dump) {
@@ -1035,6 +1228,19 @@ static ErrorObject runMatmulBenchmark(const MatmulOptions &matmulOpts,
   return ok();
 }
 
+// Run SDPA benchmark
+static ErrorObject runSdpaBenchmark(const SdpaOptions &sdpaOpts, int64_t iter,
+                                    int64_t deviceId, bool dump) {
+  DataType sdpaIOType = kMlirTypeAsmToDataType.at(sdpaOpts.type);
+
+  ErrorObject status =
+      benchmarkSdpaFwd(sdpaOpts, sdpaIOType, iter, deviceId, dump);
+
+  FUSILLI_CHECK_ERROR(status);
+
+  return ok();
+}
+
 //===---------------------------------------------------------------------===//
 // Main function
 //===---------------------------------------------------------------------===//
@@ -1047,6 +1253,7 @@ static int benchmark(int argc, char **argv) {
   ConvOptions convOpts;
   MatmulOptions matmulOpts;
   LayerNormOptions layerNormOpts;
+  SdpaOptions sdpaOpts;
 
   // Shared options between subcommands
   int64_t iter, deviceId;
@@ -1072,6 +1279,7 @@ static int benchmark(int argc, char **argv) {
   CLI::App *convApp = registerConvOptions(mainApp, convOpts);
   CLI::App *matmulApp = registerMatmulOptions(mainApp, matmulOpts);
   CLI::App *layerNormApp = registerLayerNormOptions(mainApp, layerNormOpts);
+  CLI::App *sdpaApp = registerSdpaOptions(mainApp, sdpaOpts);
 
   CLI11_PARSE(mainApp, argc, argv);
 
@@ -1099,6 +1307,14 @@ static int benchmark(int argc, char **argv) {
     ErrorObject status = runMatmulBenchmark(matmulOpts, iter, deviceId, dump);
     if (isError(status)) {
       std::cerr << "Fusilli Matmul Benchmark failed: " << status << std::endl;
+      return 1;
+    }
+  }
+
+  if (sdpaApp->parsed()) {
+    ErrorObject status = runSdpaBenchmark(sdpaOpts, iter, deviceId, dump);
+    if (isError(status)) {
+      std::cerr << "Fusilli SDPA Benchmark failed: " << status << std::endl;
       return 1;
     }
   }
