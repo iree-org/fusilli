@@ -100,7 +100,7 @@ TEST_CASE("BatchNormNode preValidateNode detects missing attributes",
     REQUIRE(status.getMessage() == "BatchNorm epsilon not set");
   }
 
-  SECTION("Momentum missing") {
+  SECTION("Momentum missing — optional, passes validation") {
     BatchnormAttr attr;
     attr.setForwardPhase(NormFwdPhase::INFERENCE);
     attr.setX(std::make_shared<TensorAttr>(
@@ -119,9 +119,7 @@ TEST_CASE("BatchNormNode preValidateNode detects missing attributes",
     BatchNormNode node(std::move(attr), ctx);
 
     auto status = node.preValidateNode();
-    REQUIRE(isError(status));
-    REQUIRE(status.getCode() == ErrorCode::AttributeNotSet);
-    REQUIRE(status.getMessage() == "BatchNorm momentum not set");
+    REQUIRE(!isError(status));
   }
 
   SECTION("Inference mode missing running MEAN") {
@@ -378,6 +376,121 @@ TEST_CASE("BatchNormNode postValidateNode validates output shapes",
                                          .setName("y")
                                          .setDim({n, c, h + 1, w})
                                          .setStride({c * h * w, h * w, w, 1}));
+
+    BatchnormAttr attr;
+    attr.setName("bn")
+        .setForwardPhase(NormFwdPhase::INFERENCE)
+        .setX(xT)
+        .setMEAN(meanT)
+        .setVAR(varT)
+        .setEpsilon(epsT)
+        .setMomentum(momT)
+        .setY(yT);
+
+    BatchNormNode node(std::move(attr), ctx);
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    auto status = node.postValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+  }
+
+  SECTION("Rank-matched 1D tensors [1,C,1,1] pass postValidateNode") {
+    auto xT =
+        std::make_shared<TensorAttr>(TensorAttr()
+                                         .setName("x")
+                                         .setDim({n, c, h, w})
+                                         .setDataType(DataType::Float)
+                                         .setStride({c * h * w, h * w, w, 1}));
+    // Provide MEAN and VAR as rank-matched [1, C, 1, 1] with contiguous stride.
+    auto meanT = std::make_shared<TensorAttr>(TensorAttr()
+                                                  .setName("mean")
+                                                  .setDim({1, c, 1, 1})
+                                                  .setStride({c, 1, 1, 1}));
+    auto varT = std::make_shared<TensorAttr>(TensorAttr()
+                                                 .setName("var")
+                                                 .setDim({1, c, 1, 1})
+                                                 .setStride({c, 1, 1, 1}));
+    auto epsT = std::make_shared<TensorAttr>(TensorAttr(1e-5f).setName("eps"));
+    auto momT = std::make_shared<TensorAttr>(TensorAttr(0.1f).setName("mom"));
+    auto yT = std::make_shared<TensorAttr>(
+        TensorAttr().setName("y").setIsVirtual(true));
+
+    BatchnormAttr attr;
+    attr.setName("bn")
+        .setForwardPhase(NormFwdPhase::INFERENCE)
+        .setX(xT)
+        .setMEAN(meanT)
+        .setVAR(varT)
+        .setEpsilon(epsT)
+        .setMomentum(momT)
+        .setY(yT);
+
+    BatchNormNode node(std::move(attr), ctx);
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+    FUSILLI_REQUIRE_OK(node.postValidateNode());
+  }
+
+  SECTION(
+      "Rank-matched tensor with wrong channel size fails postValidateNode") {
+    auto xT =
+        std::make_shared<TensorAttr>(TensorAttr()
+                                         .setName("x")
+                                         .setDim({n, c, h, w})
+                                         .setDataType(DataType::Float)
+                                         .setStride({c * h * w, h * w, w, 1}));
+    // MEAN has wrong channel dimension (c+1 instead of c).
+    auto meanT = std::make_shared<TensorAttr>(TensorAttr()
+                                                  .setName("mean")
+                                                  .setDim({1, c + 1, 1, 1})
+                                                  .setStride({c + 1, 1, 1, 1}));
+    auto varT = std::make_shared<TensorAttr>(TensorAttr()
+                                                 .setName("var")
+                                                 .setDim({1, c, 1, 1})
+                                                 .setStride({c, 1, 1, 1}));
+    auto epsT = std::make_shared<TensorAttr>(TensorAttr(1e-5f).setName("eps"));
+    auto momT = std::make_shared<TensorAttr>(TensorAttr(0.1f).setName("mom"));
+    auto yT = std::make_shared<TensorAttr>(
+        TensorAttr().setName("y").setIsVirtual(true));
+
+    BatchnormAttr attr;
+    attr.setName("bn")
+        .setForwardPhase(NormFwdPhase::INFERENCE)
+        .setX(xT)
+        .setMEAN(meanT)
+        .setVAR(varT)
+        .setEpsilon(epsT)
+        .setMomentum(momT)
+        .setY(yT);
+
+    BatchNormNode node(std::move(attr), ctx);
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    auto status = node.postValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+  }
+
+  SECTION("Rank-matched tensor with non-one in spatial dim fails "
+          "postValidateNode") {
+    auto xT =
+        std::make_shared<TensorAttr>(TensorAttr()
+                                         .setName("x")
+                                         .setDim({n, c, h, w})
+                                         .setDataType(DataType::Float)
+                                         .setStride({c * h * w, h * w, w, 1}));
+    // VAR has h instead of 1 in the spatial dimension.
+    auto meanT = std::make_shared<TensorAttr>(TensorAttr()
+                                                  .setName("mean")
+                                                  .setDim({1, c, 1, 1})
+                                                  .setStride({c, 1, 1, 1}));
+    auto varT = std::make_shared<TensorAttr>(TensorAttr()
+                                                 .setName("var")
+                                                 .setDim({1, c, h, 1})
+                                                 .setStride({c * h, h, 1, 1}));
+    auto epsT = std::make_shared<TensorAttr>(TensorAttr(1e-5f).setName("eps"));
+    auto momT = std::make_shared<TensorAttr>(TensorAttr(0.1f).setName("mom"));
+    auto yT = std::make_shared<TensorAttr>(
+        TensorAttr().setName("y").setIsVirtual(true));
 
     BatchnormAttr attr;
     attr.setName("bn")

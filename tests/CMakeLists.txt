@@ -163,6 +163,8 @@ add_fusilli_lit_tests(
     lit/test_conv_dgrad_asm_emitter_nhwc_kcrs.cpp
     lit/test_conv_dgrad_asm_emitter_nhwc_kcrs_grouped.cpp
     lit/test_batchnorm_infer_asm_emitter_nchw.cpp
+    lit/test_batchnorm_infer_asm_emitter_nchw_no_momentum.cpp
+    lit/test_batchnorm_infer_asm_emitter_nchw_rank_matched.cpp
     lit/test_batchnorm_train_asm_emitter_nchw.cpp
     lit/test_layernorm_infer_asm_emitter_nchw.cpp
     lit/test_layernorm_infer_asm_emitter_scale_bias_nhwc.cpp

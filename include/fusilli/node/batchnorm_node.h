@@ -125,12 +125,12 @@ public:
     FUSILLI_RETURN_ERROR_IF(!eT->isScalar(), ErrorCode::InvalidAttribute,
                             "BatchNorm epsilon must be a scalar constant");
 
-    // Momentum checks.
+    // Momentum checks (optional — omitting uses the PyTorch default 0.1).
     std::shared_ptr<TensorAttr> mT = batchnormAttr.getMomentum();
-    FUSILLI_RETURN_ERROR_IF(!mT, ErrorCode::AttributeNotSet,
-                            "BatchNorm momentum not set");
-    FUSILLI_RETURN_ERROR_IF(!mT->isScalar(), ErrorCode::InvalidAttribute,
-                            "BatchNorm momentum must be a scalar constant");
+    if (mT) {
+      FUSILLI_RETURN_ERROR_IF(!mT->isScalar(), ErrorCode::InvalidAttribute,
+                              "BatchNorm momentum must be a scalar constant");
+    }
 
     return ok();
   }
@@ -151,8 +151,19 @@ public:
     auto infer1DTensor = [&](const std::shared_ptr<TensorAttr> &t) {
       if (t->getDim().empty())
         t->setDim(channel1DDim);
-      if (t->getStride().empty())
-        t->setStride(channel1DStride);
+      if (t->getStride().empty()) {
+        const std::vector<int64_t> &dim = t->getDim();
+        size_t rank = dim.size();
+        if (rank == xDim.size()) {
+          // Rank-matched tensor [1, C, 1, ...]: compute contiguous stride.
+          std::vector<int64_t> stride(rank, 1);
+          for (int64_t i = (int64_t)rank - 2; i >= 0; --i)
+            stride[i] = stride[i + 1] * dim[i + 1];
+          t->setStride(stride);
+        } else {
+          t->setStride(channel1DStride);
+        }
+      }
     };
 
     // Infer 1D channel tensors.
@@ -203,18 +214,49 @@ public:
                                 "defined by its stride");
 
     // Shape checks for 1D channel tensors.
+    // Accepts either the canonical 1D form [C] with unit stride, or a
+    // rank-matched form [1, C, 1, ..., 1] with unit stride at the channel dim.
     auto check1DShape = [&](const std::shared_ptr<TensorAttr> &t,
                             const std::string &name) -> ErrorObject {
       if (!t)
         return ok();
+      const std::vector<int64_t> &tDim = t->getDim();
+      const std::vector<int64_t> &tStride = t->getStride();
+      size_t xRank = xDim.size();
+
+      if (tDim == expectedCDim) {
+        // Canonical 1D form [C]: stride must be {1}.
+        FUSILLI_RETURN_ERROR_IF(
+            tStride != std::vector<int64_t>{1}, ErrorCode::InvalidAttribute,
+            "BatchNorm tensor " + name + " must have unit stride");
+        return ok();
+      }
+
+      if (tDim.size() == xRank) {
+        // Rank-matched form [1, C, 1, ..., 1]: channel dim must equal C and
+        // all other dims must be 1.
+        bool validShape = (tDim[1] == xDim[1]);
+        for (size_t i = 0; i < xRank && validShape; ++i)
+          if (i != 1 && tDim[i] != 1)
+            validShape = false;
+        FUSILLI_RETURN_ERROR_IF(
+            !validShape, ErrorCode::InvalidAttribute,
+            "BatchNorm tensor " + name +
+                " must be 1D with size equal to channel dimension C"
+                " or rank-matched with ones in all non-feature dimensions");
+        FUSILLI_RETURN_ERROR_IF(
+            tStride.size() != xRank || tStride[1] != 1,
+            ErrorCode::InvalidAttribute,
+            "BatchNorm tensor " + name +
+                " must have unit stride at the channel dimension");
+        return ok();
+      }
+
       FUSILLI_RETURN_ERROR_IF(
-          t->getDim() != expectedCDim, ErrorCode::InvalidAttribute,
+          true, ErrorCode::InvalidAttribute,
           "BatchNorm tensor " + name +
-              " must be 1D with size equal to channel dimension C");
-      FUSILLI_RETURN_ERROR_IF(t->getStride() != std::vector<int64_t>{1},
-                              ErrorCode::InvalidAttribute,
-                              "BatchNorm tensor " + name +
-                                  " must have unit stride");
+              " must be 1D with size equal to channel dimension C"
+              " or rank-matched with ones in all non-feature dimensions");
       return ok();
     };
 
