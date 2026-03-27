@@ -30,8 +30,7 @@ TEST_CASE("Buffer allocation, move semantics and lifetime", "[buffer]") {
   // Read buffer and check contents.
   std::vector<float> result;
   FUSILLI_REQUIRE_OK(buf.read(handle, result));
-  for (auto val : result)
-    REQUIRE(val == 1.0f);
+  FUSILLI_REQUIRE_BUFFER(result, 1.0f, "buffer_alloc");
 
   // Test move semantics.
   Buffer movedBuf = std::move(buf);
@@ -44,8 +43,7 @@ TEST_CASE("Buffer allocation, move semantics and lifetime", "[buffer]") {
   // Read moved buffer and check contents.
   result.clear();
   FUSILLI_REQUIRE_OK(movedBuf.read(handle, result));
-  for (auto val : result)
-    REQUIRE(val == 1.0f);
+  FUSILLI_REQUIRE_BUFFER(result, 1.0f, "buffer_move");
 }
 
 TEST_CASE("Buffer import and lifetimes", "[buffer]") {
@@ -61,8 +59,7 @@ TEST_CASE("Buffer import and lifetimes", "[buffer]") {
   // Read buffer and check contents.
   std::vector<half> result;
   FUSILLI_REQUIRE_OK(buf.read(handle, result));
-  for (auto val : result)
-    REQUIRE(val == half(1.0f));
+  FUSILLI_REQUIRE_BUFFER(result, half(1.0f), "buffer_import");
 
   // Test import in local scope.
   {
@@ -74,8 +71,7 @@ TEST_CASE("Buffer import and lifetimes", "[buffer]") {
     // Read imported buffer and check contents.
     result.clear();
     FUSILLI_REQUIRE_OK(importedBuf.read(handle, result));
-    for (auto val : result)
-      REQUIRE(val == half(1.0f));
+    FUSILLI_REQUIRE_BUFFER(result, half(1.0f), "buffer_import_local");
   }
 
   // Initial buffer still exists in outer scope.
@@ -84,8 +80,7 @@ TEST_CASE("Buffer import and lifetimes", "[buffer]") {
   // Read original buffer and check contents.
   result.clear();
   FUSILLI_REQUIRE_OK(buf.read(handle, result));
-  for (auto val : result)
-    REQUIRE(val == 1.0f);
+  FUSILLI_REQUIRE_BUFFER(result, half(1.0f), "buffer_import_outer");
 }
 
 TEST_CASE("Buffer errors", "[buffer]") {
@@ -120,8 +115,7 @@ TEST_CASE("Buffer errors", "[buffer]") {
     // Read buffer into an empty vector should work.
     result.clear();
     FUSILLI_REQUIRE_OK(buf.read(handle, result));
-    for (auto val : result)
-      REQUIRE(val == 0.0f);
+    FUSILLI_REQUIRE_BUFFER(result, 0.0f, "buffer_error_read");
   }
 
   SECTION("Buffer allocation with mismatched data size") {

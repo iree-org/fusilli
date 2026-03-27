@@ -437,16 +437,13 @@ TEST_CASE("Graph `execute`", "[graph]") {
   // use-after-free so this test guards against that.
   std::vector<half> input;
   FUSILLI_REQUIRE_OK(xBuf->read(handle, input));
-  for (auto val : input)
-    REQUIRE(val == half(1.0f));
+  FUSILLI_REQUIRE_BUFFER(input, half(1.0f), "graph_execute_input");
   std::vector<half> weight;
   FUSILLI_REQUIRE_OK(wBuf->read(handle, weight));
-  for (auto val : weight)
-    REQUIRE(val == half(1.0f));
+  FUSILLI_REQUIRE_BUFFER(weight, half(1.0f), "graph_execute_weight");
   std::vector<half> result;
   FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
-  for (auto val : result)
-    REQUIRE(val == half(128.0f));
+  FUSILLI_REQUIRE_BUFFER(result, half(128.0f), "graph_execute_output");
 }
 
 // collectModuleScopeAsm recursively walks the sub-node tree and gathers

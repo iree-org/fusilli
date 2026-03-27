@@ -72,6 +72,5 @@ TEST_CASE("Pointwise MUL with scalar operand", "[pointwise][scalar][graph]") {
   // Verify output.
   std::vector<float> result;
   FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
-  for (auto val : result)
-    REQUIRE(val == expectedVal);
+  FUSILLI_REQUIRE_BUFFER(result, expectedVal, "pointwise_scalar_mul_sample");
 }

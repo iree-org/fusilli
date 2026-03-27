@@ -90,8 +90,8 @@ TEST_CASE("Convolution fprop; X (NHWC), W (KRSC); 1x1 conv; no padding",
   // Read output buffers.
   std::vector<half> result;
   FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
-  for (auto val : result)
-    REQUIRE(val == half(128.0f));
+  FUSILLI_REQUIRE_BUFFER(result, half(128.0f),
+                         "conv_fprop_sample_nhwc_krsc_1x1_nopad");
 
   // Execute graph a few times.
   constexpr size_t numIters = 1;
@@ -101,6 +101,6 @@ TEST_CASE("Convolution fprop; X (NHWC), W (KRSC); 1x1 conv; no padding",
   // Repeat output buffer checks.
   result.clear();
   FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
-  for (auto val : result)
-    REQUIRE(val == half(128.0f));
+  FUSILLI_REQUIRE_BUFFER(result, half(128.0f),
+                         "conv_fprop_sample_nhwc_krsc_1x1_nopad");
 }

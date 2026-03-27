@@ -107,8 +107,8 @@ TEST_CASE(
   // Read output buffers.
   std::vector<half> result;
   FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
-  for (auto val : result)
-    REQUIRE(val == half(129.0f));
+  FUSILLI_REQUIRE_BUFFER(result, half(129.0f),
+                         "conv_fprop_sample_nhwc_krsc_1x1_nopad_bias_relu");
 
   // Execute graph a few times.
   constexpr size_t numIters = 1;
@@ -118,6 +118,6 @@ TEST_CASE(
   // Repeat output buffer checks.
   result.clear();
   FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
-  for (auto val : result)
-    REQUIRE(val == half(129.0f));
+  FUSILLI_REQUIRE_BUFFER(result, half(129.0f),
+                         "conv_fprop_sample_nhwc_krsc_1x1_nopad_bias_relu");
 }

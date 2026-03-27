@@ -97,8 +97,8 @@ TEST_CASE("Convolution dgrad; DY/W (NHWC/KRSC), DX (NHWC); 1x1; no padding;"
 
   const float expected =
       (k / (c / static_cast<float>(fc))) * inputScalar * inputScalar;
-  for (auto val : dxVals)
-    REQUIRE(val == expected);
+  FUSILLI_REQUIRE_BUFFER(dxVals, expected,
+                         "conv_dgrad_sample_nhwc_krsc_1x1_nopad_grouped");
 
   // Execute graph a few times.
   constexpr size_t numIters = 1;
@@ -108,6 +108,6 @@ TEST_CASE("Convolution dgrad; DY/W (NHWC/KRSC), DX (NHWC); 1x1; no padding;"
   // Repeat output buffer checks.
   dxVals.clear();
   FUSILLI_REQUIRE_OK(dxBuf->read(handle, dxVals));
-  for (auto val : dxVals)
-    REQUIRE(val == expected);
+  FUSILLI_REQUIRE_BUFFER(dxVals, expected,
+                         "conv_dgrad_sample_nhwc_krsc_1x1_nopad_grouped");
 }

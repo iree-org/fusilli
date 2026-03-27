@@ -19,11 +19,14 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_tostring.hpp>
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 // RAII helper to execute cleanup code when going out of scope, even if
@@ -424,5 +427,105 @@ template <> struct StringMaker<fusilli::bf16> {
 };
 
 } // namespace Catch
+
+//===----------------------------------------------------------------------===//
+// Buffer mismatch checking
+//===----------------------------------------------------------------------===//
+
+namespace fusilli {
+
+// Format a value for display. Handles uint8_t/int8_t (which would print as
+// characters) and half/bf16 (which need float promotion).
+template <typename T> inline std::string fmtVal(T val) {
+  if constexpr (std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>)
+    return std::to_string(static_cast<int>(val));
+  else if constexpr (std::is_same_v<T, half> || std::is_same_v<T, bf16>)
+    return std::to_string(static_cast<float>(val));
+  else
+    return std::to_string(val);
+}
+
+// Scan a result buffer against a uniform expected value using the given
+// comparator. Returns a human-readable mismatch report, or empty string if
+// all elements match. `context` identifies the test configuration (typically
+// the graph name from generateName()).
+template <typename T, typename Cmp>
+inline std::string describeBufferMismatch(const std::vector<T> &result,
+                                          T expected, Cmp cmp,
+                                          const std::string &context) {
+  size_t mismatchCount = 0;
+  size_t firstIdx = 0;
+  for (size_t i = 0; i < result.size(); ++i) {
+    if (!cmp(result[i], expected)) {
+      if (mismatchCount == 0)
+        firstIdx = i;
+      ++mismatchCount;
+    }
+  }
+  if (mismatchCount == 0)
+    return {};
+
+  std::ostringstream oss;
+  oss << "Buffer mismatch [" << context << "]: " << mismatchCount << "/"
+      << result.size() << " elements wrong. "
+      << "First at [" << firstIdx << "]: got " << fmtVal(result[firstIdx])
+      << ", expected " << fmtVal(expected) << ".\n";
+
+  // Dump context around first mismatch.
+  size_t start = firstIdx > 8 ? firstIdx - 8 : 0;
+  size_t end = std::min(start + 32, result.size());
+  oss << "  Buffer[" << start << ".." << end - 1 << "]:";
+  for (size_t i = start; i < end; ++i) {
+    oss << " [" << i << "]=" << fmtVal(result[i]);
+    if (!cmp(result[i], expected))
+      oss << "!";
+  }
+  return oss.str();
+}
+
+// Exact-match overload.
+template <typename T>
+inline std::string describeBufferMismatch(const std::vector<T> &result,
+                                          T expected,
+                                          const std::string &context) {
+  return describeBufferMismatch(result, expected, std::equal_to<T>{}, context);
+}
+
+// Approximate-match overload with tolerance.
+template <typename T>
+inline std::string describeBufferMismatchClose(const std::vector<T> &result,
+                                               T expected, double tol,
+                                               const std::string &context) {
+  return describeBufferMismatch(
+      result, expected,
+      [tol](T a, T b) {
+        return std::abs(static_cast<double>(a) - static_cast<double>(b)) < tol;
+      },
+      context);
+}
+
+} // namespace fusilli
+
+// Check that every element in `result` equals `expected`. On failure, reports
+// the total mismatch count, first mismatch index, and a buffer excerpt.
+// `context` should identify the test configuration (e.g. graph name).
+#define FUSILLI_REQUIRE_BUFFER(result, expected, context)                      \
+  do {                                                                         \
+    auto _report =                                                             \
+        fusilli::describeBufferMismatch((result), (expected), (context));      \
+    if (!_report.empty()) {                                                    \
+      FAIL(_report);                                                           \
+    }                                                                          \
+  } while (false)
+
+// Like FUSILLI_REQUIRE_BUFFER but uses approximate comparison with tolerance.
+#define FUSILLI_REQUIRE_BUFFER_CLOSE(result, expected, tol, context)           \
+  do {                                                                         \
+    auto _report = fusilli::describeBufferMismatchClose((result), (expected),  \
+                                                        (tol), (context));     \
+    if (!_report.empty()) {                                                    \
+      FAIL(_report);                                                           \
+    }                                                                          \
+  } while (false)
 
 #endif // FUSILLI_TESTS_UTILS_H

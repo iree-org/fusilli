@@ -18,7 +18,6 @@
 #include <memory>
 #include <string>
 #include <tuple>
-#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -44,10 +43,11 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
                PointwiseAttr::Mode::SIGMOID_FWD, PointwiseAttr::Mode::TANH_FWD);
 
   auto execute = [&]<typename T>(Handle &handle, DataType dt, T x) {
+    std::string name = generateName(mode, dt, dim);
     auto buildNewGraph = [&](Handle &handleArg) {
       // Create graph
       auto graph = std::make_shared<Graph>();
-      graph->setName(generateName(mode, dt, dim));
+      graph->setName(name);
       graph->setIODataType(dt).setComputeDataType(dt);
 
       // Initialize input tensors
@@ -124,17 +124,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     std::vector<T> result;
     FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
 
-    auto isClose = [](T lhs, T rhs) -> bool {
-      if (std::is_floating_point<T>::value || std::is_same<T, half>::value) {
-        return std::abs(static_cast<double>(lhs) - static_cast<double>(rhs)) <
-               1e-3;
-      }
-      return lhs == rhs;
-    };
-
-    for (auto val : result) {
-      REQUIRE(isClose(val, y));
-    }
+    FUSILLI_REQUIRE_BUFFER_CLOSE(result, y, 1e-3, name);
 
     // Execute graph a few times.
     constexpr size_t numIters = 1;
@@ -144,8 +134,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     // Repeat output buffer checks.
     result.clear();
     FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
-    for (auto val : result)
-      REQUIRE(isClose(val, y));
+    FUSILLI_REQUIRE_BUFFER_CLOSE(result, y, 1e-3, name);
   };
 
   // Create handle for the target backend.

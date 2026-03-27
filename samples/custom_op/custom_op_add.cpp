@@ -97,8 +97,7 @@ TEST_CASE("Custom op: compose built-in pointwise add with custom negate",
     FUSILLI_REQUIRE_OK(outBuf->read(handle, result));
 
     T expected = T(-2.0 * double(fillVal));
-    for (const auto &val : result)
-      REQUIRE(val == expected);
+    FUSILLI_REQUIRE_BUFFER(result, expected, graph->getName());
   };
 
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));

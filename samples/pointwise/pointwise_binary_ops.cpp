@@ -48,10 +48,11 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
                PointwiseAttr::Mode::MUL, PointwiseAttr::Mode::SUB);
 
   auto execute = [&]<typename T>(Handle &handle, DataType dt, T x0, T x1) {
+    std::string name = generateName(mode, dt, dims);
     auto buildNewGraph = [&](Handle &handleArg) {
       // Create graph
       auto graph = std::make_shared<Graph>();
-      graph->setName(generateName(mode, dt, dims));
+      graph->setName(name);
       graph->setIODataType(dt).setComputeDataType(dt);
 
       // Initialize input tensors
@@ -134,8 +135,7 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
     // Read output buffers.
     std::vector<T> result;
     FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
-    for (auto val : result)
-      REQUIRE(val == y);
+    FUSILLI_REQUIRE_BUFFER(result, y, name);
 
     // Execute graph a few times.
     constexpr size_t numIters = 1;
@@ -145,8 +145,7 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
     // Repeat output buffer checks.
     result.clear();
     FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
-    for (auto val : result)
-      REQUIRE(val == y);
+    FUSILLI_REQUIRE_BUFFER(result, y, name);
   };
 
   // Create handle for the target backend.

@@ -96,8 +96,8 @@ TEST_CASE(
   // Read output buffers.
   std::vector<half> result;
   FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
-  for (auto val : result)
-    REQUIRE(val == expected);
+  FUSILLI_REQUIRE_BUFFER(result, expected,
+                         "conv_fprop_sample_nchw_kcrs_1x1_nopad_grouped");
 
   // Execute graph a few times.
   constexpr size_t numIters = 1;
@@ -107,6 +107,6 @@ TEST_CASE(
   // Repeat output buffer checks.
   result.clear();
   FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
-  for (auto val : result)
-    REQUIRE(val == expected);
+  FUSILLI_REQUIRE_BUFFER(result, expected,
+                         "conv_fprop_sample_nchw_kcrs_1x1_nopad_grouped");
 }

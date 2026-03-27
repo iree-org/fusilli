@@ -95,8 +95,8 @@ TEST_CASE("Convolution dgrad; DY/W (NHWC/KRSC), DX (NHWC); 1x1; no padding",
   FUSILLI_REQUIRE_OK(dxBuf->read(handle, dxVals));
 
   const float expected = static_cast<float>(k) * inputScalar * inputScalar;
-  for (auto val : dxVals)
-    REQUIRE(val == expected);
+  FUSILLI_REQUIRE_BUFFER(dxVals, expected,
+                         "conv_dgrad_sample_nhwc_krsc_1x1_nopad");
 
   // Execute graph a few times.
   constexpr size_t numIters = 1;
@@ -106,8 +106,8 @@ TEST_CASE("Convolution dgrad; DY/W (NHWC/KRSC), DX (NHWC); 1x1; no padding",
   // Repeat output buffer checks.
   dxVals.clear();
   FUSILLI_REQUIRE_OK(dxBuf->read(handle, dxVals));
-  for (auto val : dxVals)
-    REQUIRE(val == expected);
+  FUSILLI_REQUIRE_BUFFER(dxVals, expected,
+                         "conv_dgrad_sample_nhwc_krsc_1x1_nopad");
 }
 
 TEST_CASE("Convolution dgrad; DY/W (NHWC/KRSC), DX (NHWC); 1x1; no padding; "
@@ -203,16 +203,16 @@ TEST_CASE("Convolution dgrad; DY/W (NHWC/KRSC), DX (NHWC); 1x1; no padding; "
   FUSILLI_REQUIRE_OK(dxBuf->read(handle, dxVals));
 
   const float expectedDx = static_cast<float>(k) * inputScalar * inputScalar;
-  for (auto val : dxVals)
-    REQUIRE(val == expectedDx);
+  FUSILLI_REQUIRE_BUFFER(dxVals, expectedDx,
+                         "conv_dgrad_sample_nhwc_krsc_1x1_nopad_bias_dx");
 
   // DB: each element equals N*H*W * inputScalar = 256.
   std::vector<float> dbVals;
   FUSILLI_REQUIRE_OK(dbBuf->read(handle, dbVals));
 
   const float expectedDb = static_cast<float>(n * h * w) * inputScalar;
-  for (auto val : dbVals)
-    REQUIRE(val == expectedDb);
+  FUSILLI_REQUIRE_BUFFER(dbVals, expectedDb,
+                         "conv_dgrad_sample_nhwc_krsc_1x1_nopad_bias_db");
 
   // Execute graph a few times.
   constexpr size_t numIters = 1;
@@ -222,11 +222,11 @@ TEST_CASE("Convolution dgrad; DY/W (NHWC/KRSC), DX (NHWC); 1x1; no padding; "
   // Repeat output buffer checks.
   dxVals.clear();
   FUSILLI_REQUIRE_OK(dxBuf->read(handle, dxVals));
-  for (auto val : dxVals)
-    REQUIRE(val == expectedDx);
+  FUSILLI_REQUIRE_BUFFER(dxVals, expectedDx,
+                         "conv_dgrad_sample_nhwc_krsc_1x1_nopad_bias_dx");
 
   dbVals.clear();
   FUSILLI_REQUIRE_OK(dbBuf->read(handle, dbVals));
-  for (auto val : dbVals)
-    REQUIRE(val == expectedDb);
+  FUSILLI_REQUIRE_BUFFER(dbVals, expectedDb,
+                         "conv_dgrad_sample_nhwc_krsc_1x1_nopad_bias_db");
 }
