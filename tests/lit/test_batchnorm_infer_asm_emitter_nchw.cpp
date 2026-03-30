@@ -11,7 +11,7 @@
 // clang-format off
 //
 // TORCH-CHECK:   module @module {
-// TORCH-CHECK:     func.func @main(%batchnorm_infer_Y_: !torch.tensor<[4,16,8,8],f32>, %batchnorm_infer_MEAN: !torch.vtensor<[16],f32>, %batchnorm_infer_VAR: !torch.vtensor<[16],f32>, %batchnorm_infer_X: !torch.vtensor<[4,16,8,8],f32>) attributes {torch.assume_strict_symbolic_shapes} {
+// TORCH-CHECK:     func.func @main(%batchnorm_infer_Y_: !torch.tensor<[4,16,8,8],f32>, %batchnorm_infer_MEAN: !torch.vtensor<[1,16,1,1],f32>, %batchnorm_infer_VAR: !torch.vtensor<[1,16,1,1],f32>, %batchnorm_infer_X: !torch.vtensor<[4,16,8,8],f32>) attributes {torch.assume_strict_symbolic_shapes} {
 // TORCH-CHECK:       %batchnorm_infer_EPSILON = torch.vtensor.literal(dense<
 // TORCH-CHECK:       %batchnorm_infer_MOMENTUM = torch.vtensor.literal(dense<
 // TORCH-CHECK:       %eps_batchnorm_infer = torch.aten.item %batchnorm_infer_EPSILON : !torch.vtensor<[1],f32> -> !torch.float
@@ -24,8 +24,14 @@
 // TORCH-CHECK:       %batchnorm_infer_X_batchnorm_infer_perm = torch.aten.permute %batchnorm_infer_X, %permute_x_batchnorm_infer : !torch.vtensor<[4,16,8,8],f32>, !torch.list<int> -> !torch.vtensor<[4,16,8,8],f32>
 // TORCH-CHECK:       %none_scale_batchnorm_infer = torch.constant.none
 // TORCH-CHECK:       %none_bias_batchnorm_infer = torch.constant.none
+// TORCH-CHECK:       %flat_start_mean_batchnorm_infer = torch.constant.int 0
+// TORCH-CHECK:       %flat_end_mean_batchnorm_infer = torch.constant.int -1
+// TORCH-CHECK:       %batchnorm_infer_MEAN_batchnorm_infer_collapsed = torch.aten.flatten.using_ints %batchnorm_infer_MEAN, %flat_start_mean_batchnorm_infer, %flat_end_mean_batchnorm_infer : !torch.vtensor<[1,16,1,1],f32>, !torch.int, !torch.int -> !torch.vtensor<[16],f32>
+// TORCH-CHECK:       %flat_start_var_batchnorm_infer = torch.constant.int 0
+// TORCH-CHECK:       %flat_end_var_batchnorm_infer = torch.constant.int -1
+// TORCH-CHECK:       %batchnorm_infer_VAR_batchnorm_infer_collapsed = torch.aten.flatten.using_ints %batchnorm_infer_VAR, %flat_start_var_batchnorm_infer, %flat_end_var_batchnorm_infer : !torch.vtensor<[1,16,1,1],f32>, !torch.int, !torch.int -> !torch.vtensor<[16],f32>
 // TORCH-CHECK:       %training_batchnorm_infer = torch.constant.bool false
-// TORCH-CHECK:       %batchnorm_infer_Y_batchnorm_infer_perm, %_infer_saved_mean_batchnorm_infer_perm, %_infer_saved_invstd_batchnorm_infer_perm = torch.aten.native_batch_norm %batchnorm_infer_X_batchnorm_infer_perm, %none_scale_batchnorm_infer, %none_bias_batchnorm_infer, %batchnorm_infer_MEAN, %batchnorm_infer_VAR, %training_batchnorm_infer, %momentum_batchnorm_infer, %eps_batchnorm_infer : !torch.vtensor<[4,16,8,8],f32>, !torch.none, !torch.none, !torch.vtensor<[16],f32>, !torch.vtensor<[16],f32>, !torch.bool, !torch.float, !torch.float -> !torch.vtensor<[4,16,8,8],f32>, !torch.vtensor<[16],f32>, !torch.vtensor<[16],f32>
+// TORCH-CHECK:       %batchnorm_infer_Y_batchnorm_infer_perm, %_infer_saved_mean_batchnorm_infer_perm, %_infer_saved_invstd_batchnorm_infer_perm = torch.aten.native_batch_norm %batchnorm_infer_X_batchnorm_infer_perm, %none_scale_batchnorm_infer, %none_bias_batchnorm_infer, %batchnorm_infer_MEAN_batchnorm_infer_collapsed, %batchnorm_infer_VAR_batchnorm_infer_collapsed, %training_batchnorm_infer, %momentum_batchnorm_infer, %eps_batchnorm_infer : !torch.vtensor<[4,16,8,8],f32>, !torch.none, !torch.none, !torch.vtensor<[16],f32>, !torch.vtensor<[16],f32>, !torch.bool, !torch.float, !torch.float -> !torch.vtensor<[4,16,8,8],f32>, !torch.vtensor<[16],f32>, !torch.vtensor<[16],f32>
 // TORCH-CHECK:       %permute_y_val_0_batchnorm_infer = torch.constant.int 0
 // TORCH-CHECK:       %permute_y_val_1_batchnorm_infer = torch.constant.int 1
 // TORCH-CHECK:       %permute_y_val_2_batchnorm_infer = torch.constant.int 2
@@ -66,11 +72,15 @@ static ErrorObject testBatchnormInferAsmEmitterNchw(const std::string &mode) {
                               .setDim({n, c, h, w})
                               .setStride({c * h * w, h * w, w, 1})); // NCHW
 
-  auto meanT = graph->tensor(
-      TensorAttr().setName("batchnorm_infer_MEAN").setDim({c}).setStride({1}));
+  auto meanT = graph->tensor(TensorAttr()
+                                 .setName("batchnorm_infer_MEAN")
+                                 .setDim({1, c, 1, 1})
+                                 .setStride({c, 1, 1, 1}));
 
-  auto varT = graph->tensor(
-      TensorAttr().setName("batchnorm_infer_VAR").setDim({c}).setStride({1}));
+  auto varT = graph->tensor(TensorAttr()
+                                .setName("batchnorm_infer_VAR")
+                                .setDim({1, c, 1, 1})
+                                .setStride({c, 1, 1, 1}));
 
   auto epsilonT =
       graph->tensor(TensorAttr(1e-5f).setName("batchnorm_infer_EPSILON"));

@@ -87,10 +87,10 @@ TEST_CASE("BatchNormNode preValidateNode detects missing attributes",
         TensorAttr()
             .setDim({2, 4, 8, 8})
             .setStride({4LL * 8 * 8, 8LL * 8, 8, 1})));
-    attr.setMEAN(
-        std::make_shared<TensorAttr>(TensorAttr().setDim({4}).setStride({1})));
-    attr.setVAR(
-        std::make_shared<TensorAttr>(TensorAttr().setDim({4}).setStride({1})));
+    attr.setMEAN(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({1, 4, 1, 1}).setStride({4, 1, 1, 1})));
+    attr.setVAR(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({1, 4, 1, 1}).setStride({4, 1, 1, 1})));
     attr.setMomentum(std::make_shared<TensorAttr>(0.1f));
     BatchNormNode node(std::move(attr), ctx);
 
@@ -111,10 +111,10 @@ TEST_CASE("BatchNormNode preValidateNode detects missing attributes",
         TensorAttr()
             .setDim({2, 4, 8, 8})
             .setStride({4LL * 8 * 8, 8LL * 8, 8, 1})));
-    attr.setMEAN(
-        std::make_shared<TensorAttr>(TensorAttr().setDim({4}).setStride({1})));
-    attr.setVAR(
-        std::make_shared<TensorAttr>(TensorAttr().setDim({4}).setStride({1})));
+    attr.setMEAN(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({1, 4, 1, 1}).setStride({4, 1, 1, 1})));
+    attr.setVAR(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({1, 4, 1, 1}).setStride({4, 1, 1, 1})));
     attr.setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     BatchNormNode node(std::move(attr), ctx);
 
@@ -156,8 +156,8 @@ TEST_CASE("BatchNormNode preValidateNode detects missing attributes",
             .setStride({4LL * 8 * 8, 8LL * 8, 8, 1})));
     attr.setEpsilon(std::make_shared<TensorAttr>(1e-5f));
     attr.setMomentum(std::make_shared<TensorAttr>(0.1f));
-    attr.setMEAN(
-        std::make_shared<TensorAttr>(TensorAttr().setDim({4}).setStride({1})));
+    attr.setMEAN(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({1, 4, 1, 1}).setStride({4, 1, 1, 1})));
     BatchNormNode node(std::move(attr), ctx);
 
     auto status = node.preValidateNode();
@@ -221,14 +221,14 @@ TEST_CASE("BatchNormNode inferPropertiesNode infers Y shape from X",
           .setStride({c * h * w, h * w, w, 1})); // NCHW
   auto meanT = std::make_shared<TensorAttr>(TensorAttr()
                                                 .setName("mean")
-                                                .setDim({c})
+                                                .setDim({1, c, 1, 1})
                                                 .setDataType(DataType::Float)
-                                                .setStride({1}));
+                                                .setStride({c, 1, 1, 1}));
   auto varT = std::make_shared<TensorAttr>(TensorAttr()
                                                .setName("var")
-                                               .setDim({c})
+                                               .setDim({1, c, 1, 1})
                                                .setDataType(DataType::Float)
-                                               .setStride({1}));
+                                               .setStride({c, 1, 1, 1}));
   auto epsT = std::make_shared<TensorAttr>(TensorAttr(1e-5f).setName("eps"));
   auto momT = std::make_shared<TensorAttr>(TensorAttr(0.1f).setName("mom"));
   auto yT = std::make_shared<TensorAttr>(
@@ -253,8 +253,8 @@ TEST_CASE("BatchNormNode inferPropertiesNode infers Y shape from X",
   REQUIRE(yT->getStride() == xT->getStride());
 }
 
-TEST_CASE("BatchNormNode inferPropertiesNode infers SAVED outputs and 1D "
-          "tensors in training mode",
+TEST_CASE("BatchNormNode inferPropertiesNode infers SAVED outputs and "
+          "rank-matched tensors in training mode",
           "[batchnorm_node]") {
   int64_t n = 2, c = 4, h = 8, w = 8;
   Context ctx;
@@ -300,17 +300,17 @@ TEST_CASE("BatchNormNode inferPropertiesNode infers SAVED outputs and 1D "
   REQUIRE(yT->getDim() == std::vector<int64_t>({n, c, h, w}));
   REQUIRE(yT->getStride() == xT->getStride());
 
-  // SAVED outputs are inferred as 1D [c] with unit stride.
-  REQUIRE(smT->getDim() == std::vector<int64_t>({c}));
-  REQUIRE(smT->getStride() == std::vector<int64_t>({1}));
-  REQUIRE(sivT->getDim() == std::vector<int64_t>({c}));
-  REQUIRE(sivT->getStride() == std::vector<int64_t>({1}));
+  // SAVED outputs are inferred as rank-matched [1, c, 1, 1].
+  REQUIRE(smT->getDim() == std::vector<int64_t>({1, c, 1, 1}));
+  REQUIRE(smT->getStride() == std::vector<int64_t>({c, 1, 1, 1}));
+  REQUIRE(sivT->getDim() == std::vector<int64_t>({1, c, 1, 1}));
+  REQUIRE(sivT->getStride() == std::vector<int64_t>({c, 1, 1, 1}));
 
-  // Optional 1D tensors (scale, bias) are inferred as [c] with unit stride.
-  REQUIRE(scaleT->getDim() == std::vector<int64_t>({c}));
-  REQUIRE(scaleT->getStride() == std::vector<int64_t>({1}));
-  REQUIRE(biasT->getDim() == std::vector<int64_t>({c}));
-  REQUIRE(biasT->getStride() == std::vector<int64_t>({1}));
+  // Optional rank-matched tensors (scale, bias) are inferred as [1, c, 1, 1].
+  REQUIRE(scaleT->getDim() == std::vector<int64_t>({1, c, 1, 1}));
+  REQUIRE(scaleT->getStride() == std::vector<int64_t>({c, 1, 1, 1}));
+  REQUIRE(biasT->getDim() == std::vector<int64_t>({1, c, 1, 1}));
+  REQUIRE(biasT->getStride() == std::vector<int64_t>({c, 1, 1, 1}));
 }
 
 TEST_CASE("BatchNormNode postValidateNode validates output shapes",
@@ -326,16 +326,18 @@ TEST_CASE("BatchNormNode postValidateNode validates output shapes",
                                          .setDim({n, c, h, w})
                                          .setDataType(DataType::Float)
                                          .setStride({c * h * w, h * w, w, 1}));
-    auto meanT = std::make_shared<TensorAttr>(TensorAttr()
-                                                  .setName("mean")
-                                                  .setDim({c})
-                                                  .setDataType(DataType::Float)
-                                                  .setStride({1}));
-    auto varT = std::make_shared<TensorAttr>(TensorAttr()
-                                                 .setName("var")
-                                                 .setDim({c})
-                                                 .setDataType(DataType::Float)
-                                                 .setStride({1}));
+    auto meanT = std::make_shared<TensorAttr>(
+        TensorAttr()
+            .setName("mean")
+            .setDim({1, c, 1, 1})
+            .setDataType(DataType::Float)
+            .setStride({c, 1, 1, 1}));
+    auto varT = std::make_shared<TensorAttr>(
+        TensorAttr()
+            .setName("var")
+            .setDim({1, c, 1, 1})
+            .setDataType(DataType::Float)
+            .setStride({c, 1, 1, 1}));
     auto epsT = std::make_shared<TensorAttr>(TensorAttr(1e-5f).setName("eps"));
     auto momT = std::make_shared<TensorAttr>(TensorAttr(0.1f).setName("mom"));
     auto yT = std::make_shared<TensorAttr>(
@@ -365,9 +367,9 @@ TEST_CASE("BatchNormNode postValidateNode validates output shapes",
                                          .setDataType(DataType::Float)
                                          .setStride({c * h * w, h * w, w, 1}));
     auto meanT = std::make_shared<TensorAttr>(
-        TensorAttr().setName("mean").setDim({c}).setStride({1}));
+        TensorAttr().setName("mean").setDim({1, c, 1, 1}).setStride({c, 1, 1, 1}));
     auto varT = std::make_shared<TensorAttr>(
-        TensorAttr().setName("var").setDim({c}).setStride({1}));
+        TensorAttr().setName("var").setDim({1, c, 1, 1}).setStride({c, 1, 1, 1}));
     auto epsT = std::make_shared<TensorAttr>(TensorAttr(1e-5f).setName("eps"));
     auto momT = std::make_shared<TensorAttr>(TensorAttr(0.1f).setName("mom"));
     // Y has wrong shape.
@@ -517,9 +519,9 @@ TEST_CASE("BatchNormNode postValidateNode validates output shapes",
                                          .setDataType(DataType::Float)
                                          .setStride({c * h * w, h * w, w, 1}));
     auto scaleT = std::make_shared<TensorAttr>(
-        TensorAttr().setName("scale").setDim({c}).setStride({1}));
+        TensorAttr().setName("scale").setDim({1, c, 1, 1}).setStride({c, 1, 1, 1}));
     auto biasT = std::make_shared<TensorAttr>(
-        TensorAttr().setName("bias").setDim({c}).setStride({1}));
+        TensorAttr().setName("bias").setDim({1, c, 1, 1}).setStride({c, 1, 1, 1}));
     auto epsT = std::make_shared<TensorAttr>(TensorAttr(1e-5f).setName("eps"));
     auto momT = std::make_shared<TensorAttr>(TensorAttr(0.1f).setName("mom"));
     auto yT = std::make_shared<TensorAttr>(

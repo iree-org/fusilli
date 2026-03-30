@@ -54,11 +54,15 @@ testBatchnormInferAsmEmitterNchwNoMomentum(const std::string &mode) {
                               .setDim({n, c, h, w})
                               .setStride({c * h * w, h * w, w, 1})); // NCHW
 
-  auto meanT = graph->tensor(
-      TensorAttr().setName("bn_no_mom_MEAN").setDim({c}).setStride({1}));
+  auto meanT = graph->tensor(TensorAttr()
+                                 .setName("bn_no_mom_MEAN")
+                                 .setDim({1, c, 1, 1})
+                                 .setStride({c, 1, 1, 1}));
 
-  auto varT = graph->tensor(
-      TensorAttr().setName("bn_no_mom_VAR").setDim({c}).setStride({1}));
+  auto varT = graph->tensor(TensorAttr()
+                                .setName("bn_no_mom_VAR")
+                                .setDim({1, c, 1, 1})
+                                .setStride({c, 1, 1, 1}));
 
   auto epsilonT = graph->tensor(TensorAttr(1e-5f).setName("bn_no_mom_EPSILON"));
 
