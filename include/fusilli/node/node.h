@@ -35,6 +35,7 @@ public:
     WGrad,
     DGrad,
     LayerNorm,
+    BatchNorm,
     RmsNorm,
     Matmul,
     Reduction,
@@ -66,16 +67,22 @@ protected:
 
   // MLIR assembly emitter helper methods to be provided
   // by each node as needed.
-  virtual std::string emitNodePreAsm() const { return ""; };
-  virtual std::string emitNodePostAsm() const { return ""; };
-  virtual std::string emitModuleScopeAsm() const { return ""; };
+  virtual ErrorOr<std::string> emitNodePreAsm() const { return std::string(); };
+  virtual ErrorOr<std::string> emitNodePostAsm() const {
+    return std::string();
+  };
+  virtual ErrorOr<std::string> emitModuleScopeAsm() const {
+    return std::string();
+  };
 
   // Recursively collect module-scope ASM declarations from this node
   // and all sub-nodes (e.g., custom op function definitions).
-  void collectModuleScopeAsm(std::ostringstream &oss) const {
-    oss << emitModuleScopeAsm();
+  ErrorObject collectModuleScopeAsm(std::ostringstream &oss) const {
+    FUSILLI_ASSIGN_OR_RETURN(auto moduleScopeAsm, emitModuleScopeAsm());
+    oss << moduleScopeAsm;
     for (const auto &subNode : subNodes_)
-      subNode->collectModuleScopeAsm(oss);
+      FUSILLI_CHECK_ERROR(subNode->collectModuleScopeAsm(oss));
+    return ok();
   }
 
   // Recursively validate the node and its sub nodes.
@@ -91,11 +98,14 @@ protected:
   // Recursively emit MLIR assembly for the node and its sub nodes
   // allowing for composite ops to expand into their own regions
   // containing sub ops.
-  void emitAsmSubtree(std::ostringstream &oss) {
-    oss << emitNodePreAsm();
+  ErrorObject emitAsmSubtree(std::ostringstream &oss) {
+    FUSILLI_ASSIGN_OR_RETURN(auto preAsm, emitNodePreAsm());
+    oss << preAsm;
     for (const auto &subNode : subNodes_)
-      subNode->emitAsmSubtree(oss);
-    oss << emitNodePostAsm();
+      FUSILLI_CHECK_ERROR(subNode->emitAsmSubtree(oss));
+    FUSILLI_ASSIGN_OR_RETURN(auto postAsm, emitNodePostAsm());
+    oss << postAsm;
+    return ok();
   }
 
   // Recursively check that names of nodes and their sub nodes

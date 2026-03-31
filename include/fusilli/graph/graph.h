@@ -14,6 +14,7 @@
 #ifndef FUSILLI_GRAPH_GRAPH_H
 #define FUSILLI_GRAPH_GRAPH_H
 
+#include "fusilli/attributes/batchnorm_attributes.h"
 #include "fusilli/attributes/common.h"
 #include "fusilli/attributes/conv_attributes.h"
 #include "fusilli/attributes/custom_op_attributes.h"
@@ -30,6 +31,7 @@
 #include "fusilli/backend/compile_session.h"
 #include "fusilli/backend/handle.h"
 #include "fusilli/graph/context.h"
+#include "fusilli/node/batchnorm_node.h"
 #include "fusilli/node/conv_node.h"
 #include "fusilli/node/custom_op_node.h"
 #include "fusilli/node/layernorm_node.h"
@@ -268,6 +270,13 @@ public:
                                         const std::shared_ptr<TensorAttr> &w,
                                         ConvDGradAttr &attributes);
   std::array<std::shared_ptr<TensorAttr>, 3>
+  batchnorm(const std::shared_ptr<TensorAttr> &x,
+            const std::shared_ptr<TensorAttr> &scale,
+            const std::shared_ptr<TensorAttr> &bias,
+            const std::shared_ptr<TensorAttr> &mean,
+            const std::shared_ptr<TensorAttr> &var, BatchnormAttr &attributes);
+
+  std::array<std::shared_ptr<TensorAttr>, 3>
   layernorm(const std::shared_ptr<TensorAttr> &x,
             const std::shared_ptr<TensorAttr> &scale,
             const std::shared_ptr<TensorAttr> &bias, LayernormAttr &attributes);
@@ -306,7 +315,7 @@ public:
         !isValidated_, ErrorCode::NotValidated,
         "Graph must be validated before emitting MLIR assembly");
     std::ostringstream oss;
-    emitAsmSubtree(oss);
+    FUSILLI_CHECK_ERROR(emitAsmSubtree(oss));
     FUSILLI_LOG_ENDL(oss.str());
     return ok(oss.str());
   }
@@ -578,8 +587,8 @@ private:
   ErrorObject postValidateNode() const override final { return ok(); }
 
   // MLIR assembly emitter helper methods.
-  std::string emitNodePreAsm() const override final;
-  std::string emitNodePostAsm() const override final;
+  ErrorOr<std::string> emitNodePreAsm() const override final;
+  ErrorOr<std::string> emitNodePostAsm() const override final;
   std::string getOperandNamesAndTypesAsm() const;
   std::string getResultNamesAndTypesAsm() const;
 
@@ -725,6 +734,60 @@ Graph::convDGrad(const std::shared_ptr<TensorAttr> &dy,
       std::make_unique<ConvDGradNode>(std::move(convDGradAttr), context));
 
   return dx;
+}
+
+// Create a BatchNormNode, populate it with the specified attributes, create
+// output tensors and add the node to the graph's sub nodes.
+inline std::array<std::shared_ptr<TensorAttr>, 3>
+Graph::batchnorm(const std::shared_ptr<TensorAttr> &x,
+                 const std::shared_ptr<TensorAttr> &scale,
+                 const std::shared_ptr<TensorAttr> &bias,
+                 const std::shared_ptr<TensorAttr> &mean,
+                 const std::shared_ptr<TensorAttr> &var,
+                 BatchnormAttr &batchnormAttr) {
+  // Populate names when not set.
+  if (batchnormAttr.getName().empty())
+    batchnormAttr.setName("batchnorm_" + std::to_string(subNodes_.size()));
+  if (x && x->getName().empty())
+    x->setName(batchnormAttr.getName() + "_X");
+  if (scale && scale->getName().empty())
+    scale->setName(batchnormAttr.getName() + "_SCALE");
+  if (bias && bias->getName().empty())
+    bias->setName(batchnormAttr.getName() + "_BIAS");
+  if (mean && mean->getName().empty())
+    mean->setName(batchnormAttr.getName() + "_MEAN");
+  if (var && var->getName().empty())
+    var->setName(batchnormAttr.getName() + "_VAR");
+  auto eps = batchnormAttr.getEpsilon();
+  if (eps && eps->getName().empty())
+    eps->setName(batchnormAttr.getName() + "_EPSILON");
+  auto mom = batchnormAttr.getMomentum();
+  if (mom && mom->getName().empty())
+    mom->setName(batchnormAttr.getName() + "_MOMENTUM");
+
+  FUSILLI_LOG_LABEL_ENDL("INFO: Adding BatchNorm '" << batchnormAttr.getName()
+                                                    << "' to Graph");
+
+  // Set inputs.
+  batchnormAttr.setX(x).setSCALE(scale).setBIAS(bias).setMEAN(mean).setVAR(var);
+
+  // Set outputs.
+  std::shared_ptr<TensorAttr> y = outputTensor(batchnormAttr.getName() + "_Y");
+  std::shared_ptr<TensorAttr> savedMean = nullptr;
+  std::shared_ptr<TensorAttr> savedInvVar = nullptr;
+  if (batchnormAttr.getForwardPhase() == NormFwdPhase::TRAINING) {
+    savedMean = outputTensor(batchnormAttr.getName() + "_SAVED_MEAN");
+    savedInvVar = outputTensor(batchnormAttr.getName() + "_SAVED_INV_VARIANCE");
+  }
+  batchnormAttr.setY(y);
+  batchnormAttr.setSAVED_MEAN(savedMean);
+  batchnormAttr.setSAVED_INV_VARIANCE(savedInvVar);
+
+  // Create node and add to Graph's subNodes_.
+  subNodes_.emplace_back(
+      std::make_unique<BatchNormNode>(std::move(batchnormAttr), context));
+
+  return {std::move(y), std::move(savedMean), std::move(savedInvVar)};
 }
 
 // Create a LayerNormNode, populate it with the specified attributes, create
