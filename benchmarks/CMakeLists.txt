@@ -12,6 +12,8 @@ target_link_libraries(fusilli_benchmark_driver PRIVATE
   libutils
   CLI11::CLI11
 )
+# TODO: Remove this dependency on samples/sdpa once the custom op
+# implementation is replaced with a native SDPA op.
 target_include_directories(fusilli_benchmark_driver PRIVATE
   ${CMAKE_SOURCE_DIR}/samples/sdpa
 )

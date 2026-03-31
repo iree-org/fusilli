@@ -1094,7 +1094,8 @@ static CLI::App *registerSdpaOptions(CLI::App &mainApp, SdpaOptions &sdpaOpts) {
   sdpaApp->add_option("--scale,-s", sdpaOpts.scale,
                       "Attention scale (default: 1/sqrt(head_dim))");
   sdpaApp->add_option("--dropout,-p", sdpaOpts.dropoutP, "Dropout probability")
-      ->default_val(0.0f);
+      ->default_val(0.0f)
+      ->check(CLI::Range(0.0f, 1.0f));
 
   // sdpaApp CLI Flags:
   auto *maskFlag = sdpaApp->add_flag("--mask", sdpaOpts.hasAttnMask,
@@ -1231,6 +1232,19 @@ static ErrorObject runMatmulBenchmark(const MatmulOptions &matmulOpts,
 // Run SDPA benchmark
 static ErrorObject runSdpaBenchmark(const SdpaOptions &sdpaOpts, int64_t iter,
                                     int64_t deviceId, bool dump) {
+  if (sdpaOpts.enableGqa) {
+    // GQA constraint: query heads must be a multiple of KV heads.
+    FUSILLI_RETURN_ERROR_IF(sdpaOpts.headsQ % sdpaOpts.headsKV != 0,
+                            ErrorCode::InvalidArgument,
+                            "GQA requires headsQ to be a multiple of headsKV.");
+  } else {
+    // Standard MHA: query and KV head counts must match.
+    FUSILLI_RETURN_ERROR_IF(
+        sdpaOpts.headsQ != sdpaOpts.headsKV, ErrorCode::InvalidArgument,
+        "MHA requires headsQ == headsKV (use --gqa for grouped query "
+        "attention).");
+  }
+
   DataType sdpaIOType = kMlirTypeAsmToDataType.at(sdpaOpts.type);
 
   ErrorObject status =
