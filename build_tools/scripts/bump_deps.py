@@ -10,6 +10,11 @@
 Designed to run inside a GitHub Actions workflow but also works locally when
 ``gh`` is available and authenticated.
 
+Usage:
+    bump_deps.py               # Bump both IREE and TheRock
+    bump_deps.py --iree-only   # Bump IREE only
+    bump_deps.py --therock-only  # Bump TheRock only
+
 Exit codes:
     0 - success (version.json may or may not have been updated)
     1 - error (version discovery failed, wheel not available, etc.)
@@ -24,6 +29,7 @@ Environment variable outputs (via GITHUB_ENV when running in CI):
     LATEST_THEROCK_VERSION
 """
 
+import argparse
 import json
 import os
 import re
@@ -222,9 +228,34 @@ def set_github_env(key: str, value: str) -> None:
     print(f"  {key}={value}")
 
 
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Discover latest dependency versions and update version.json."
+    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--iree-only",
+        action="store_true",
+        help="Only bump IREE version (skip TheRock discovery)",
+    )
+    group.add_argument(
+        "--therock-only",
+        action="store_true",
+        help="Only bump TheRock version (skip IREE discovery)",
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
+    args = parse_args()
+
     print("=" * 72)
     print("Fusilli Dependency Bump")
+    if args.iree_only:
+        print("  Mode: IREE only")
+    elif args.therock_only:
+        print("  Mode: TheRock only")
     print("=" * 72)
 
     # 1. Read current versions.
@@ -236,11 +267,17 @@ def main() -> int:
     print(f"  TheRock: {current_therock}")
 
     # 2. Discover latest versions.
-    print(f"\n{'─' * 72}")
-    latest_iree = find_latest_iree_with_wheel()
+    if not args.therock_only:
+        print(f"\n{'─' * 72}")
+        latest_iree = find_latest_iree_with_wheel()
+    else:
+        latest_iree = current_iree
 
-    print(f"\n{'─' * 72}")
-    latest_therock = find_latest_therock_version(current_therock)
+    if not args.iree_only:
+        print(f"\n{'─' * 72}")
+        latest_therock = find_latest_therock_version(current_therock)
+    else:
+        latest_therock = current_therock
 
     # 3. Output to GITHUB_ENV.
     print(f"\n{'─' * 72}")
