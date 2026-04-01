@@ -111,8 +111,6 @@ add_fusilli_samples(
   PREFIX fusilli_custom_op_samples
   SRCS
     custom_op/custom_op_add.cpp
-    custom_op/custom_op_add_static.cpp
-    custom_op/custom_op_add_static_transposed.cpp
   DEPS
     libfusilli
     libutils
