@@ -136,7 +136,7 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
     // Read output buffers.
     std::vector<uint8_t> result;
     FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
-    FUSILLI_REQUIRE_BUFFER(result, static_cast<uint8_t>(y), name);
+    FUSILLI_REQUIRE_BUFFER(result, static_cast<uint8_t>(y), name + "/check1");
 
     // Execute graph a few times.
     constexpr size_t numIters = 1;
@@ -146,7 +146,8 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
     // Repeat output buffer checks.
     result.clear();
     FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
-    FUSILLI_REQUIRE_BUFFER(result, static_cast<uint8_t>(y), name);
+    FUSILLI_REQUIRE_BUFFER(result, static_cast<uint8_t>(y),
+                           name + "/check2_reexec");
   };
 
   // Create handle for the target backend.

@@ -23,6 +23,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <fstream>
 #include <functional>
 #include <sstream>
 #include <string>
@@ -465,21 +466,48 @@ inline std::string describeBufferMismatch(const std::vector<T> &result,
   if (mismatchCount == 0)
     return {};
 
+  // Find last mismatch to determine if it's a contiguous block.
+  size_t lastIdx = firstIdx;
+  for (size_t i = firstIdx; i < result.size(); ++i) {
+    if (!cmp(result[i], expected))
+      lastIdx = i;
+  }
+
   std::ostringstream oss;
   oss << "Buffer mismatch [" << context << "]: " << mismatchCount << "/"
       << result.size() << " elements wrong. "
-      << "First at [" << firstIdx << "]: got " << fmtVal(result[firstIdx])
-      << ", expected " << fmtVal(expected) << ".\n";
+      << "First at [" << firstIdx << "], last at [" << lastIdx << "]: got "
+      << fmtVal(result[firstIdx]) << ", expected " << fmtVal(expected) << ".\n";
+
+  // Characterize the pattern.
+  if (mismatchCount == result.size())
+    oss << "  Pattern: ALL elements wrong.\n";
+  else if (mismatchCount == lastIdx - firstIdx + 1)
+    oss << "  Pattern: contiguous block [" << firstIdx << ".." << lastIdx
+        << "].\n";
+  else
+    oss << "  Pattern: scattered (" << mismatchCount << " wrong in range ["
+        << firstIdx << ".." << lastIdx << "]).\n";
 
   // Dump context around first mismatch.
   size_t start = firstIdx > 8 ? firstIdx - 8 : 0;
-  size_t end = std::min(start + 32, result.size());
+  size_t end = std::min(start + 64, result.size());
   oss << "  Buffer[" << start << ".." << end - 1 << "]:";
   for (size_t i = start; i < end; ++i) {
     oss << " [" << i << "]=" << fmtVal(result[i]);
     if (!cmp(result[i], expected))
       oss << "!";
   }
+
+  // Dump full buffer to file for offline analysis.
+  std::string dumpPath = "/tmp/fusilli_buffer_dump_" + context + ".bin";
+  std::ofstream dumpFile(dumpPath, std::ios::binary);
+  if (dumpFile.is_open()) {
+    dumpFile.write(reinterpret_cast<const char *>(result.data()),
+                   result.size() * sizeof(T));
+    oss << "\n  Full buffer dumped to: " << dumpPath;
+  }
+
   return oss.str();
 }
 
