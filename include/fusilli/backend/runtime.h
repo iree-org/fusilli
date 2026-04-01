@@ -610,13 +610,6 @@ inline ErrorObject Buffer::read(const Handle &handle, std::vector<T> &outData) {
   FUSILLI_RETURN_ERROR_IF(outData.size() != 0, ErrorCode::RuntimeFailure,
                           "Buffer::read failed as outData is NOT empty");
 
-  // Diagnostic: insert a full device sync before D2H to test if the flake
-  // is a synchronization issue. Enable with FUSILLI_SYNC_BEFORE_READ=1.
-  if (std::getenv("FUSILLI_SYNC_BEFORE_READ")) {
-    FUSILLI_CHECK_ERROR(
-        iree_hal_device_wait_idle(handle.getDevice(), iree_infinite_timeout()));
-  }
-
   // Get the underlying buffer from the buffer view.
   iree_hal_buffer_t *buffer = iree_hal_buffer_view_buffer(getBufferView());
 
