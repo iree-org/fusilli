@@ -28,8 +28,8 @@
 // TORCH-CHECK:       %training_batchnorm_train = torch.constant.bool true
 // TORCH-CHECK:       %batchnorm_train_Y_batchnorm_train_perm, %batchnorm_train_SAVED_MEAN_batchnorm_train_raw, %batchnorm_train_SAVED_INV_VARIANCE_batchnorm_train_raw = torch.aten.native_batch_norm %batchnorm_train_X_batchnorm_train_perm, %batchnorm_train_SCALE_batchnorm_train_collapsed, %batchnorm_train_BIAS_batchnorm_train_collapsed, %none_mean_batchnorm_train, %none_var_batchnorm_train, %training_batchnorm_train, %momentum_batchnorm_train, %eps_batchnorm_train : !torch.vtensor<[4,16,8,8],f32>, !torch.vtensor<[16],f32>, !torch.vtensor<[16],f32>, !torch.none, !torch.none, !torch.bool, !torch.float, !torch.float -> !torch.vtensor<[4,16,8,8],f32>, !torch.vtensor<[16],f32>, !torch.vtensor<[16],f32>
 // TORCH-CHECK:       %batchnorm_train_Y = torch.aten.permute %batchnorm_train_Y_batchnorm_train_perm
-// TORCH-CHECK:       %batchnorm_train_SAVED_MEAN = torch.aten.reshape %batchnorm_train_SAVED_MEAN_batchnorm_train_raw
-// TORCH-CHECK:       %batchnorm_train_SAVED_INV_VARIANCE = torch.aten.reshape %batchnorm_train_SAVED_INV_VARIANCE_batchnorm_train_raw
+// TORCH-CHECK:       %batchnorm_train_SAVED_MEAN = torch.aten.unflatten.int %batchnorm_train_SAVED_MEAN_batchnorm_train_raw
+// TORCH-CHECK:       %batchnorm_train_SAVED_INV_VARIANCE = torch.aten.unflatten.int %batchnorm_train_SAVED_INV_VARIANCE_batchnorm_train_raw
 // TORCH-CHECK:       torch.overwrite.tensor.contents %batchnorm_train_SAVED_INV_VARIANCE overwrites %batchnorm_train_SAVED_INV_VARIANCE_ : !torch.vtensor<[1,16,1,1],f32>, !torch.tensor<[1,16,1,1],f32>
 // TORCH-CHECK:       torch.overwrite.tensor.contents %batchnorm_train_SAVED_MEAN overwrites %batchnorm_train_SAVED_MEAN_ : !torch.vtensor<[1,16,1,1],f32>, !torch.tensor<[1,16,1,1],f32>
 // TORCH-CHECK:       torch.overwrite.tensor.contents %batchnorm_train_Y overwrites %batchnorm_train_Y_ : !torch.vtensor<[4,16,8,8],f32>, !torch.tensor<[4,16,8,8],f32>

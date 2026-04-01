@@ -154,12 +154,9 @@ public:
       if (t->getDim().empty())
         t->setDim(channelRankMatchedDim);
       if (t->getStride().empty()) {
-        const std::vector<int64_t> &dim = t->getDim();
-        size_t rank = dim.size();
-        // Compute contiguous stride for the rank-matched tensor.
-        std::vector<int64_t> stride(rank, 1);
-        for (int64_t i = (int64_t)rank - 2; i >= 0; --i)
-          stride[i] = stride[i + 1] * dim[i + 1];
+        // Contiguous stride for [1, C, 1, ..., 1] is [C, 1, 1, ..., 1].
+        std::vector<int64_t> stride(xRank, 1);
+        stride[0] = xDim[1];
         t->setStride(stride);
       }
     };
@@ -230,11 +227,6 @@ public:
             !validShape, ErrorCode::InvalidAttribute,
             "BatchNorm tensor " + name +
                 " must be rank-matched with ones in all non-feature dimensions");
-        FUSILLI_RETURN_ERROR_IF(
-            tStride.size() != xRank || tStride[1] != 1,
-            ErrorCode::InvalidAttribute,
-            "BatchNorm tensor " + name +
-                " must have unit stride at the channel dimension");
         return ok();
       }
 

@@ -969,17 +969,15 @@ inline ErrorOr<std::string> ConvDGradNode::emitNodePreAsm() const {
 //
 // BatchNorm-specific ASM helpers
 //
-// These free functions support the BatchNormNode emitter and handle the two
-// representations of 1D-capable channel tensors:
-//   canonical 1D  [C]          - used directly as a native_batch_norm operand
-//   rank-matched  [1,C,1,...,1] - must be collapsed to [C] before the op and
-//                                 (for stat outputs) expanded back afterwards
+// These free functions support the BatchNormNode emitter. Channel tensors
+// (scale, bias, mean, var, saved stats) must be rank-matched [1,C,1,...,1]
+// and are collapsed to [C] before native_batch_norm; stat outputs are
+// expanded back to the rank-matched shape afterwards.
 //
 //===----------------------------------------------------------------------===//
 
-// If `t` is a rank-matched tensor, emits a `torch.aten.flatten.using_ints`
-// op that collapses it to 1D [C]. Returns an empty string when `t` is already
-// 1D (no transformation needed). The collapsed SSA name is
+// Emits a `torch.aten.flatten.using_ints` op that collapses a rank-matched
+// [1,C,1,...,1] tensor to [C]. The collapsed SSA name is
 // `{valueNameAsm}_{suffix}_collapsed`.
 inline std::string
 getBnCollapse1DInputOpsAsm(const std::shared_ptr<TensorAttr> &t,
@@ -1014,24 +1012,16 @@ getBnCollapse1DInputOpsAsm(const std::shared_ptr<TensorAttr> &t,
   );
 }
 
-// Emits the post-op steps that write the 1D result of `native_batch_norm`
-// into the user-facing stat tensor:
-//   1D stat      [C]          – identity permute (existing behaviour)
-//   rank-matched [1,C,1,...,1] – reshape from [C] to the original shape
-//
-// For the 1D path the input SSA name is `{valueNameAsm}_{suffix}_perm`
-// (matching `getResultNamesAsm`); for the rank-matched path it is
-// `{valueNameAsm}_{suffix}_raw`.
+// Emits the post-op unflatten that expands the 1D [C] stat result of
+// `native_batch_norm` back to the rank-matched [1,C,1,...,1] shape.
+// The input SSA name is `{valueNameAsm}_{suffix}_raw`.
 inline std::string
 getBnExpandStatOutputOpsAsm(const std::shared_ptr<TensorAttr> &t,
                             const std::string &role, const std::string &suffix,
                             int64_t numChannels) {
   assert(t && "Tensor must not be null");
 
-  if (t->getDim().size() == 1)
-    return getPermuteOpsAsm(t, "permute_" + role, suffix, /*isInput=*/false);
-
-  // Rank-matched: reshape from the 1D raw result to the original shape.
+  // Unflatten dim 0 of the 1D [C] raw result to the rank-matched shape.
   std::string name = t->getValueNameAsm();
   std::string rawName = name + "_" + suffix + "_raw";
   std::string dt = kDataTypeToMlirTypeAsm.at(t->getDataType());
@@ -1041,20 +1031,23 @@ getBnExpandStatOutputOpsAsm(const std::shared_ptr<TensorAttr> &t,
       t->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
   std::string expandPrefix = "expand_" + role;
   std::string listName = "%" + expandPrefix + "_" + suffix;
+  std::string dimName = "%unflatten_dim_" + role + "_" + suffix;
 
   std::ostringstream oss;
   oss << getListOfIntOpsAsm(t->getDim(), expandPrefix, suffix);
 
-  constexpr std::string_view reshapeSchema =
+  constexpr std::string_view unflattenSchema =
       R"(
-    {0} = torch.aten.reshape {1}, {2} : {3}, !torch.list<int> -> {4})";
+    {0} = torch.constant.int 0
+    {1} = torch.aten.unflatten.int {2}, {0}, {3} : {4}, !torch.int, !torch.list<int> -> {5})";
 
-  oss << std::format(reshapeSchema,
-                     name,           // {0}
-                     rawName,        // {1}
-                     listName,       // {2}
-                     type1D,         // {3}
-                     rankMatchedType // {4}
+  oss << std::format(unflattenSchema,
+                     dimName,        // {0}
+                     name,           // {1}
+                     rawName,        // {2}
+                     listName,       // {3}
+                     type1D,         // {4}
+                     rankMatchedType // {5}
   );
 
   return oss.str();
@@ -1093,8 +1086,8 @@ getBnExpandStatOutputOpsAsm(const std::shared_ptr<TensorAttr> &t,
 //   input, weight?, bias?, running_mean?, running_var?, training, momentum, eps
 //   (batch_norm also takes cudnn_enabled)
 //
-// For 1D tensors (scale, bias, mean, var) no permutation is applied; they are
-// referenced directly by their SSA value name.
+// Rank-matched channel tensors have been collapsed to [C] before this op;
+// they are referenced by their collapsed SSA name.
 inline std::string BatchNormNode::getOperandNamesAsm() const {
   std::ostringstream oss;
   std::string suffix = batchnormAttr.getName();
@@ -1171,17 +1164,13 @@ inline std::string BatchNormNode::getResultNamesAsm() const {
   oss << batchnormAttr.getY()->getValueNameAsm() << "_" << suffix << "_perm";
 
   if (isTrainingForwardPhase()) {
-    // Rank-matched stat tensors get a "_raw" suffix (the 1D result is then
-    // reshaped back); 1D stat tensors keep the existing "_perm" suffix
-    // (permuted back by getPermuteOpsAsm).
-    auto statResultTag = [](const std::shared_ptr<TensorAttr> &t) {
-      return t->getDim().size() != 1 ? "_raw" : "_perm";
-    };
+    // Stat tensors are rank-matched and get a "_raw" suffix; the 1D result
+    // is reshaped back to rank-matched form by getBnExpandStatOutputOpsAsm.
     oss << ", ";
     oss << batchnormAttr.getSAVED_MEAN()->getValueNameAsm() << "_" << suffix
-        << statResultTag(batchnormAttr.getSAVED_MEAN()) << ", ";
+        << "_raw, ";
     oss << batchnormAttr.getSAVED_INV_VARIANCE()->getValueNameAsm() << "_"
-        << suffix << statResultTag(batchnormAttr.getSAVED_INV_VARIANCE());
+        << suffix << "_raw";
   } else {
     // Inference: native_batch_norm still returns 3 tensors; discard last two.
     oss << ", %_infer_saved_mean_" << suffix << "_perm";
