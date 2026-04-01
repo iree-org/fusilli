@@ -7,3 +7,8 @@ leak:iree_hal_hip_nccl_dynamic_symbols_initialize
 leak:libamdhip64.so
 leak:libhsa-runtime64.so
 leak:libamd_comgr.so
+
+# ROCm libraries loaded via dlopen may appear as <unknown module> in LSAN
+# stack traces when the library is dlclose'd before LSAN's exit-time check.
+# This suppresses leaks from any unresolvable module.
+leak:<unknown module>
