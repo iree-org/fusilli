@@ -326,18 +326,16 @@ TEST_CASE("BatchNormNode postValidateNode validates output shapes",
                                          .setDim({n, c, h, w})
                                          .setDataType(DataType::Float)
                                          .setStride({c * h * w, h * w, w, 1}));
-    auto meanT = std::make_shared<TensorAttr>(
-        TensorAttr()
-            .setName("mean")
-            .setDim({1, c, 1, 1})
-            .setDataType(DataType::Float)
-            .setStride({c, 1, 1, 1}));
-    auto varT = std::make_shared<TensorAttr>(
-        TensorAttr()
-            .setName("var")
-            .setDim({1, c, 1, 1})
-            .setDataType(DataType::Float)
-            .setStride({c, 1, 1, 1}));
+    auto meanT = std::make_shared<TensorAttr>(TensorAttr()
+                                                  .setName("mean")
+                                                  .setDim({1, c, 1, 1})
+                                                  .setDataType(DataType::Float)
+                                                  .setStride({c, 1, 1, 1}));
+    auto varT = std::make_shared<TensorAttr>(TensorAttr()
+                                                 .setName("var")
+                                                 .setDim({1, c, 1, 1})
+                                                 .setDataType(DataType::Float)
+                                                 .setStride({c, 1, 1, 1}));
     auto epsT = std::make_shared<TensorAttr>(TensorAttr(1e-5f).setName("eps"));
     auto momT = std::make_shared<TensorAttr>(TensorAttr(0.1f).setName("mom"));
     auto yT = std::make_shared<TensorAttr>(
@@ -366,10 +364,14 @@ TEST_CASE("BatchNormNode postValidateNode validates output shapes",
                                          .setDim({n, c, h, w})
                                          .setDataType(DataType::Float)
                                          .setStride({c * h * w, h * w, w, 1}));
-    auto meanT = std::make_shared<TensorAttr>(
-        TensorAttr().setName("mean").setDim({1, c, 1, 1}).setStride({c, 1, 1, 1}));
-    auto varT = std::make_shared<TensorAttr>(
-        TensorAttr().setName("var").setDim({1, c, 1, 1}).setStride({c, 1, 1, 1}));
+    auto meanT = std::make_shared<TensorAttr>(TensorAttr()
+                                                  .setName("mean")
+                                                  .setDim({1, c, 1, 1})
+                                                  .setStride({c, 1, 1, 1}));
+    auto varT = std::make_shared<TensorAttr>(TensorAttr()
+                                                 .setName("var")
+                                                 .setDim({1, c, 1, 1})
+                                                 .setStride({c, 1, 1, 1}));
     auto epsT = std::make_shared<TensorAttr>(TensorAttr(1e-5f).setName("eps"));
     auto momT = std::make_shared<TensorAttr>(TensorAttr(0.1f).setName("mom"));
     // Y has wrong shape.
@@ -518,10 +520,14 @@ TEST_CASE("BatchNormNode postValidateNode validates output shapes",
                                          .setDim({n, c, h, w})
                                          .setDataType(DataType::Float)
                                          .setStride({c * h * w, h * w, w, 1}));
-    auto scaleT = std::make_shared<TensorAttr>(
-        TensorAttr().setName("scale").setDim({1, c, 1, 1}).setStride({c, 1, 1, 1}));
-    auto biasT = std::make_shared<TensorAttr>(
-        TensorAttr().setName("bias").setDim({1, c, 1, 1}).setStride({c, 1, 1, 1}));
+    auto scaleT = std::make_shared<TensorAttr>(TensorAttr()
+                                                   .setName("scale")
+                                                   .setDim({1, c, 1, 1})
+                                                   .setStride({c, 1, 1, 1}));
+    auto biasT = std::make_shared<TensorAttr>(TensorAttr()
+                                                  .setName("bias")
+                                                  .setDim({1, c, 1, 1})
+                                                  .setStride({c, 1, 1, 1}));
     auto epsT = std::make_shared<TensorAttr>(TensorAttr(1e-5f).setName("eps"));
     auto momT = std::make_shared<TensorAttr>(TensorAttr(0.1f).setName("mom"));
     auto yT = std::make_shared<TensorAttr>(

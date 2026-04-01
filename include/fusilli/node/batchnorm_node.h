@@ -223,10 +223,10 @@ public:
         for (size_t i = 0; i < xRank && validShape; ++i)
           if (i != 1 && tDim[i] != 1)
             validShape = false;
-        FUSILLI_RETURN_ERROR_IF(
-            !validShape, ErrorCode::InvalidAttribute,
-            "BatchNorm tensor " + name +
-                " must be rank-matched with ones in all non-feature dimensions");
+        FUSILLI_RETURN_ERROR_IF(!validShape, ErrorCode::InvalidAttribute,
+                                "BatchNorm tensor " + name +
+                                    " must be rank-matched with ones in all "
+                                    "non-feature dimensions");
         return ok();
       }
 
@@ -245,8 +245,8 @@ public:
     if (isTrainingForwardPhase()) {
       FUSILLI_CHECK_ERROR(
           checkChannelShape(batchnormAttr.getSAVED_MEAN(), "SAVED_MEAN"));
-      FUSILLI_CHECK_ERROR(checkChannelShape(batchnormAttr.getSAVED_INV_VARIANCE(),
-                                            "SAVED_INV_VARIANCE"));
+      FUSILLI_CHECK_ERROR(checkChannelShape(
+          batchnormAttr.getSAVED_INV_VARIANCE(), "SAVED_INV_VARIANCE"));
     }
 
     return ok();
