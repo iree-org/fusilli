@@ -38,6 +38,7 @@ add_fusilli_tests(
   SRCS
     test_attributes.cpp
     test_tensor_attributes.cpp
+    test_batchnorm_attributes.cpp
     test_conv_attributes.cpp
     test_layernorm_attributes.cpp
     test_rmsnorm_attributes.cpp
@@ -52,6 +53,7 @@ add_fusilli_tests(
   PREFIX
     fusilli_node_tests
   SRCS
+    test_batchnorm_node.cpp
     test_conv_node.cpp
     test_layernorm_node.cpp
     test_rmsnorm_node.cpp
@@ -60,6 +62,7 @@ add_fusilli_tests(
     test_reduction_node.cpp
   DEPS
     libfusilli
+    libutils
     Catch2::Catch2WithMain)
 
 add_fusilli_tests(
@@ -159,6 +162,8 @@ add_fusilli_lit_tests(
     lit/test_conv_wgrad_asm_emitter_nhwc_krsc_grouped_strided.cpp
     lit/test_conv_dgrad_asm_emitter_nhwc_kcrs.cpp
     lit/test_conv_dgrad_asm_emitter_nhwc_kcrs_grouped.cpp
+    lit/test_batchnorm_infer_asm_emitter_nchw.cpp
+    lit/test_batchnorm_train_asm_emitter_nchw.cpp
     lit/test_layernorm_infer_asm_emitter_nchw.cpp
     lit/test_layernorm_infer_asm_emitter_scale_bias_nhwc.cpp
     lit/test_layernorm_infer_asm_emitter_scale_bias_nhwc_small_batch.cpp
