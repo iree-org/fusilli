@@ -43,7 +43,7 @@ public:
       : NodeCRTP(ctx), rmsnormAttr(std::move(attr)) {}
 
   // ASM emitter methods (inference mode only).
-  ErrorOr<std::string> emitNodePreAsm() const override final;
+  std::string emitNodePreAsm() const override final;
   std::string getOperandNamesAsm() const;
   std::string getOperandTypesAsm() const;
   std::string getResultNamesAsm() const;

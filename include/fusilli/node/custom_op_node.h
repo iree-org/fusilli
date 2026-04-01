@@ -39,8 +39,8 @@ public:
       : NodeCRTP(ctx), customOpAttr(std::move(attr)) {}
 
   // ASM emitter methods (definitions in asm_emitter.h).
-  ErrorOr<std::string> emitModuleScopeAsm() const override final;
-  ErrorOr<std::string> emitNodePreAsm() const override final;
+  std::string emitModuleScopeAsm() const override final;
+  std::string emitNodePreAsm() const override final;
 
   // ASM emission helpers (definitions in asm_emitter.h).
   std::string getCallOperandNamesAsm() const;
