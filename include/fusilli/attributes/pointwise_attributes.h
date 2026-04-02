@@ -25,6 +25,7 @@
 namespace fusilli {
 
 #define FUSILLI_POINTWISE_OPS(OP)                                              \
+  OP(ABS)                                                                      \
   OP(ADD)                                                                      \
   /* OP(ADD_SQUARE)  */                                                        \
   /* OP(BINARY_SELECT)  */                                                     \
@@ -127,6 +128,7 @@ inline const std::unordered_map<PointwiseAttr::Mode, std::string>
 
 inline const std::unordered_map<PointwiseAttr::Mode, int>
     PointwiseAttr::kModeToRequiredInputCount = {
+        {PointwiseAttr::Mode::ABS, 1},
         {PointwiseAttr::Mode::ADD, 2},
         {PointwiseAttr::Mode::CEIL, 1},
         {PointwiseAttr::Mode::CMP_EQ, 2},

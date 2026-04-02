@@ -1731,6 +1731,7 @@ inline ErrorOr<std::string> PointwiseNode::emitNodePreAsm() const {
   FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kSubAddSchema, OPIR)
 
   switch (pointwiseAttr.getMode()) {
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(ABS, torch.aten.abs)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(CEIL, torch.aten.ceil)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_EQ, torch.aten.eq.Tensor)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_LT, torch.aten.lt.Tensor)
