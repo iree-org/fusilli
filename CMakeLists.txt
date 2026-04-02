@@ -256,6 +256,14 @@ set(FUSILLI_SANITIZER_TEST_ENV_VARS "")
 if(FUSILLI_ENABLE_ASAN)
   list(APPEND FUSILLI_SANITIZER_TEST_ENV_VARS
     "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/build_tools/sanitizers/lsan_suppressions.txt")
+  if(FUSILLI_SYSTEMS_AMDGPU)
+    # TODO(#292): remove this after IREE fix.
+    # Keep ROCm libraries mapped at exit so LSAN can resolve module names and
+    # trace reachability through library globals. Without this, dlclose'd
+    # libraries appear as <unknown module> and library-name suppressions fail.
+    list(APPEND FUSILLI_SANITIZER_TEST_ENV_VARS
+      "LD_PRELOAD=libamdhip64.so")
+  endif()
 endif()
 if(FUSILLI_ENABLE_UBSAN)
   list(APPEND FUSILLI_SANITIZER_TEST_ENV_VARS
