@@ -41,7 +41,8 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
 
   const auto mode =
       GENERATE(PointwiseAttr::Mode::CEIL, PointwiseAttr::Mode::RELU_FWD,
-               PointwiseAttr::Mode::SIGMOID_FWD, PointwiseAttr::Mode::TANH_FWD);
+               PointwiseAttr::Mode::ELU_FWD, PointwiseAttr::Mode::SIGMOID_FWD,
+               PointwiseAttr::Mode::TANH_FWD);
 
   auto execute = [&]<typename T>(Handle &handle, DataType dt, T x) {
     auto buildNewGraph = [&](Handle &handleArg) {
@@ -96,6 +97,11 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     // Calculate reference value
     T y = 0;
     switch (mode) {
+    case PointwiseAttr::Mode::ELU_FWD: {
+      double xD = static_cast<double>(x);
+      y = xD >= 0 ? xD : std::expm1(xD);
+      break;
+    }
     case PointwiseAttr::Mode::RELU_FWD: {
       y = std::max(x, T(0));
       break;

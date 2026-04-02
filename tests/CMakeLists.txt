@@ -141,6 +141,7 @@ add_fusilli_lit_tests(
     lit/test_conv_asm_emitter_ndhwc_kdrsc.cpp
     lit/test_conv_asm_emitter_ndhwc_kdrsc_grouped.cpp
     lit/test_conv_asm_emitter_nhwc_krsc_grouped.cpp
+    lit/test_pointwise_asm_emitter_elu.cpp
     lit/test_pointwise_asm_emitter_relu.cpp
     lit/test_pointwise_asm_emitter_add.cpp
     lit/test_pointwise_asm_emitter_add_transposed.cpp

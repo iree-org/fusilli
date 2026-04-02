@@ -1723,15 +1723,27 @@ inline ErrorOr<std::string> PointwiseNode::emitNodePreAsm() const {
     {6}
 )";
 
+  constexpr std::string_view kEluSchema = R"(
+    {0}
+    %elu_alpha_{7} = torch.constant.float 1.000000e+00
+    %elu_scale_{7} = torch.constant.float 1.000000e+00
+    %elu_input_scale_{7} = torch.constant.float 1.000000e+00
+    {1} = {6} {2}, %elu_alpha_{7}, %elu_scale_{7}, %elu_input_scale_{7} : {3}, !torch.float, !torch.float, !torch.float -> {4}
+    {5}
+)";
+
 #define FUSILLI_DECLARE_UNARY_TORCH_EMITTER(PWOP, OPIR)                        \
   FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(PWOP, kUnaryTorchSchema, OPIR)
 #define FUSILLI_DECLARE_BINARY_TORCH_EMITTER(PWOP, OPIR)                       \
   FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kBinaryTorchSchema, OPIR)
 #define FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(PWOP, OPIR)                      \
   FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kSubAddSchema, OPIR)
+#define FUSILLI_DECLARE_ELU_TORCH_EMITTER(PWOP, OPIR)                          \
+  FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(PWOP, kEluSchema, OPIR)
 
   switch (pointwiseAttr.getMode()) {
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(CEIL, torch.aten.ceil)
+    FUSILLI_DECLARE_ELU_TORCH_EMITTER(ELU_FWD, torch.aten.elu)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_EQ, torch.aten.eq.Tensor)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_LT, torch.aten.lt.Tensor)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_LE, torch.aten.le.Tensor)
@@ -1756,6 +1768,7 @@ inline ErrorOr<std::string> PointwiseNode::emitNodePreAsm() const {
 #undef FUSILLI_DECLARE_UNARY_TORCH_EMITTER
 #undef FUSILLI_DECLARE_BINARY_TORCH_EMITTER
 #undef FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER
+#undef FUSILLI_DECLARE_ELU_TORCH_EMITTER
 
 //===----------------------------------------------------------------------===//
 //
