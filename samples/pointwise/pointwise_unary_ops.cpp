@@ -39,10 +39,14 @@ static std::string generateName(PointwiseAttr::Mode mode, DataType type,
 TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
   const auto dim = std::vector<int64_t>{2, 16, 64, 64};
 
-  const auto mode =
-      GENERATE(PointwiseAttr::Mode::ABS, PointwiseAttr::Mode::CEIL,
-               PointwiseAttr::Mode::RELU_FWD, PointwiseAttr::Mode::SIGMOID_FWD,
-               PointwiseAttr::Mode::TANH_FWD);
+  // clang-format off
+  const auto mode = GENERATE(
+      PointwiseAttr::Mode::ABS,
+      PointwiseAttr::Mode::CEIL,
+      PointwiseAttr::Mode::RELU_FWD,
+      PointwiseAttr::Mode::SIGMOID_FWD,
+      PointwiseAttr::Mode::TANH_FWD);
+  // clang-format on
 
   auto execute = [&]<typename T>(Handle &handle, DataType dt, T x) {
     auto buildNewGraph = [&](Handle &handleArg) {
