@@ -46,22 +46,10 @@ public:
   //   {IN0_DTYPE}   — replaced with input 0's MLIR element type (e.g., "f32").
   //   {OUT0_DTYPE}  — replaced with output 0's MLIR element type.
   //
-  // By default, shapes in the MLIR should use dynamic placeholders [?] so
-  // the function works for any tensor size. If the MLIR uses concrete static
-  // shapes instead (e.g., [4,8]), call `setIsStatic(true)` so the emitter
-  // uses matching static types in the surrounding casts and func.call
-  // signature.
-  //
-  // Example (dynamic):
+  // Example:
   //   func.func private @{FUNC_NAME}(%arg0: !torch.vtensor<[?],{IN0_DTYPE}>,
   //                                    %arg1: !torch.vtensor<[?],{IN1_DTYPE}>)
   //                                    -> !torch.vtensor<[?],{OUT0_DTYPE}> {
-  //     ...
-  //   }
-  //
-  // Example (static, requires setIsStatic(true)):
-  //   func.func private @{FUNC_NAME}(%arg0: !torch.vtensor<[4,8],{IN0_DTYPE}>)
-  //                                    -> !torch.vtensor<[4,8],{OUT0_DTYPE}> {
   //     ...
   //   }
   //
@@ -76,14 +64,6 @@ public:
     return *this;
   }
 
-  // When true, the user-provided MLIR already has static shapes baked in.
-  // The emitter will use static types in casts and func.call signatures,
-  // making the casts identity no-ops that the compiler eliminates.
-  CustomOpAttr &setIsStatic(bool isStatic) {
-    isStatic_ = isStatic;
-    return *this;
-  }
-
   // Getters:
   const std::string &getName() const { return name_; }
 
@@ -92,13 +72,10 @@ public:
 
   size_t getNumOutputs() const { return numOutputs_; }
 
-  bool isStatic() const { return isStatic_; }
-
 private:
   std::string name_;
   std::string mlir_;
   size_t numOutputs_ = 0;
-  bool isStatic_ = false;
 };
 
 } // namespace fusilli
