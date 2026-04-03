@@ -75,8 +75,11 @@ add_fusilli_samples(
   PREFIX fusilli_batchnorm_samples
   SRCS
     batchnorm/batchnorm_infer_nchw.cpp
+    batchnorm/batchnorm_infer_nchw_no_momentum.cpp
     batchnorm/batchnorm_infer_nchw_scale_bias.cpp
+    batchnorm/batchnorm_infer_nchw_rank_matched_scale_bias.cpp
     batchnorm/batchnorm_infer_nhwc_scale_bias.cpp
+    batchnorm/batchnorm_infer_ncdhw_rank_matched.cpp
     batchnorm/batchnorm_train_nchw.cpp
     batchnorm/batchnorm_train_nchw_scale_bias.cpp
   DEPS

@@ -37,8 +37,8 @@ namespace fusilli {
 // each channel C. The input X has logical shape [N, C, *] where C is at
 // dimension 1 in logical (NCHW) order.
 //
-// Scale (gamma), bias (beta), running mean, and running variance are all 1D
-// tensors of shape [C].
+// Scale (gamma), bias (beta), running mean, and running variance are all
+// rank-matched tensors of shape [1, C, 1, ..., 1].
 //
 // Inference: requires running MEAN and VAR; outputs Y only.
 // Training:  running MEAN and VAR are optional; outputs Y, SAVED_MEAN, and
@@ -125,12 +125,12 @@ public:
     FUSILLI_RETURN_ERROR_IF(!eT->isScalar(), ErrorCode::InvalidAttribute,
                             "BatchNorm epsilon must be a scalar constant");
 
-    // Momentum checks.
+    // Momentum checks (optional — omitting uses the PyTorch default 0.1).
     std::shared_ptr<TensorAttr> mT = batchnormAttr.getMomentum();
-    FUSILLI_RETURN_ERROR_IF(!mT, ErrorCode::AttributeNotSet,
-                            "BatchNorm momentum not set");
-    FUSILLI_RETURN_ERROR_IF(!mT->isScalar(), ErrorCode::InvalidAttribute,
-                            "BatchNorm momentum must be a scalar constant");
+    if (mT) {
+      FUSILLI_RETURN_ERROR_IF(!mT->isScalar(), ErrorCode::InvalidAttribute,
+                              "BatchNorm momentum must be a scalar constant");
+    }
 
     return ok();
   }
@@ -145,25 +145,31 @@ public:
     std::shared_ptr<TensorAttr> yT = batchnormAttr.getY();
 
     const std::vector<int64_t> &xDim = xT->getDim();
-    const std::vector<int64_t> channel1DDim = {xDim[1]};
-    const std::vector<int64_t> channel1DStride = {1};
+    size_t xRank = xDim.size();
+    // Build the rank-matched channel dim: [1, C, 1, ..., 1]
+    std::vector<int64_t> channelRankMatchedDim(xRank, 1);
+    channelRankMatchedDim[1] = xDim[1];
 
-    auto infer1DTensor = [&](const std::shared_ptr<TensorAttr> &t) {
+    auto inferChannelTensor = [&](const std::shared_ptr<TensorAttr> &t) {
       if (t->getDim().empty())
-        t->setDim(channel1DDim);
-      if (t->getStride().empty())
-        t->setStride(channel1DStride);
+        t->setDim(channelRankMatchedDim);
+      if (t->getStride().empty()) {
+        // Contiguous stride for [1, C, 1, ..., 1] is [C, 1, 1, ..., 1].
+        std::vector<int64_t> stride(xRank, 1);
+        stride[0] = xDim[1];
+        t->setStride(stride);
+      }
     };
 
-    // Infer 1D channel tensors.
+    // Infer rank-matched channel tensors.
     if (auto sT = batchnormAttr.getSCALE())
-      infer1DTensor(sT);
+      inferChannelTensor(sT);
     if (auto bT = batchnormAttr.getBIAS())
-      infer1DTensor(bT);
+      inferChannelTensor(bT);
     if (auto meanT = batchnormAttr.getMEAN())
-      infer1DTensor(meanT);
+      inferChannelTensor(meanT);
     if (auto varT = batchnormAttr.getVAR())
-      infer1DTensor(varT);
+      inferChannelTensor(varT);
 
     // Infer shape and stride of output Y tensor (same as X).
     if (yT->getDim().empty())
@@ -173,8 +179,8 @@ public:
 
     // Infer saved statistics shapes for training.
     if (isTrainingForwardPhase()) {
-      infer1DTensor(batchnormAttr.getSAVED_MEAN());
-      infer1DTensor(batchnormAttr.getSAVED_INV_VARIANCE());
+      inferChannelTensor(batchnormAttr.getSAVED_MEAN());
+      inferChannelTensor(batchnormAttr.getSAVED_INV_VARIANCE());
     }
 
     return ok();
@@ -188,7 +194,6 @@ public:
     std::shared_ptr<TensorAttr> yT = batchnormAttr.getY();
 
     const std::vector<int64_t> &xDim = xT->getDim();
-    const std::vector<int64_t> expectedCDim = {xDim[1]};
 
     // Shape check for output Y tensor.
     FUSILLI_RETURN_ERROR_IF(
@@ -202,32 +207,46 @@ public:
                                 "' is neither contiguous nor channels-last as "
                                 "defined by its stride");
 
-    // Shape checks for 1D channel tensors.
-    auto check1DShape = [&](const std::shared_ptr<TensorAttr> &t,
-                            const std::string &name) -> ErrorObject {
+    // Shape checks for rank-matched channel tensors of form [1, C, 1, ..., 1].
+    auto checkChannelShape = [&](const std::shared_ptr<TensorAttr> &t,
+                                 const std::string &name) -> ErrorObject {
       if (!t)
         return ok();
+      const std::vector<int64_t> &tDim = t->getDim();
+      const std::vector<int64_t> &tStride = t->getStride();
+      size_t xRank = xDim.size();
+
+      if (tDim.size() == xRank) {
+        // Rank-matched form [1, C, 1, ..., 1]: channel dim must equal C and
+        // all other dims must be 1.
+        bool validShape = (tDim[1] == xDim[1]);
+        for (size_t i = 0; i < xRank && validShape; ++i)
+          if (i != 1 && tDim[i] != 1)
+            validShape = false;
+        FUSILLI_RETURN_ERROR_IF(!validShape, ErrorCode::InvalidAttribute,
+                                "BatchNorm tensor " + name +
+                                    " must be rank-matched with ones in all "
+                                    "non-feature dimensions");
+        return ok();
+      }
+
       FUSILLI_RETURN_ERROR_IF(
-          t->getDim() != expectedCDim, ErrorCode::InvalidAttribute,
+          true, ErrorCode::InvalidAttribute,
           "BatchNorm tensor " + name +
-              " must be 1D with size equal to channel dimension C");
-      FUSILLI_RETURN_ERROR_IF(t->getStride() != std::vector<int64_t>{1},
-                              ErrorCode::InvalidAttribute,
-                              "BatchNorm tensor " + name +
-                                  " must have unit stride");
+              " must be rank-matched with ones in all non-feature dimensions");
       return ok();
     };
 
-    FUSILLI_CHECK_ERROR(check1DShape(batchnormAttr.getSCALE(), "SCALE"));
-    FUSILLI_CHECK_ERROR(check1DShape(batchnormAttr.getBIAS(), "BIAS"));
-    FUSILLI_CHECK_ERROR(check1DShape(batchnormAttr.getMEAN(), "MEAN"));
-    FUSILLI_CHECK_ERROR(check1DShape(batchnormAttr.getVAR(), "VAR"));
+    FUSILLI_CHECK_ERROR(checkChannelShape(batchnormAttr.getSCALE(), "SCALE"));
+    FUSILLI_CHECK_ERROR(checkChannelShape(batchnormAttr.getBIAS(), "BIAS"));
+    FUSILLI_CHECK_ERROR(checkChannelShape(batchnormAttr.getMEAN(), "MEAN"));
+    FUSILLI_CHECK_ERROR(checkChannelShape(batchnormAttr.getVAR(), "VAR"));
 
     if (isTrainingForwardPhase()) {
       FUSILLI_CHECK_ERROR(
-          check1DShape(batchnormAttr.getSAVED_MEAN(), "SAVED_MEAN"));
-      FUSILLI_CHECK_ERROR(check1DShape(batchnormAttr.getSAVED_INV_VARIANCE(),
-                                       "SAVED_INV_VARIANCE"));
+          checkChannelShape(batchnormAttr.getSAVED_MEAN(), "SAVED_MEAN"));
+      FUSILLI_CHECK_ERROR(checkChannelShape(
+          batchnormAttr.getSAVED_INV_VARIANCE(), "SAVED_INV_VARIANCE"));
     }
 
     return ok();
