@@ -43,6 +43,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
   const auto mode = GENERATE(
       PointwiseAttr::Mode::ABS,
       PointwiseAttr::Mode::CEIL,
+      PointwiseAttr::Mode::LOG,
       PointwiseAttr::Mode::RELU_FWD,
       PointwiseAttr::Mode::SIGMOID_FWD,
       PointwiseAttr::Mode::TANH_FWD);
@@ -125,6 +126,11 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       y = std::ceil(xD);
       break;
     }
+    case PointwiseAttr::Mode::LOG: {
+      double xD = static_cast<double>(x);
+      y = std::log(xD);
+      break;
+    }
     default:
       FAIL(
           "Unsupported pointwise mode: " << PointwiseAttr::kModeToStr.at(mode));
@@ -162,7 +168,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // int32
-  execute(handle, DataType::Int32, int(-128));
+  execute(handle, DataType::Int32, int(128));
   // fp16
   execute(handle, DataType::Half, half(3.14));
 }
