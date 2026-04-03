@@ -1996,7 +1996,7 @@ inline ErrorOr<std::string> CustomOpNode::emitNodePreAsm() const {
                             /*isInput=*/true);
   }
 
-  // 3. func.call — use the node name as the callee (matches {FUNC_NAME}
+  // 2. func.call — use the node name as the callee (matches {FUNC_NAME}
   // resolved in the module-scope definition).
   std::string resultTypes = getCallResultTypesAsm();
   if (outputs.size() > 1)
@@ -2012,7 +2012,7 @@ inline ErrorOr<std::string> CustomOpNode::emitNodePreAsm() const {
                      resultTypes               // {4}
   );
 
-  // 3 & 4. For each output: permute logical -> physical.
+  // 3. For each output: permute logical -> physical.
   // For multi-output, func.call produces %base:N and individual results
   // are accessed via %base#0, %base#1, etc., so we pass the #i name as
   // the operand override to the permute.
