@@ -43,6 +43,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
   const auto mode = GENERATE(
       PointwiseAttr::Mode::ABS,
       PointwiseAttr::Mode::CEIL,
+      PointwiseAttr::Mode::ELU_FWD,
       PointwiseAttr::Mode::RELU_FWD,
       PointwiseAttr::Mode::SIGMOID_FWD,
       PointwiseAttr::Mode::TANH_FWD);
@@ -104,6 +105,11 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     case PointwiseAttr::Mode::ABS: {
       double xD = static_cast<double>(x);
       y = std::abs(xD);
+      break;
+    }
+    case PointwiseAttr::Mode::ELU_FWD: {
+      double xD = static_cast<double>(x);
+      y = xD >= 0 ? xD : std::expm1(xD);
       break;
     }
     case PointwiseAttr::Mode::RELU_FWD: {
