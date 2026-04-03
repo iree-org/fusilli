@@ -36,6 +36,7 @@ static const std::unordered_map<PointwiseAttr::Mode, DataType>
         {PointwiseAttr::Mode::CMP_LE, DataType::Boolean},
         {PointwiseAttr::Mode::CMP_GT, DataType::Boolean},
         {PointwiseAttr::Mode::CMP_GE, DataType::Boolean},
+        {PointwiseAttr::Mode::LOGICAL_NOT, DataType::Boolean},
 };
 
 class PointwiseNode : public NodeCRTP<PointwiseNode> {
