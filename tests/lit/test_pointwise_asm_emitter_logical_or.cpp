@@ -24,13 +24,13 @@
 // TORCH-CHECK:       %[[PERM1_3:.+]] = torch.constant.int 3
 // TORCH-CHECK:       %[[PERM1_LIST:.+]] = torch.prim.ListConstruct %[[PERM1_0]], %[[PERM1_1]], %[[PERM1_2]], %[[PERM1_3]] : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
 // TORCH-CHECK:       %[[PERMUTE1:.+]] = torch.aten.permute %[[ARG1]], %[[PERM1_LIST]] : !torch.vtensor<[1,256,1,1],f32>, !torch.list<int> -> !torch.vtensor<[1,256,1,1],f32>
-// TORCH-CHECK:       %[[CEIL:.+]] = torch.aten.logical_or %[[PERMUTE0]], %[[PERMUTE1]] : !torch.vtensor<[16,256,64,32],f32>, !torch.vtensor<[1,256,1,1],f32> -> !torch.vtensor<[16,256,64,32],i1>
+// TORCH-CHECK:       %[[LOGICAL_OR:.+]] = torch.aten.logical_or %[[PERMUTE0]], %[[PERMUTE1]] : !torch.vtensor<[16,256,64,32],f32>, !torch.vtensor<[1,256,1,1],f32> -> !torch.vtensor<[16,256,64,32],i1>
 // TORCH-CHECK:       %[[PERM_OUT_0:.+]] = torch.constant.int 0
 // TORCH-CHECK:       %[[PERM_OUT_1:.+]] = torch.constant.int 1
 // TORCH-CHECK:       %[[PERM_OUT_2:.+]] = torch.constant.int 2
 // TORCH-CHECK:       %[[PERM_OUT_3:.+]] = torch.constant.int 3
 // TORCH-CHECK:       %[[PERM_OUT_LIST:.+]] = torch.prim.ListConstruct %[[PERM_OUT_0]], %[[PERM_OUT_1]], %[[PERM_OUT_2]], %[[PERM_OUT_3]] : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %[[PERM_OUT:.+]] = torch.aten.permute %[[CEIL]], %[[PERM_OUT_LIST]] : !torch.vtensor<[16,256,64,32],i1>, !torch.list<int> -> !torch.vtensor<[16,256,64,32],i1>
+// TORCH-CHECK:       %[[PERM_OUT:.+]] = torch.aten.permute %[[LOGICAL_OR]], %[[PERM_OUT_LIST]] : !torch.vtensor<[16,256,64,32],i1>, !torch.list<int> -> !torch.vtensor<[16,256,64,32],i1>
 // TORCH-CHECK:       torch.overwrite.tensor.contents %[[PERM_OUT]] overwrites %[[RESULT0]] : !torch.vtensor<[16,256,64,32],i1>, !torch.tensor<[16,256,64,32],i1>
 // TORCH-CHECK:       return
 // TORCH-CHECK:     }
