@@ -48,6 +48,7 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
       PointwiseAttr::Mode::ADD,
       PointwiseAttr::Mode::DIV,
       PointwiseAttr::Mode::MAX_OP,
+      PointwiseAttr::Mode::MIN_OP,
       PointwiseAttr::Mode::MUL,
       PointwiseAttr::Mode::SUB);
   // clang-format on
@@ -125,6 +126,10 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
     }
     case PointwiseAttr::Mode::MAX_OP: {
       y = x0 > x1 ? x0 : x1;
+      break;
+    }
+    case PointwiseAttr::Mode::MIN_OP: {
+      y = x0 < x1 ? x0 : x1;
       break;
     }
     case PointwiseAttr::Mode::MUL: {
