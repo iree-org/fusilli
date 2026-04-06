@@ -9,9 +9,14 @@ name: Bump Deps (nightly)
 on:
   workflow_dispatch:
     inputs:
-      branch-name:
-        type: string
-        description: "Branch name override (default: bump-deps/YYYY-MM-DD)"
+      dep:
+        type: choice
+        description: "Which dependency to bump"
+        default: both
+        options:
+          - both
+          - iree
+          - therock
   schedule:
     # Weekdays at 12:00 UTC (04:00 PST / 05:00 PDT)
     - cron: "0 12 * * 1-5"
@@ -22,44 +27,56 @@ permissions:
 
 jobs:
 
-  check-for-existing-branch:
+  check-for-existing-branches:
     # Only run scheduled workflows on the main repo, not forks.
     if: github.repository == 'iree-org/fusilli' || github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     outputs:
-      branch-exists: ${{ steps.check-exists.outputs.branch-exists }}
-      branch-name: ${{ steps.resolve-name.outputs.branch-name }}
+      iree-branch-exists: ${{ steps.check-iree.outputs.branch-exists }}
+      iree-branch-name: ${{ steps.resolve-names.outputs.iree-branch-name }}
+      therock-branch-exists: ${{ steps.check-therock.outputs.branch-exists }}
+      therock-branch-name: ${{ steps.resolve-names.outputs.therock-branch-name }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Resolve branch name
-        id: resolve-name
+      - name: Resolve branch names
+        id: resolve-names
         run: |
-          if [[ -n "${{ inputs.branch-name }}" ]]; then
-            BRANCH_NAME="${{ inputs.branch-name }}"
-          else
-            BRANCH_NAME="bump-deps/$(date -u +%Y-%m-%d)"
-          fi
-          echo "branch-name=${BRANCH_NAME}" >> "${GITHUB_OUTPUT}"
+          DATE="$(date -u +%Y-%m-%d)"
+          echo "iree-branch-name=bump-iree/${DATE}" >> "${GITHUB_OUTPUT}"
+          echo "therock-branch-name=bump-therock/${DATE}" >> "${GITHUB_OUTPUT}"
 
-      - name: Check for existing bump branch
-        id: check-exists
+      - name: Check for existing IREE branch
+        id: check-iree
         run: |
-          BRANCH_NAME="${{ steps.resolve-name.outputs.branch-name }}"
+          BRANCH_NAME="${{ steps.resolve-names.outputs.iree-branch-name }}"
           BRANCH_EXISTS=$(git ls-remote --heads origin "${BRANCH_NAME}" | wc -l)
           echo "branch-exists=${BRANCH_EXISTS}" >> "${GITHUB_OUTPUT}"
           if [[ ${BRANCH_EXISTS} == 1 ]]; then
-            echo "Skipping: branch \`${BRANCH_NAME}\` already exists." \
+            echo "Skipping IREE: branch \`${BRANCH_NAME}\` already exists." \
               >> "${GITHUB_STEP_SUMMARY}"
           fi
 
-  bump-deps:
-    needs: check-for-existing-branch
-    if: needs.check-for-existing-branch.outputs.branch-exists == '0'
+      - name: Check for existing TheRock branch
+        id: check-therock
+        run: |
+          BRANCH_NAME="${{ steps.resolve-names.outputs.therock-branch-name }}"
+          BRANCH_EXISTS=$(git ls-remote --heads origin "${BRANCH_NAME}" | wc -l)
+          echo "branch-exists=${BRANCH_EXISTS}" >> "${GITHUB_OUTPUT}"
+          if [[ ${BRANCH_EXISTS} == 1 ]]; then
+            echo "Skipping TheRock: branch \`${BRANCH_NAME}\` already exists." \
+              >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+  bump-iree:
+    needs: check-for-existing-branches
+    if: |
+      needs.check-for-existing-branches.outputs.iree-branch-exists == '0' &&
+      (github.event.inputs.dep == 'both' || github.event.inputs.dep == 'iree' || github.event.inputs.dep == '')
     runs-on: ubuntu-24.04
     env:
-      GIT_BRANCH_NAME: ${{ needs.check-for-existing-branch.outputs.branch-name }}
+      GIT_BRANCH_NAME: ${{ needs.check-for-existing-branches.outputs.iree-branch-name }}
     defaults:
       run:
         shell: bash --noprofile --norc -exo pipefail {0}
@@ -72,17 +89,13 @@ jobs:
         with:
           python-version: "3.11"
 
-      # Runs version discovery and updates version.json. Sets CURRENT_*
-      # and LATEST_* environment variables via GITHUB_ENV.
-      - name: Bump dependency versions
-        run: python3 build_tools/scripts/bump_deps.py
+      - name: Bump IREE version
+        run: python3 build_tools/scripts/bump_deps.py --iree-only
         env:
           GH_TOKEN: ${{ github.token }}
 
       - name: Generate GitHub App token
-        if: |
-          env.CURRENT_IREE_VERSION != env.LATEST_IREE_VERSION ||
-          env.CURRENT_THEROCK_VERSION != env.LATEST_THEROCK_VERSION
+        if: env.CURRENT_IREE_VERSION != env.LATEST_IREE_VERSION
         uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
         id: generate-token
         with:
@@ -90,9 +103,7 @@ jobs:
           private-key: ${{ secrets.CREATE_PULL_REQUEST_TOKEN_APP_PRIVATE_KEY }}
 
       - name: Create pull request
-        if: |
-          env.CURRENT_IREE_VERSION != env.LATEST_IREE_VERSION ||
-          env.CURRENT_THEROCK_VERSION != env.LATEST_THEROCK_VERSION
+        if: env.CURRENT_IREE_VERSION != env.LATEST_IREE_VERSION
         id: cpr
         uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1.0
         with:
@@ -103,20 +114,18 @@ jobs:
           committer: "iree-pr-automator[bot] <iree-github-actions-bot@google.com>"
           signoff: true
           delete-branch: true
-          title: "Bump IREE to `${{ env.LATEST_IREE_VERSION }}`, TheRock to `${{ env.LATEST_THEROCK_VERSION }}`"
+          title: "Bump IREE to `${{ env.LATEST_IREE_VERSION }}`"
           commit-message: |
-            Bump IREE to `${{ env.LATEST_IREE_VERSION }}`, TheRock to `${{ env.LATEST_THEROCK_VERSION }}`
+            Bump IREE to `${{ env.LATEST_IREE_VERSION }}`
 
             IREE: ${{ env.CURRENT_IREE_VERSION }} -> ${{ env.LATEST_IREE_VERSION }}
-            TheRock: ${{ env.CURRENT_THEROCK_VERSION }} -> ${{ env.LATEST_THEROCK_VERSION }}
           body: |
             ## Summary
-            Automated nightly dependency version bump.
+            Automated nightly IREE version bump.
 
             | Dependency | Old | New |
             |------------|-----|-----|
             | IREE | `${{ env.CURRENT_IREE_VERSION }}` | `${{ env.LATEST_IREE_VERSION }}` |
-            | TheRock | `${{ env.CURRENT_THEROCK_VERSION }}` | `${{ env.LATEST_THEROCK_VERSION }}` |
 
             **IREE changelog**: https://github.com/iree-org/iree/compare/iree-${{ env.CURRENT_IREE_VERSION }}...iree-${{ env.LATEST_IREE_VERSION }}
 
@@ -125,11 +134,79 @@ jobs:
       - name: Write summary
         if: steps.cpr.outputs.pull-request-number
         run: |
-          echo "### Dependency Bump PR Created" >> "${GITHUB_STEP_SUMMARY}"
+          echo "### IREE Bump PR Created" >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
           echo "PR: ${{ steps.cpr.outputs.pull-request-url }}" >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
           echo "| Dependency | Old | New |" >> "${GITHUB_STEP_SUMMARY}"
           echo "|------------|-----|-----|" >> "${GITHUB_STEP_SUMMARY}"
           echo "| IREE | \`${CURRENT_IREE_VERSION}\` | \`${LATEST_IREE_VERSION}\` |" >> "${GITHUB_STEP_SUMMARY}"
+
+  bump-therock:
+    needs: check-for-existing-branches
+    if: |
+      needs.check-for-existing-branches.outputs.therock-branch-exists == '0' &&
+      (github.event.inputs.dep == 'both' || github.event.inputs.dep == 'therock' || github.event.inputs.dep == '')
+    runs-on: ubuntu-24.04
+    env:
+      GIT_BRANCH_NAME: ${{ needs.check-for-existing-branches.outputs.therock-branch-name }}
+    defaults:
+      run:
+        shell: bash --noprofile --norc -exo pipefail {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.11"
+
+      - name: Bump TheRock version
+        run: python3 build_tools/scripts/bump_deps.py --therock-only
+
+      - name: Generate GitHub App token
+        if: env.CURRENT_THEROCK_VERSION != env.LATEST_THEROCK_VERSION
+        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
+        id: generate-token
+        with:
+          app-id: ${{ secrets.CREATE_PULL_REQUEST_TOKEN_APP_ID }}
+          private-key: ${{ secrets.CREATE_PULL_REQUEST_TOKEN_APP_PRIVATE_KEY }}
+
+      - name: Create pull request
+        if: env.CURRENT_THEROCK_VERSION != env.LATEST_THEROCK_VERSION
+        id: cpr
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1.0
+        with:
+          token: ${{ steps.generate-token.outputs.token || github.token }}
+          base: main
+          branch: ${{ env.GIT_BRANCH_NAME }}
+          author: "iree-pr-automator[bot] <iree-github-actions-bot@google.com>"
+          committer: "iree-pr-automator[bot] <iree-github-actions-bot@google.com>"
+          signoff: true
+          delete-branch: true
+          title: "Bump TheRock to `${{ env.LATEST_THEROCK_VERSION }}`"
+          commit-message: |
+            Bump TheRock to `${{ env.LATEST_THEROCK_VERSION }}`
+
+            TheRock: ${{ env.CURRENT_THEROCK_VERSION }} -> ${{ env.LATEST_THEROCK_VERSION }}
+          body: |
+            ## Summary
+            Automated nightly TheRock version bump.
+
+            | Dependency | Old | New |
+            |------------|-----|-----|
+            | TheRock | `${{ env.CURRENT_THEROCK_VERSION }}` | `${{ env.LATEST_THEROCK_VERSION }}` |
+
+            Auto-generated by [`bump-deps.yml`](https://github.com/${{ github.repository }}/blob/main/.github/workflows/bump-deps.yml).
+
+      - name: Write summary
+        if: steps.cpr.outputs.pull-request-number
+        run: |
+          echo "### TheRock Bump PR Created" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "PR: ${{ steps.cpr.outputs.pull-request-url }}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| Dependency | Old | New |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "|------------|-----|-----|" >> "${GITHUB_STEP_SUMMARY}"
           echo "| TheRock | \`${CURRENT_THEROCK_VERSION}\` | \`${LATEST_THEROCK_VERSION}\` |" >> "${GITHUB_STEP_SUMMARY}"

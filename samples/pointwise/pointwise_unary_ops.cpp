@@ -39,9 +39,14 @@ static std::string generateName(PointwiseAttr::Mode mode, DataType type,
 TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
   const auto dim = std::vector<int64_t>{2, 16, 64, 64};
 
-  const auto mode =
-      GENERATE(PointwiseAttr::Mode::CEIL, PointwiseAttr::Mode::RELU_FWD,
-               PointwiseAttr::Mode::SIGMOID_FWD, PointwiseAttr::Mode::TANH_FWD);
+  // clang-format off
+  const auto mode = GENERATE(
+      PointwiseAttr::Mode::ABS,
+      PointwiseAttr::Mode::CEIL,
+      PointwiseAttr::Mode::RELU_FWD,
+      PointwiseAttr::Mode::SIGMOID_FWD,
+      PointwiseAttr::Mode::TANH_FWD);
+  // clang-format on
 
   auto execute = [&]<typename T>(Handle &handle, DataType dt, T x) {
     auto buildNewGraph = [&](Handle &handleArg) {
@@ -96,6 +101,11 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     // Calculate reference value
     T y = 0;
     switch (mode) {
+    case PointwiseAttr::Mode::ABS: {
+      double xD = static_cast<double>(x);
+      y = std::abs(xD);
+      break;
+    }
     case PointwiseAttr::Mode::RELU_FWD: {
       y = std::max(x, T(0));
       break;

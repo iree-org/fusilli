@@ -43,9 +43,13 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
       GENERATE(std::vector<int64_t>{2, 16, 64, 64},
                std::vector<int64_t>{1, 16, 1, 1})};
 
-  const auto mode =
-      GENERATE(PointwiseAttr::Mode::ADD, PointwiseAttr::Mode::DIV,
-               PointwiseAttr::Mode::MUL, PointwiseAttr::Mode::SUB);
+  // clang-format off
+  const auto mode = GENERATE(
+      PointwiseAttr::Mode::ADD,
+      PointwiseAttr::Mode::DIV,
+      PointwiseAttr::Mode::MUL,
+      PointwiseAttr::Mode::SUB);
+  // clang-format on
 
   auto execute = [&]<typename T>(Handle &handle, DataType dt, T x0, T x1) {
     auto buildNewGraph = [&](Handle &handleArg) {

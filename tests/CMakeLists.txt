@@ -141,6 +141,7 @@ add_fusilli_lit_tests(
     lit/test_conv_asm_emitter_ndhwc_kdrsc.cpp
     lit/test_conv_asm_emitter_ndhwc_kdrsc_grouped.cpp
     lit/test_conv_asm_emitter_nhwc_krsc_grouped.cpp
+    lit/test_pointwise_asm_emitter_abs.cpp
     lit/test_pointwise_asm_emitter_relu.cpp
     lit/test_pointwise_asm_emitter_add.cpp
     lit/test_pointwise_asm_emitter_add_transposed.cpp
@@ -163,7 +164,8 @@ add_fusilli_lit_tests(
     lit/test_conv_dgrad_asm_emitter_nhwc_kcrs.cpp
     lit/test_conv_dgrad_asm_emitter_nhwc_kcrs_grouped.cpp
     lit/test_batchnorm_infer_asm_emitter_nchw.cpp
-    lit/test_batchnorm_train_asm_emitter_nchw.cpp
+    # TODO(iree-org/iree#24008): batchnorm training fails to distribute.
+    # lit/test_batchnorm_train_asm_emitter_nchw.cpp
     lit/test_layernorm_infer_asm_emitter_nchw.cpp
     lit/test_layernorm_infer_asm_emitter_scale_bias_nhwc.cpp
     lit/test_layernorm_infer_asm_emitter_scale_bias_nhwc_small_batch.cpp
