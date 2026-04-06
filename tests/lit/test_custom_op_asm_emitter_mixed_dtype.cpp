@@ -7,24 +7,17 @@
 // RUN: %{TEST_EXE} | iree-opt --verify-roundtrip
 // RUN: %{TEST_EXE} | FileCheck %s
 
-// Verifies mixed dtype custom op ASM emission with two chained ops:
-//   - identity_f16: f16 input, f16 output (passthrough)
-//   - cast_to_f32: f16 input, f32 output (dtype change via
-//   convert_element_type)
-//   - Dtype placeholders correctly resolved for each op
-//   - Multiple module-scope definitions properly separated
-
 // clang-format off
 //
 // CHECK:       module @module {
-// CHECK:         func.func private @identity_f16(%arg0: !torch.vtensor<[?],f16>)
-// CHECK:             -> !torch.vtensor<[?],f16> {
-// CHECK:           return %arg0 : !torch.vtensor<[?],f16>
+// CHECK:         func.func private @identity_f16(%arg0: !torch.vtensor<[4],f16>)
+// CHECK:             -> !torch.vtensor<[4],f16> {
+// CHECK:           return %arg0 : !torch.vtensor<[4],f16>
 // CHECK:         }
-// CHECK:         func.func private @cast_to_f32(%arg0: !torch.vtensor<[?],f16>)
-// CHECK:             -> !torch.vtensor<[?],f32> {
+// CHECK:         func.func private @cast_to_f32(%arg0: !torch.vtensor<[4],f16>)
+// CHECK:             -> !torch.vtensor<[4],f32> {
 // CHECK:           torch.prims.convert_element_type
-// CHECK:           return %{{.*}} : !torch.vtensor<[?],f32>
+// CHECK:           return %{{.*}} : !torch.vtensor<[4],f32>
 // CHECK:         }
 // CHECK:         func.func @main(
 // CHECK-SAME:      %{{.*}}: !torch.tensor<[4],f32>
@@ -56,19 +49,19 @@ int main() {
           DataType::Half));
 
   std::string identityMlir = R"(
-  func.func private @{FUNC_NAME}(%arg0: !torch.vtensor<[?],{IN0_DTYPE}>)
-      -> !torch.vtensor<[?],{OUT0_DTYPE}> {
-    return %arg0 : !torch.vtensor<[?],{OUT0_DTYPE}>
+  func.func private @{FUNC_NAME}(%arg0: {IN0_TYPE})
+      -> {OUT0_TYPE} {
+    return %arg0 : {IN0_TYPE}
   }
 )";
 
   std::string castMlir = R"(
-  func.func private @{FUNC_NAME}(%arg0: !torch.vtensor<[?],{IN0_DTYPE}>)
-      -> !torch.vtensor<[?],{OUT0_DTYPE}> {
+  func.func private @{FUNC_NAME}(%arg0: {IN0_TYPE})
+      -> {OUT0_TYPE} {
     %int6 = torch.constant.int 6
     %0 = torch.prims.convert_element_type %arg0, %int6
-        : !torch.vtensor<[?],{IN0_DTYPE}>, !torch.int -> !torch.vtensor<[?],{OUT0_DTYPE}>
-    return %0 : !torch.vtensor<[?],{OUT0_DTYPE}>
+        : {IN0_TYPE}, !torch.int -> {OUT0_TYPE}
+    return %0 : {OUT0_TYPE}
   }
 )";
 
