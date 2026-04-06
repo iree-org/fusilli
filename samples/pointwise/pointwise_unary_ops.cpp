@@ -44,6 +44,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       PointwiseAttr::Mode::ABS,
       PointwiseAttr::Mode::CEIL,
       PointwiseAttr::Mode::ERF,
+      PointwiseAttr::Mode::EXP,
       PointwiseAttr::Mode::RELU_FWD,
       PointwiseAttr::Mode::SIGMOID_FWD,
       PointwiseAttr::Mode::TANH_FWD);
@@ -129,6 +130,11 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     case PointwiseAttr::Mode::ERF: {
       double xD = static_cast<double>(x);
       y = std::erf(xD);
+      break;
+    }
+    case PointwiseAttr::Mode::EXP: {
+      double xD = static_cast<double>(x);
+      y = std::exp(xD);
       break;
     }
     default:
