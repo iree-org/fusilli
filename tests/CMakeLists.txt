@@ -153,6 +153,11 @@ add_fusilli_lit_tests(
     lit/test_pointwise_asm_emitter_cmp_lt.cpp
     lit/test_pointwise_asm_emitter_cmp_le.cpp
     lit/test_pointwise_asm_emitter_div.cpp
+    lit/test_pointwise_asm_emitter_erf.cpp
+    lit/test_pointwise_asm_emitter_exp.cpp
+    lit/test_pointwise_asm_emitter_floor.cpp
+    lit/test_pointwise_asm_emitter_max.cpp
+    lit/test_pointwise_asm_emitter_min.cpp
     lit/test_pointwise_asm_emitter_mul.cpp
     lit/test_pointwise_asm_emitter_mul_scalar.cpp
     lit/test_pointwise_asm_emitter_sigmoid.cpp
@@ -183,6 +188,8 @@ add_fusilli_lit_tests(
     lit/test_custom_op_asm_emitter_multi_output.cpp
     lit/test_custom_op_asm_emitter_mixed_dtype.cpp
     lit/test_custom_op_asm_emitter_sdpa.cpp
+    lit/test_custom_op_asm_emitter_static.cpp
+    lit/test_custom_op_asm_emitter_dim_placeholder.cpp
     lit/test_reduction_asm_emitter_sum.cpp
     lit/test_reduction_asm_emitter_min.cpp
     lit/test_reduction_asm_emitter_max.cpp
