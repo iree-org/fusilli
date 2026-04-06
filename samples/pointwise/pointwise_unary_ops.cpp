@@ -53,6 +53,9 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     switch (m) {
     case PointwiseAttr::Mode::ABS:
     case PointwiseAttr::Mode::CEIL:
+    case PointwiseAttr::Mode::ERF:
+    case PointwiseAttr::Mode::EXP:
+    case PointwiseAttr::Mode::FLOOR:
     case PointwiseAttr::Mode::RECIPROCAL:
     case PointwiseAttr::Mode::RELU_FWD:
     case PointwiseAttr::Mode::SIGMOID_FWD:
@@ -67,6 +70,9 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
   const auto mode = GENERATE(
       PointwiseAttr::Mode::ABS,
       PointwiseAttr::Mode::CEIL,
+      PointwiseAttr::Mode::ERF,
+      PointwiseAttr::Mode::EXP,
+      PointwiseAttr::Mode::FLOOR,
       PointwiseAttr::Mode::RECIPROCAL,
       PointwiseAttr::Mode::RELU_FWD,
       PointwiseAttr::Mode::SIGMOID_FWD,
@@ -148,6 +154,21 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     case PointwiseAttr::Mode::CEIL: {
       double xD = static_cast<double>(x);
       y = std::ceil(xD);
+      break;
+    }
+    case PointwiseAttr::Mode::ERF: {
+      double xD = static_cast<double>(x);
+      y = std::erf(xD);
+      break;
+    }
+    case PointwiseAttr::Mode::EXP: {
+      double xD = static_cast<double>(x);
+      y = std::exp(xD);
+      break;
+    }
+    case PointwiseAttr::Mode::FLOOR: {
+      double xD = static_cast<double>(x);
+      y = std::floor(xD);
       break;
     }
     case PointwiseAttr::Mode::RECIPROCAL: {

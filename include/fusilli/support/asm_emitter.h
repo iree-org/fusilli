@@ -126,7 +126,8 @@ inline std::string getListOfIntOpsAsm(const std::vector<int64_t> &listOfInts,
 // by multiple different operations in a graph.
 inline std::string getPermuteOpsAsm(const std::shared_ptr<TensorAttr> &tensor,
                                     const std::string &prefix,
-                                    const std::string &suffix, bool isInput) {
+                                    const std::string &suffix, bool isInput,
+                                    const std::string &operandOverride = "") {
   std::ostringstream oss;
 
   // Get permute order based on direction.
@@ -142,10 +143,13 @@ inline std::string getPermuteOpsAsm(const std::shared_ptr<TensorAttr> &tensor,
   // operand is the original tensor (no suffix needed), but the result gets
   // the suffix. For output permutes, the operand has the suffix (from the
   // main op result), but the result is the final tensor (no suffix needed).
+  // An operandOverride (e.g., multi-result "%base#i") replaces the default.
   std::string resultName =
       tensor->getValueNameAsm() + (isInput ? "_" + suffix + "_perm" : "");
   std::string operandName =
-      tensor->getValueNameAsm() + (isInput ? "" : "_" + suffix + "_perm");
+      operandOverride.empty()
+          ? tensor->getValueNameAsm() + (isInput ? "" : "_" + suffix + "_perm")
+          : operandOverride;
   std::string fromType = tensor->getTensorTypeAsm(
       /*isValueTensor=*/true, /*useLogicalDims=*/!isInput);
   std::string toType = tensor->getTensorTypeAsm(
@@ -242,8 +246,6 @@ inline std::string getScalarItemOpsAsm(const std::string &prefix,
 // `!torch.tensor` if mutable) type. The caller is responsible to check for
 // this.
 //
-// NOTE: `useLogicalDims` is effectively ignored when `isDynamic` is set.
-//
 // Example:
 //
 //    TensorAttr t;
@@ -268,11 +270,6 @@ inline std::string getScalarItemOpsAsm(const std::string &prefix,
 //                       /*useLogicalDims=*/false)
 //        --> "!torch.tensor<[2,4,3],f32>"
 //
-//    t.getTensorTypeAsm(/*isValueTensor=*/true,
-//                       /*useLogicalDims=*/false,
-//                       /*isDynamic=*/true)
-//        --> "!torch.vtensor<[?,?,?],f32>"
-//
 // Scalars (dim={1}, stride={1}) also work through this path:
 //
 //    TensorAttr s(2.0f);
@@ -280,8 +277,7 @@ inline std::string getScalarItemOpsAsm(const std::string &prefix,
 //                       /*useLogicalDims=*/true)
 //        --> "!torch.vtensor<[1],f32>"
 inline std::string TensorAttr::getTensorTypeAsm(bool isValueTensor,
-                                                bool useLogicalDims,
-                                                bool isDynamic) const {
+                                                bool useLogicalDims) const {
   assert(!getDim().empty() &&
          "TensorAttr::getTensorTypeAsm expects non-empty dims");
   assert(!getStride().empty() &&
@@ -294,11 +290,9 @@ inline std::string TensorAttr::getTensorTypeAsm(bool isValueTensor,
 
   std::vector<int64_t> dims = useLogicalDims ? getDim() : getPhysicalDim();
 
-  // Emit dims in logical or physical order, or as `?` when dynamic.
   interleave(
       dims.begin(), dims.end(),
-      // each_fn:
-      [&](int64_t dim) { oss << (isDynamic ? "?" : std::to_string(dim)); },
+      [&](int64_t dim) { oss << std::to_string(dim); },
       // between_fn:
       [&] { oss << ","; });
   oss << "],";
@@ -1740,6 +1734,11 @@ inline ErrorOr<std::string> PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_GE, torch.aten.ge.Tensor)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_NEQ, torch.aten.ne.Tensor)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(DIV, torch.aten.div.Tensor)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(ERF, torch.aten.erf)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(EXP, torch.aten.exp)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(FLOOR, torch.aten.floor)
+    FUSILLI_DECLARE_BINARY_TORCH_EMITTER(MAX_OP, torch.aten.maximum)
+    FUSILLI_DECLARE_BINARY_TORCH_EMITTER(MIN_OP, torch.aten.minimum)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(MUL, torch.aten.mul.Tensor)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RECIPROCAL, torch.aten.reciprocal)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RELU_FWD, torch.aten.relu)
@@ -1882,9 +1881,45 @@ inline ErrorOr<std::string> ReductionNode::emitNodePreAsm() const {
 //
 //===----------------------------------------------------------------------===//
 
-// Returns the user's MLIR function definition with placeholders resolved
-// for placement at module scope (alongside @main). Ensures a trailing
-// newline so that consecutive definitions don't merge into one line.
+inline void replaceAll(std::string &str, const std::string &from,
+                       const std::string &to) {
+  size_t pos = 0;
+  while ((pos = str.find(from, pos)) != std::string::npos) {
+    str.replace(pos, from.length(), to);
+    pos += to.length();
+  }
+}
+
+inline std::string CustomOpNode::resolveMlirPlaceholders() const {
+  std::string mlir = customOpAttr.getMlir();
+  replaceAll(mlir, "{FUNC_NAME}", customOpAttr.getName());
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    std::string iStr = std::to_string(i);
+    replaceAll(mlir, "{IN" + iStr + "_DTYPE}",
+               kDataTypeToMlirTypeAsm.at(inputs[i]->getDataType()));
+    replaceAll(mlir, "{IN" + iStr + "_TYPE}",
+               inputs[i]->getTensorTypeAsm(/*isValueTensor=*/true,
+                                           /*useLogicalDims=*/true));
+    const auto &dims = inputs[i]->getDim();
+    for (size_t d = 0; d < dims.size(); ++d)
+      replaceAll(mlir, "{IN" + iStr + "_DIM" + std::to_string(d) + "}",
+                 std::to_string(dims[d]));
+  }
+  for (size_t i = 0; i < outputs.size(); ++i) {
+    std::string iStr = std::to_string(i);
+    replaceAll(mlir, "{OUT" + iStr + "_DTYPE}",
+               kDataTypeToMlirTypeAsm.at(outputs[i]->getDataType()));
+    replaceAll(mlir, "{OUT" + iStr + "_TYPE}",
+               outputs[i]->getTensorTypeAsm(/*isValueTensor=*/true,
+                                            /*useLogicalDims=*/true));
+    const auto &dims = outputs[i]->getDim();
+    for (size_t d = 0; d < dims.size(); ++d)
+      replaceAll(mlir, "{OUT" + iStr + "_DIM" + std::to_string(d) + "}",
+                 std::to_string(dims[d]));
+  }
+  return mlir;
+}
+
 inline ErrorOr<std::string> CustomOpNode::emitModuleScopeAsm() const {
   std::string mlir = resolveMlirPlaceholders();
   if (!mlir.empty() && mlir.back() != '\n')
@@ -1893,7 +1928,7 @@ inline ErrorOr<std::string> CustomOpNode::emitModuleScopeAsm() const {
 }
 
 // Emits CustomOpNode's call operand names in MLIR assembly format.
-// These are the dynamic-cast input values passed to func.call.
+// These are the permuted input values passed directly to func.call.
 inline std::string CustomOpNode::getCallOperandNamesAsm() const {
   std::ostringstream oss;
   std::string suffix = customOpAttr.getName();
@@ -1901,7 +1936,7 @@ inline std::string CustomOpNode::getCallOperandNamesAsm() const {
   interleave(
       inputs.begin(), inputs.end(),
       [&](const std::shared_ptr<TensorAttr> &input) {
-        oss << std::format("{}_{}_i{}_dyn", input->getValueNameAsm(), suffix,
+        oss << std::format("{}_{}_i{}_perm", input->getValueNameAsm(), suffix,
                            idx++);
       },
       [&] { oss << ", "; });
@@ -1909,90 +1944,54 @@ inline std::string CustomOpNode::getCallOperandNamesAsm() const {
 }
 
 // Emits CustomOpNode's call operand types in MLIR assembly format.
-// Uses dynamic (all-?) logical tensor types.
+// Uses static logical tensor types (matching the func.func signature).
 inline std::string CustomOpNode::getCallOperandTypesAsm() const {
   std::ostringstream oss;
   interleave(
       inputs.begin(), inputs.end(),
       [&](const std::shared_ptr<TensorAttr> &input) {
         oss << input->getTensorTypeAsm(/*isValueTensor=*/true,
-                                       /*useLogicalDims=*/true,
-                                       /*isDynamic=*/true);
+                                       /*useLogicalDims=*/true);
       },
       [&] { oss << ", "; });
   return oss.str();
 }
 
 // Emits CustomOpNode's call result names in MLIR assembly format.
-// For single output: %name_suffix_dyn
-// For multi-output: %name_suffix_dyn:N (MLIR multi-result syntax)
+// For single output: %name_suffix_perm (feeds directly into output permute)
+// For multi-output: %name_suffix_res:N (individual results via %base#i)
 inline std::string CustomOpNode::getCallResultNamesAsm() const {
   std::string suffix = customOpAttr.getName();
   if (outputs.size() == 1)
-    return std::format("{}_{}_dyn", outputs[0]->getValueNameAsm(), suffix);
-  return std::format("{}_{}_dyn:{}", outputs[0]->getValueNameAsm(), suffix,
+    return std::format("{}_{}_perm", outputs[0]->getValueNameAsm(), suffix);
+  return std::format("{}_{}_res:{}", outputs[0]->getValueNameAsm(), suffix,
                      outputs.size());
 }
 
 // Emits CustomOpNode's call result types in MLIR assembly format.
-// Uses dynamic (all-?) logical tensor types.
+// Uses static logical tensor types (matching the func.func signature).
 inline std::string CustomOpNode::getCallResultTypesAsm() const {
   std::ostringstream oss;
   interleave(
       outputs.begin(), outputs.end(),
       [&](const std::shared_ptr<TensorAttr> &output) {
         oss << output->getTensorTypeAsm(/*isValueTensor=*/true,
-                                        /*useLogicalDims=*/true,
-                                        /*isDynamic=*/true);
+                                        /*useLogicalDims=*/true);
       },
       [&] { oss << ", "; });
   return oss.str();
 }
 
-// Emits a static-to-dynamic or dynamic-to-static cast for a tensor.
-//
-// When isInput=true (static logical -> dynamic):
-//   %name_suffix_dyn = torch.tensor_static_info_cast %name_suffix_perm
-//       : static_logical_type to dynamic_type
-//
-// When isInput=false (dynamic -> static logical):
-//   %name_suffix_perm = torch.tensor_static_info_cast %name_suffix_dyn
-//       : dynamic_type to static_logical_type
-inline std::string CustomOpNode::getStaticToDynamicCastAsm(
-    const std::shared_ptr<TensorAttr> &tensor, const std::string &suffix,
-    bool isInput, const std::string &operandOverride) const {
-  std::string staticType =
-      tensor->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
-  std::string dynamicType = tensor->getTensorTypeAsm(
-      /*isValueTensor=*/true, /*useLogicalDims=*/false, /*isDynamic=*/true);
-
-  std::string resultName =
-      tensor->getValueNameAsm() + "_" + suffix + (isInput ? "_dyn" : "_perm");
-  std::string operandName = operandOverride.empty()
-                                ? tensor->getValueNameAsm() + "_" + suffix +
-                                      (isInput ? "_perm" : "_dyn")
-                                : operandOverride;
-  std::string fromType = isInput ? staticType : dynamicType;
-  std::string toType = isInput ? dynamicType : staticType;
-
-  constexpr std::string_view schema = R"(
-    {0} = torch.tensor_static_info_cast {1} : {2} to {3}
-)";
-  return std::format(schema, resultName, operandName, fromType, toType);
-}
-
 // This gets called by the recursive `emitAsmSubtree()` method to emit
 // the pre-assembly for the CustomOpNode. It generates:
 //   1. Permute inputs physical -> logical
-//   2. Cast inputs static logical -> dynamic
-//   3. func.call to the custom function
-//   4. Cast outputs dynamic -> static logical
-//   5. Permute outputs logical -> physical
+//   2. func.call to the custom function
+//   3. Permute outputs logical -> physical
 inline ErrorOr<std::string> CustomOpNode::emitNodePreAsm() const {
   std::ostringstream oss;
   std::string suffix = customOpAttr.getName();
 
-  // 1 & 2. For each input: permute + cast static->dynamic.
+  // 1. For each input: permute physical -> logical.
   // Use per-input indexed suffix to ensure unique SSA names when the same
   // tensor appears in multiple input slots (e.g., g.customOp({A, A}, attr)).
   for (size_t i = 0; i < inputs.size(); ++i) {
@@ -2001,10 +2000,9 @@ inline ErrorOr<std::string> CustomOpNode::emitNodePreAsm() const {
     oss << "\n    "
         << getPermuteOpsAsm(inputs[i], permutePrefix, inputSuffix,
                             /*isInput=*/true);
-    oss << getStaticToDynamicCastAsm(inputs[i], inputSuffix, /*isInput=*/true);
   }
 
-  // 3. func.call — use the node name as the callee (matches {FUNC_NAME}
+  // 2. func.call — use the node name as the callee (matches {FUNC_NAME}
   // resolved in the module-scope definition).
   std::string resultTypes = getCallResultTypesAsm();
   if (outputs.size() > 1)
@@ -2020,21 +2018,20 @@ inline ErrorOr<std::string> CustomOpNode::emitNodePreAsm() const {
                      resultTypes               // {4}
   );
 
-  // 4 & 5. For each output: cast dynamic->static + permute
-  // For multi-output, func.call produces %base:N and individual results are
-  // accessed via %base#0, %base#1, etc. (MLIR multi-result indexing).
+  // 3. For each output: permute logical -> physical.
+  // For multi-output, func.call produces %base:N and individual results
+  // are accessed via %base#0, %base#1, etc., so we pass the #i name as
+  // the operand override to the permute.
   std::string multiResultBase =
-      outputs[0]->getValueNameAsm() + "_" + suffix + "_dyn";
+      outputs[0]->getValueNameAsm() + "_" + suffix + "_res";
   for (size_t i = 0; i < outputs.size(); ++i) {
+    std::string permutePrefix = "permute_OUT_" + std::to_string(i);
     std::string operandOverride;
     if (outputs.size() > 1)
       operandOverride = multiResultBase + "#" + std::to_string(i);
-    oss << getStaticToDynamicCastAsm(outputs[i], suffix, /*isInput=*/false,
-                                     operandOverride);
-    std::string permutePrefix = "permute_OUT_" + std::to_string(i);
     oss << "\n    "
         << getPermuteOpsAsm(outputs[i], permutePrefix, suffix,
-                            /*isInput=*/false);
+                            /*isInput=*/false, operandOverride);
   }
 
   return oss.str();
