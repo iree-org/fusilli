@@ -42,6 +42,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
   auto supportsInteger = [](PointwiseAttr::Mode m) {
     switch (m) {
     case PointwiseAttr::Mode::ABS:
+    case PointwiseAttr::Mode::NEG:
     case PointwiseAttr::Mode::RELU_FWD:
       return true;
     default:
@@ -56,6 +57,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     case PointwiseAttr::Mode::ERF:
     case PointwiseAttr::Mode::EXP:
     case PointwiseAttr::Mode::FLOOR:
+    case PointwiseAttr::Mode::NEG:
     case PointwiseAttr::Mode::RECIPROCAL:
     case PointwiseAttr::Mode::RELU_FWD:
     case PointwiseAttr::Mode::SIGMOID_FWD:
@@ -73,6 +75,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       PointwiseAttr::Mode::ERF,
       PointwiseAttr::Mode::EXP,
       PointwiseAttr::Mode::FLOOR,
+      PointwiseAttr::Mode::NEG,
       PointwiseAttr::Mode::RECIPROCAL,
       PointwiseAttr::Mode::RELU_FWD,
       PointwiseAttr::Mode::SIGMOID_FWD,
@@ -169,6 +172,10 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     case PointwiseAttr::Mode::FLOOR: {
       double xD = static_cast<double>(x);
       y = std::floor(xD);
+      break;
+    }
+    case PointwiseAttr::Mode::NEG: {
+      y = -x;
       break;
     }
     case PointwiseAttr::Mode::RECIPROCAL: {

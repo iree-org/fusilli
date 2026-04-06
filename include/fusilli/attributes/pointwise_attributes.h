@@ -55,7 +55,7 @@ namespace fusilli {
   OP(MAX_OP)                                                                   \
   OP(MIN_OP)                                                                   \
   OP(MUL)                                                                      \
-  /* OP(NEG) */                                                                \
+  OP(NEG)                                                                      \
   OP(RECIPROCAL)                                                               \
   /* OP(RELU_BWD) */                                                           \
   OP(RELU_FWD)                                                                 \
@@ -144,6 +144,7 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::MAX_OP, 2},
         {PointwiseAttr::Mode::MIN_OP, 2},
         {PointwiseAttr::Mode::MUL, 2},
+        {PointwiseAttr::Mode::NEG, 1},
         {PointwiseAttr::Mode::RECIPROCAL, 1},
         {PointwiseAttr::Mode::RELU_FWD, 1},
         {PointwiseAttr::Mode::SIGMOID_FWD, 1},
