@@ -7,13 +7,6 @@
 // RUN: %{TEST_EXE} | iree-opt --verify-roundtrip
 // RUN: %{TEST_EXE} | FileCheck %s
 
-// Verifies mixed dtype custom op ASM emission with two chained ops:
-//   - identity_f16: f16 input, f16 output (passthrough)
-//   - cast_to_f32: f16 input, f32 output (dtype change via
-//   convert_element_type)
-//   - Dtype placeholders correctly resolved for each op
-//   - Multiple module-scope definitions properly separated
-
 // clang-format off
 //
 // CHECK:       module @module {

@@ -7,10 +7,6 @@
 // RUN: %{TEST_EXE} | iree-opt --verify-roundtrip
 // RUN: %{TEST_EXE} | FileCheck %s
 
-// Verifies duplicate-input custom op ASM emission:
-//   - Same tensor passed to both input slots
-//   - Per-input indexed suffixes (_i0, _i1) produce unique SSA names
-
 // clang-format off
 //
 // CHECK:       module @module {

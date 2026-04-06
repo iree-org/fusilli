@@ -7,11 +7,6 @@
 // RUN: %{TEST_EXE} | iree-opt --verify-roundtrip
 // RUN: %{TEST_EXE} | FileCheck %s
 
-// Verifies multi-output custom op ASM emission:
-//   - Module-scope function with multiple return types
-//   - %name:N multi-result func.call syntax
-//   - #0 and #1 result indexing in dynamic-to-static casts
-
 // clang-format off
 //
 // CHECK:       module @module {

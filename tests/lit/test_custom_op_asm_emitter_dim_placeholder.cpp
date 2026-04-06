@@ -7,11 +7,6 @@
 // RUN: %{TEST_EXE} | iree-opt --verify-roundtrip
 // RUN: %{TEST_EXE} | FileCheck %s
 
-// Verifies {IN0_DIM<j>} placeholders resolve to individual logical dimensions.
-// The template composes tensor types from individual dimension placeholders
-// instead of using {IN0_TYPE}, showing that users can build custom type
-// strings from dimension values.
-
 // clang-format off
 //
 // CHECK:       module @module {

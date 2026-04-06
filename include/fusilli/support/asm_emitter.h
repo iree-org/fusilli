@@ -246,8 +246,6 @@ inline std::string getScalarItemOpsAsm(const std::string &prefix,
 // `!torch.tensor` if mutable) type. The caller is responsible to check for
 // this.
 //
-// NOTE: `useLogicalDims` is effectively ignored when `isDynamic` is set.
-//
 // Example:
 //
 //    TensorAttr t;
@@ -272,11 +270,6 @@ inline std::string getScalarItemOpsAsm(const std::string &prefix,
 //                       /*useLogicalDims=*/false)
 //        --> "!torch.tensor<[2,4,3],f32>"
 //
-//    t.getTensorTypeAsm(/*isValueTensor=*/true,
-//                       /*useLogicalDims=*/false,
-//                       /*isDynamic=*/true)
-//        --> "!torch.vtensor<[?,?,?],f32>"
-//
 // Scalars (dim={1}, stride={1}) also work through this path:
 //
 //    TensorAttr s(2.0f);
@@ -284,8 +277,7 @@ inline std::string getScalarItemOpsAsm(const std::string &prefix,
 //                       /*useLogicalDims=*/true)
 //        --> "!torch.vtensor<[1],f32>"
 inline std::string TensorAttr::getTensorTypeAsm(bool isValueTensor,
-                                                bool useLogicalDims,
-                                                bool isDynamic) const {
+                                                bool useLogicalDims) const {
   assert(!getDim().empty() &&
          "TensorAttr::getTensorTypeAsm expects non-empty dims");
   assert(!getStride().empty() &&
@@ -298,11 +290,9 @@ inline std::string TensorAttr::getTensorTypeAsm(bool isValueTensor,
 
   std::vector<int64_t> dims = useLogicalDims ? getDim() : getPhysicalDim();
 
-  // Emit dims in logical or physical order, or as `?` when dynamic.
   interleave(
       dims.begin(), dims.end(),
-      // each_fn:
-      [&](int64_t dim) { oss << (isDynamic ? "?" : std::to_string(dim)); },
+      [&](int64_t dim) { oss << std::to_string(dim); },
       // between_fn:
       [&] { oss << ","; });
   oss << "],";
@@ -1884,6 +1874,15 @@ inline ErrorOr<std::string> ReductionNode::emitNodePreAsm() const {
 //
 //===----------------------------------------------------------------------===//
 
+inline void replaceAll(std::string &str, const std::string &from,
+                       const std::string &to) {
+  size_t pos = 0;
+  while ((pos = str.find(from, pos)) != std::string::npos) {
+    str.replace(pos, from.length(), to);
+    pos += to.length();
+  }
+}
+
 inline std::string CustomOpNode::resolveMlirPlaceholders() const {
   std::string mlir = customOpAttr.getMlir();
   replaceAll(mlir, "{FUNC_NAME}", customOpAttr.getName());
@@ -1953,7 +1952,7 @@ inline std::string CustomOpNode::getCallOperandTypesAsm() const {
 
 // Emits CustomOpNode's call result names in MLIR assembly format.
 // For single output: %name_suffix_perm (feeds directly into output permute)
-// For multi-output: %name_suffix_res:N (needs per-output cast to rename #i)
+// For multi-output: %name_suffix_res:N (individual results via %base#i)
 inline std::string CustomOpNode::getCallResultNamesAsm() const {
   std::string suffix = customOpAttr.getName();
   if (outputs.size() == 1)

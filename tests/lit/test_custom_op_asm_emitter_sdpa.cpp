@@ -7,17 +7,8 @@
 // RUN: %{TEST_EXE} | iree-opt --verify-roundtrip
 // RUN: %{TEST_EXE} | FileCheck %s
 
-// Verifies SDPA custom op ASM emission (without attn_mask):
-//   - Module-scope function definition with
-//   torch.aten.scaled_dot_product_attention
-//   - Scalar constants baked into the template (dropout_p, is_causal, scale,
-//   enable_gqa)
-//   - 3 tensor inputs (Q, K, V) with f16 dtype
-//   - func.call with static-to-dynamic casts
-
 // clang-format off
 //
-// Module-scope custom function definition:
 // CHECK:       module @module {
 // CHECK:         func.func private @sdpa(
 // CHECK:             %arg0: !torch.vtensor<[1,8,64,64],f16>,
@@ -37,7 +28,7 @@
 // CHECK:           return %0 : !torch.vtensor<[1,8,64,64],f16>
 // CHECK:         }
 //
-// Main function with casts and call:
+//
 // CHECK:         func.func @main(
 // CHECK-SAME:      %sdpa_OUT_0_: !torch.tensor<[1,8,64,64],f16>
 // CHECK-SAME:      %k: !torch.vtensor<[1,8,64,64],f16>

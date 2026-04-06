@@ -7,14 +7,8 @@
 // RUN: %{TEST_EXE} | iree-opt --verify-roundtrip
 // RUN: %{TEST_EXE} | FileCheck %s
 
-// Verifies that a custom op MLIR template with fully hardcoded static types
-// (no placeholders) works end-to-end. The emitter produces static types in
-// func.call that match the hardcoded template, so users can write a concrete
-// MLIR function and embed it directly without needing any placeholder system.
-
 // clang-format off
 //
-// The hardcoded function definition is emitted verbatim at module scope:
 // CHECK:       module @module {
 // CHECK:         func.func private @my_add(%arg0: !torch.vtensor<[4],f32>,
 // CHECK:                                    %arg1: !torch.vtensor<[4],f32>)
@@ -26,7 +20,6 @@
 // CHECK:           return %0 : !torch.vtensor<[4],f32>
 // CHECK:         }
 //
-// The emitter generates matching static types in the call:
 // CHECK:         func.func @main(
 // CHECK-SAME:      %my_add_OUT_0_: !torch.tensor<[4],f32>
 // CHECK-SAME:      %a: !torch.vtensor<[4],f32>

@@ -7,13 +7,6 @@
 // RUN: %{TEST_EXE} | iree-opt --verify-roundtrip
 // RUN: %{TEST_EXE} | FileCheck %s
 
-// Verifies basic custom op ASM emission with placeholder resolution:
-//   - {FUNC_NAME} resolved to node name
-//   - {IN0_DTYPE}, {IN1_DTYPE}, {OUT0_DTYPE} resolved to f32
-//   - Module-scope function definition present
-//   - func.call to the custom function
-//   - Static-to-dynamic casts and output overwrite
-
 // clang-format off
 //
 // CHECK:       module @module {
