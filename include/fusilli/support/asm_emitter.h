@@ -1740,6 +1740,7 @@ inline ErrorOr<std::string> PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(MAX_OP, torch.aten.maximum)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(MIN_OP, torch.aten.minimum)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(MUL, torch.aten.mul.Tensor)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(NEG, torch.aten.neg)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RELU_FWD, torch.aten.relu)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(SIGMOID_FWD, torch.aten.sigmoid)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(TANH_FWD, torch.aten.tanh)
