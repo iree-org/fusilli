@@ -53,7 +53,7 @@ namespace fusilli {
   /* OP(LOGICAL_NOT) */                                                        \
   /* OP(LOGICAL_OR) */                                                         \
   /* OP(MAX_OP) */                                                             \
-  /* OP(MIN_OP) */                                                             \
+  OP(MIN_OP)                                                                   \
   OP(MUL)                                                                      \
   /* OP(NEG) */                                                                \
   /* OP(RECIPROCAL) */                                                         \
@@ -138,9 +138,10 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::CMP_GE, 2},
         {PointwiseAttr::Mode::CMP_NEQ, 2},
         {PointwiseAttr::Mode::DIV, 2},
-        {PointwiseAttr::Mode::FLOOR, 1},
         {PointwiseAttr::Mode::ERF, 1},
         {PointwiseAttr::Mode::EXP, 1},
+        {PointwiseAttr::Mode::FLOOR, 1},
+        {PointwiseAttr::Mode::MIN_OP, 2},
         {PointwiseAttr::Mode::MUL, 2},
         {PointwiseAttr::Mode::RELU_FWD, 1},
         {PointwiseAttr::Mode::SIGMOID_FWD, 1},
