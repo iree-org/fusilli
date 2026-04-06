@@ -47,6 +47,7 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
   const auto mode = GENERATE(
       PointwiseAttr::Mode::ADD,
       PointwiseAttr::Mode::DIV,
+      PointwiseAttr::Mode::MAX_OP,
       PointwiseAttr::Mode::MIN_OP,
       PointwiseAttr::Mode::MUL,
       PointwiseAttr::Mode::SUB);
@@ -121,6 +122,10 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
     }
     case PointwiseAttr::Mode::DIV: {
       y = x0 / x1;
+      break;
+    }
+    case PointwiseAttr::Mode::MAX_OP: {
+      y = x0 > x1 ? x0 : x1;
       break;
     }
     case PointwiseAttr::Mode::MIN_OP: {
