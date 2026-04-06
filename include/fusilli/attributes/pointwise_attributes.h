@@ -39,9 +39,9 @@ namespace fusilli {
   OP(DIV)                                                                      \
   /* OP(ELU_BWD) */                                                            \
   /* OP(ELU_FWD) */                                                            \
-  /* OP(ERF)   */                                                              \
-  /* OP(EXP)   */                                                              \
-  /* OP(FLOOR)  */                                                             \
+  OP(ERF)                                                                      \
+  OP(EXP)                                                                      \
+  OP(FLOOR)                                                                    \
   /* OP(GELU_APPROX_TANH_BWD)  */                                              \
   /* OP(GELU_APPROX_TANH_FWD)  */                                              \
   /* OP(GELU_BWD) */                                                           \
@@ -138,6 +138,9 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::CMP_GE, 2},
         {PointwiseAttr::Mode::CMP_NEQ, 2},
         {PointwiseAttr::Mode::DIV, 2},
+        {PointwiseAttr::Mode::ERF, 1},
+        {PointwiseAttr::Mode::EXP, 1},
+        {PointwiseAttr::Mode::FLOOR, 1},
         {PointwiseAttr::Mode::MIN_OP, 2},
         {PointwiseAttr::Mode::MUL, 2},
         {PointwiseAttr::Mode::RELU_FWD, 1},
