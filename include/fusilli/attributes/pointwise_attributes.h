@@ -138,11 +138,8 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::CMP_GE, 2},
         {PointwiseAttr::Mode::CMP_NEQ, 2},
         {PointwiseAttr::Mode::DIV, 2},
-<<<<<<< HEAD
         {PointwiseAttr::Mode::ERF, 1},
-=======
         {PointwiseAttr::Mode::EXP, 1},
->>>>>>> origin/main
         {PointwiseAttr::Mode::MUL, 2},
         {PointwiseAttr::Mode::RELU_FWD, 1},
         {PointwiseAttr::Mode::SIGMOID_FWD, 1},
