@@ -20,14 +20,14 @@ using namespace fusilli;
 
 static std::string getCustomAddMlir() {
   return R"(
-  func.func private @{FUNC_NAME}(%arg0: !torch.vtensor<[?],{IN0_DTYPE}>,
-                                   %arg1: !torch.vtensor<[?],{IN1_DTYPE}>)
-                                   -> !torch.vtensor<[?],{OUT0_DTYPE}> {
+  func.func private @{FUNC_NAME}(%arg0: {IN0_TYPE},
+                                   %arg1: {IN1_TYPE})
+                                   -> {OUT0_TYPE} {
     %int1 = torch.constant.int 1
     %0 = torch.aten.add.Tensor %arg0, %arg1, %int1
-        : !torch.vtensor<[?],{IN0_DTYPE}>, !torch.vtensor<[?],{IN1_DTYPE}>, !torch.int
-        -> !torch.vtensor<[?],{OUT0_DTYPE}>
-    return %0 : !torch.vtensor<[?],{OUT0_DTYPE}>
+        : {IN0_TYPE}, {IN1_TYPE}, !torch.int
+        -> {OUT0_TYPE}
+    return %0 : {OUT0_TYPE}
   }
 )";
 }
@@ -169,11 +169,11 @@ TEST_CASE("CustomOp composition: built-in op -> custom op", "[custom_op]") {
 
   // Custom op takes the pointwise output.
   std::string negateMlir = R"(
-  func.func private @{FUNC_NAME}(%arg0: !torch.vtensor<[?],{IN0_DTYPE}>)
-                                    -> !torch.vtensor<[?],{OUT0_DTYPE}> {
-    %0 = torch.aten.neg %arg0 : !torch.vtensor<[?],{IN0_DTYPE}>
-        -> !torch.vtensor<[?],{OUT0_DTYPE}>
-    return %0 : !torch.vtensor<[?],{OUT0_DTYPE}>
+  func.func private @{FUNC_NAME}(%arg0: {IN0_TYPE})
+                                    -> {OUT0_TYPE} {
+    %0 = torch.aten.neg %arg0 : {IN0_TYPE}
+        -> {OUT0_TYPE}
+    return %0 : {OUT0_TYPE}
   }
 )";
 
