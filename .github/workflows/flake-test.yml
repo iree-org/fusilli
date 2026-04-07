@@ -64,13 +64,13 @@ jobs:
     - name: "Flake test (libIREECompiler CAPI)"
       run: |
         build_tools/docker/exec_docker_ci.sh \
-        build_tools/scripts/test.sh --backend capi --parallel 16 --extra-verbose --validate-cache-cleanup \
+        build_tools/scripts/test.sh --backend capi --parallel 16 --validate-cache-cleanup \
           --repeat ${{ env.FLAKE_TEST_ITERATIONS }}
 
     - name: "Flake test (iree-compile CLI)"
       run: |
         build_tools/docker/exec_docker_ci.sh \
-        build_tools/scripts/test.sh --backend cli --parallel 16 --extra-verbose --validate-cache-cleanup \
+        build_tools/scripts/test.sh --backend cli --parallel 16 --validate-cache-cleanup \
           --repeat ${{ env.FLAKE_TEST_ITERATIONS }}
 
   # Depends on all other jobs to provide an aggregate job status.
