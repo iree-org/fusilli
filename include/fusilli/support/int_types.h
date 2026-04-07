@@ -30,8 +30,7 @@ struct Int4 {
 
   // Construct from int8_t with clamping to [-8, 7].
   Int4(int8_t val) {
-    data_ =
-        static_cast<uint8_t>(std::clamp(static_cast<int>(val), -8, 7) & 0x0F);
+    data_ = static_cast<uint8_t>(std::clamp(static_cast<int>(val), -8, 7));
   }
 
   // Convert to int8_t with sign extension from bit 3.
