@@ -156,6 +156,7 @@ add_fusilli_lit_tests(
     lit/test_pointwise_asm_emitter_erf.cpp
     lit/test_pointwise_asm_emitter_exp.cpp
     lit/test_pointwise_asm_emitter_floor.cpp
+    lit/test_pointwise_asm_emitter_logical_and.cpp
     lit/test_pointwise_asm_emitter_max.cpp
     lit/test_pointwise_asm_emitter_min.cpp
     lit/test_pointwise_asm_emitter_mul.cpp
