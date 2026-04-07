@@ -288,8 +288,10 @@ inline ErrorObject checkMlirIndentation(const std::string &mlir) {
       continue;
     }
 
-    // Every op inside @main must be indented at exactly 4 spaces.
-    FUSILLI_RETURN_ERROR_IF(indent != 4, ErrorCode::InvalidAttribute,
+    // Allow nested region labels and region bodies inside @main.
+    bool validIndent =
+        indent == 4 || (line[indent] == '^' && indent == 6) || indent == 8;
+    FUSILLI_RETURN_ERROR_IF(!validIndent, ErrorCode::InvalidAttribute,
                             "MLIR indentation error on line " +
                                 std::to_string(lineNum) +
                                 ": expected 4-space indent, got " +

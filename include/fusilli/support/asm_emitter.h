@@ -44,6 +44,7 @@
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
+#include <cmath>
 #include <format> // C++20
 #include <memory>
 #include <sstream>
@@ -108,6 +109,23 @@ inline std::string getListOfIntOpsAsm(const std::vector<int64_t> &listOfInts,
       [&] { oss << ", "; });
   oss << ") -> !torch.list<int>\n";
 
+  return oss.str();
+}
+
+// Indents a top-level MLIR block by 4 spaces.
+//
+// This is used when reusing helper-emitted snippets outside raw-string schemas
+// that already provide surrounding indentation.
+inline std::string indentTopLevelAsmBlock(const std::string &block) {
+  std::istringstream iss(block);
+  std::ostringstream oss;
+  std::string line;
+  while (std::getline(iss, line)) {
+    size_t firstNonSpace = line.find_first_not_of(' ');
+    if (firstNonSpace == std::string::npos)
+      continue;
+    oss << "    " << line.substr(firstNonSpace) << "\n";
+  }
   return oss.str();
 }
 
@@ -1498,42 +1516,57 @@ inline std::string ReductionNode::emitNodePreAsm() const {
 //
 //===----------------------------------------------------------------------===//
 
-// Emits SdpaNode's operand names in MLIR assembly format.
-//
-// The unique suffix is included to ensure SSA uniqueness when the same
-// tensor is used by multiple operations in a graph.
-inline std::string SdpaNode::getOperandNamesAsm() const {
-  std::string suffix = sdpaAttr.getName();
+inline std::string getBuiltinTensorTypeAsm(const std::vector<int64_t> &dims,
+                                           DataType dataType) {
   std::ostringstream oss;
-  oss << sdpaAttr.getQ()->getValueNameAsm() << "_" << suffix << "_perm, "
-      << sdpaAttr.getK()->getValueNameAsm() << "_" << suffix << "_perm, "
-      << sdpaAttr.getV()->getValueNameAsm() << "_" << suffix << "_perm";
-  if (sdpaAttr.getMASK())
-    oss << ", " << sdpaAttr.getMASK()->getValueNameAsm() << "_" << suffix
-        << "_perm";
-  else
-    oss << ", %none_mask_" << suffix;
+  oss << "tensor<";
+  for (size_t i = 0; i < dims.size(); ++i) {
+    if (i != 0)
+      oss << "x";
+    oss << dims[i];
+  }
+  oss << "x" << kDataTypeToMlirTypeAsm.at(dataType) << ">";
   return oss.str();
 }
 
-// Emits SdpaNode's operand types in MLIR assembly format.
-inline std::string SdpaNode::getOperandTypesAsm() const {
-  std::ostringstream oss;
-  oss << sdpaAttr.getQ()->getTensorTypeAsm(/*isValueTensor=*/true,
-                                           /*useLogicalDims=*/true)
-      << ", "
-      << sdpaAttr.getK()->getTensorTypeAsm(/*isValueTensor=*/true,
-                                           /*useLogicalDims=*/true)
-      << ", "
-      << sdpaAttr.getV()->getTensorTypeAsm(/*isValueTensor=*/true,
-                                           /*useLogicalDims=*/true)
-      << ", ";
-  if (sdpaAttr.getMASK())
-    oss << sdpaAttr.getMASK()->getTensorTypeAsm(/*isValueTensor=*/true,
-                                                /*useLogicalDims=*/true);
-  else
-    oss << "!torch.none";
-  return oss.str();
+inline std::string getTorchValueTensorTypeAsm(const std::vector<int64_t> &dims,
+                                              DataType dataType) {
+  TensorAttr tensor;
+  tensor.setDim(dims)
+      .setStride(generateStrideFromDim(dims, getContiguousStrideOrder(dims.size())))
+      .setDataType(dataType);
+  return tensor.getTensorTypeAsm(/*isValueTensor=*/true,
+                                 /*useLogicalDims=*/true);
+}
+
+inline std::string getSdpaAccumulationTypeAsm(DataType dataType) {
+  switch (dataType) {
+  case DataType::Half:
+  case DataType::BFloat16:
+  case DataType::Float:
+  case DataType::FP8E5M2:
+    return "f32";
+  case DataType::Double:
+    return "f64";
+  default:
+    return kDataTypeToMlirTypeAsm.at(dataType);
+  }
+}
+
+inline std::string getLowestFloatLiteralAsm(DataType dataType) {
+  switch (dataType) {
+  case DataType::Half:
+    return "-6.550400e+04";
+  case DataType::BFloat16:
+    return "-3.389531e+38";
+  case DataType::Float:
+  case DataType::FP8E5M2:
+    return "-3.402823e+38";
+  case DataType::Double:
+    return "-1.797693e+308";
+  default:
+    return "-3.402823e+38";
+  }
 }
 
 // Emits SdpaNode's result names in MLIR assembly format.
@@ -1542,44 +1575,37 @@ inline std::string SdpaNode::getResultNamesAsm() const {
          "_perm";
 }
 
-// Emits SdpaNode's result types in MLIR assembly format.
-inline std::string SdpaNode::getResultTypesAsm() const {
-  return sdpaAttr.getO()->getTensorTypeAsm(/*isValueTensor=*/true,
-                                           /*useLogicalDims=*/true);
-}
-
-// Emits the dropout probability constant.
-inline std::string SdpaNode::getDropoutOpsAsm() const {
-  std::string suffix = sdpaAttr.getName();
-  return std::format("%dropout_{0} = torch.constant.float {1:e}", suffix,
-                     sdpaAttr.getDropout());
-}
-
-// Emits the is_causal boolean constant.
-inline std::string SdpaNode::getIsCausalOpsAsm() const {
-  std::string suffix = sdpaAttr.getName();
-  return std::format("%is_causal_{} = torch.constant.bool {}", suffix,
-                     sdpaAttr.getIsCausal() ? "true" : "false");
-}
-
-// Emits the scale constant (float or none).
-inline std::string SdpaNode::getScaleOpsAsm() const {
-  std::string suffix = sdpaAttr.getName();
-  if (sdpaAttr.getScale().has_value())
-    return std::format("%scale_{0} = torch.constant.float {1:e}", suffix,
-                       *sdpaAttr.getScale());
-  return std::format("%scale_{} = torch.constant.none", suffix);
-}
-
-// Emits the enable_gqa boolean constant.
-inline std::string SdpaNode::getEnableGqaOpsAsm() const {
-  std::string suffix = sdpaAttr.getName();
-  return std::format("%enable_gqa_{} = torch.constant.bool {}", suffix,
-                     sdpaAttr.getEnableGqa() ? "true" : "false");
-}
-
 inline std::string SdpaNode::emitNodePreAsm() const {
   std::string suffix = sdpaAttr.getName();
+  const auto &qDim = sdpaAttr.getQ()->getDim();
+  const auto &kDim = sdpaAttr.getK()->getDim();
+  const auto &vDim = sdpaAttr.getV()->getDim();
+  const auto &oDim = sdpaAttr.getO()->getDim();
+
+  const DataType qType = sdpaAttr.getQ()->getDataType();
+  const DataType kType = sdpaAttr.getK()->getDataType();
+  const DataType vType = sdpaAttr.getV()->getDataType();
+  const DataType oType = sdpaAttr.getO()->getDataType();
+
+  std::vector<int64_t> rowReductionDim = {qDim[0], qDim[1], qDim[2]};
+  std::string qTorchType = sdpaAttr.getQ()->getTensorTypeAsm(
+      /*isValueTensor=*/true, /*useLogicalDims=*/true);
+  std::string kTorchType = sdpaAttr.getK()->getTensorTypeAsm(
+      /*isValueTensor=*/true, /*useLogicalDims=*/true);
+  std::string vTorchType = sdpaAttr.getV()->getTensorTypeAsm(
+      /*isValueTensor=*/true, /*useLogicalDims=*/true);
+  std::string oTorchType = sdpaAttr.getO()->getTensorTypeAsm(
+      /*isValueTensor=*/true, /*useLogicalDims=*/true);
+  std::string rowReductionTorchType =
+      getTorchValueTensorTypeAsm(rowReductionDim, oType);
+
+  std::string qBuiltinType = getBuiltinTensorTypeAsm(qDim, qType);
+  std::string kBuiltinType = getBuiltinTensorTypeAsm(kDim, kType);
+  std::string vBuiltinType = getBuiltinTensorTypeAsm(vDim, vType);
+  std::string oBuiltinType = getBuiltinTensorTypeAsm(oDim, oType);
+  std::string rowReductionBuiltinType =
+      getBuiltinTensorTypeAsm(rowReductionDim, oType);
+  std::string accumType = getSdpaAccumulationTypeAsm(qType);
 
   // Permute inputs.
   std::string permuteQ =
@@ -1590,53 +1616,249 @@ inline std::string SdpaNode::emitNodePreAsm() const {
       getPermuteOpsAsm(sdpaAttr.getV(), "permute_V", suffix, /*isInput=*/true);
 
   std::string permuteMask;
-  std::string noneMask;
   if (sdpaAttr.getMASK()) {
     permuteMask = getPermuteOpsAsm(sdpaAttr.getMASK(), "permute_mask", suffix,
                                    /*isInput=*/true);
-  } else {
-    noneMask = std::format("%none_mask_{} = torch.constant.none", suffix);
   }
 
   // Permute output.
   std::string permuteO =
       getPermuteOpsAsm(sdpaAttr.getO(), "permute_O", suffix, /*isInput=*/false);
 
-  // Scale type for the MLIR signature.
-  std::string scaleType =
-      sdpaAttr.getScale().has_value() ? "!torch.float" : "!torch.none";
+  std::ostringstream oss;
+  oss << "\n";
+  oss << indentTopLevelAsmBlock(permuteQ) << indentTopLevelAsmBlock(permuteK)
+      << indentTopLevelAsmBlock(permuteV);
+  if (!permuteMask.empty())
+    oss << indentTopLevelAsmBlock(permuteMask);
 
-  constexpr std::string_view schema = R"(
-    {0}
-    {1}
-    {2}
-    {3}
-    {4}
-    {5}
-    {6}
-    {7}
-    {8} = torch.aten.scaled_dot_product_attention {9} : {10}, !torch.float, !torch.bool, {11}, !torch.bool -> {12}
-    {13}
-  )";
+  std::string kSourceName =
+      sdpaAttr.getK()->getValueNameAsm() + "_" + suffix + "_perm";
+  std::string vSourceName =
+      sdpaAttr.getV()->getValueNameAsm() + "_" + suffix + "_perm";
+  std::string kSourceTorchType = kTorchType;
+  std::string vSourceTorchType = vTorchType;
+  std::string kSourceBuiltinType = kBuiltinType;
+  std::string vSourceBuiltinType = vBuiltinType;
 
-  return std::format(schema,
-                     permuteQ,                                     // {0}
-                     permuteK,                                     // {1}
-                     permuteV,                                     // {2}
-                     permuteMask.empty() ? noneMask : permuteMask, // {3}
-                     getDropoutOpsAsm(),                           // {4}
-                     getIsCausalOpsAsm(),                          // {5}
-                     getScaleOpsAsm(),                             // {6}
-                     getEnableGqaOpsAsm(),                         // {7}
-                     getResultNamesAsm(),                          // {8}
-                     getOperandNamesAsm() + ", %dropout_" + suffix +
-                         ", %is_causal_" + suffix + ", %scale_" + suffix +
-                         ", %enable_gqa_" + suffix, // {9}
-                     getOperandTypesAsm(),          // {10}
-                     scaleType,                     // {11}
-                     getResultTypesAsm(),           // {12}
-                     permuteO                       // {13}
+  if (sdpaAttr.getEnableGqa()) {
+    std::string repeatedKType = getTorchValueTensorTypeAsm(
+        {kDim[0], qDim[1], kDim[2], kDim[3]}, kType);
+    std::string repeatedVType = getTorchValueTensorTypeAsm(
+        {vDim[0], qDim[1], vDim[2], vDim[3]}, vType);
+    kSourceBuiltinType = getBuiltinTensorTypeAsm(
+        {kDim[0], qDim[1], kDim[2], kDim[3]}, kType);
+    vSourceBuiltinType = getBuiltinTensorTypeAsm(
+        {vDim[0], qDim[1], vDim[2], vDim[3]}, vType);
+
+    oss << std::format(
+        "    %gqa_repeats_{0} = torch.constant.int {1}\n"
+        "    %gqa_dim_{0} = torch.constant.int 1\n"
+        "    %none_output_size_{0} = torch.constant.none\n"
+        "    %k_gqa_{0} = torch.aten.repeat_interleave.self_int {2}, "
+        "%gqa_repeats_{0}, %gqa_dim_{0}, %none_output_size_{0} : {3}, "
+        "!torch.int, !torch.int, !torch.none -> {4}\n"
+        "    %v_gqa_{0} = torch.aten.repeat_interleave.self_int {5}, "
+        "%gqa_repeats_{0}, %gqa_dim_{0}, %none_output_size_{0} : {6}, "
+        "!torch.int, !torch.int, !torch.none -> {7}\n",
+        suffix,                             // {0}
+        qDim[1] / kDim[1],                  // {1}
+        kSourceName,                        // {2}
+        kSourceTorchType,                   // {3}
+        repeatedKType,                      // {4}
+        vSourceName,                        // {5}
+        vSourceTorchType,                   // {6}
+        repeatedVType                       // {7}
+    );
+
+    kSourceName = "%k_gqa_" + suffix;
+    vSourceName = "%v_gqa_" + suffix;
+    kSourceTorchType = repeatedKType;
+    vSourceTorchType = repeatedVType;
+  }
+
+  oss << std::format(
+      "    %q_tensor_{0} = torch_c.to_builtin_tensor %{1}_{0}_perm : {2} -> "
+      "{3}\n"
+      "    %k_tensor_{0} = torch_c.to_builtin_tensor {4} : {5} -> {6}\n"
+      "    %v_tensor_{0} = torch_c.to_builtin_tensor {7} : {8} -> {9}\n",
+      suffix,                            // {0}
+      sdpaAttr.getQ()->getName(),        // {1}
+      qTorchType,                        // {2}
+      qBuiltinType,                      // {3}
+      kSourceName,                       // {4}
+      kSourceTorchType,                  // {5}
+      kSourceBuiltinType,                // {6}
+      vSourceName,                       // {7}
+      vSourceTorchType,                  // {8}
+      vSourceBuiltinType                 // {9}
   );
+
+  std::string maskOperandName;
+  std::string maskOperandType;
+  std::string indexingMaps;
+  if (sdpaAttr.getMASK()) {
+    const auto &maskDim = sdpaAttr.getMASK()->getDim();
+    std::string maskTorchType = sdpaAttr.getMASK()->getTensorTypeAsm(
+        /*isValueTensor=*/true, /*useLogicalDims=*/true);
+
+    if (maskDim[1] == 1) {
+      std::vector<int64_t> collapsedMaskDim = {maskDim[0], maskDim[2], maskDim[3]};
+      std::string maskBuiltin4D = getBuiltinTensorTypeAsm(maskDim, sdpaAttr.getMASK()->getDataType());
+      std::string maskBuiltin3D =
+          getBuiltinTensorTypeAsm(collapsedMaskDim, sdpaAttr.getMASK()->getDataType());
+      oss << std::format(
+          "    %mask_tensor4d_{0} = torch_c.to_builtin_tensor %{1}_{0}_perm : "
+          "{2} -> {3}\n"
+          "    %mask_tensor_{0} = tensor.collapse_shape %mask_tensor4d_{0} "
+          "[[0, 1], [2], [3]] : {3} into {4}\n",
+          suffix,                         // {0}
+          sdpaAttr.getMASK()->getName(),  // {1}
+          maskTorchType,                  // {2}
+          maskBuiltin4D,                  // {3}
+          maskBuiltin3D                   // {4}
+      );
+      maskOperandName = "%mask_tensor_" + suffix;
+      maskOperandType = maskBuiltin3D;
+      indexingMaps =
+          "[affine_map<(b, h, m, k1, k2, n) -> (b, h, m, k1)>, "
+          "affine_map<(b, h, m, k1, k2, n) -> (b, h, k2, k1)>, "
+          "affine_map<(b, h, m, k1, k2, n) -> (b, h, k2, n)>, "
+          "affine_map<(b, h, m, k1, k2, n) -> ()>, "
+          "affine_map<(b, h, m, k1, k2, n) -> (b, m, k2)>, "
+          "affine_map<(b, h, m, k1, k2, n) -> (b, h, m, n)>, "
+          "affine_map<(b, h, m, k1, k2, n) -> (b, h, m)>, "
+          "affine_map<(b, h, m, k1, k2, n) -> (b, h, m)>]";
+    } else {
+      std::string maskBuiltin4D =
+          getBuiltinTensorTypeAsm(maskDim, sdpaAttr.getMASK()->getDataType());
+      oss << std::format(
+          "    %mask_tensor_{0} = torch_c.to_builtin_tensor %{1}_{0}_perm : "
+          "{2} -> {3}\n",
+          suffix,                         // {0}
+          sdpaAttr.getMASK()->getName(),  // {1}
+          maskTorchType,                  // {2}
+          maskBuiltin4D                   // {3}
+      );
+      maskOperandName = "%mask_tensor_" + suffix;
+      maskOperandType = maskBuiltin4D;
+      indexingMaps =
+          "[affine_map<(b, h, m, k1, k2, n) -> (b, h, m, k1)>, "
+          "affine_map<(b, h, m, k1, k2, n) -> (b, h, k2, k1)>, "
+          "affine_map<(b, h, m, k1, k2, n) -> (b, h, k2, n)>, "
+          "affine_map<(b, h, m, k1, k2, n) -> ()>, "
+          "affine_map<(b, h, m, k1, k2, n) -> (b, h, m, k2)>, "
+          "affine_map<(b, h, m, k1, k2, n) -> (b, h, m, n)>, "
+          "affine_map<(b, h, m, k1, k2, n) -> (b, h, m)>, "
+          "affine_map<(b, h, m, k1, k2, n) -> (b, h, m)>]";
+    }
+  } else if (sdpaAttr.getIsCausal()) {
+    std::vector<int64_t> causalMaskDim = {qDim[2], kDim[2]};
+    std::string causalMaskTorchType =
+        getTorchValueTensorTypeAsm(causalMaskDim, DataType::Boolean);
+    std::string causalMaskBuiltinType =
+        getBuiltinTensorTypeAsm(causalMaskDim, DataType::Boolean);
+    oss << std::format(
+        "    %causal_true_{0} = torch.vtensor.literal(dense<true> : tensor<{1}x{2}xi1>) : {3}\n"
+        "    %causal_diagonal_{0} = torch.constant.int 1\n"
+        "    %causal_future_{0} = torch.aten.triu %causal_true_{0}, %causal_diagonal_{0} : {3}, !torch.int -> {3}\n"
+        "    %causal_mask_{0} = torch.aten.logical_not %causal_future_{0} : {3} -> {3}\n"
+        "    %mask_tensor_{0} = torch_c.to_builtin_tensor %causal_mask_{0} : {3} -> {4}\n",
+        suffix,                  // {0}
+        qDim[2],                 // {1}
+        kDim[2],                 // {2}
+        causalMaskTorchType,     // {3}
+        causalMaskBuiltinType    // {4}
+    );
+    maskOperandName = "%mask_tensor_" + suffix;
+    maskOperandType = causalMaskBuiltinType;
+    indexingMaps =
+        "[affine_map<(b, h, m, k1, k2, n) -> (b, h, m, k1)>, "
+        "affine_map<(b, h, m, k1, k2, n) -> (b, h, k2, k1)>, "
+        "affine_map<(b, h, m, k1, k2, n) -> (b, h, k2, n)>, "
+        "affine_map<(b, h, m, k1, k2, n) -> ()>, "
+        "affine_map<(b, h, m, k1, k2, n) -> (m, k2)>, "
+        "affine_map<(b, h, m, k1, k2, n) -> (b, h, m, n)>, "
+        "affine_map<(b, h, m, k1, k2, n) -> (b, h, m)>, "
+        "affine_map<(b, h, m, k1, k2, n) -> (b, h, m)>]";
+  } else {
+    indexingMaps =
+        "[affine_map<(b, h, m, k1, k2, n) -> (b, h, m, k1)>, "
+        "affine_map<(b, h, m, k1, k2, n) -> (b, h, k2, k1)>, "
+        "affine_map<(b, h, m, k1, k2, n) -> (b, h, k2, n)>, "
+        "affine_map<(b, h, m, k1, k2, n) -> ()>, "
+        "affine_map<(b, h, m, k1, k2, n) -> (b, h, m, n)>, "
+        "affine_map<(b, h, m, k1, k2, n) -> (b, h, m)>, "
+        "affine_map<(b, h, m, k1, k2, n) -> (b, h, m)>]";
+  }
+
+  double scaleValue = sdpaAttr.getScale().value_or(
+      1.0 / std::sqrt(static_cast<double>(qDim[3])));
+  oss << std::format(
+      "    %scale_{0} = arith.constant {1:e} : {2}\n"
+      "    %zero_{0} = arith.constant 0.000000e+00 : {3}\n"
+      "    %max_init_{0} = arith.constant {4} : {3}\n"
+      "    %empty_o_{0} = tensor.empty() : {5}\n"
+      "    %empty_r_{0} = tensor.empty() : {6}\n"
+      "    %init_o_{0} = linalg.fill ins(%zero_{0} : {3}) outs(%empty_o_{0} : {5}) -> {5}\n"
+      "    %init_max_{0} = linalg.fill ins(%max_init_{0} : {3}) outs(%empty_r_{0} : {6}) -> {6}\n"
+      "    %init_sum_{0} = linalg.fill ins(%zero_{0} : {3}) outs(%empty_r_{0} : {6}) -> {6}\n",
+      suffix,                       // {0}
+      scaleValue,                   // {1}
+      kDataTypeToMlirTypeAsm.at(qType), // {2}
+      kDataTypeToMlirTypeAsm.at(oType), // {3}
+      getLowestFloatLiteralAsm(oType),  // {4}
+      oBuiltinType,                     // {5}
+      rowReductionBuiltinType           // {6}
+  );
+
+  std::string onlineAttentionOperands =
+      "%q_tensor_" + suffix + ", %k_tensor_" + suffix + ", %v_tensor_" +
+      suffix + ", %scale_" + suffix;
+  std::string onlineAttentionOperandTypes =
+      qBuiltinType + ", " + kSourceBuiltinType + ", " + vSourceBuiltinType +
+      ", " + kDataTypeToMlirTypeAsm.at(qType);
+  if (!maskOperandName.empty()) {
+    onlineAttentionOperands += ", " + maskOperandName;
+    onlineAttentionOperandTypes += ", " + maskOperandType;
+  }
+
+  oss << std::format(
+      "    %online_attention_{0}:3 = iree_linalg_ext.online_attention "
+      "{{indexing_maps = {1}}} ins({2} : {3}) outs(%init_o_{0}, %init_max_{0}, "
+      "%init_sum_{0} : {4}, {5}, {5}) {{\n"
+      "      ^bb0(%score: {6}):\n"
+      "        iree_linalg_ext.yield %score : {6}\n"
+      "    }} -> {4}, {5}, {5}\n",
+      suffix,                     // {0}
+      indexingMaps,               // {1}
+      onlineAttentionOperands,    // {2}
+      onlineAttentionOperandTypes, // {3}
+      oBuiltinType,               // {4}
+      rowReductionBuiltinType,    // {5}
+      accumType                   // {6}
+  );
+
+  oss << std::format(
+      "    %accum_{0} = torch_c.from_builtin_tensor %online_attention_{0}#0 : "
+      "{1} -> {2}\n"
+      "    %sum_{0} = torch_c.from_builtin_tensor %online_attention_{0}#2 : "
+      "{3} -> {4}\n"
+      "    %unsqueeze_dim_{0} = torch.constant.int -1\n"
+      "    %sum_expanded_{0} = torch.aten.unsqueeze %sum_{0}, "
+      "%unsqueeze_dim_{0} : {4}, !torch.int -> {2}\n"
+      "    {5} = torch.aten.div.Tensor %accum_{0}, %sum_expanded_{0} : "
+      "{2}, {2} -> {2}\n",
+      suffix,                // {0}
+      oBuiltinType,          // {1}
+      oTorchType,            // {2}
+      rowReductionBuiltinType, // {3}
+      rowReductionTorchType, // {4}
+      getResultNamesAsm()    // {5}
+  );
+
+  oss << indentTopLevelAsmBlock(permuteO);
+  return oss.str();
 }
 
 //===----------------------------------------------------------------------===//

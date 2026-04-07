@@ -9,19 +9,17 @@
 
 // Verifies SDPA with attention mask ASM emission:
 //   - 4 tensor inputs (Q, K, V, mask)
-//   - mask type is a vtensor (not none)
+//   - Mask head dim of 1 is collapsed away before online_attention
 
 // clang-format off
 //
 // CHECK:       module @module {
 // CHECK:         func.func @main(
 // CHECK-SAME:      %mask: !torch.vtensor<[1,1,64,64],f16>
-// CHECK:           %dropout_sdpa = torch.constant.float 0.000000e+00
-// CHECK:           %is_causal_sdpa = torch.constant.bool false
-// CHECK:           %scale_sdpa = torch.constant.none
-// CHECK:           %enable_gqa_sdpa = torch.constant.bool false
-// CHECK:           torch.aten.scaled_dot_product_attention
-// CHECK-NOT:       !torch.none, !torch.float
+// CHECK:           %mask_tensor4d_sdpa = torch_c.to_builtin_tensor %mask_sdpa_perm
+// CHECK:           %mask_tensor_sdpa = tensor.collapse_shape %mask_tensor4d_sdpa {{\[\[0, 1\], \[2\], \[3\]\]}}
+// CHECK:           %online_attention_sdpa:3 = iree_linalg_ext.online_attention
+// CHECK-SAME:      %mask_tensor_sdpa
 // CHECK:           return
 // CHECK:         }
 // CHECK:       }

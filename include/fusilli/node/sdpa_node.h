@@ -42,14 +42,7 @@ public:
 
   // ASM emitter methods.
   std::string emitNodePreAsm() const override final;
-  std::string getOperandNamesAsm() const;
-  std::string getOperandTypesAsm() const;
   std::string getResultNamesAsm() const;
-  std::string getResultTypesAsm() const;
-  std::string getDropoutOpsAsm() const;
-  std::string getIsCausalOpsAsm() const;
-  std::string getScaleOpsAsm() const;
-  std::string getEnableGqaOpsAsm() const;
 
   const std::string &getName() const override final {
     return sdpaAttr.getName();
@@ -132,11 +125,26 @@ public:
         maskT && sdpaAttr.getIsCausal(), ErrorCode::InvalidAttribute,
         "SDPA attention mask and is_causal are mutually exclusive");
 
-    // Mask rank check.
+    // Mask rank and shape checks.
     if (maskT) {
       FUSILLI_RETURN_ERROR_IF(maskT->getDim().size() != kRequiredRank,
                               ErrorCode::InvalidAttribute,
                               "SDPA attention mask must be rank 4");
+
+      const std::vector<int64_t> &maskDim = maskT->getDim();
+      FUSILLI_RETURN_ERROR_IF(
+          maskDim[0] != qDim[0], ErrorCode::InvalidAttribute,
+          "SDPA attention mask must have matching batch dimension");
+      FUSILLI_RETURN_ERROR_IF(
+          maskDim[1] != 1 && maskDim[1] != qDim[1],
+          ErrorCode::InvalidAttribute,
+          "SDPA attention mask heads dimension must be 1 or match Q heads");
+      FUSILLI_RETURN_ERROR_IF(
+          maskDim[2] != qDim[2], ErrorCode::InvalidAttribute,
+          "SDPA attention mask must have sequence length matching Q");
+      FUSILLI_RETURN_ERROR_IF(
+          maskDim[3] != kDim[2], ErrorCode::InvalidAttribute,
+          "SDPA attention mask must have sequence length matching K");
     }
 
     // Dropout range check.

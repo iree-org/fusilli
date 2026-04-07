@@ -9,7 +9,7 @@
 
 // Verifies GQA SDPA built-in op ASM emission:
 //   - Q has 8 heads, KV has 2 heads (4:1 ratio)
-//   - enable_gqa set to true
+//   - K/V heads are repeated before conversion to builtin tensors
 
 // clang-format off
 //
@@ -18,8 +18,11 @@
 // CHECK-SAME:      %k: !torch.vtensor<[1,2,64,64],f16>
 // CHECK-SAME:      %q: !torch.vtensor<[1,8,64,64],f16>
 // CHECK-SAME:      %v: !torch.vtensor<[1,2,64,64],f16>
-// CHECK:           %enable_gqa_sdpa = torch.constant.bool true
-// CHECK:           torch.aten.scaled_dot_product_attention
+// CHECK:           %k_gqa_sdpa = torch.aten.repeat_interleave.self_int %k_sdpa_perm, %gqa_repeats_sdpa, %gqa_dim_sdpa, %none_output_size_sdpa
+// CHECK:           %v_gqa_sdpa = torch.aten.repeat_interleave.self_int %v_sdpa_perm, %gqa_repeats_sdpa, %gqa_dim_sdpa, %none_output_size_sdpa
+// CHECK:           %k_tensor_sdpa = torch_c.to_builtin_tensor %k_gqa_sdpa
+// CHECK:           %v_tensor_sdpa = torch_c.to_builtin_tensor %v_gqa_sdpa
+// CHECK:           %online_attention_sdpa:3 = iree_linalg_ext.online_attention
 // CHECK:           return
 // CHECK:         }
 // CHECK:       }

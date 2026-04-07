@@ -8,12 +8,10 @@
 // RUN: %{TEST_EXE} | FileCheck %s
 
 // Verifies basic SDPA built-in op ASM emission:
-//   - torch.aten.scaled_dot_product_attention inlined in @main (no
-//     module-scope function)
-//   - Default scalar params: dropout=0, is_causal=false, scale=none,
-//     enable_gqa=false
-//   - 3 tensor inputs (Q, K, V), no attention mask (none)
-//   - Output O with correct shape
+//   - Inputs stay in Torch value tensors at the graph boundary
+//   - Q/K/V are bridged to builtin tensors for iree_linalg_ext.online_attention
+//   - The online attention accumulator is normalized with Torch unsqueeze+div
+//   - Default scale is materialized as 1/sqrt(head_dim)
 
 // clang-format off
 //
@@ -23,13 +21,15 @@
 // CHECK-SAME:      %k: !torch.vtensor<[1,8,64,64],f16>
 // CHECK-SAME:      %q: !torch.vtensor<[1,8,64,64],f16>
 // CHECK-SAME:      %v: !torch.vtensor<[1,8,64,64],f16>
-// CHECK:           %none_mask_sdpa = torch.constant.none
-// CHECK:           %dropout_sdpa = torch.constant.float 0.000000e+00
-// CHECK:           %is_causal_sdpa = torch.constant.bool false
-// CHECK:           %scale_sdpa = torch.constant.none
-// CHECK:           %enable_gqa_sdpa = torch.constant.bool false
-// CHECK:           torch.aten.scaled_dot_product_attention
-// CHECK-SAME:      !torch.none, !torch.float, !torch.bool, !torch.none, !torch.bool
+// CHECK:           %q_tensor_sdpa = torch_c.to_builtin_tensor %q_sdpa_perm
+// CHECK:           %k_tensor_sdpa = torch_c.to_builtin_tensor %k_sdpa_perm
+// CHECK:           %v_tensor_sdpa = torch_c.to_builtin_tensor %v_sdpa_perm
+// CHECK:           %scale_sdpa = arith.constant 1.250000e-01 : f16
+// CHECK:           %online_attention_sdpa:3 = iree_linalg_ext.online_attention
+// CHECK:           %accum_sdpa = torch_c.from_builtin_tensor %online_attention_sdpa#0
+// CHECK:           %sum_sdpa = torch_c.from_builtin_tensor %online_attention_sdpa#2
+// CHECK:           %sum_expanded_sdpa = torch.aten.unsqueeze %sum_sdpa, %unsqueeze_dim_sdpa
+// CHECK:           %sdpa_O_sdpa_perm = torch.aten.div.Tensor %accum_sdpa, %sum_expanded_sdpa
 // CHECK:           torch.overwrite.tensor.contents
 // CHECK:           return
 // CHECK:         }

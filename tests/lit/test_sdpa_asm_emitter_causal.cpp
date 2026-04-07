@@ -8,14 +8,17 @@
 // RUN: %{TEST_EXE} | FileCheck %s
 
 // Verifies causal SDPA built-in op ASM emission:
-//   - is_causal set to true
+//   - is_causal is lowered to a synthesized boolean mask
 
 // clang-format off
 //
 // CHECK:       module @module {
 // CHECK:         func.func @main(
-// CHECK:           %is_causal_sdpa = torch.constant.bool true
-// CHECK:           torch.aten.scaled_dot_product_attention
+// CHECK:           %causal_true_sdpa = torch.vtensor.literal(dense<true> : tensor<64x64xi1>) : !torch.vtensor<[64,64],i1>
+// CHECK:           %causal_future_sdpa = torch.aten.triu %causal_true_sdpa, %causal_diagonal_sdpa
+// CHECK:           %causal_mask_sdpa = torch.aten.logical_not %causal_future_sdpa
+// CHECK:           %mask_tensor_sdpa = torch_c.to_builtin_tensor %causal_mask_sdpa
+// CHECK:           %online_attention_sdpa:3 = iree_linalg_ext.online_attention
 // CHECK:           return
 // CHECK:         }
 // CHECK:       }

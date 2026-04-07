@@ -135,7 +135,7 @@ inline ErrorObject Handle::createCPUDevice() {
   // Create the default device from the driver.
   iree_hal_device_t *rawDevice = nullptr;
   iree_status_t status = iree_hal_driver_create_default_device(
-      driver, iree_allocator_system(), &rawDevice);
+      driver, nullptr, iree_allocator_system(), &rawDevice);
   iree_hal_driver_release(driver);
   FUSILLI_CHECK_ERROR(status);
 
