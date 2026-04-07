@@ -50,7 +50,7 @@ namespace fusilli {
   /* OP(IDENTITY)  */                                                          \
   /* OP(LOG) */                                                                \
   OP(LOGICAL_AND)                                                              \
-  /* OP(LOGICAL_NOT) */                                                        \
+  OP(LOGICAL_NOT)                                                              \
   OP(LOGICAL_OR)                                                               \
   OP(MAX_OP)                                                                   \
   OP(MIN_OP)                                                                   \
@@ -142,6 +142,7 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::EXP, 1},
         {PointwiseAttr::Mode::FLOOR, 1},
         {PointwiseAttr::Mode::LOGICAL_AND, 2},
+        {PointwiseAttr::Mode::LOGICAL_NOT, 1},
         {PointwiseAttr::Mode::LOGICAL_OR, 2},
         {PointwiseAttr::Mode::MAX_OP, 2},
         {PointwiseAttr::Mode::MIN_OP, 2},
