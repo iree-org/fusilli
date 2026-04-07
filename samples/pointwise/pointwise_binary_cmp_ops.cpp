@@ -42,10 +42,17 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
       GENERATE(std::vector<int64_t>{2, 16, 64, 64},
                std::vector<int64_t>{1, 16, 1, 1})};
 
-  const auto mode =
-      GENERATE(PointwiseAttr::Mode::CMP_EQ, PointwiseAttr::Mode::CMP_LT,
-               PointwiseAttr::Mode::CMP_LE, PointwiseAttr::Mode::CMP_GT,
-               PointwiseAttr::Mode::CMP_GE, PointwiseAttr::Mode::CMP_NEQ);
+  // clang-format off
+  const auto mode = GENERATE(
+      PointwiseAttr::Mode::CMP_EQ,
+      PointwiseAttr::Mode::CMP_LT,
+      PointwiseAttr::Mode::CMP_LE,
+      PointwiseAttr::Mode::CMP_GT,
+      PointwiseAttr::Mode::CMP_GE,
+      PointwiseAttr::Mode::CMP_NEQ,
+      PointwiseAttr::Mode::LOGICAL_AND,
+      PointwiseAttr::Mode::LOGICAL_OR);
+  // clang-format on
 
   auto execute = [&]<typename T>(Handle &handle, DataType dt, T x0, T x1) {
     // Create graph.
@@ -125,6 +132,14 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
     }
     case PointwiseAttr::Mode::CMP_NEQ: {
       y = (x0 != x1);
+      break;
+    }
+    case PointwiseAttr::Mode::LOGICAL_AND: {
+      y = (x0 != T(0)) && (x1 != T(0));
+      break;
+    }
+    case PointwiseAttr::Mode::LOGICAL_OR: {
+      y = (x0 != T(0)) || (x1 != T(0));
       break;
     }
     default:

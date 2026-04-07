@@ -39,9 +39,48 @@ static std::string generateName(PointwiseAttr::Mode mode, DataType type,
 TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
   const auto dim = std::vector<int64_t>{2, 16, 64, 64};
 
-  const auto mode =
-      GENERATE(PointwiseAttr::Mode::CEIL, PointwiseAttr::Mode::RELU_FWD,
-               PointwiseAttr::Mode::SIGMOID_FWD, PointwiseAttr::Mode::TANH_FWD);
+  auto supportsInteger = [](PointwiseAttr::Mode m) {
+    switch (m) {
+    case PointwiseAttr::Mode::ABS:
+    case PointwiseAttr::Mode::NEG:
+    case PointwiseAttr::Mode::RELU_FWD:
+      return true;
+    default:
+      return false;
+    }
+  };
+
+  auto supportsFloat = [](PointwiseAttr::Mode m) {
+    switch (m) {
+    case PointwiseAttr::Mode::ABS:
+    case PointwiseAttr::Mode::CEIL:
+    case PointwiseAttr::Mode::ERF:
+    case PointwiseAttr::Mode::EXP:
+    case PointwiseAttr::Mode::FLOOR:
+    case PointwiseAttr::Mode::NEG:
+    case PointwiseAttr::Mode::RECIPROCAL:
+    case PointwiseAttr::Mode::RELU_FWD:
+    case PointwiseAttr::Mode::SIGMOID_FWD:
+    case PointwiseAttr::Mode::TANH_FWD:
+      return true;
+    default:
+      return false;
+    }
+  };
+
+  // clang-format off
+  const auto mode = GENERATE(
+      PointwiseAttr::Mode::ABS,
+      PointwiseAttr::Mode::CEIL,
+      PointwiseAttr::Mode::ERF,
+      PointwiseAttr::Mode::EXP,
+      PointwiseAttr::Mode::FLOOR,
+      PointwiseAttr::Mode::NEG,
+      PointwiseAttr::Mode::RECIPROCAL,
+      PointwiseAttr::Mode::RELU_FWD,
+      PointwiseAttr::Mode::SIGMOID_FWD,
+      PointwiseAttr::Mode::TANH_FWD);
+  // clang-format on
 
   auto execute = [&]<typename T>(Handle &handle, DataType dt, T x) {
     auto buildNewGraph = [&](Handle &handleArg) {
@@ -96,6 +135,11 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     // Calculate reference value
     T y = 0;
     switch (mode) {
+    case PointwiseAttr::Mode::ABS: {
+      double xD = static_cast<double>(x);
+      y = std::abs(xD);
+      break;
+    }
     case PointwiseAttr::Mode::RELU_FWD: {
       y = std::max(x, T(0));
       break;
@@ -113,6 +157,30 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     case PointwiseAttr::Mode::CEIL: {
       double xD = static_cast<double>(x);
       y = std::ceil(xD);
+      break;
+    }
+    case PointwiseAttr::Mode::ERF: {
+      double xD = static_cast<double>(x);
+      y = std::erf(xD);
+      break;
+    }
+    case PointwiseAttr::Mode::EXP: {
+      double xD = static_cast<double>(x);
+      y = std::exp(xD);
+      break;
+    }
+    case PointwiseAttr::Mode::FLOOR: {
+      double xD = static_cast<double>(x);
+      y = std::floor(xD);
+      break;
+    }
+    case PointwiseAttr::Mode::NEG: {
+      y = -x;
+      break;
+    }
+    case PointwiseAttr::Mode::RECIPROCAL: {
+      double xD = static_cast<double>(x);
+      y = 1.0 / xD;
       break;
     }
     default:
@@ -152,7 +220,9 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // int32
-  execute(handle, DataType::Int32, int(-128));
+  if (supportsInteger(mode))
+    execute(handle, DataType::Int32, int(-128));
   // fp16
-  execute(handle, DataType::Half, half(3.14));
+  if (supportsFloat(mode))
+    execute(handle, DataType::Half, half(3.14));
 }

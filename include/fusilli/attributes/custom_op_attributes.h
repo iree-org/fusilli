@@ -39,33 +39,43 @@ public:
   // [4,8] before passing it to the custom function. The custom MLIR should
   // therefore use [4,8], not [8,4].
   //
-  // The string may contain placeholders that are resolved at emission time
-  // by `CustomOpNode::resolveMlirPlaceholders()`:
+  // The MLIR string must define a `func.func` whose signature matches the
+  // `func.call` the emitter generates:
   //
-  //   {FUNC_NAME}   — replaced with the node's unique name (from setName()).
-  //   {IN0_DTYPE}   — replaced with input 0's MLIR element type (e.g., "f32").
-  //   {OUT0_DTYPE}  — replaced with output 0's MLIR element type.
+  //   Name:    @<setName()>
+  //   Inputs:  static logical value tensor types
+  //              (e.g., !torch.vtensor<[4,8],f32>)
+  //   Outputs: static logical value tensor types
   //
-  // By default, shapes in the MLIR should use dynamic placeholders [?] so
-  // the function works for any tensor size. If the MLIR uses concrete static
-  // shapes instead (e.g., [4,8]), call `setIsStatic(true)` so the emitter
-  // uses matching static types in the surrounding casts and func.call
-  // signature.
+  // The following placeholders are resolved at emission time by
+  // `CustomOpNode::resolveMlirPlaceholders()` and can be used to build a
+  // matching signature without hardcoding values:
   //
-  // Example (dynamic):
-  //   func.func private @{FUNC_NAME}(%arg0: !torch.vtensor<[?],{IN0_DTYPE}>,
-  //                                    %arg1: !torch.vtensor<[?],{IN1_DTYPE}>)
-  //                                    -> !torch.vtensor<[?],{OUT0_DTYPE}> {
+  //   {FUNC_NAME}  — the node name (from setName())
+  //   {IN0_DTYPE}  — input 0's element type (e.g., "f32")
+  //   {OUT0_DTYPE} — output 0's element type
+  //   {IN0_TYPE}   — input 0's full tensor type
+  //                   (e.g., "!torch.vtensor<[4,8],f32>")
+  //   {OUT0_TYPE}  — output 0's full tensor type
+  //   {IN0_DIM0}   — input 0's logical dimension 0 (e.g., "4")
+  //   {OUT0_DIM0}  — output 0's logical dimension 0
+  //
+  // All indices are 0-based and generalize to any input/output/dimension
+  // count (e.g., {IN2_TYPE}, {OUT1_DIM3}).
+  //
+  // Example using placeholders:
+  //   func.func private @{FUNC_NAME}(%arg0: {IN0_TYPE},
+  //                                    %arg1: {IN1_TYPE})
+  //                                    -> {OUT0_TYPE} {
   //     ...
   //   }
   //
-  // Example (static, requires setIsStatic(true)):
-  //   func.func private @{FUNC_NAME}(%arg0: !torch.vtensor<[4,8],{IN0_DTYPE}>)
-  //                                    -> !torch.vtensor<[4,8],{OUT0_DTYPE}> {
+  // Example with hardcoded static types (no placeholders except name):
+  //   func.func private @{FUNC_NAME}(%arg0: !torch.vtensor<[4,8],f32>,
+  //                                    %arg1: !torch.vtensor<[4,8],f32>)
+  //                                    -> !torch.vtensor<[4,8],f32> {
   //     ...
   //   }
-  //
-  // If no placeholders are present, the string is emitted verbatim.
   CustomOpAttr &setMlir(const std::string &mlir) {
     mlir_ = mlir;
     return *this;
@@ -73,14 +83,6 @@ public:
 
   CustomOpAttr &setNumOutputs(size_t numOutputs) {
     numOutputs_ = numOutputs;
-    return *this;
-  }
-
-  // When true, the user-provided MLIR already has static shapes baked in.
-  // The emitter will use static types in casts and func.call signatures,
-  // making the casts identity no-ops that the compiler eliminates.
-  CustomOpAttr &setIsStatic(bool isStatic) {
-    isStatic_ = isStatic;
     return *this;
   }
 
@@ -92,13 +94,10 @@ public:
 
   size_t getNumOutputs() const { return numOutputs_; }
 
-  bool isStatic() const { return isStatic_; }
-
 private:
   std::string name_;
   std::string mlir_;
   size_t numOutputs_ = 0;
-  bool isStatic_ = false;
 };
 
 } // namespace fusilli

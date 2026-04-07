@@ -73,6 +73,21 @@ add_fusilli_samples(
 )
 
 add_fusilli_samples(
+  PREFIX fusilli_batchnorm_samples
+  SRCS
+    batchnorm/batchnorm_infer_nchw.cpp
+    batchnorm/batchnorm_infer_nchw_scale_bias.cpp
+    batchnorm/batchnorm_infer_nhwc_scale_bias.cpp
+    # TODO(iree-org/iree#24008): batchnorm training fails to distribute.
+    # batchnorm/batchnorm_train_nchw.cpp
+    # batchnorm/batchnorm_train_nchw_scale_bias.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)
+
+add_fusilli_samples(
   PREFIX fusilli_rmsnorm_samples
   SRCS
     rmsnorm/rmsnorm_infer_nchw.cpp
@@ -98,8 +113,6 @@ add_fusilli_samples(
   PREFIX fusilli_custom_op_samples
   SRCS
     custom_op/custom_op_add.cpp
-    custom_op/custom_op_add_static.cpp
-    custom_op/custom_op_add_static_transposed.cpp
   DEPS
     libfusilli
     libutils

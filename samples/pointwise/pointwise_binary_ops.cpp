@@ -43,9 +43,15 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
       GENERATE(std::vector<int64_t>{2, 16, 64, 64},
                std::vector<int64_t>{1, 16, 1, 1})};
 
-  const auto mode =
-      GENERATE(PointwiseAttr::Mode::ADD, PointwiseAttr::Mode::DIV,
-               PointwiseAttr::Mode::MUL, PointwiseAttr::Mode::SUB);
+  // clang-format off
+  const auto mode = GENERATE(
+      PointwiseAttr::Mode::ADD,
+      PointwiseAttr::Mode::DIV,
+      PointwiseAttr::Mode::MAX_OP,
+      PointwiseAttr::Mode::MIN_OP,
+      PointwiseAttr::Mode::MUL,
+      PointwiseAttr::Mode::SUB);
+  // clang-format on
 
   auto execute = [&]<typename T>(Handle &handle, DataType dt, T x0, T x1) {
     auto buildNewGraph = [&](Handle &handleArg) {
@@ -116,6 +122,14 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
     }
     case PointwiseAttr::Mode::DIV: {
       y = x0 / x1;
+      break;
+    }
+    case PointwiseAttr::Mode::MAX_OP: {
+      y = x0 > x1 ? x0 : x1;
+      break;
+    }
+    case PointwiseAttr::Mode::MIN_OP: {
+      y = x0 < x1 ? x0 : x1;
       break;
     }
     case PointwiseAttr::Mode::MUL: {
