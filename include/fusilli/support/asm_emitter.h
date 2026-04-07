@@ -1782,15 +1782,15 @@ inline ErrorOr<std::string> PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_NEQ, torch.aten.ne.Tensor)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(DIV, torch.aten.div.Tensor)
   case PointwiseAttr::Mode::ELU_FWD: {
-    return std::format(kEluSchema, permuteIN0,           /* {0} */
-                       getResultNamesAsm(),              /* {1} */
-                       getOperandNamesAsm(),             /* {2} */
-                       getOperandTypesAsm(),             /* {3} */
-                       getResultTypesAsm(),              /* {4} */
-                       permuteOUT0,                      /* {5} */
-                       "torch.aten.elu",                 /* {6} */
-                       getName(),                        /* {7} */
-                       pointwiseAttr.getEluAlpha()       /* {8} */
+    return std::format(kEluSchema, permuteIN0,     /* {0} */
+                       getResultNamesAsm(),        /* {1} */
+                       getOperandNamesAsm(),       /* {2} */
+                       getOperandTypesAsm(),       /* {3} */
+                       getResultTypesAsm(),        /* {4} */
+                       permuteOUT0,                /* {5} */
+                       "torch.aten.elu",           /* {6} */
+                       getName(),                  /* {7} */
+                       pointwiseAttr.getEluAlpha() /* {8} */
     );
   }
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(ERF, torch.aten.erf)
