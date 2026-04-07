@@ -30,23 +30,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  setup:
-    name: "Setup iteration matrix"
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      iterations: ${{ steps.generate-matrix.outputs.iterations }}
-    steps:
-      - name: "Generate iteration matrix"
-        id: generate-matrix
-        run: |
-          ITERATIONS=$(seq 1 ${{ env.FLAKE_TEST_ITERATIONS }} | jq -R -s -c 'split("\n")[:-1] | map(tonumber)')
-          echo "iterations=${ITERATIONS}" >> $GITHUB_OUTPUT
-          echo "Generated iterations: ${ITERATIONS}"
-
   flake-test:
-    name: "${{ matrix.name }} - iteration ${{ matrix.iteration }}"
-    needs: setup
+    name: "${{ matrix.name }}"
     runs-on: ${{ startsWith(matrix.name, 'gpu') && 'linux-mi325-1gpu-ossci-iree-org' || 'azure-linux-scale' }}
     env:
       AMD_ARCH: ${{ startsWith(matrix.name, 'gpu') && 'gfx942' || '' }}
@@ -65,7 +50,6 @@ jobs:
       fail-fast: false
       matrix:
         name: ["cpu-debug", "gpu-debug"]
-        iteration: ${{ fromJson(needs.setup.outputs.iterations) }}
 
     steps:
     - name: "Checkout fusilli"
@@ -77,15 +61,17 @@ jobs:
         build_tools/scripts/build.sh ${{ matrix.name }} \
           --iree-source-dir /workspace/.cache/docker/iree
 
-    - name: "Test fusilli (libIREECompiler CAPI)"
+    - name: "Flake test (libIREECompiler CAPI)"
       run: |
         build_tools/docker/exec_docker_ci.sh \
-        build_tools/scripts/test.sh --backend capi --parallel 8 --extra-verbose --validate-cache-cleanup
+        build_tools/scripts/test.sh --backend capi --parallel 16 --extra-verbose --validate-cache-cleanup \
+          --repeat ${{ env.FLAKE_TEST_ITERATIONS }}
 
-    - name: "Test fusilli (iree-compile CLI)"
+    - name: "Flake test (iree-compile CLI)"
       run: |
         build_tools/docker/exec_docker_ci.sh \
-        build_tools/scripts/test.sh --backend cli --parallel 8 --extra-verbose --validate-cache-cleanup
+        build_tools/scripts/test.sh --backend cli --parallel 16 --extra-verbose --validate-cache-cleanup \
+          --repeat ${{ env.FLAKE_TEST_ITERATIONS }}
 
   # Depends on all other jobs to provide an aggregate job status.
   flake_test_summary:
@@ -93,7 +79,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     needs:
-      - setup
       - flake-test
     steps:
       - name: "Getting failed jobs"
