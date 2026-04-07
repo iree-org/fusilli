@@ -268,6 +268,15 @@ TEST_CASE("TensorAttr isContiguous and isChannelsLast checks", "[TensorAttr]") {
   REQUIRE(t2.isChannelsLast());
   REQUIRE(t2.getDim() == std::vector<int64_t>{2, 3, 4});
   REQUIRE(t2.getPhysicalDim() == std::vector<int64_t>{2, 4, 3});
+
+  // Broadcast tensors are neither contiguous nor channels-last
+  TensorAttr t3;
+  t3.setName("broadcast_tensor")
+      .setDataType(DataType::Float)
+      .setDim({8, 2, 64, 128})
+      .setStride({0, 0, 128, 1});
+  REQUIRE(!t3.isContiguous());
+  REQUIRE(!t3.isChannelsLast());
 }
 
 TEST_CASE("TensorAttr getPhysicalDim", "[TensorAttr]") {
@@ -309,6 +318,30 @@ TEST_CASE("TensorAttr getPhysicalDim", "[TensorAttr]") {
   // Reverse order (transpose-like)
   t.setDim({10, 20, 30}).setStride({1, 10, 200});
   REQUIRE(t.getPhysicalDim() == std::vector<int64_t>{30, 20, 10});
+
+  // Broadcast: batch and head dims
+  t.setDim({8, 2, 64, 128}).setStride({0, 0, 128, 1});
+  REQUIRE(t.getPhysicalDim() == std::vector<int64_t>{1, 1, 64, 128});
+
+  // Broadcast + permuted non-broadcast dims
+  t.setDim({8, 2, 64, 128}).setStride({0, 0, 1, 64});
+  REQUIRE(t.getPhysicalDim() == std::vector<int64_t>{1, 1, 128, 64});
+
+  // Broadcast on single dim
+  t.setDim({8, 64, 128}).setStride({0, 128, 1});
+  REQUIRE(t.getPhysicalDim() == std::vector<int64_t>{1, 64, 128});
+
+  // All broadcast
+  t.setDim({8, 2}).setStride({0, 0});
+  REQUIRE(t.getPhysicalDim() == std::vector<int64_t>{1, 1});
+
+  // Interleaved broadcast dims (non-adjacent positions 0 and 2)
+  t.setDim({8, 64, 2, 128}).setStride({0, 128, 0, 1});
+  REQUIRE(t.getPhysicalDim() == std::vector<int64_t>{1, 64, 1, 128});
+
+  // Broadcast on trailing dim
+  t.setDim({64, 128, 8}).setStride({128, 1, 0});
+  REQUIRE(t.getPhysicalDim() == std::vector<int64_t>{64, 128, 1});
 }
 
 TEST_CASE("getLogicalToPhysicalPermuteOrder", "[TensorAttr]") {
@@ -395,6 +428,39 @@ TEST_CASE("getLogicalToPhysicalPermuteOrder", "[TensorAttr]") {
   t.setDim({10, 20, 1}).setStride({20, 1, 999});
   REQUIRE(t.getLogicalToPhysicalPermuteOrder() ==
           std::vector<int64_t>{0, 1, 2});
+
+  // Broadcast dims: batch/head broadcast with contiguous inner dims
+  t.setDim({8, 2, 64, 128}).setStride({0, 0, 128, 1});
+  REQUIRE(t.getLogicalToPhysicalPermuteOrder() ==
+          std::vector<int64_t>{0, 1, 2, 3});
+
+  // Broadcast dims: batch/head broadcast with permuted inner dims
+  t.setDim({8, 2, 64, 128}).setStride({0, 0, 1, 64});
+  REQUIRE(t.getLogicalToPhysicalPermuteOrder() ==
+          std::vector<int64_t>{0, 1, 3, 2});
+
+  // All dims broadcast (identity permutation)
+  t.setDim({8, 2}).setStride({0, 0});
+  REQUIRE(t.getLogicalToPhysicalPermuteOrder() == std::vector<int64_t>{0, 1});
+
+  // Mix of broadcast, unit, and normal dims
+  t.setDim({1, 8, 1, 64}).setStride({1, 0, 1, 1});
+  REQUIRE(t.getLogicalToPhysicalPermuteOrder() ==
+          std::vector<int64_t>{0, 1, 2, 3});
+
+  // Interleaved broadcast dims (positions 0 and 2)
+  t.setDim({8, 64, 2, 128}).setStride({0, 128, 0, 1});
+  REQUIRE(t.getLogicalToPhysicalPermuteOrder() ==
+          std::vector<int64_t>{0, 1, 2, 3});
+
+  // Broadcast on trailing dim
+  t.setDim({64, 128, 8}).setStride({128, 1, 0});
+  REQUIRE(t.getLogicalToPhysicalPermuteOrder() ==
+          std::vector<int64_t>{0, 1, 2});
+
+  // 1D broadcast
+  t.setDim({8}).setStride({0});
+  REQUIRE(t.getLogicalToPhysicalPermuteOrder() == std::vector<int64_t>{0});
 }
 
 TEST_CASE("getPhysicalToLogicalPermuteOrder", "[TensorAttr]") {
@@ -425,6 +491,11 @@ TEST_CASE("getPhysicalToLogicalPermuteOrder", "[TensorAttr]") {
   t.setDim({1, 64, 1, 128}).setStride({999, 128, 999, 1});
   REQUIRE(t.getPhysicalToLogicalPermuteOrder() ==
           std::vector<int64_t>{0, 1, 2, 3});
+
+  // Broadcast: batch/head broadcast, inner dims permuted
+  t.setDim({8, 2, 64, 128}).setStride({0, 0, 1, 64});
+  REQUIRE(t.getPhysicalToLogicalPermuteOrder() ==
+          std::vector<int64_t>{0, 1, 3, 2});
 }
 
 TEST_CASE("TensorAttr hasValidPhysicalRepresentation", "[TensorAttr]") {
@@ -508,6 +579,121 @@ TEST_CASE("TensorAttr hasValidPhysicalRepresentation", "[TensorAttr]") {
   // Valid: Empty tensor (edge case)
   t.setDim({}).setStride({});
   REQUIRE(t.hasValidPhysicalRepresentation());
+
+  // Valid: Broadcast stride (stride=0) on batch and head dims
+  t.setDim({8, 2, 64, 128}).setStride({0, 0, 128, 1});
+  REQUIRE(t.hasValidPhysicalRepresentation());
+
+  // Valid: Broadcast stride on a single dim
+  t.setDim({8, 64, 128}).setStride({0, 128, 1});
+  REQUIRE(t.hasValidPhysicalRepresentation());
+
+  // Valid: All dims broadcast
+  t.setDim({8, 2}).setStride({0, 0});
+  REQUIRE(t.hasValidPhysicalRepresentation());
+
+  // Valid: Mix of broadcast and unit dims
+  t.setDim({1, 8, 1, 64}).setStride({1, 0, 1, 1});
+  REQUIRE(t.hasValidPhysicalRepresentation());
+
+  // Valid: Broadcast + permuted non-broadcast dims
+  t.setDim({8, 2, 64, 128}).setStride({0, 0, 1, 64});
+  REQUIRE(t.hasValidPhysicalRepresentation());
+
+  // Invalid: Broadcast dims valid but non-broadcast strides don't form a
+  // valid permutation (stride 12 doesn't match expected product)
+  t.setDim({2, 3, 4}).setStride({12, 0, 1});
+  REQUIRE_FALSE(t.hasValidPhysicalRepresentation());
+
+  // Valid: stride=0 on unit dim (any stride is valid for unit dims)
+  t.setDim({1, 64}).setStride({0, 1});
+  REQUIRE(t.hasValidPhysicalRepresentation());
+
+  // Valid: Interleaved broadcast dims (positions 0 and 2)
+  t.setDim({8, 64, 2, 128}).setStride({0, 128, 0, 1});
+  REQUIRE(t.hasValidPhysicalRepresentation());
+
+  // Valid: Broadcast on trailing dim
+  t.setDim({64, 128, 8}).setStride({128, 1, 0});
+  REQUIRE(t.hasValidPhysicalRepresentation());
+
+  // Valid: 1D broadcast
+  t.setDim({8}).setStride({0});
+  REQUIRE(t.hasValidPhysicalRepresentation());
+}
+
+TEST_CASE("TensorAttr hasBroadcastDims", "[TensorAttr]") {
+  TensorAttr t;
+
+  // No broadcast: contiguous
+  t.setDim({2, 3, 4}).setStride({12, 4, 1});
+  REQUIRE_FALSE(t.hasBroadcastDims());
+
+  // No broadcast: stride=0 on unit dim (not counted as broadcast)
+  t.setDim({1, 64}).setStride({0, 1});
+  REQUIRE_FALSE(t.hasBroadcastDims());
+
+  // Broadcast: stride=0 on non-unit dims
+  t.setDim({8, 2, 64, 128}).setStride({0, 0, 128, 1});
+  REQUIRE(t.hasBroadcastDims());
+
+  // Broadcast: single broadcast dim
+  t.setDim({8, 64}).setStride({0, 1});
+  REQUIRE(t.hasBroadcastDims());
+
+  // No broadcast: all unit dims with stride=0
+  t.setDim({1, 1, 1}).setStride({0, 0, 0});
+  REQUIRE_FALSE(t.hasBroadcastDims());
+
+  // 1D broadcast
+  t.setDim({8}).setStride({0});
+  REQUIRE(t.hasBroadcastDims());
+}
+
+TEST_CASE("TensorAttr getUnexpandedDim", "[TensorAttr]") {
+  TensorAttr t;
+
+  // No broadcast: returns original dims
+  t.setDim({2, 3, 4}).setStride({12, 4, 1});
+  REQUIRE(t.getUnexpandedDim() == std::vector<int64_t>{2, 3, 4});
+
+  // Broadcast on batch and head: those dims collapse to 1
+  t.setDim({8, 2, 64, 128}).setStride({0, 0, 128, 1});
+  REQUIRE(t.getUnexpandedDim() == std::vector<int64_t>{1, 1, 64, 128});
+
+  // Broadcast on first dim only
+  t.setDim({8, 64, 128}).setStride({0, 128, 1});
+  REQUIRE(t.getUnexpandedDim() == std::vector<int64_t>{1, 64, 128});
+
+  // stride=0 on unit dim: stays 1 (already 1, not broadcast)
+  t.setDim({1, 64}).setStride({0, 1});
+  REQUIRE(t.getUnexpandedDim() == std::vector<int64_t>{1, 64});
+
+  // All broadcast
+  t.setDim({8, 2}).setStride({0, 0});
+  REQUIRE(t.getUnexpandedDim() == std::vector<int64_t>{1, 1});
+
+  // Interleaved broadcast (positions 0 and 2)
+  t.setDim({8, 64, 2, 128}).setStride({0, 128, 0, 1});
+  REQUIRE(t.getUnexpandedDim() == std::vector<int64_t>{1, 64, 1, 128});
+}
+
+TEST_CASE("TensorAttr validate with broadcast strides", "[TensorAttr]") {
+  TensorAttr t;
+
+  // Valid: broadcast tensor with proper setup
+  t.setName("Q")
+      .setDataType(DataType::BFloat16)
+      .setDim({8, 2, 64, 128})
+      .setStride({0, 0, 128, 1});
+  FUSILLI_REQUIRE_OK(t.validate());
+
+  // Valid: broadcast + permuted
+  t.setName("K")
+      .setDataType(DataType::BFloat16)
+      .setDim({8, 2, 16, 128})
+      .setStride({0, 0, 1, 16});
+  FUSILLI_REQUIRE_OK(t.validate());
 }
 
 TEST_CASE("Stride order utils", "[TensorAttr utils]") {
