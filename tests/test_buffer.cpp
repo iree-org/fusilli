@@ -170,6 +170,35 @@ TEST_CASE("Buffer errors", "[buffer]") {
   }
 }
 
+TEST_CASE("Buffer Int4 allocation and read", "[buffer]") {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+
+  // Allocate a buffer of shape [2, 4] with known Int4 values.
+  std::vector<int4> data = {int4(0),  int4(1), int4(-1), int4(7),
+                            int4(-8), int4(3), int4(-5), int4(6)};
+  FUSILLI_REQUIRE_ASSIGN(Buffer buf,
+                         Buffer::allocate(handle, castToSizeT({2, 4}), data));
+  REQUIRE(buf != nullptr);
+
+  // Verify buffer view metadata.
+  iree_hal_buffer_view_t *bufferView = buf;
+  REQUIRE(iree_hal_buffer_view_shape_rank(bufferView) == 2);
+  REQUIRE(iree_hal_buffer_view_shape_dim(bufferView, 0) == 2);
+  REQUIRE(iree_hal_buffer_view_shape_dim(bufferView, 1) == 4);
+  REQUIRE(iree_hal_buffer_view_element_type(bufferView) ==
+          IREE_HAL_ELEMENT_TYPE_SINT_4);
+  REQUIRE(iree_hal_buffer_view_element_count(bufferView) == 8);
+  // 8 i4 elements packed: ceil(8 * 4 / 8) = 4 bytes.
+  REQUIRE(iree_hal_buffer_view_byte_length(bufferView) == 4);
+
+  // Read back and verify values.
+  std::vector<int4> result;
+  FUSILLI_REQUIRE_OK(buf.read(handle, result));
+  REQUIRE(result.size() == data.size());
+  for (size_t i = 0; i < data.size(); ++i)
+    REQUIRE(result[i].toInt() == data[i].toInt());
+}
+
 TEST_CASE("Buffer::allocateRaw for workspace buffers", "[buffer]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
