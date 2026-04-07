@@ -1,4 +1,4 @@
-// Copyright 2025 Advanced Micro Devices, Inc.
+// Copyright 2026 Advanced Micro Devices, Inc.
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -114,7 +114,7 @@ TEST_CASE("Int4::pack and Int4::unpack roundtrip with even count", "[Int4]") {
   std::vector<Int4> unpacked = Int4::unpack(packed.data(), elements.size());
   REQUIRE(unpacked.size() == elements.size());
 
-  for (size_t i = 0; i < elements.size(); i++) {
+  for (size_t i = 0; i < elements.size(); ++i) {
     REQUIRE(unpacked[i].toInt() == elements[i].toInt());
   }
 }
@@ -128,7 +128,7 @@ TEST_CASE("Int4::pack and Int4::unpack roundtrip with odd count", "[Int4]") {
   std::vector<Int4> unpacked = Int4::unpack(packed.data(), elements.size());
   REQUIRE(unpacked.size() == elements.size());
 
-  for (size_t i = 0; i < elements.size(); i++) {
+  for (size_t i = 0; i < elements.size(); ++i) {
     REQUIRE(unpacked[i].toInt() == elements[i].toInt());
   }
 }
@@ -172,7 +172,7 @@ TEST_CASE("Int4::pack all values roundtrip", "[Int4]") {
   std::vector<Int4> unpacked = Int4::unpack(packed.data(), elements.size());
   REQUIRE(unpacked.size() == 16);
 
-  for (size_t i = 0; i < elements.size(); i++) {
+  for (size_t i = 0; i < elements.size(); ++i) {
     REQUIRE(unpacked[i].toInt() == elements[i].toInt());
   }
 }

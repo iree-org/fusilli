@@ -547,8 +547,16 @@ Buffer::allocate(const Handle &handle,
   FUSILLI_CHECK_ERROR(iree_hal_buffer_view_allocate_buffer_copy(
       // IREE HAL device and allocator:
       handle.getDevice(), iree_hal_device_allocator(handle.getDevice()),
-      bufferShape.size(), bufferShape.data(), getIreeHalElementTypeForT<T>(),
-      IREE_HAL_ENCODING_TYPE_DENSE_ROW_MAJOR, bufferParams, uploadData,
+      // Shape rank and dimensions:
+      bufferShape.size(), bufferShape.data(),
+      // Element type:
+      getIreeHalElementTypeForT<T>(),
+      // Encoding type:
+      IREE_HAL_ENCODING_TYPE_DENSE_ROW_MAJOR, bufferParams,
+      // Data to upload (packed for sub-byte types):
+      uploadData,
+      // Buffer view + storage are returned and owned by the caller
+      // (this Buffer object in this case):
       &rawBufferView));
 
   return ok(Buffer(IreeHalBufferViewUniquePtrType(rawBufferView)));

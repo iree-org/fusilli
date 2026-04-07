@@ -1,4 +1,4 @@
-// Copyright 2025 Advanced Micro Devices, Inc.
+// Copyright 2026 Advanced Micro Devices, Inc.
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -59,7 +59,7 @@ struct Int4 {
   static std::vector<uint8_t> pack(const std::vector<Int4> &elements) {
     size_t packedSize = (elements.size() + 1) / 2;
     std::vector<uint8_t> packed(packedSize, 0);
-    for (size_t i = 0; i < elements.size(); i++) {
+    for (size_t i = 0; i < elements.size(); ++i) {
       unsigned slot = i % 2;
       packed[i / 2] |= static_cast<uint8_t>(elements[i].toBits() << (slot * 4));
     }
@@ -69,7 +69,7 @@ struct Int4 {
   // Unpack bytes into N elements.
   static std::vector<Int4> unpack(const uint8_t *data, size_t count) {
     std::vector<Int4> elements(count);
-    for (size_t i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; ++i) {
       unsigned slot = i % 2;
       elements[i] =
           Int4::fromBits(static_cast<uint8_t>(data[i / 2] >> (slot * 4)));
