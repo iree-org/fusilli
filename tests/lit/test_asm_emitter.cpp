@@ -142,10 +142,92 @@ static void testGetScalarConstantAsm() {
   std::cout << getScalarConstantAsm(int64Scalar) << std::endl;
 }
 
+static void testBuildTensorTypeStr() {
+  // CHECK: !torch.vtensor<[8,2,64,128],f32>
+  std::cout << buildTensorTypeStr({8, 2, 64, 128}, DataType::Float)
+            << std::endl;
+
+  // CHECK: !torch.vtensor<[1,1,64,128],bf16>
+  std::cout << buildTensorTypeStr({1, 1, 64, 128}, DataType::BFloat16)
+            << std::endl;
+
+  // CHECK: !torch.tensor<[3,4],f16>
+  std::cout << buildTensorTypeStr({3, 4}, DataType::Half,
+                                  /*isValueTensor=*/false)
+            << std::endl;
+}
+
+static void testGetTensorTypeAsmBroadcast() {
+  // Broadcast tensor: physical dims should show 1 for broadcast dims.
+  TensorAttr t;
+  t.setName("Q")
+      .setDataType(DataType::BFloat16)
+      .setDim({8, 2, 64, 128})
+      .setStride({0, 0, 128, 1});
+
+  // Physical dims: broadcast dims collapse to 1
+  // CHECK: !torch.vtensor<[1,1,64,128],bf16>
+  std::cout << t.getTensorTypeAsm(/*isValueTensor=*/true,
+                                  /*useLogicalDims=*/false)
+            << std::endl;
+
+  // Logical dims: full shape
+  // CHECK: !torch.vtensor<[8,2,64,128],bf16>
+  std::cout << t.getTensorTypeAsm(/*isValueTensor=*/true,
+                                  /*useLogicalDims=*/true)
+            << std::endl;
+}
+
+static void testGetLayoutConversionOpsAsmBroadcast() {
+  auto tensor = std::make_shared<TensorAttr>();
+  tensor->setName("Q")
+      .setDataType(DataType::BFloat16)
+      .setDim({8, 2, 64, 128})
+      .setStride({0, 0, 128, 1});
+
+  // Physical→logical for a broadcast tensor: permute + expand.
+  // clang-format off
+  // CHECK: %Q_op_i0_perm_unexpanded = torch.aten.permute %Q, %permute_IN_0_op_i0 : !torch.vtensor<[1,1,64,128],bf16>, !torch.list<int> -> !torch.vtensor<[1,1,64,128],bf16>
+  // CHECK: %expand_size_permute_IN_0_val_0_op_i0 = torch.constant.int 8
+  // CHECK: %expand_size_permute_IN_0_val_1_op_i0 = torch.constant.int 2
+  // CHECK: %expand_size_permute_IN_0_val_2_op_i0 = torch.constant.int 64
+  // CHECK: %expand_size_permute_IN_0_val_3_op_i0 = torch.constant.int 128
+  // CHECK: %expand_size_permute_IN_0_op_i0 = torch.prim.ListConstruct %expand_size_permute_IN_0_val_0_op_i0, %expand_size_permute_IN_0_val_1_op_i0, %expand_size_permute_IN_0_val_2_op_i0, %expand_size_permute_IN_0_val_3_op_i0 : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
+  // CHECK: %expand_implicit_permute_IN_0_op_i0 = torch.constant.bool false
+  // CHECK: %Q_op_i0_perm = torch.aten.expand %Q_op_i0_perm_unexpanded, %expand_size_permute_IN_0_op_i0, %expand_implicit_permute_IN_0_op_i0 : !torch.vtensor<[1,1,64,128],bf16>, !torch.list<int>, !torch.bool -> !torch.vtensor<[8,2,64,128],bf16>
+  // clang-format on
+  std::cout << getLayoutConversionOpsAsm(tensor, "permute_IN_0", "op_i0",
+                                         /*isInput=*/true)
+            << std::endl;
+}
+
+static void testGetLayoutConversionOpsAsmBroadcastPermuted() {
+  // Broadcast + non-trivial permute: inner dims are transposed.
+  auto tensor = std::make_shared<TensorAttr>();
+  tensor->setName("K")
+      .setDataType(DataType::BFloat16)
+      .setDim({8, 2, 64, 128})
+      .setStride({0, 0, 1, 64});
+
+  // Physical shape is [1,1,128,64] (permuted), unexpanded logical is
+  // [1,1,64,128]. The permute swaps dims 2 and 3, then expand fills broadcast.
+  // clang-format off
+  // CHECK: %K_op_i1_perm_unexpanded = torch.aten.permute %K, %permute_IN_1_op_i1 : !torch.vtensor<[1,1,128,64],bf16>, !torch.list<int> -> !torch.vtensor<[1,1,64,128],bf16>
+  // CHECK: %K_op_i1_perm = torch.aten.expand %K_op_i1_perm_unexpanded, %expand_size_permute_IN_1_op_i1, %expand_implicit_permute_IN_1_op_i1 : !torch.vtensor<[1,1,64,128],bf16>, !torch.list<int>, !torch.bool -> !torch.vtensor<[8,2,64,128],bf16>
+  // clang-format on
+  std::cout << getLayoutConversionOpsAsm(tensor, "permute_IN_1", "op_i1",
+                                         /*isInput=*/true)
+            << std::endl;
+}
+
 int main() {
   testGetListOfIntOpsAsm();
   testGetTensorTypeAsm();
   testGetValueNameAsm();
   testGetScalarConstantAsm();
+  testBuildTensorTypeStr();
+  testGetTensorTypeAsmBroadcast();
+  testGetLayoutConversionOpsAsmBroadcast();
+  testGetLayoutConversionOpsAsmBroadcastPermuted();
   return 0;
 }

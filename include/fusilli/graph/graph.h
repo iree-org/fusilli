@@ -90,9 +90,19 @@ public:
     }
     // Validate outputs:
     // This has to happen after `validateSubtree` to infer any
-    // missing properties on outputs first.
+    // missing properties on outputs first. fullGraphOutputs_ contains all
+    // operation outputs (both graph-level and intermediates), so this also
+    // catches broadcast strides on intermediate tensors between operations.
     for (const auto &output : fullGraphOutputs_) {
       FUSILLI_CHECK_ERROR(output->validate());
+      // TODO(fusilli#276): Support broadcast strides on operation outputs.
+      // This requires logical→physical broadcast conversion in the ASM
+      // emitter. For now, reject broadcast on any operation output.
+      FUSILLI_RETURN_ERROR_IF(
+          output->hasBroadcastDims(), ErrorCode::InvalidAttribute,
+          "Tensor '" + output->getName() +
+              "' has broadcast strides (stride=0) on an operation output, "
+              "which is not yet supported");
     }
     FUSILLI_LOG_LABEL_ENDL("INFO: Graph validation completed successfully");
     isValidated_ = true;

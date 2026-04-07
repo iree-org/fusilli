@@ -528,3 +528,68 @@ TEST_CASE("Graph `getWorkspaceSize` consistency across multiple queries",
   REQUIRE(size1 == size2);
   REQUIRE(size2 == size3);
 }
+
+TEST_CASE("Graph validate rejects broadcast strides on graph output",
+          "[graph]") {
+  Graph g;
+  g.setName("bcast_output_graph").setIODataType(DataType::Float);
+
+  auto x = g.tensor(
+      TensorAttr().setName("x").setDim({8, 64}).setStride({64, 1}).setDataType(
+          DataType::Float));
+
+  PointwiseAttr reluAttr;
+  reluAttr.setMode(PointwiseAttr::Mode::RELU_FWD).setName("relu");
+  auto y = g.pointwise(x, reluAttr);
+
+  // Set broadcast strides on the graph output.
+  y->setName("y")
+      .setDim({8, 64})
+      .setStride({0, 1})
+      .setDataType(DataType::Float)
+      .setOutput(true);
+
+  auto status = g.validate();
+  REQUIRE(isError(status));
+  REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+  REQUIRE(status.getMessage().find("broadcast strides") != std::string::npos);
+}
+
+TEST_CASE("Graph validate rejects broadcast strides on intermediate operation "
+          "output",
+          "[graph]") {
+  Graph g;
+  g.setName("bcast_intermediate_graph").setIODataType(DataType::Float);
+
+  auto x = g.tensor(
+      TensorAttr().setName("x").setDim({8, 64}).setStride({64, 1}).setDataType(
+          DataType::Float));
+
+  PointwiseAttr reluAttr;
+  reluAttr.setMode(PointwiseAttr::Mode::RELU_FWD).setName("relu");
+  auto intermediate = g.pointwise(x, reluAttr);
+
+  // Set broadcast strides on an intermediate (virtual) operation output.
+  // The intermediate is NOT a graph output — it feeds into the next op.
+  intermediate->setName("intermediate")
+      .setDim({8, 64})
+      .setStride({0, 1})
+      .setDataType(DataType::Float);
+
+  PointwiseAttr relu2Attr;
+  relu2Attr.setMode(PointwiseAttr::Mode::RELU_FWD).setName("relu2");
+  auto y = g.pointwise(intermediate, relu2Attr);
+
+  // The final graph output has normal (non-broadcast) strides.
+  y->setName("y")
+      .setDim({8, 64})
+      .setStride({64, 1})
+      .setDataType(DataType::Float)
+      .setOutput(true);
+
+  auto status = g.validate();
+  REQUIRE(isError(status));
+  REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+  REQUIRE(status.getMessage().find("broadcast strides") != std::string::npos);
+  REQUIRE(status.getMessage().find("intermediate") != std::string::npos);
+}
