@@ -39,9 +39,9 @@ namespace fusilli {
   OP(DIV)                                                                      \
   /* OP(ELU_BWD) */                                                            \
   /* OP(ELU_FWD) */                                                            \
-  /* OP(ERF)   */                                                              \
-  /* OP(EXP)   */                                                              \
-  /* OP(FLOOR)  */                                                             \
+  OP(ERF)                                                                      \
+  OP(EXP)                                                                      \
+  OP(FLOOR)                                                                    \
   /* OP(GELU_APPROX_TANH_BWD)  */                                              \
   /* OP(GELU_APPROX_TANH_FWD)  */                                              \
   /* OP(GELU_BWD) */                                                           \
@@ -49,14 +49,14 @@ namespace fusilli {
   /* OP(GEN_INDEX) */                                                          \
   /* OP(IDENTITY)  */                                                          \
   /* OP(LOG) */                                                                \
-  /* OP(LOGICAL_AND) */                                                        \
+  OP(LOGICAL_AND)                                                              \
   OP(LOGICAL_NOT)                                                              \
   /* OP(LOGICAL_OR) */                                                         \
-  /* OP(MAX_OP) */                                                             \
-  /* OP(MIN_OP) */                                                             \
+  OP(MAX_OP)                                                                   \
+  OP(MIN_OP)                                                                   \
   OP(MUL)                                                                      \
-  /* OP(NEG) */                                                                \
-  /* OP(RECIPROCAL) */                                                         \
+  OP(NEG)                                                                      \
+  OP(RECIPROCAL)                                                               \
   /* OP(RELU_BWD) */                                                           \
   OP(RELU_FWD)                                                                 \
   /* OP(RSQRT) */                                                              \
@@ -138,8 +138,16 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::CMP_GE, 2},
         {PointwiseAttr::Mode::CMP_NEQ, 2},
         {PointwiseAttr::Mode::DIV, 2},
+        {PointwiseAttr::Mode::ERF, 1},
+        {PointwiseAttr::Mode::EXP, 1},
+        {PointwiseAttr::Mode::FLOOR, 1},
+        {PointwiseAttr::Mode::LOGICAL_AND, 2},
         {PointwiseAttr::Mode::LOGICAL_NOT, 1},
+        {PointwiseAttr::Mode::MAX_OP, 2},
+        {PointwiseAttr::Mode::MIN_OP, 2},
         {PointwiseAttr::Mode::MUL, 2},
+        {PointwiseAttr::Mode::NEG, 1},
+        {PointwiseAttr::Mode::RECIPROCAL, 1},
         {PointwiseAttr::Mode::RELU_FWD, 1},
         {PointwiseAttr::Mode::SIGMOID_FWD, 1},
         {PointwiseAttr::Mode::SUB, 2},

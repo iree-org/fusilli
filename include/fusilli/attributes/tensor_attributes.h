@@ -58,6 +58,16 @@
 // pointwise operations support arbitrary transpositions through their stride
 // patterns.
 //
+// Broadcast strides (stride == 0) are also supported. A dimension with size > 1
+// and stride == 0 means all elements along that axis read from the same memory
+// location (broadcast). Broadcast dimensions are treated like unit dimensions
+// for permutation purposes: they don't participate in the physical layout
+// ordering. In the generated MLIR, broadcast strides are materialized as a
+// torch.aten.expand that expands the physical size-1 dimension to the full
+// logical size. Broadcast strides are currently only supported on input
+// tensors; output tensors with broadcast strides are rejected during node
+// validation.
+//
 // Invalid stride configurations (e.g., strides that don't correspond to any
 // valid permutation) or strides unsupported by a specific operation will result
 // in an error during validation.
@@ -433,8 +443,7 @@ public:
 
   // MLIR assembly emitter helper methods:
   std::string getTensorTypeAsm(bool isValueTensor = true,
-                               bool useLogicalDims = false,
-                               bool isDynamic = false) const;
+                               bool useLogicalDims = false) const;
   std::string getValueNameAsm(bool isOutputAliased = false) const;
 
   // Setters:
@@ -510,10 +519,36 @@ public:
     return expectedStride == stride_;
   }
 
+  // Returns true if any dimension is a broadcast dimension (size > 1 with
+  // stride == 0). Broadcast dimensions share the same memory across all
+  // elements along that axis.
+  bool hasBroadcastDims() const {
+    for (size_t i = 0; i < dim_.size() && i < stride_.size(); ++i) {
+      if (dim_[i] > 1 && stride_[i] == 0)
+        return true;
+    }
+    return false;
+  }
+
+  // Returns the logical dims with broadcast dimensions collapsed to 1.
+  // For non-broadcast tensors, this is identical to getDim().
+  //
+  // Example: dim={8, 2, 64, 128}, stride={0, 0, 128, 1}
+  //   Returns: {1, 1, 64, 128}
+  std::vector<int64_t> getUnexpandedDim() const {
+    std::vector<int64_t> dims = dim_;
+    for (size_t i = 0; i < dims.size() && i < stride_.size(); ++i) {
+      if (dims[i] > 1 && stride_[i] == 0)
+        dims[i] = 1;
+    }
+    return dims;
+  }
+
   // Check if the stride pattern is valid and can represent a physical tensor.
   // A valid stride pattern must satisfy:
   // 1. Each stride is a product of dimensions in faster-changing positions
   // 2. The strides are consistent with some permutation of dimensions
+  // 3. Broadcast dimensions (stride == 0, size > 1) are allowed and skipped
   bool hasValidPhysicalRepresentation() const {
     size_t numDims = dim_.size();
     if (numDims != stride_.size())
@@ -539,8 +574,9 @@ public:
       int64_t actualStride = strideAndDim[i].first;
       int64_t dimSize = strideAndDim[i].second;
 
-      // For unit length dimensions, any stride value is technically valid
-      if (dimSize == 1)
+      // Unit dimensions and broadcast dimensions (stride == 0) don't
+      // participate in the physical layout check.
+      if (dimSize == 1 || actualStride == 0)
         continue;
 
       // Check if actual stride matches expected stride
@@ -559,6 +595,9 @@ public:
   // Dimensions of size 1 don't meaningfully contribute to the physical layout
   // and are kept in their relative positions to preserve information.
   //
+  // Broadcast dimensions (stride == 0, size > 1) have physical size 1 since
+  // all elements along that axis refer to the same memory location.
+  //
   // Examples:
   //   1. Contiguous NCHW layout: dim={2, 3, 4}, stride={12, 4, 1}
   //      Returns: {2, 3, 4} (no reordering needed)
@@ -575,20 +614,27 @@ public:
   //
   //   5. Complex 4D permutation: dim={2, 3, 4, 5}, stride={60, 1, 15, 3}
   //      Returns: {2, 4, 5, 3} (NCHW logical -> NHWC physical)
+  //
+  //   6. Broadcast: dim={8, 2, 64, 128}, stride={0, 0, 128, 1}
+  //      Returns: {1, 1, 64, 128} (broadcast dims collapse to 1)
   std::vector<int64_t> getPhysicalDim() const {
     assert(hasValidPhysicalRepresentation() &&
            "Tensor has invalid physical representation");
     auto permuteOrder = getLogicalToPhysicalPermuteOrder();
     const size_t numDims = dim_.size();
     std::vector<int64_t> physicalDims(numDims);
-    for (size_t i = 0; i < numDims; ++i)
-      physicalDims[i] = dim_[permuteOrder[i]];
+    for (size_t i = 0; i < numDims; ++i) {
+      int64_t srcIdx = permuteOrder[i];
+      bool isBroadcast = dim_[srcIdx] > 1 && stride_[srcIdx] == 0;
+      physicalDims[i] = isBroadcast ? 1 : dim_[srcIdx];
+    }
     return physicalDims;
   }
 
   // This computes the permutation needed to go from logical dims to physical
-  // dims based on the dims and stride. Unit length dimensions are kept in their
-  // original positions as they don't meaningfully contribute to the layout.
+  // dims based on the dims and stride. Unit length dimensions and broadcast
+  // dimensions (stride == 0) are kept in their original positions as they
+  // don't meaningfully contribute to the layout.
   //
   // Note: given a permutation vector `perm`, `perm[i]` means that the i-th
   // dimension in the physical layout is mapped to the `perm[i]`-th dimension in
@@ -610,6 +656,9 @@ public:
   //
   //   5. Complex 4D permutation: dim={2, 3, 4, 5}, stride={60, 1, 15, 3}
   //      Returns: {0, 2, 3, 1} (channels-last style for 4D)
+  //
+  //   6. Broadcast: dim={8, 2, 64, 128}, stride={0, 0, 1, 64}
+  //      Returns: {0, 1, 3, 2} (broadcast dims stay; non-broadcast permuted)
   std::vector<int64_t> getLogicalToPhysicalPermuteOrder() const {
     size_t numDims = dim_.size();
     assert(numDims >= 1 && "Dims must have at least 1 dimension");
@@ -619,30 +668,32 @@ public:
     std::vector<int64_t> permuteOrder(numDims);
     std::iota(permuteOrder.begin(), permuteOrder.end(), 0);
 
-    // Collect only non-unit dimensions for reordering
+    // Collect only non-unit, non-broadcast dimensions for reordering.
+    // Broadcast dims (stride == 0, size > 1) are pinned like unit dims.
     std::vector<std::pair<int64_t, size_t>> strideWithIndex;
-    std::vector<size_t> nonUnitDimIndices;
+    std::vector<size_t> reorderableDimIndices;
     for (size_t i = 0; i < numDims; ++i) {
-      if (dim_[i] != 1) {
+      if (dim_[i] != 1 && stride_[i] != 0) {
         strideWithIndex.push_back({stride_[i], i});
-        nonUnitDimIndices.push_back(i);
+        reorderableDimIndices.push_back(i);
       }
     }
 
-    // If all dimensions are 1, return identity permutation
+    // If all dimensions are unit/broadcast, return identity permutation
     if (strideWithIndex.empty())
       return permuteOrder;
 
-    // Sort non-unit dimensions by stride value (descending for contiguous
-    // order) Larger stride = slower changing = leftmost in contiguous layout
+    // Sort non-unit, non-broadcast dimensions by stride value (descending for
+    // contiguous order). Larger stride = slower changing = leftmost in
+    // contiguous layout.
     std::stable_sort(
         strideWithIndex.begin(), strideWithIndex.end(),
         [](const auto &a, const auto &b) { return a.first > b.first; });
 
-    // Build permutation for non-unit dimensions only
+    // Build permutation for reorderable dimensions only
     // The sorted order gives us the target positions for contiguous layout
-    for (size_t i = 0; i < nonUnitDimIndices.size(); ++i) {
-      size_t logicalIdx = nonUnitDimIndices[i];
+    for (size_t i = 0; i < reorderableDimIndices.size(); ++i) {
+      size_t logicalIdx = reorderableDimIndices[i];
       size_t targetIdx = strideWithIndex[i].second;
       permuteOrder[logicalIdx] = static_cast<int64_t>(targetIdx);
     }
