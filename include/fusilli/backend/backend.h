@@ -340,6 +340,11 @@ template <> struct IreeHalElementType<int16_t> {
   static constexpr iree_hal_element_type_t kType = IREE_HAL_ELEMENT_TYPE_INT_16;
 };
 //
+// Int4 -> IREE_HAL_ELEMENT_TYPE_SINT_4:
+template <> struct IreeHalElementType<Int4> {
+  static constexpr iree_hal_element_type_t kType = IREE_HAL_ELEMENT_TYPE_SINT_4;
+};
+//
 // int8 -> IREE_HAL_ELEMENT_TYPE_INT_8:
 template <> struct IreeHalElementType<int8_t> {
   static constexpr iree_hal_element_type_t kType = IREE_HAL_ELEMENT_TYPE_INT_8;

@@ -49,7 +49,7 @@ jobs:
       if: ${{ contains(matrix.name, 'debug') || contains(matrix.name, 'release') || contains(matrix.name, 'asan') }}
       run: |
         build_tools/docker/exec_docker_ci.sh \
-        build_tools/scripts/test.sh --backend capi --extra-verbose --validate-cache-cleanup
+        build_tools/scripts/test.sh --backend capi --validate-cache-cleanup
 
     - name: "Test fusilli (iree-compile CLI)"
       # Excluded for ASAN runs: the CLI backend spawns `iree-compile`
@@ -57,7 +57,7 @@ jobs:
       if: ${{ contains(matrix.name, 'debug') || contains(matrix.name, 'release') }}
       run: |
         build_tools/docker/exec_docker_ci.sh \
-        build_tools/scripts/test.sh --backend cli --extra-verbose --validate-cache-cleanup
+        build_tools/scripts/test.sh --backend cli --validate-cache-cleanup
 
     - name: "Run code coverage"
       if: ${{ contains(matrix.name, 'codecov') }}
