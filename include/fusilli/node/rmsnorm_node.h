@@ -91,11 +91,14 @@ public:
     // inferPropertiesNode().
     if (sT) {
       if (!sT->getDim().empty()) {
-        FUSILLI_RETURN_ERROR_IF(sT->getDim() !=
-                                    norm_utils::getScaleBiasDim(xT->getDim()),
-                                ErrorCode::InvalidAttribute,
-                                "RmsNorm input tensor SCALE must have shape as "
-                                "tensor X with single batch");
+        // Scale is per-channel: batch and spatial dims are set to 1.
+        FUSILLI_RETURN_ERROR_IF(
+            sT->getDim() != norm_utils::getScaleBiasDim(xT->getDim(),
+                                                        getBatchDims(),
+                                                        getReductionDims()),
+            ErrorCode::InvalidAttribute,
+            "RmsNorm input tensor SCALE must have per-channel shape "
+            "[1, C, 1, ..., 1]");
       }
 
       if (!sT->getStride().empty()) {
@@ -140,9 +143,11 @@ public:
     const std::vector<int64_t> &xDim = xT->getDim();
 
     // Infer shape and stride of input SCALE tensor if they're not set.
+    // Scale is per-channel: batch and spatial dims are set to 1.
     std::shared_ptr<TensorAttr> sT = rmsnormAttr.getSCALE();
     if (sT) {
-      norm_utils::inferScaleBiasDimAndStride(sT, xDim, xT->getStride());
+      norm_utils::inferScaleBiasDimAndStride(
+          sT, xDim, xT->getStride(), getBatchDims(), getReductionDims());
     }
 
     // Infer shape and stride of output Y tensor.
@@ -150,8 +155,11 @@ public:
     norm_utils::inferDimAndStride(yT, xDim, xT->getStride());
 
     if (isTrainingForwardPhase()) {
+      // INV_RMS shape is [N, 1, 1, ..., 1]: all non-batch dims set to 1
+      // (cuDNN/ONNX keepdim convention).
       const auto &[dim, stride] =
-          norm_utils::getTrainingForwardOutputDimAndStride(xDim);
+          norm_utils::getTrainingForwardOutputDimAndStride(
+              xDim, getAllNonBatchDims());
 
       // Infer shape and stride of output INV_RMS tensor.
       std::shared_ptr<TensorAttr> rT = rmsnormAttr.getINV_RMS();
@@ -183,17 +191,19 @@ public:
                                 "defined by its stride");
 
     if (isTrainingForwardPhase()) {
+      // INV_RMS shape is [N, 1, 1, ..., 1]: all non-batch dims set to 1.
       const auto &[dim, stride] =
-          norm_utils::getTrainingForwardOutputDimAndStride(xDim);
+          norm_utils::getTrainingForwardOutputDimAndStride(
+              xDim, getAllNonBatchDims());
 
       std::shared_ptr<TensorAttr> rT = rmsnormAttr.getINV_RMS();
 
       // Shape check for output INV_RMS tensor
       FUSILLI_RETURN_ERROR_IF(
           dim != rT->getDim(), ErrorCode::InvalidAttribute,
-          "RmsNorm output INV_RMS tensor must have shape [B, 1, ..., 1] with "
-          "rank equal to input X tensor's rank, and batch dimension equal "
-          "to input X tensor's batch dimension");
+          "RmsNorm output INV_RMS tensor must have shape [N, 1, ..., 1] "
+          "with rank equal to input X tensor's rank, and all non-batch "
+          "dimensions set to 1");
       // Stride check for output INV_RMS tensor
       FUSILLI_RETURN_ERROR_IF(
           stride != rT->getStride(), ErrorCode::InvalidAttribute,
@@ -213,8 +223,35 @@ private:
     return rmsnormAttr.getForwardPhase() == NormFwdPhase::TRAINING;
   }
 
+  static constexpr size_t kBatchDim = 0;
+  static constexpr size_t kChannelDim = 1;
+
+  std::vector<size_t> getBatchDims() const { return {kBatchDim}; }
+
+  // RMSNorm reduces over spatial dimensions (all dims except batch and
+  // channel).
+  std::vector<size_t> getReductionDims() const {
+    size_t rank = rmsnormAttr.getX()->getDim().size();
+    std::vector<size_t> dims;
+    for (size_t i = 2; i < rank; ++i)
+      dims.push_back(i);
+    return dims;
+  }
+
+  // All non-batch dimensions (channel + spatial). Used for training
+  // forward outputs (INV_RMS) which have shape [N, 1, 1, ..., 1] per
+  // cuDNN/ONNX keepdim convention.
+  std::vector<size_t> getAllNonBatchDims() const {
+    size_t rank = rmsnormAttr.getX()->getDim().size();
+    std::vector<size_t> dims;
+    for (size_t i = 1; i < rank; ++i)
+      dims.push_back(i);
+    return dims;
+  }
+
   std::vector<int64_t> getNormalizedShape() const {
-    return norm_utils::getNormalizedShape(rmsnormAttr.getX()->getDim());
+    return norm_utils::getNormalizedShape(rmsnormAttr.getX()->getDim(),
+                                          getReductionDims());
   }
 };
 

@@ -21,39 +21,55 @@
 
 namespace fusilli::norm_utils {
 
-// Returns the shape over which normalization is applied:
-// the input tensor's shape excluding the batch dimension,
-// as normalization is computed independently for each sample in the batch.
-inline std::vector<int64_t> getNormalizedShape(const std::vector<int64_t> &xDim,
-                                               size_t batchDim = 0) {
+// Returns the sizes at the given dimension indices. Used to extract the
+// normalized shape from the input tensor. For example, for input
+// [N, C, H, W] with reductionDims = {1, 2, 3} (LayerNorm), returns
+// [C, H, W]. With reductionDims = {2, 3} (RMSNorm), returns [H, W].
+inline std::vector<int64_t>
+getNormalizedShape(const std::vector<int64_t> &xDim,
+                   const std::vector<size_t> &reductionDims) {
   std::vector<int64_t> shape;
-  shape.reserve(xDim.size() - 1);
-  for (size_t i = 0; i < xDim.size(); ++i) {
-    if (i != batchDim)
-      shape.push_back(xDim[i]);
+  shape.reserve(reductionDims.size());
+  for (size_t i : reductionDims) {
+    shape.push_back(xDim[i]);
   }
   return shape;
 }
 
-// Returns [1, ..., B, ..., 1] dim and unit strides for training forward outputs
-// (e.g. MEAN, INV_VARIANCE, INV_RMS), where only the batch dimension is
-// preserved from xDim.
+// Returns dim and unit strides for training forward outputs (e.g. MEAN,
+// INV_VARIANCE, INV_RMS), where the reduction dimensions are collapsed to 1
+// and all other dimensions are preserved from xDim. For example, for input
+// [N, C, H, W] with reductionDims = {1, 2, 3} (LayerNorm), returns
+// [N, 1, 1, 1]. With reductionDims = {2, 3} (RMSNorm), returns [N, C, 1, 1].
 inline std::pair<std::vector<int64_t>, std::vector<int64_t>>
 getTrainingForwardOutputDimAndStride(const std::vector<int64_t> &xDim,
-                                     size_t batchDim = 0) {
-  std::vector<int64_t> dim(xDim.size(), 1);
-  dim[batchDim] = xDim[batchDim];
+                                     const std::vector<size_t> &reductionDims) {
+  std::vector<int64_t> dim = xDim;
+  for (size_t i : reductionDims) {
+    dim[i] = 1;
+  }
   std::vector<int64_t> stride =
       generateStrideFromDim(dim, getContiguousStrideOrder(dim.size()));
   return {dim, stride};
 }
 
-// Returns the expected shape for scale (and bias) tensors:
-// input X tensor's dims with single batch.
-inline std::vector<int64_t> getScaleBiasDim(const std::vector<int64_t> &xDim,
-                                            size_t batchDim = 0) {
-  auto dim = xDim;
-  dim[batchDim] = 1;
+// Returns the expected shape for scale (and bias) tensors. The result has
+// the same rank as xDim, with dimensions at positions in batchDims and
+// reductionDims set to 1, and all other dimensions preserved from xDim.
+// The caller decides which dims to collapse:
+//   - LayerNorm:  getScaleBiasDim(xDim, {0}, {})      -> [1, C, H, W]
+//   - RMSNorm:    getScaleBiasDim(xDim, {0}, {2, 3})  -> [1, C, 1, 1]
+inline std::vector<int64_t>
+getScaleBiasDim(const std::vector<int64_t> &xDim,
+                const std::vector<size_t> &batchDims,
+                const std::vector<size_t> &reductionDims) {
+  std::vector<int64_t> dim = xDim;
+  for (size_t i : batchDims) {
+    dim[i] = 1;
+  }
+  for (size_t i : reductionDims) {
+    dim[i] = 1;
+  }
   return dim;
 }
 
@@ -88,13 +104,15 @@ inline void inferDimAndStride(std::shared_ptr<TensorAttr> &tensor,
   inferStride(tensor, stride);
 }
 
-// Infers dim and stride of a scale/bias tensor.
-// Stride depends on the tensor's dim (which may be just-inferred), so dim
-// must be set before computing stride.
-inline void inferScaleBiasDimAndStride(std::shared_ptr<TensorAttr> &tensor,
-                                       const std::vector<int64_t> &xDim,
-                                       const std::vector<int64_t> &xStride) {
-  inferDim(tensor, getScaleBiasDim(xDim));
+// Infers dim and stride of a scale/bias tensor. See getScaleBiasDim for
+// the meaning of batchDims and reductionDims. Stride depends on the
+// tensor's dim (which may be just-inferred), so dim must be set before
+// computing stride.
+inline void inferScaleBiasDimAndStride(
+    std::shared_ptr<TensorAttr> &tensor, const std::vector<int64_t> &xDim,
+    const std::vector<int64_t> &xStride, const std::vector<size_t> &batchDims,
+    const std::vector<size_t> &reductionDims) {
+  inferDim(tensor, getScaleBiasDim(xDim, batchDims, reductionDims));
   inferStride(tensor, getScaleBiasStride(tensor->getDim(), xStride));
 }
 

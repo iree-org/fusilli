@@ -11,13 +11,12 @@
 // clang-format off
 //
 // TORCH-CHECK:   module @module {
-// TORCH-CHECK:     func.func @main(%result_: !torch.tensor<[16,64,32,128],f32>, %arg0_scale: !torch.vtensor<[1,64,32,128],f32>, %arg0_x: !torch.vtensor<[16,64,32,128],f32>) attributes {torch.assume_strict_symbolic_shapes} {
+// TORCH-CHECK:     func.func @main(%result_: !torch.tensor<[16,64,32,128],f32>, %arg0_scale: !torch.vtensor<[1,128,1,1],f32>, %arg0_x: !torch.vtensor<[16,64,32,128],f32>) attributes {torch.assume_strict_symbolic_shapes} {
 // Graph-level scalar constant emission for epsilon:
 // TORCH-CHECK:       %rmsnorm_infer_EPSILON = torch.vtensor.literal(dense<0x3727C5AC> : tensor<1xf32>) : !torch.vtensor<[1],f32>
-// TORCH-CHECK:       %normalized_shape_val_0_rmsnorm_infer = torch.constant.int 128
-// TORCH-CHECK:       %normalized_shape_val_1_rmsnorm_infer = torch.constant.int 64
-// TORCH-CHECK:       %normalized_shape_val_2_rmsnorm_infer = torch.constant.int 32
-// TORCH-CHECK:       %normalized_shape_rmsnorm_infer = torch.prim.ListConstruct %normalized_shape_val_0_rmsnorm_infer, %normalized_shape_val_1_rmsnorm_infer, %normalized_shape_val_2_rmsnorm_infer : (!torch.int, !torch.int, !torch.int) -> !torch.list<int>
+// TORCH-CHECK:       %normalized_shape_val_0_rmsnorm_infer = torch.constant.int 64
+// TORCH-CHECK:       %normalized_shape_val_1_rmsnorm_infer = torch.constant.int 32
+// TORCH-CHECK:       %normalized_shape_rmsnorm_infer = torch.prim.ListConstruct %normalized_shape_val_0_rmsnorm_infer, %normalized_shape_val_1_rmsnorm_infer : (!torch.int, !torch.int) -> !torch.list<int>
 // TORCH-CHECK:       %eps_rmsnorm_infer = torch.aten.item %rmsnorm_infer_EPSILON : !torch.vtensor<[1],f32> -> !torch.float
 // TORCH-CHECK:       %permute_x_val_0_rmsnorm_infer = torch.constant.int 0
 // TORCH-CHECK:       %permute_x_val_1_rmsnorm_infer = torch.constant.int 3
@@ -26,12 +25,12 @@
 // TORCH-CHECK:       %permute_x_rmsnorm_infer = torch.prim.ListConstruct %permute_x_val_0_rmsnorm_infer, %permute_x_val_1_rmsnorm_infer, %permute_x_val_2_rmsnorm_infer, %permute_x_val_3_rmsnorm_infer : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
 // TORCH-CHECK:       %arg0_x_rmsnorm_infer_perm = torch.aten.permute %arg0_x, %permute_x_rmsnorm_infer : !torch.vtensor<[16,64,32,128],f32>, !torch.list<int> -> !torch.vtensor<[16,128,64,32],f32>
 // TORCH-CHECK:       %permute_scale_val_0_rmsnorm_infer = torch.constant.int 0
-// TORCH-CHECK:       %permute_scale_val_1_rmsnorm_infer = torch.constant.int 3
-// TORCH-CHECK:       %permute_scale_val_2_rmsnorm_infer = torch.constant.int 1
-// TORCH-CHECK:       %permute_scale_val_3_rmsnorm_infer = torch.constant.int 2
+// TORCH-CHECK:       %permute_scale_val_1_rmsnorm_infer = torch.constant.int 1
+// TORCH-CHECK:       %permute_scale_val_2_rmsnorm_infer = torch.constant.int 2
+// TORCH-CHECK:       %permute_scale_val_3_rmsnorm_infer = torch.constant.int 3
 // TORCH-CHECK:       %permute_scale_rmsnorm_infer = torch.prim.ListConstruct %permute_scale_val_0_rmsnorm_infer, %permute_scale_val_1_rmsnorm_infer, %permute_scale_val_2_rmsnorm_infer, %permute_scale_val_3_rmsnorm_infer : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
-// TORCH-CHECK:       %arg0_scale_rmsnorm_infer_perm = torch.aten.permute %arg0_scale, %permute_scale_rmsnorm_infer : !torch.vtensor<[1,64,32,128],f32>, !torch.list<int> -> !torch.vtensor<[1,128,64,32],f32>
-// TORCH-CHECK:       %result_rmsnorm_infer_perm = torch.aten.rms_norm %arg0_x_rmsnorm_infer_perm, %normalized_shape_rmsnorm_infer, %arg0_scale_rmsnorm_infer_perm, %eps_rmsnorm_infer : !torch.vtensor<[16,128,64,32],f32>, !torch.list<int>, !torch.vtensor<[1,128,64,32],f32>, !torch.float -> !torch.vtensor<[16,128,64,32],f32>
+// TORCH-CHECK:       %arg0_scale_rmsnorm_infer_perm = torch.aten.permute %arg0_scale, %permute_scale_rmsnorm_infer : !torch.vtensor<[1,128,1,1],f32>, !torch.list<int> -> !torch.vtensor<[1,128,1,1],f32>
+// TORCH-CHECK:       %result_rmsnorm_infer_perm = torch.aten.rms_norm %arg0_x_rmsnorm_infer_perm, %normalized_shape_rmsnorm_infer, %arg0_scale_rmsnorm_infer_perm, %eps_rmsnorm_infer : !torch.vtensor<[16,128,64,32],f32>, !torch.list<int>, !torch.vtensor<[1,128,1,1],f32>, !torch.float -> !torch.vtensor<[16,128,64,32],f32>
 // TORCH-CHECK:       %permute_y_val_0_rmsnorm_infer = torch.constant.int 0
 // TORCH-CHECK:       %permute_y_val_1_rmsnorm_infer = torch.constant.int 2
 // TORCH-CHECK:       %permute_y_val_2_rmsnorm_infer = torch.constant.int 3

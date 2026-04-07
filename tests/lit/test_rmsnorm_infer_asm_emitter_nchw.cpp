@@ -14,10 +14,9 @@
 // TORCH-CHECK:     func.func @main(%result_: !torch.tensor<[16,128,64,32],f32>, %arg0_x: !torch.vtensor<[16,128,64,32],f32>) attributes {torch.assume_strict_symbolic_shapes} {
 // Graph-level scalar constant emission for epsilon:
 // TORCH-CHECK:       %rmsnorm_infer_EPSILON = torch.vtensor.literal(dense<0x3727C5AC> : tensor<1xf32>) : !torch.vtensor<[1],f32>
-// TORCH-CHECK:       %normalized_shape_val_0_rmsnorm_infer = torch.constant.int 128
-// TORCH-CHECK:       %normalized_shape_val_1_rmsnorm_infer = torch.constant.int 64
-// TORCH-CHECK:       %normalized_shape_val_2_rmsnorm_infer = torch.constant.int 32
-// TORCH-CHECK:       %normalized_shape_rmsnorm_infer = torch.prim.ListConstruct %normalized_shape_val_0_rmsnorm_infer, %normalized_shape_val_1_rmsnorm_infer, %normalized_shape_val_2_rmsnorm_infer : (!torch.int, !torch.int, !torch.int) -> !torch.list<int>
+// TORCH-CHECK:       %normalized_shape_val_0_rmsnorm_infer = torch.constant.int 64
+// TORCH-CHECK:       %normalized_shape_val_1_rmsnorm_infer = torch.constant.int 32
+// TORCH-CHECK:       %normalized_shape_rmsnorm_infer = torch.prim.ListConstruct %normalized_shape_val_0_rmsnorm_infer, %normalized_shape_val_1_rmsnorm_infer : (!torch.int, !torch.int) -> !torch.list<int>
 // TORCH-CHECK:       %eps_rmsnorm_infer = torch.aten.item %rmsnorm_infer_EPSILON : !torch.vtensor<[1],f32> -> !torch.float
 // TORCH-CHECK:       %permute_x_val_0_rmsnorm_infer = torch.constant.int 0
 // TORCH-CHECK:       %permute_x_val_1_rmsnorm_infer = torch.constant.int 1

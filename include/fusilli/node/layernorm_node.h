@@ -93,8 +93,11 @@ public:
     // inferPropertiesNode().
     if (sT) {
       if (!sT->getDim().empty()) {
+        // Scale covers all non-batch dims: only batch is set to 1,
+        // no reduction dims collapsed.
         FUSILLI_RETURN_ERROR_IF(
-            sT->getDim() != norm_utils::getScaleBiasDim(xT->getDim()),
+            sT->getDim() !=
+                norm_utils::getScaleBiasDim(xT->getDim(), getBatchDims(), {}),
             ErrorCode::InvalidAttribute,
             "LayerNorm input tensor SCALE must have shape as "
             "tensor X with single batch");
@@ -111,12 +114,14 @@ public:
     }
 
     // Shape and layout checks on bias tensor.
-    // If scale tensor's dims/strides are not set, they will be inferred in
+    // If bias tensor's dims/strides are not set, they will be inferred in
     // inferPropertiesNode().
     if (bT) {
       if (!bT->getDim().empty()) {
+        // Bias covers all non-batch dims, same as scale.
         FUSILLI_RETURN_ERROR_IF(
-            bT->getDim() != norm_utils::getScaleBiasDim(xT->getDim()),
+            bT->getDim() !=
+                norm_utils::getScaleBiasDim(xT->getDim(), getBatchDims(), {}),
             ErrorCode::InvalidAttribute,
             "LayerNorm input tensor BIAS must have shape as "
             "tensor X with single batch");
@@ -168,15 +173,20 @@ public:
     const std::vector<int64_t> &xDim = xT->getDim();
 
     // Infer shape and stride of input SCALE tensor if they're not set.
+    // Scale covers all non-batch dims: only batch set to 1, no reduction
+    // dims collapsed.
     std::shared_ptr<TensorAttr> sT = layernormAttr.getSCALE();
     if (sT) {
-      norm_utils::inferScaleBiasDimAndStride(sT, xDim, xT->getStride());
+      norm_utils::inferScaleBiasDimAndStride(sT, xDim, xT->getStride(),
+                                             getBatchDims(), {});
     }
 
     // Infer shape and stride of input BIAS tensor if they're not set.
+    // Same shape as scale.
     std::shared_ptr<TensorAttr> bT = layernormAttr.getBIAS();
     if (bT) {
-      norm_utils::inferScaleBiasDimAndStride(bT, xDim, xT->getStride());
+      norm_utils::inferScaleBiasDimAndStride(bT, xDim, xT->getStride(),
+                                             getBatchDims(), {});
     }
 
     // Infer shape and stride of output Y tensor.
@@ -185,7 +195,8 @@ public:
 
     if (isTrainingForwardPhase()) {
       const auto &[dim, stride] =
-          norm_utils::getTrainingForwardOutputDimAndStride(xDim);
+          norm_utils::getTrainingForwardOutputDimAndStride(xDim,
+                                                           getReductionDims());
 
       // Infer shape and stride of output MEAN tensor.
       std::shared_ptr<TensorAttr> mT = layernormAttr.getMEAN();
@@ -222,7 +233,8 @@ public:
 
     if (isTrainingForwardPhase()) {
       const auto &[dim, stride] =
-          norm_utils::getTrainingForwardOutputDimAndStride(xDim);
+          norm_utils::getTrainingForwardOutputDimAndStride(xDim,
+                                                           getReductionDims());
 
       std::shared_ptr<TensorAttr> mT = layernormAttr.getMEAN();
       std::shared_ptr<TensorAttr> vT = layernormAttr.getINV_VARIANCE();
@@ -258,8 +270,23 @@ private:
     return layernormAttr.getForwardPhase() == NormFwdPhase::TRAINING;
   }
 
+  static constexpr size_t kBatchDim = 0;
+
+  std::vector<size_t> getBatchDims() const { return {kBatchDim}; }
+
+  // LayerNorm reduces over all non-batch dimensions.
+  std::vector<size_t> getReductionDims() const {
+    size_t rank = layernormAttr.getX()->getDim().size();
+    std::vector<size_t> dims;
+    dims.reserve(rank - 1);
+    for (size_t i = 1; i < rank; ++i)
+      dims.push_back(i);
+    return dims;
+  }
+
   std::vector<int64_t> getNormalizedShape() const {
-    return norm_utils::getNormalizedShape(layernormAttr.getX()->getDim());
+    return norm_utils::getNormalizedShape(layernormAttr.getX()->getDim(),
+                                          getReductionDims());
   }
 };
 
