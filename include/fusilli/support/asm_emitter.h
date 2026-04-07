@@ -1725,7 +1725,7 @@ inline ErrorOr<std::string> PointwiseNode::emitNodePreAsm() const {
 
   constexpr std::string_view kEluSchema = R"(
     {0}
-    %elu_alpha_{7} = torch.constant.float 1.000000e+00
+    %elu_alpha_{7} = torch.constant.float {8:e}
     %elu_scale_{7} = torch.constant.float 1.000000e+00
     %elu_input_scale_{7} = torch.constant.float 1.000000e+00
     {1} = {6} {2}, %elu_alpha_{7}, %elu_scale_{7}, %elu_input_scale_{7} : {3}, !torch.float, !torch.float, !torch.float -> {4}
@@ -1738,8 +1738,6 @@ inline ErrorOr<std::string> PointwiseNode::emitNodePreAsm() const {
   FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kBinaryTorchSchema, OPIR)
 #define FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(PWOP, OPIR)                      \
   FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kSubAddSchema, OPIR)
-#define FUSILLI_DECLARE_ELU_TORCH_EMITTER(PWOP, OPIR)                          \
-  FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(PWOP, kEluSchema, OPIR)
 
   switch (pointwiseAttr.getMode()) {
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(ABS, torch.aten.abs)
@@ -1751,7 +1749,18 @@ inline ErrorOr<std::string> PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_GE, torch.aten.ge.Tensor)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_NEQ, torch.aten.ne.Tensor)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(DIV, torch.aten.div.Tensor)
-    FUSILLI_DECLARE_ELU_TORCH_EMITTER(ELU_FWD, torch.aten.elu)
+  case PointwiseAttr::Mode::ELU_FWD: {
+    return std::format(kEluSchema, permuteIN0,           /* {0} */
+                       getResultNamesAsm(),              /* {1} */
+                       getOperandNamesAsm(),             /* {2} */
+                       getOperandTypesAsm(),             /* {3} */
+                       getResultTypesAsm(),              /* {4} */
+                       permuteOUT0,                      /* {5} */
+                       "torch.aten.elu",                 /* {6} */
+                       getName(),                        /* {7} */
+                       pointwiseAttr.getEluAlpha()       /* {8} */
+    );
+  }
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(MUL, torch.aten.mul.Tensor)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RELU_FWD, torch.aten.relu)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(SIGMOID_FWD, torch.aten.sigmoid)
@@ -1769,7 +1778,6 @@ inline ErrorOr<std::string> PointwiseNode::emitNodePreAsm() const {
 #undef FUSILLI_DECLARE_UNARY_TORCH_EMITTER
 #undef FUSILLI_DECLARE_BINARY_TORCH_EMITTER
 #undef FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER
-#undef FUSILLI_DECLARE_ELU_TORCH_EMITTER
 
 //===----------------------------------------------------------------------===//
 //

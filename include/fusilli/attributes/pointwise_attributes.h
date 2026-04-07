@@ -101,6 +101,11 @@ public:
     return *this;
   }
 
+  PointwiseAttr &setEluAlpha(float alpha) {
+    eluAlpha_ = alpha;
+    return *this;
+  }
+
   // Getters:
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, IN_0)
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, IN_1)
@@ -108,6 +113,7 @@ public:
   FUSILLI_GENERIC_OUTPUT_TENSOR_GETTER(OutputNames, OUT_0)
 
   Mode getMode() const { return mode_; }
+  float getEluAlpha() const { return eluAlpha_; }
 
   // Utilities for pointwise modes.
   static const std::unordered_map<Mode, std::string> kModeToStr;
@@ -116,6 +122,7 @@ public:
 
 private:
   Mode mode_ = Mode::NOT_SET;
+  float eluAlpha_ = 1.0f;
 };
 
 #define FUSILLI_DECLARE_STRINGIFY_POINTWISE_MODE(mode)                         \

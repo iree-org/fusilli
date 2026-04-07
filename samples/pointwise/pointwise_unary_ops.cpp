@@ -109,7 +109,9 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     }
     case PointwiseAttr::Mode::ELU_FWD: {
       double xD = static_cast<double>(x);
-      y = xD >= 0 ? xD : std::expm1(xD);
+      // ELU(x) = x if x > 0 else alpha * (exp(x) - 1).
+      // The graph uses the default alpha (1.0), so std::expm1 suffices.
+      y = xD > 0 ? xD : std::expm1(xD);
       break;
     }
     case PointwiseAttr::Mode::RELU_FWD: {
