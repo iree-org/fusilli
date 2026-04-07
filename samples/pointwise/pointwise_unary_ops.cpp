@@ -50,6 +50,11 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     }
   };
 
+  auto supportsNegative = [](PointwiseAttr::Mode m) {
+    // LOG is undefined for non-positive inputs.
+    return m != PointwiseAttr::Mode::LOG;
+  };
+
   auto supportsFloat = [](PointwiseAttr::Mode m) {
     switch (m) {
     case PointwiseAttr::Mode::ABS:
@@ -57,6 +62,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     case PointwiseAttr::Mode::ERF:
     case PointwiseAttr::Mode::EXP:
     case PointwiseAttr::Mode::FLOOR:
+    case PointwiseAttr::Mode::LOG:
     case PointwiseAttr::Mode::NEG:
     case PointwiseAttr::Mode::RECIPROCAL:
     case PointwiseAttr::Mode::RELU_FWD:
@@ -227,8 +233,12 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
 
   // int32
   if (supportsInteger(mode))
+    execute(handle, DataType::Int32, int(128));
+  if (supportsInteger(mode) && supportsNegative(mode))
     execute(handle, DataType::Int32, int(-128));
   // fp16
   if (supportsFloat(mode))
     execute(handle, DataType::Half, half(3.14));
+  if (supportsFloat(mode) && supportsNegative(mode))
+    execute(handle, DataType::Half, half(-3.14));
 }
