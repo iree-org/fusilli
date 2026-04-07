@@ -77,8 +77,9 @@ add_fusilli_samples(
     batchnorm/batchnorm_infer_nchw.cpp
     batchnorm/batchnorm_infer_nchw_scale_bias.cpp
     batchnorm/batchnorm_infer_nhwc_scale_bias.cpp
-    batchnorm/batchnorm_train_nchw.cpp
-    batchnorm/batchnorm_train_nchw_scale_bias.cpp
+    # TODO(iree-org/iree#24008): batchnorm training fails to distribute.
+    # batchnorm/batchnorm_train_nchw.cpp
+    # batchnorm/batchnorm_train_nchw_scale_bias.cpp
   DEPS
     libfusilli
     libutils
