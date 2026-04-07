@@ -195,9 +195,8 @@ TEST_CASE("Buffer Int4 allocation and read", "[buffer]") {
   std::vector<int4> result;
   FUSILLI_REQUIRE_OK(buf.read(handle, result));
   REQUIRE(result.size() == data.size());
-  for (size_t i = 0; i < data.size(); i++) {
+  for (size_t i = 0; i < data.size(); ++i)
     REQUIRE(result[i].toInt() == data[i].toInt());
-  }
 }
 
 TEST_CASE("Buffer::allocateRaw for workspace buffers", "[buffer]") {

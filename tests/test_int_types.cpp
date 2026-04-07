@@ -26,14 +26,14 @@ TEST_CASE("Int4 default constructor initializes to zero", "[Int4]") {
 
 TEST_CASE("Int4 construction from in-range values", "[Int4]") {
   SECTION("positive values") {
-    for (int8_t v = 0; v <= 7; v++) {
+    for (int8_t v = 0; v <= 7; ++v) {
       Int4 x(v);
       REQUIRE(x.toInt() == v);
     }
   }
 
   SECTION("negative values") {
-    for (int8_t v = -8; v < 0; v++) {
+    for (int8_t v = -8; v < 0; ++v) {
       Int4 x(v);
       REQUIRE(x.toInt() == v);
     }
@@ -80,7 +80,7 @@ TEST_CASE("Int4 implicit conversion to int8_t", "[Int4]") {
 }
 
 TEST_CASE("Int4 fromBits and toBits roundtrip", "[Int4]") {
-  for (uint8_t bits = 0; bits < 16; bits++) {
+  for (uint8_t bits = 0; bits < 16; ++bits) {
     Int4 x = Int4::fromBits(bits);
     REQUIRE(x.toBits() == bits);
   }
@@ -114,9 +114,8 @@ TEST_CASE("Int4::pack and Int4::unpack roundtrip with even count", "[Int4]") {
   std::vector<Int4> unpacked = Int4::unpack(packed.data(), elements.size());
   REQUIRE(unpacked.size() == elements.size());
 
-  for (size_t i = 0; i < elements.size(); ++i) {
+  for (size_t i = 0; i < elements.size(); ++i)
     REQUIRE(unpacked[i].toInt() == elements[i].toInt());
-  }
 }
 
 TEST_CASE("Int4::pack and Int4::unpack roundtrip with odd count", "[Int4]") {
@@ -128,9 +127,8 @@ TEST_CASE("Int4::pack and Int4::unpack roundtrip with odd count", "[Int4]") {
   std::vector<Int4> unpacked = Int4::unpack(packed.data(), elements.size());
   REQUIRE(unpacked.size() == elements.size());
 
-  for (size_t i = 0; i < elements.size(); ++i) {
+  for (size_t i = 0; i < elements.size(); ++i)
     REQUIRE(unpacked[i].toInt() == elements[i].toInt());
-  }
 }
 
 TEST_CASE("Int4::pack single element", "[Int4]") {
@@ -162,9 +160,8 @@ TEST_CASE("Int4::pack nibble placement", "[Int4]") {
 TEST_CASE("Int4::pack all values roundtrip", "[Int4]") {
   // Test all 16 possible 4-bit signed values.
   std::vector<Int4> elements;
-  for (int8_t v = -8; v <= 7; v++) {
+  for (int8_t v = -8; v <= 7; ++v)
     elements.push_back(Int4(v));
-  }
 
   std::vector<uint8_t> packed = Int4::pack(elements);
   REQUIRE(packed.size() == 8); // 16 elements -> 8 bytes
@@ -172,7 +169,6 @@ TEST_CASE("Int4::pack all values roundtrip", "[Int4]") {
   std::vector<Int4> unpacked = Int4::unpack(packed.data(), elements.size());
   REQUIRE(unpacked.size() == 16);
 
-  for (size_t i = 0; i < elements.size(); ++i) {
+  for (size_t i = 0; i < elements.size(); ++i)
     REQUIRE(unpacked[i].toInt() == elements[i].toInt());
-  }
 }

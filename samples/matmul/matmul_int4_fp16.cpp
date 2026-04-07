@@ -77,7 +77,6 @@ TEST_CASE("Int4 x fp16 matmul", "[matmul][int4]") {
 
   // A is all int4(1), B is all half(1), K=8: each dot product = 8.0.
   float expected = static_cast<float>(k);
-  for (size_t i = 0; i < result.size(); ++i) {
+  for (size_t i = 0; i < result.size(); ++i)
     REQUIRE(static_cast<float>(result[i]) == expected);
-  }
 }
