@@ -16,7 +16,9 @@
 #include <format>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 using namespace fusilli;
@@ -78,8 +80,9 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
     return std::make_tuple(graph, x0T, x1T, yT);
   };
 
-  auto testDtype = [&]<typename T>(Handle &handle, DataType dt,
-                                   std::vector<std::pair<T, T>> valuePairs) {
+  auto testDtype = [&]<typename T>(
+                       Handle &handle, DataType dt,
+                       const std::vector<std::pair<T, T>> &valuePairs) {
     auto [graph, x0T, x1T, yT] = buildNewGraph(handle, dt);
 
     for (auto [x0, x1] : valuePairs) {
