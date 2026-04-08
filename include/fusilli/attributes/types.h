@@ -15,6 +15,7 @@
 
 #include "fusilli/external/torch_types.h"
 #include "fusilli/support/float_types.h"
+#include "fusilli/support/int_types.h"
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -29,6 +30,7 @@ namespace fusilli {
   _(Float, Float, "f32")                                                       \
   _(Double, Double, "f64")                                                     \
   _(Uint8, Byte, "ui8")                                                        \
+  _(Int4, Undefined, "si4")                                                    \
   _(Int8, Char, "si8")                                                         \
   _(Int16, Short, "si16")                                                      \
   _(Int32, Int, "si32")                                                        \

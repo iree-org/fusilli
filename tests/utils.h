@@ -202,6 +202,15 @@ allocateBufferOfType(Handle &handle, const std::shared_ptr<TensorAttr> &tensor,
             std::vector<int8_t>(tensor->getVolume(), int8_t(initVal))));
     return std::make_shared<Buffer>(std::move(buffer));
   }
+  case DataType::Int4: {
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto buffer,
+        Buffer::allocate(
+            handle, /*bufferShape=*/castToSizeT(tensor->getPhysicalDim()),
+            /*bufferData=*/
+            std::vector<int4>(tensor->getVolume(), int4(int8_t(initVal)))));
+    return std::make_shared<Buffer>(std::move(buffer));
+  }
   case DataType::Boolean: {
     FUSILLI_ASSIGN_OR_RETURN(
         auto buffer,
@@ -420,6 +429,14 @@ template <> struct StringMaker<fusilli::bf16> {
     // Convert to float for stringification
     float floatVal = static_cast<float>(value);
     return StringMaker<float>::convert(floatVal);
+  }
+};
+
+// StringMaker for Int4 (signed 4-bit integer).
+// Converts to int for display since Int4 doesn't have native stream operators.
+template <> struct StringMaker<fusilli::Int4> {
+  static std::string convert(fusilli::Int4 const &value) {
+    return StringMaker<int>::convert(static_cast<int>(value.toInt()));
   }
 };
 

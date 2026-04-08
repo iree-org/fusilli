@@ -50,7 +50,8 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
       PointwiseAttr::Mode::CMP_GT,
       PointwiseAttr::Mode::CMP_GE,
       PointwiseAttr::Mode::CMP_NEQ,
-      PointwiseAttr::Mode::LOGICAL_AND);
+      PointwiseAttr::Mode::LOGICAL_AND,
+      PointwiseAttr::Mode::LOGICAL_OR);
   // clang-format on
 
   auto execute = [&]<typename T>(Handle &handle, DataType dt, T x0, T x1) {
@@ -135,6 +136,10 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
     }
     case PointwiseAttr::Mode::LOGICAL_AND: {
       y = (x0 != T(0)) && (x1 != T(0));
+      break;
+    }
+    case PointwiseAttr::Mode::LOGICAL_OR: {
+      y = (x0 != T(0)) || (x1 != T(0));
       break;
     }
     default:
