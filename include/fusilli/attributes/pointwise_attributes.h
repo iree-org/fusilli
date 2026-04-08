@@ -48,7 +48,7 @@ namespace fusilli {
   /* OP(GELU_FWD) */                                                           \
   /* OP(GEN_INDEX) */                                                          \
   /* OP(IDENTITY)  */                                                          \
-  /* OP(LOG) */                                                                \
+  OP(LOG)                                                                      \
   OP(LOGICAL_AND)                                                              \
   OP(LOGICAL_NOT)                                                              \
   OP(LOGICAL_OR)                                                               \
@@ -141,6 +141,7 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::ERF, 1},
         {PointwiseAttr::Mode::EXP, 1},
         {PointwiseAttr::Mode::FLOOR, 1},
+        {PointwiseAttr::Mode::LOG, 1},
         {PointwiseAttr::Mode::LOGICAL_AND, 2},
         {PointwiseAttr::Mode::LOGICAL_NOT, 1},
         {PointwiseAttr::Mode::LOGICAL_OR, 2},
