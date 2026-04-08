@@ -2156,6 +2156,150 @@ inline std::string ReductionNode::emitNodePreAsm() const {
                                                     torch.aten.sum.dim_IntList)
     FUSILLI_DECLARE_KEEPDIM_REDUCTION_EMITTER(MIN, torch.aten.amin)
     FUSILLI_DECLARE_KEEPDIM_REDUCTION_EMITTER(MAX, torch.aten.amax)
+  case ReductionAttr::Mode::NORM1: {
+    constexpr std::string_view schema = R"(
+    {0}
+    {1}
+    %abs_{2} = torch.aten.abs {4} : {5} -> {5}
+    %keepdim_{2} = torch.constant.bool true
+    %dtype_{2} = torch.constant.none
+    {3}_{2}_perm = torch.aten.sum.dim_IntList %abs_{2}, %reduction_dims_{2}, %keepdim_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.bool, !torch.none -> {6}
+    {7}
+    )";
+
+    return std::format(schema,
+                       permuteX,             // {0}
+                       dimListOss.str(),     // {1}
+                       suffix,               // {2}
+                       getResultNamesAsm(),  // {3}
+                       getOperandNamesAsm(), // {4}
+                       getOperandTypesAsm(), // {5}
+                       getResultTypesAsm(),  // {6}
+                       permuteY              // {7}
+    );
+  }
+  case ReductionAttr::Mode::AMAX: {
+    constexpr std::string_view schema = R"(
+    {0}
+    {1}
+    %abs_{2} = torch.aten.abs {4} : {5} -> {5}
+    %keepdim_{2} = torch.constant.bool true
+    {3}_{2}_perm = torch.aten.amax %abs_{2}, %reduction_dims_{2}, %keepdim_{2} : {5}, !torch.list<int>, !torch.bool -> {6}
+    {7}
+    )";
+
+    return std::format(schema,
+                       permuteX,             // {0}
+                       dimListOss.str(),     // {1}
+                       suffix,               // {2}
+                       getResultNamesAsm(),  // {3}
+                       getOperandNamesAsm(), // {4}
+                       getOperandTypesAsm(), // {5}
+                       getResultTypesAsm(),  // {6}
+                       permuteY              // {7}
+    );
+  }
+  case ReductionAttr::Mode::AVG: {
+    constexpr std::string_view schema = R"(
+    {0}
+    {1}
+    %keepdim_{2} = torch.constant.bool true
+    %dtype_{2} = torch.constant.none
+    {3}_{2}_perm = torch.aten.mean.dim {4}, %reduction_dims_{2}, %keepdim_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.bool, !torch.none -> {6}
+    {7}
+    )";
+
+    return std::format(schema,
+                       permuteX,             // {0}
+                       dimListOss.str(),     // {1}
+                       suffix,               // {2}
+                       getResultNamesAsm(),  // {3}
+                       getOperandNamesAsm(), // {4}
+                       getOperandTypesAsm(), // {5}
+                       getResultTypesAsm(),  // {6}
+                       permuteY              // {7}
+    );
+  }
+  case ReductionAttr::Mode::NORM2: {
+    constexpr std::string_view schema = R"(
+    {0}
+    {1}
+    %sq_{2} = torch.aten.mul.Tensor {4}, {4} : {5}, {5} -> {5}
+    %keepdim_{2} = torch.constant.bool true
+    %dtype_{2} = torch.constant.none
+    %sumsq_{2} = torch.aten.sum.dim_IntList %sq_{2}, %reduction_dims_{2}, %keepdim_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.bool, !torch.none -> {6}
+    {3}_{2}_perm = torch.aten.sqrt %sumsq_{2} : {6} -> {6}
+    {7}
+    )";
+
+    return std::format(schema,
+                       permuteX,             // {0}
+                       dimListOss.str(),     // {1}
+                       suffix,               // {2}
+                       getResultNamesAsm(),  // {3}
+                       getOperandNamesAsm(), // {4}
+                       getOperandTypesAsm(), // {5}
+                       getResultTypesAsm(),  // {6}
+                       permuteY              // {7}
+    );
+  }
+  case ReductionAttr::Mode::MUL: {
+    constexpr std::string_view schema = R"(
+    {0}
+    {1}
+    %dtype_{2} = torch.constant.none
+    {3}_{2}_perm = torch.prims.prod {4}, %reduction_dims_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.none -> {6}
+    {7}
+    )";
+
+    return std::format(schema,
+                       permuteX,             // {0}
+                       dimListOss.str(),     // {1}
+                       suffix,               // {2}
+                       getResultNamesAsm(),  // {3}
+                       getOperandNamesAsm(), // {4}
+                       getOperandTypesAsm(), // {5}
+                       getResultTypesAsm(),  // {6}
+                       permuteY              // {7}
+    );
+  }
+  case ReductionAttr::Mode::MUL_NO_ZEROS: {
+    // Build a bool tensor type matching the (logical) shape of X. This is
+    // used for the mask produced by `torch.aten.ne.Scalar`.
+    std::ostringstream boolTypeOss;
+    boolTypeOss << "!torch.vtensor<[";
+    const auto &xDims = xT->getDim();
+    interleave(
+        xDims.begin(), xDims.end(),
+        [&](int64_t d) { boolTypeOss << std::to_string(d); },
+        [&] { boolTypeOss << ","; });
+    boolTypeOss << "],i1>";
+    std::string boolType = boolTypeOss.str();
+
+    constexpr std::string_view schema = R"(
+    {0}
+    {1}
+    %zero_{2} = torch.constant.int 0
+    %mask_{2} = torch.aten.ne.Scalar {4}, %zero_{2} : {5}, !torch.int -> {8}
+    %one_{2} = torch.constant.int 1
+    %fixed_{2} = torch.aten.where.ScalarOther %mask_{2}, {4}, %one_{2} : {8}, {5}, !torch.int -> {5}
+    %dtype_{2} = torch.constant.none
+    {3}_{2}_perm = torch.prims.prod %fixed_{2}, %reduction_dims_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.none -> {6}
+    {7}
+    )";
+
+    return std::format(schema,
+                       permuteX,             // {0}
+                       dimListOss.str(),     // {1}
+                       suffix,               // {2}
+                       getResultNamesAsm(),  // {3}
+                       getOperandNamesAsm(), // {4}
+                       getOperandTypesAsm(), // {5}
+                       getResultTypesAsm(),  // {6}
+                       permuteY,             // {7}
+                       boolType              // {8}
+    );
+  }
   default:
     assert(false && "Unsupported reduction mode");
     return "";
