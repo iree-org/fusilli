@@ -99,6 +99,7 @@ add_fusilli_tests(
     test_dllib.cpp
     test_extras.cpp
     test_float_types.cpp
+    test_int_types.cpp
     test_memstream.cpp
     test_process.cpp
     test_ssa_validation.cpp
@@ -156,7 +157,9 @@ add_fusilli_lit_tests(
     lit/test_pointwise_asm_emitter_erf.cpp
     lit/test_pointwise_asm_emitter_exp.cpp
     lit/test_pointwise_asm_emitter_floor.cpp
+    lit/test_pointwise_asm_emitter_log.cpp
     lit/test_pointwise_asm_emitter_logical_and.cpp
+    lit/test_pointwise_asm_emitter_logical_not.cpp
     lit/test_pointwise_asm_emitter_logical_or.cpp
     lit/test_pointwise_asm_emitter_max.cpp
     lit/test_pointwise_asm_emitter_min.cpp
