@@ -122,22 +122,27 @@ static std::string buildSdpaMlir(bool hasAttnMask = false,
 // CPU reference implementation of scaled dot-product attention.
 // Computes SDPA in float precision for numerical verification against the GPU.
 // Layout: [batch, heads, seq_len, head_dim] contiguous.
+// K and V may have independent head counts (headsK, headsV); when headsV is
+// not specified it defaults to headsK (standard GQA).
 static std::vector<float>
 referenceSdpa(float qVal, float kVal, float vVal, float maskVal, int64_t batch,
-              int64_t headsQ, int64_t headsKV, int64_t seqQ, int64_t seqKV,
+              int64_t headsQ, int64_t headsK, int64_t seqQ, int64_t seqKV,
               int64_t headDim, bool isCausal, std::optional<float> scale,
-              bool enableGqa, bool hasAttnMask) {
+              bool enableGqa, bool hasAttnMask, int64_t headsV = 0) {
+  if (headsV == 0)
+    headsV = headsK;
   float s = scale.value_or(1.0f / std::sqrt(static_cast<float>(headDim)));
   int64_t outSize = batch * headsQ * seqQ * headDim;
   std::vector<float> out(outSize);
 
   for (int64_t b = 0; b < batch; ++b) {
     for (int64_t hq = 0; hq < headsQ; ++hq) {
-      // Map query head to KV head (identity for MHA, grouped for GQA).
-      int64_t hkv = enableGqa ? hq / (headsQ / headsKV) : hq;
+      // Map query head to K and V heads independently.
+      int64_t hk = enableGqa ? hq / (headsQ / headsK) : hq;
+      int64_t hv = enableGqa ? hq / (headsQ / headsV) : hq;
 
       for (int64_t sq = 0; sq < seqQ; ++sq) {
-        // Compute attention scores: dot(Q[b,hq,sq,:], K[b,hkv,sk,:]) * scale.
+        // Compute attention scores: dot(Q[b,hq,sq,:], K[b,hk,sk,:]) * scale.
         // Since Q and K are constant-filled, dot product = qVal * kVal *
         // headDim for every (sq, sk) pair. We still compute per-element to
         // handle causal/mask variations correctly.
@@ -166,7 +171,7 @@ referenceSdpa(float qVal, float kVal, float vVal, float maskVal, int64_t batch,
           scores[sk] /= sumExp;
 
         // Output: weighted sum of V rows.
-        // V[b, hkv, sk, d] = vVal for all elements.
+        // V[b, hv, sk, d] = vVal for all elements.
         for (int64_t d = 0; d < headDim; ++d) {
           float val = 0.0f;
           for (int64_t sk = 0; sk < seqKV; ++sk)
@@ -181,22 +186,29 @@ referenceSdpa(float qVal, float kVal, float vVal, float maskVal, int64_t batch,
 
 // Build a graph that runs scaled dot-product attention on Q, K, V tensors.
 // Shape convention: [batch, heads, seq_len, head_dim].
+// K and V may have independent head counts; when headsV is 0 (default) it
+// uses headsK (standard GQA where H_k == H_v).
 static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
-                        int64_t headsQ, int64_t headsKV, int64_t seqQ,
+                        int64_t headsQ, int64_t headsK, int64_t seqQ,
                         int64_t seqKV, int64_t headDim, bool isCausal = false,
                         std::optional<float> scale = std::nullopt,
                         bool enableGqa = false, bool hasAttnMask = false,
-                        float dropoutP = 0.0f) {
+                        float dropoutP = 0.0f, int64_t headsV = 0) {
+  if (headsV == 0)
+    headsV = headsK;
+
   // attn_mask and is_causal are mutually exclusive: is_causal internally
   // applies a causal mask, making an explicit mask contradictory.
   REQUIRE(!(hasAttnMask && isCausal));
 
   if (enableGqa) {
-    // GQA constraint: query heads must be a multiple of KV heads.
-    REQUIRE(headsQ % headsKV == 0);
+    // GQA constraint: query heads must be a multiple of both K and V heads.
+    REQUIRE(headsQ % headsK == 0);
+    REQUIRE(headsQ % headsV == 0);
   } else {
-    // Standard MHA: query and KV head counts must match.
-    REQUIRE(headsQ == headsKV);
+    // Standard MHA: query, K, and V head counts must all match.
+    REQUIRE(headsQ == headsK);
+    REQUIRE(headsQ == headsV);
   }
 
   std::string causalSuffix = isCausal ? "_causal" : "";
@@ -209,9 +221,10 @@ static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
 
   auto graph = std::make_shared<Graph>();
   graph
-      ->setName(std::format("sdpa_b{}hq{}hkv{}sq{}skv{}d{}{}{}{}{}{}", batch,
-                            headsQ, headsKV, seqQ, seqKV, headDim, causalSuffix,
-                            maskSuffix, gqaSuffix, scaleSuffix, dropoutSuffix))
+      ->setName(std::format("sdpa_b{}hq{}hk{}hv{}sq{}skv{}d{}{}{}{}{}{}", batch,
+                            headsQ, headsK, headsV, seqQ, seqKV, headDim,
+                            causalSuffix, maskSuffix, gqaSuffix, scaleSuffix,
+                            dropoutSuffix))
       .setIODataType(dt)
       .setIntermediateDataType(dt);
 
@@ -222,15 +235,15 @@ static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
   auto qT =
       graph->tensor(TensorAttr().setName("q").setDim(qDim).setStride(qStride));
 
-  // K: [batch, headsKV, seqKV, headDim]
-  std::vector<int64_t> kDim = {batch, headsKV, seqKV, headDim};
+  // K: [batch, headsK, seqKV, headDim]
+  std::vector<int64_t> kDim = {batch, headsK, seqKV, headDim};
   auto kStride =
       generateStrideFromDim(kDim, getContiguousStrideOrder(kDim.size()));
   auto kT =
       graph->tensor(TensorAttr().setName("k").setDim(kDim).setStride(kStride));
 
-  // V: [batch, headsKV, seqKV, headDim]
-  std::vector<int64_t> vDim = {batch, headsKV, seqKV, headDim};
+  // V: [batch, headsV, seqKV, headDim]
+  std::vector<int64_t> vDim = {batch, headsV, seqKV, headDim};
   auto vStride =
       generateStrideFromDim(vDim, getContiguousStrideOrder(vDim.size()));
   auto vT =
@@ -307,8 +320,8 @@ static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
   constexpr float kInitMask = -1.0f;
 
   auto expected = referenceSdpa(kInitQ, kInitK, kInitV, kInitMask, batch,
-                                headsQ, headsKV, seqQ, seqKV, headDim, isCausal,
-                                scale, enableGqa, hasAttnMask);
+                                headsQ, headsK, seqQ, seqKV, headDim, isCausal,
+                                scale, enableGqa, hasAttnMask, headsV);
 
   // f16 has ~3 decimal digits of precision; use a tolerance that accounts
   // for accumulation error across the softmax and weighted-sum steps.
