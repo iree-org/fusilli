@@ -104,6 +104,7 @@ public:
         "SDPA input tensors Q and K must have matching head_dim");
 
     // K and V must have matching sequence length and heads.
+    // TODO(#280): Relax the h_k == h_v constraint once IREE fix is in.
     FUSILLI_RETURN_ERROR_IF(
         kDim[1] != vDim[1], ErrorCode::InvalidAttribute,
         "SDPA input tensors K and V must have matching heads dimension");
