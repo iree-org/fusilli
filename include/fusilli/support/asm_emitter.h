@@ -2017,25 +2017,26 @@ inline std::string SdpaNode::emitNodePreAsm() const {
   std::string suffix = sdpaAttr.getName();
 
   // Permute inputs.
-  std::string permuteQ =
-      getPermuteOpsAsm(sdpaAttr.getQ(), "permute_Q", suffix, /*isInput=*/true);
-  std::string permuteK =
-      getPermuteOpsAsm(sdpaAttr.getK(), "permute_K", suffix, /*isInput=*/true);
-  std::string permuteV =
-      getPermuteOpsAsm(sdpaAttr.getV(), "permute_V", suffix, /*isInput=*/true);
+  std::string permuteQ = getLayoutConversionOpsAsm(sdpaAttr.getQ(), "permute_Q",
+                                                   suffix, /*isInput=*/true);
+  std::string permuteK = getLayoutConversionOpsAsm(sdpaAttr.getK(), "permute_K",
+                                                   suffix, /*isInput=*/true);
+  std::string permuteV = getLayoutConversionOpsAsm(sdpaAttr.getV(), "permute_V",
+                                                   suffix, /*isInput=*/true);
 
   std::string permuteMask;
   std::string noneMask;
   if (sdpaAttr.getMASK()) {
-    permuteMask = getPermuteOpsAsm(sdpaAttr.getMASK(), "permute_mask", suffix,
-                                   /*isInput=*/true);
+    permuteMask =
+        getLayoutConversionOpsAsm(sdpaAttr.getMASK(), "permute_mask", suffix,
+                                  /*isInput=*/true);
   } else {
     noneMask = std::format("%none_mask_{} = torch.constant.none", suffix);
   }
 
   // Permute output.
-  std::string permuteO =
-      getPermuteOpsAsm(sdpaAttr.getO(), "permute_O", suffix, /*isInput=*/false);
+  std::string permuteO = getLayoutConversionOpsAsm(sdpaAttr.getO(), "permute_O",
+                                                   suffix, /*isInput=*/false);
 
   // Scale type for the MLIR signature.
   std::string scaleType =
