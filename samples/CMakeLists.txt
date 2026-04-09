@@ -126,7 +126,8 @@ add_fusilli_samples(
     custom_op/sdpa/sdpa_fprop_causal.cpp
     custom_op/sdpa/sdpa_fprop_custom_scale.cpp
     custom_op/sdpa/sdpa_fprop_with_mask.cpp
-    custom_op/sdpa/sdpa_fprop_dropout.cpp
+    # TODO(#277): torch-mlir + IREE lowering needs to support dropout.
+    # custom_op/sdpa/sdpa_fprop_dropout.cpp
     custom_op/sdpa/sdpa_fprop_gqa.cpp
     custom_op/sdpa/sdpa_fprop_cross_attn.cpp
   DEPS
@@ -142,7 +143,8 @@ add_fusilli_samples(
     sdpa/sdpa_fprop_causal.cpp
     sdpa/sdpa_fprop_custom_scale.cpp
     sdpa/sdpa_fprop_with_mask.cpp
-    sdpa/sdpa_fprop_dropout.cpp
+    # TODO(#277): torch-mlir + IREE lowering needs to support dropout.
+    # sdpa/sdpa_fprop_dropout.cpp
     sdpa/sdpa_fprop_gqa.cpp
     sdpa/sdpa_fprop_cross_attn.cpp
   DEPS

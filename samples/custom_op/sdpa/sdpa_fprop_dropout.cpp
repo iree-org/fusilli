@@ -13,9 +13,7 @@
 
 #include <optional>
 
-// XFAIL: dropout is not supported in torch-mlir lowering.
-TEST_CASE("SDPA forward: dropout f16",
-          "[sdpa][custom_op][graph][!shouldfail]") {
+TEST_CASE("SDPA forward: dropout f16", "[sdpa][custom_op][graph]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   executeSdpa(handle, DataType::Half,
               /*batch=*/1, /*headsQ=*/8, /*headsKV=*/8,
