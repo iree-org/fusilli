@@ -6,7 +6,6 @@
 
 #include <fusilli.h>
 
-#include "sdpa_utils.h"
 #include "utils.h"
 
 #include <CLI/CLI.hpp>

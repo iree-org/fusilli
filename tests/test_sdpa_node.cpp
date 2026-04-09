@@ -11,6 +11,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -122,7 +123,7 @@ TEST_CASE("SdpaNode preValidateNode rank checks", "[sdpa_node]") {
     SdpaAttr attr;
     attr.setQ(makeTensor4D("Q", 1, 8, 64, 64));
     auto k = std::make_shared<TensorAttr>(
-        TensorAttr().setDim({8, 64, 64}).setStride({64 * 64, 64, 1}));
+        TensorAttr().setDim({8, 64, 64}).setStride({64L * 64, 64, 1}));
     attr.setK(k);
     attr.setV(makeTensor4D("V", 1, 8, 64, 64));
     attr.setO(std::make_shared<TensorAttr>());
@@ -321,7 +322,8 @@ TEST_CASE("SdpaNode valid basic MHA configuration", "[sdpa_node]") {
 
   auto oT = node.sdpaAttr.getO();
   REQUIRE(oT->getDim() == std::vector<int64_t>{1, 8, 64, 64});
-  REQUIRE(oT->getStride() == std::vector<int64_t>{8 * 64 * 64, 64 * 64, 64, 1});
+  REQUIRE(oT->getStride() ==
+          std::vector<int64_t>{8L * 64 * 64, 64L * 64, 64, 1});
 
   FUSILLI_REQUIRE_OK(node.postValidateNode());
 }
