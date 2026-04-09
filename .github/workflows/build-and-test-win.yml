@@ -66,11 +66,11 @@ jobs:
           cmake --build ${{ env.BUILD_DIR_POWERSHELL}} --config Release --target all
       - name: "Running Fusilli tests (libIREECompiler CAPI)"
         run: |
-          ctest --test-dir ${{ env.BUILD_DIR_POWERSHELL}} --output-on-failure --extra-verbose --timeout 120
+          ctest --test-dir ${{ env.BUILD_DIR_POWERSHELL}} --output-on-failure --timeout 120
       - name: "Running Fusilli tests (iree-compile CLI)"
         run: |
           $env:FUSILLI_COMPILE_BACKEND_USE_CLI = "1"
-          ctest --test-dir ${{ env.BUILD_DIR_POWERSHELL}} --output-on-failure --extra-verbose --timeout 120
+          ctest --test-dir ${{ env.BUILD_DIR_POWERSHELL}} --output-on-failure --timeout 120
       - name: "Clean up build dir"
         if: always()
         run: if (Test-Path -Path "$Env:BUILD_DIR_POWERSHELL") {Remove-Item -Path "$Env:BUILD_DIR_POWERSHELL" -Recurse -Force}
