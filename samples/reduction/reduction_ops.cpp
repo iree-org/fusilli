@@ -84,12 +84,18 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
   const auto xDims = std::vector<int64_t>{2, 16, 8, 8};
   const auto yDims = std::vector<int64_t>{2, 16, 1, 1};
 
-  const auto mode =
-      GENERATE(ReductionAttr::Mode::SUM, ReductionAttr::Mode::MIN,
-               ReductionAttr::Mode::MAX, ReductionAttr::Mode::NORM1,
-               ReductionAttr::Mode::AMAX, ReductionAttr::Mode::AVG,
-               ReductionAttr::Mode::NORM2, ReductionAttr::Mode::MUL,
-               ReductionAttr::Mode::MUL_NO_ZEROS);
+  // clang-format off
+  const auto mode = GENERATE(
+      ReductionAttr::Mode::SUM,
+      ReductionAttr::Mode::MIN,
+      ReductionAttr::Mode::MAX,
+      ReductionAttr::Mode::NORM1,
+      ReductionAttr::Mode::AMAX,
+      ReductionAttr::Mode::AVG,
+      ReductionAttr::Mode::NORM2,
+      ReductionAttr::Mode::MUL,
+      ReductionAttr::Mode::MUL_NO_ZEROS);
+  // clang-format on
 
   auto execute = [&]<typename T>(Handle &handle, DataType dt, T initValue) {
     // Create graph.

@@ -1755,6 +1755,15 @@ inline ErrorOr<std::string> PointwiseNode::emitNodePreAsm() const {
     {6}
 )";
 
+  constexpr std::string_view kEluSchema = R"(
+    {0}
+    %elu_alpha_{7} = torch.constant.float {8:e}
+    %elu_scale_{7} = torch.constant.float 1.000000e+00
+    %elu_input_scale_{7} = torch.constant.float 1.000000e+00
+    {1} = {6} {2}, %elu_alpha_{7}, %elu_scale_{7}, %elu_input_scale_{7} : {3}, !torch.float, !torch.float, !torch.float -> {4}
+    {5}
+)";
+
 #define FUSILLI_DECLARE_UNARY_TORCH_EMITTER(PWOP, OPIR)                        \
   FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(PWOP, kUnaryTorchSchema, OPIR)
 #define FUSILLI_DECLARE_BINARY_TORCH_EMITTER(PWOP, OPIR)                       \
@@ -1765,6 +1774,29 @@ inline ErrorOr<std::string> PointwiseNode::emitNodePreAsm() const {
   switch (pointwiseAttr.getMode()) {
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(ABS, torch.aten.abs)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(CEIL, torch.aten.ceil)
+  case PointwiseAttr::Mode::ELU_FWD: {
+    return std::format(kEluSchema, permuteIN0,     /* {0} */
+                       getResultNamesAsm(),        /* {1} */
+                       getOperandNamesAsm(),       /* {2} */
+                       getOperandTypesAsm(),       /* {3} */
+                       getResultTypesAsm(),        /* {4} */
+                       permuteOUT0,                /* {5} */
+                       "torch.aten.elu",           /* {6} */
+                       getName(),                  /* {7} */
+                       pointwiseAttr.getEluAlpha() /* {8} */
+    );
+  }
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(ERF, torch.aten.erf)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(EXP, torch.aten.exp)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(FLOOR, torch.aten.floor)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(LOG, torch.aten.log)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(LOGICAL_NOT, torch.aten.logical_not)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(NEG, torch.aten.neg)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RECIPROCAL, torch.aten.reciprocal)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RELU_FWD, torch.aten.relu)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(SIGMOID_FWD, torch.aten.sigmoid)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(TANH_FWD, torch.aten.tanh)
+
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_EQ, torch.aten.eq.Tensor)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_LT, torch.aten.lt.Tensor)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_LE, torch.aten.le.Tensor)
@@ -1772,19 +1804,12 @@ inline ErrorOr<std::string> PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_GE, torch.aten.ge.Tensor)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_NEQ, torch.aten.ne.Tensor)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(DIV, torch.aten.div.Tensor)
-    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(ERF, torch.aten.erf)
-    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(EXP, torch.aten.exp)
-    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(FLOOR, torch.aten.floor)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(LOGICAL_AND, torch.aten.logical_and)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(LOGICAL_OR, torch.aten.logical_or)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(MAX_OP, torch.aten.maximum)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(MIN_OP, torch.aten.minimum)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(MUL, torch.aten.mul.Tensor)
-    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(NEG, torch.aten.neg)
-    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RECIPROCAL, torch.aten.reciprocal)
-    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RELU_FWD, torch.aten.relu)
-    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(SIGMOID_FWD, torch.aten.sigmoid)
-    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(TANH_FWD, torch.aten.tanh)
+
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(ADD, torch.aten.add.Tensor)
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(SUB, torch.aten.sub.Tensor)
 
@@ -1849,68 +1874,49 @@ inline ErrorOr<std::string> ReductionNode::emitNodePreAsm() const {
   std::string permuteY =
       getLayoutConversionOpsAsm(yT, "permute_Y", suffix, /*isInput=*/false);
 
-  switch (reductionAttr.getMode()) {
-  case ReductionAttr::Mode::SUM: {
-    constexpr std::string_view schema = R"(
+  constexpr std::string_view kKeepdimReductionSchema = R"(
+    {0}
+    {1}
+    %keepdim_{2} = torch.constant.bool true
+    {3}_{2}_perm = {8} {4}, %reduction_dims_{2}, %keepdim_{2} : {5}, !torch.list<int>, !torch.bool -> {6}
+    {7}
+    )";
+
+  constexpr std::string_view kKeepdimDtypeReductionSchema = R"(
     {0}
     {1}
     %keepdim_{2} = torch.constant.bool true
     %dtype_{2} = torch.constant.none
-    {3}_{2}_perm = torch.aten.sum.dim_IntList {4}, %reduction_dims_{2}, %keepdim_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.bool, !torch.none -> {6}
+    {3}_{2}_perm = {8} {4}, %reduction_dims_{2}, %keepdim_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.bool, !torch.none -> {6}
     {7}
     )";
 
-    return std::format(schema,
-                       permuteX,             // {0}
-                       dimListOss.str(),     // {1}
-                       suffix,               // {2}
-                       getResultNamesAsm(),  // {3}
-                       getOperandNamesAsm(), // {4}
-                       getOperandTypesAsm(), // {5}
-                       getResultTypesAsm(),  // {6}
-                       permuteY              // {7}
-    );
+#define FUSILLI_DECLARE_REDUCTION_EMITTER(MODE, SCHEMA, OPIR)                  \
+  case ReductionAttr::Mode::MODE: {                                            \
+    return std::format(SCHEMA, permuteX,     /* {0} */                         \
+                       dimListOss.str(),     /* {1} */                         \
+                       suffix,               /* {2} */                         \
+                       getResultNamesAsm(),  /* {3} */                         \
+                       getOperandNamesAsm(), /* {4} */                         \
+                       getOperandTypesAsm(), /* {5} */                         \
+                       getResultTypesAsm(),  /* {6} */                         \
+                       permuteY,             /* {7} */                         \
+                       #OPIR                 /* {8} */                         \
+    );                                                                         \
   }
-  case ReductionAttr::Mode::MIN: {
-    constexpr std::string_view schema = R"(
-    {0}
-    {1}
-    %keepdim_{2} = torch.constant.bool true
-    {3}_{2}_perm = torch.aten.amin {4}, %reduction_dims_{2}, %keepdim_{2} : {5}, !torch.list<int>, !torch.bool -> {6}
-    {7}
-    )";
 
-    return std::format(schema,
-                       permuteX,             // {0}
-                       dimListOss.str(),     // {1}
-                       suffix,               // {2}
-                       getResultNamesAsm(),  // {3}
-                       getOperandNamesAsm(), // {4}
-                       getOperandTypesAsm(), // {5}
-                       getResultTypesAsm(),  // {6}
-                       permuteY              // {7}
-    );
-  }
-  case ReductionAttr::Mode::MAX: {
-    constexpr std::string_view schema = R"(
-    {0}
-    {1}
-    %keepdim_{2} = torch.constant.bool true
-    {3}_{2}_perm = torch.aten.amax {4}, %reduction_dims_{2}, %keepdim_{2} : {5}, !torch.list<int>, !torch.bool -> {6}
-    {7}
-    )";
+#define FUSILLI_DECLARE_KEEPDIM_REDUCTION_EMITTER(MODE, OPIR)                  \
+  FUSILLI_DECLARE_REDUCTION_EMITTER(MODE, kKeepdimReductionSchema, OPIR)
 
-    return std::format(schema,
-                       permuteX,             // {0}
-                       dimListOss.str(),     // {1}
-                       suffix,               // {2}
-                       getResultNamesAsm(),  // {3}
-                       getOperandNamesAsm(), // {4}
-                       getOperandTypesAsm(), // {5}
-                       getResultTypesAsm(),  // {6}
-                       permuteY              // {7}
-    );
-  }
+#define FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER(MODE, OPIR)            \
+  FUSILLI_DECLARE_REDUCTION_EMITTER(MODE, kKeepdimDtypeReductionSchema, OPIR)
+
+  switch (reductionAttr.getMode()) {
+    FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER(SUM,
+                                                    torch.aten.sum.dim_IntList)
+    FUSILLI_DECLARE_KEEPDIM_REDUCTION_EMITTER(MIN, torch.aten.amin)
+    FUSILLI_DECLARE_KEEPDIM_REDUCTION_EMITTER(MAX, torch.aten.amax)
+
   case ReductionAttr::Mode::NORM1: {
     constexpr std::string_view schema = R"(
     {0}
@@ -2059,6 +2065,10 @@ inline ErrorOr<std::string> ReductionNode::emitNodePreAsm() const {
     return error(ErrorCode::InternalError, "Unsupported reduction mode");
   }
 }
+
+#undef FUSILLI_DECLARE_REDUCTION_EMITTER
+#undef FUSILLI_DECLARE_KEEPDIM_REDUCTION_EMITTER
+#undef FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER
 
 //===----------------------------------------------------------------------===//
 //

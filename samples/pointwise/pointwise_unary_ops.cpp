@@ -50,13 +50,20 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     }
   };
 
+  auto supportsNegative = [](PointwiseAttr::Mode m) {
+    // LOG is undefined for non-positive inputs.
+    return m != PointwiseAttr::Mode::LOG;
+  };
+
   auto supportsFloat = [](PointwiseAttr::Mode m) {
     switch (m) {
     case PointwiseAttr::Mode::ABS:
     case PointwiseAttr::Mode::CEIL:
+    case PointwiseAttr::Mode::ELU_FWD:
     case PointwiseAttr::Mode::ERF:
     case PointwiseAttr::Mode::EXP:
     case PointwiseAttr::Mode::FLOOR:
+    case PointwiseAttr::Mode::LOG:
     case PointwiseAttr::Mode::NEG:
     case PointwiseAttr::Mode::RECIPROCAL:
     case PointwiseAttr::Mode::RELU_FWD:
@@ -72,9 +79,11 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
   const auto mode = GENERATE(
       PointwiseAttr::Mode::ABS,
       PointwiseAttr::Mode::CEIL,
+      PointwiseAttr::Mode::ELU_FWD,
       PointwiseAttr::Mode::ERF,
       PointwiseAttr::Mode::EXP,
       PointwiseAttr::Mode::FLOOR,
+      PointwiseAttr::Mode::LOG,
       PointwiseAttr::Mode::NEG,
       PointwiseAttr::Mode::RECIPROCAL,
       PointwiseAttr::Mode::RELU_FWD,
@@ -140,6 +149,13 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       y = std::abs(xD);
       break;
     }
+    case PointwiseAttr::Mode::ELU_FWD: {
+      double xD = static_cast<double>(x);
+      // ELU(x) = x if x > 0 else alpha * (exp(x) - 1).
+      // The graph uses the default alpha (1.0), so std::expm1 suffices.
+      y = xD > 0 ? xD : std::expm1(xD);
+      break;
+    }
     case PointwiseAttr::Mode::RELU_FWD: {
       y = std::max(x, T(0));
       break;
@@ -172,6 +188,11 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     case PointwiseAttr::Mode::FLOOR: {
       double xD = static_cast<double>(x);
       y = std::floor(xD);
+      break;
+    }
+    case PointwiseAttr::Mode::LOG: {
+      double xD = static_cast<double>(x);
+      y = std::log(xD);
       break;
     }
     case PointwiseAttr::Mode::NEG: {
@@ -216,13 +237,21 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       REQUIRE(isClose(val, y));
   };
 
+  // Ensure every mode is exercised by at least one dtype path; otherwise
+  // it would be silently skipped.
+  REQUIRE((supportsInteger(mode) || supportsFloat(mode)));
+
   // Create handle for the target backend.
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // int32
   if (supportsInteger(mode))
+    execute(handle, DataType::Int32, int(128));
+  if (supportsInteger(mode) && supportsNegative(mode))
     execute(handle, DataType::Int32, int(-128));
   // fp16
   if (supportsFloat(mode))
     execute(handle, DataType::Half, half(3.14));
+  if (supportsFloat(mode) && supportsNegative(mode))
+    execute(handle, DataType::Half, half(-3.14));
 }

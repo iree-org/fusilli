@@ -38,7 +38,7 @@ namespace fusilli {
   OP(CMP_NEQ)                                                                  \
   OP(DIV)                                                                      \
   /* OP(ELU_BWD) */                                                            \
-  /* OP(ELU_FWD) */                                                            \
+  OP(ELU_FWD)                                                                  \
   OP(ERF)                                                                      \
   OP(EXP)                                                                      \
   OP(FLOOR)                                                                    \
@@ -48,9 +48,9 @@ namespace fusilli {
   /* OP(GELU_FWD) */                                                           \
   /* OP(GEN_INDEX) */                                                          \
   /* OP(IDENTITY)  */                                                          \
-  /* OP(LOG) */                                                                \
+  OP(LOG)                                                                      \
   OP(LOGICAL_AND)                                                              \
-  /* OP(LOGICAL_NOT) */                                                        \
+  OP(LOGICAL_NOT)                                                              \
   OP(LOGICAL_OR)                                                               \
   OP(MAX_OP)                                                                   \
   OP(MIN_OP)                                                                   \
@@ -101,6 +101,11 @@ public:
     return *this;
   }
 
+  PointwiseAttr &setEluAlpha(float alpha) {
+    eluAlpha_ = alpha;
+    return *this;
+  }
+
   // Getters:
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, IN_0)
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, IN_1)
@@ -108,6 +113,7 @@ public:
   FUSILLI_GENERIC_OUTPUT_TENSOR_GETTER(OutputNames, OUT_0)
 
   Mode getMode() const { return mode_; }
+  float getEluAlpha() const { return eluAlpha_; }
 
   // Utilities for pointwise modes.
   static const std::unordered_map<Mode, std::string> kModeToStr;
@@ -116,6 +122,7 @@ public:
 
 private:
   Mode mode_ = Mode::NOT_SET;
+  float eluAlpha_ = 1.0f;
 };
 
 #define FUSILLI_DECLARE_STRINGIFY_POINTWISE_MODE(mode)                         \
@@ -138,10 +145,13 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::CMP_GE, 2},
         {PointwiseAttr::Mode::CMP_NEQ, 2},
         {PointwiseAttr::Mode::DIV, 2},
+        {PointwiseAttr::Mode::ELU_FWD, 1},
         {PointwiseAttr::Mode::ERF, 1},
         {PointwiseAttr::Mode::EXP, 1},
         {PointwiseAttr::Mode::FLOOR, 1},
+        {PointwiseAttr::Mode::LOG, 1},
         {PointwiseAttr::Mode::LOGICAL_AND, 2},
+        {PointwiseAttr::Mode::LOGICAL_NOT, 1},
         {PointwiseAttr::Mode::LOGICAL_OR, 2},
         {PointwiseAttr::Mode::MAX_OP, 2},
         {PointwiseAttr::Mode::MIN_OP, 2},
