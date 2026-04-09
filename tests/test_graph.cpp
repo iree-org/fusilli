@@ -40,9 +40,7 @@ public:
   using INode::subNodes_;
 
 protected:
-  ErrorOr<std::string> emitModuleScopeAsm() const override {
-    return moduleScopeAsm_;
-  }
+  std::string emitModuleScopeAsm() const override { return moduleScopeAsm_; }
   ErrorObject inferPropertiesNode() override { return ok(); }
 
 private:
@@ -473,7 +471,7 @@ TEST_CASE("collectModuleScopeAsm gathers declarations from nested sub-nodes",
   root->subNodes_.push_back(childB);
 
   std::ostringstream oss;
-  FUSILLI_REQUIRE_OK(root->collectModuleScopeAsm(oss));
+  root->collectModuleScopeAsm(oss);
   std::string result = oss.str();
 
   // All four declarations must be collected in pre-order.

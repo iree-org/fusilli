@@ -49,7 +49,7 @@ public:
       : NodeCRTP(ctx), pointwiseAttr(std::move(attr)) {}
 
   // MLIR assembly emitter helper methods.
-  ErrorOr<std::string> emitNodePreAsm() const override final;
+  std::string emitNodePreAsm() const override final;
   std::string getPermuteInputOpsAsm(int inputIndex) const;
   std::string getPermuteOut0OpsAsm() const;
   std::string getOperandNamesAsm() const;

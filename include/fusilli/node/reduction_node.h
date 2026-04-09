@@ -36,7 +36,7 @@ public:
       : NodeCRTP(ctx), reductionAttr(std::move(attr)) {}
 
   // MLIR assembly emitter helper methods.
-  ErrorOr<std::string> emitNodePreAsm() const override final;
+  std::string emitNodePreAsm() const override final;
   std::string getOperandNamesAsm() const;
   std::string getOperandTypesAsm() const;
   std::string getResultNamesAsm() const;
