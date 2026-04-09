@@ -59,6 +59,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     switch (m) {
     case PointwiseAttr::Mode::ABS:
     case PointwiseAttr::Mode::CEIL:
+    case PointwiseAttr::Mode::ELU_FWD:
     case PointwiseAttr::Mode::ERF:
     case PointwiseAttr::Mode::EXP:
     case PointwiseAttr::Mode::FLOOR:
@@ -235,6 +236,10 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     for (auto val : result)
       REQUIRE(isClose(val, y));
   };
+
+  // Ensure every mode is exercised by at least one dtype path; otherwise
+  // it would be silently skipped.
+  REQUIRE((supportsInteger(mode) || supportsFloat(mode)));
 
   // Create handle for the target backend.
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
