@@ -167,12 +167,7 @@ static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
       .setEnableGqa(enableGqa);
 
   auto oT = graph->sdpa(qT, kT, vT, maskT, sdpaAttr);
-
-  // Output: [batch, headsQ, seqQ, headDim]
-  std::vector<int64_t> outDim = {batch, headsQ, seqQ, headDim};
-  auto outStride =
-      generateStrideFromDim(outDim, getContiguousStrideOrder(outDim.size()));
-  oT->setDim(outDim).setStride(outStride).setDataType(dt).setOutput(true);
+  oT->setOutput(true);
 
   FUSILLI_REQUIRE_OK(graph->validate());
   FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
