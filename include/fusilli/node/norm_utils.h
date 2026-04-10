@@ -98,6 +98,34 @@ inline void inferScaleBiasDimAndStride(std::shared_ptr<TensorAttr> &tensor,
   inferStride(tensor, getScaleBiasStride(tensor->getDim(), xStride));
 }
 
+// Returns true if scaleDim is broadcast-compatible with the expected
+// scale/bias shape derived from xDim. Each dimension must either match
+// the corresponding X dimension (with batch forced to 1) or be 1.
+inline bool isScaleBiasBroadcastCompatible(const std::vector<int64_t> &scaleDim,
+                                           const std::vector<int64_t> &xDim,
+                                           size_t batchDim = 0) {
+  if (scaleDim.size() != xDim.size())
+    return false;
+  for (size_t i = 0; i < scaleDim.size(); ++i) {
+    int64_t expected = (i == batchDim) ? 1 : xDim[i];
+    if (scaleDim[i] != expected && scaleDim[i] != 1)
+      return false;
+  }
+  return true;
+}
+
+// Infers dim and stride of a scale tensor for RmsNorm.
+// If dims are not set, they default to X's shape with batch=1.
+// If dims are already set (e.g. broadcast-compatible {1,c,1,1}),
+// they are preserved and strides are computed for that shape.
+inline void inferRmsScaleDimAndStride(std::shared_ptr<TensorAttr> &tensor,
+                                      const std::vector<int64_t> &xDim,
+                                      const std::vector<int64_t> &xStride,
+                                      size_t batchDim = 0) {
+  inferDim(tensor, getScaleBiasDim(xDim, batchDim));
+  inferStride(tensor, getScaleBiasStride(tensor->getDim(), xStride));
+}
+
 } // namespace fusilli::norm_utils
 
 #endif // FUSILLI_NODE_NORM_UTILS_H

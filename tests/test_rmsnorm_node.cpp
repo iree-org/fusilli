@@ -304,9 +304,10 @@ TEST_CASE("RmsNormNode shape checks on SCALE tensor", "[rmsnorm_node]") {
     auto status = node.preValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
-    REQUIRE(status.getMessage() ==
-            "RmsNorm input tensor SCALE must have shape as "
-            "tensor X with single batch");
+    REQUIRE(
+        status.getMessage() ==
+        "RmsNorm input tensor SCALE must have a broadcast-compatible shape with"
+        " tensor X (each dim must be 1 or match X, with single batch)");
   }
 }
 

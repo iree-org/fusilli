@@ -21,14 +21,15 @@
 
 using namespace fusilli;
 
-TEST_CASE("RMS normalization; inference mode; NHWC layout; with scale",
-          "[rmsnorm][graph]") {
+TEST_CASE(
+    "RMS normalization; inference mode; NHWC layout; with broadcast scale",
+    "[rmsnorm][graph]") {
   constexpr int64_t n = 2, c = 3, h = 32, w = 32;
   constexpr float eps = 1e-5f;
 
   auto buildNewGraph = [=](const Handle &handle) {
     auto graph = std::make_shared<Graph>();
-    graph->setName("rmsnorm_infer_sample_nhwc_scale");
+    graph->setName("rmsnorm_infer_sample_nhwc_scale_broadcast");
     graph->setIODataType(DataType::Float).setComputeDataType(DataType::Float);
 
     auto xT = graph->tensor(TensorAttr()
@@ -36,10 +37,12 @@ TEST_CASE("RMS normalization; inference mode; NHWC layout; with scale",
                                 .setDim({n, c, h, w})
                                 .setStride({c * h * w, 1, c * w, c}));
 
+    // Scale has broadcast-compatible shape: only channel dimension is set,
+    // spatial dims are 1 and will be expanded to match X during inference.
     auto scaleT = graph->tensor(TensorAttr()
                                     .setName("scale")
-                                    .setDim({1, c, h, w})
-                                    .setStride({c * h * w, 1, c * w, c}));
+                                    .setDim({1, c, 1, 1})
+                                    .setStride({c, 1, c, c}));
 
     auto epsilonT = graph->tensor(
         TensorAttr(eps).setDim({1, 1, 1, 1}).setStride({1, 1, 1, 1}));
@@ -73,8 +76,8 @@ TEST_CASE("RMS normalization; inference mode; NHWC layout; with scale",
       rmsnorm_utils::generateIOTensorsForInferForward(n, c, h, w, scale, eps);
 
   // Use a non-unity scale to verify scale is actually applied.
-  size_t scaleSize = 1 * c * h * w;
-  std::vector<float> scaleVals(scaleSize, scale);
+  // Only c elements needed — one per channel, broadcast across spatial dims.
+  std::vector<float> scaleVals(c, scale);
 
   FUSILLI_REQUIRE_ASSIGN(auto xBuf,
                          allocateBufferOfType(handle, xT, inputVals));
