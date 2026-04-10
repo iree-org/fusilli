@@ -213,9 +213,22 @@ getScalarConstantAsm(const std::shared_ptr<TensorAttr> &tensor) {
   assert(tensor->isScalar() && tensor->getScalarValue().has_value() &&
          "getScalarConstantAsm called with non-scalar tensor");
   std::string resultName = tensor->getValueNameAsm();
-  std::string mlirType = kDataTypeToMlirTypeAsm.at(tensor->getDataType());
+  std::string mlirDType = kDataTypeToMlirTypeAsm.at(tensor->getDataType());
   std::string resultType = tensor->getTensorTypeAsm(/*isValueTensor=*/true,
                                                     /*useLogicalDims=*/true);
+  // Build the dense tensor shape from actual dimensions (e.g. "1x1x1x1").
+  std::ostringstream shapeOss;
+  const auto &dims = tensor->getDim();
+  for (size_t i = 0; i < dims.size(); ++i) {
+    if (i > 0)
+      shapeOss << "x";
+    shapeOss << dims[i];
+  }
+  if (!shapeOss.str().empty())
+    shapeOss << "x";
+  shapeOss << mlirDType;
+
+  std::string mlirType = shapeOss.str();
   // std::visit generates a compile time switch statement executing lambda
   // instantiation per variant alternative.
   // Example output:
@@ -224,7 +237,7 @@ getScalarConstantAsm(const std::shared_ptr<TensorAttr> &tensor) {
   //   int32  42    → dense<0x0000002A>   : tensor<1xi32>
   //   int64  42L   → dense<0x000000000000002A> : tensor<1xi64>
   constexpr std::string_view schema = R"(
-    {0} = torch.vtensor.literal(dense<0x{1}> : tensor<1x{2}>) : {3}
+    {0} = torch.vtensor.literal(dense<0x{1}> : tensor<{2}>) : {3}
 )";
   return std::visit(
       [&](auto val) -> std::string {

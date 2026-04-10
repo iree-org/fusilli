@@ -93,6 +93,7 @@ add_fusilli_samples(
     rmsnorm/rmsnorm_infer_nchw.cpp
     rmsnorm/rmsnorm_infer_nchw_scale.cpp
     rmsnorm/rmsnorm_infer_nhwc_scale.cpp
+    rmsnorm/rmsnorm_infer_nhwc_scale_broadcast.cpp
   DEPS
     libfusilli
     libutils

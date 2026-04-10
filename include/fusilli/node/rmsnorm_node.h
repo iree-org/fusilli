@@ -88,14 +88,17 @@ public:
 
     // Shape and layout checks on scale tensor.
     // If scale tensor's dims/strides are not set, they will be inferred in
-    // inferPropertiesNode().
+    // inferPropertiesNode(). Scale may be broadcast-compatible with X (each
+    // dim is either 1 or matches X, with batch forced to 1).
     if (sT) {
       if (!sT->getDim().empty()) {
-        FUSILLI_RETURN_ERROR_IF(sT->getDim() !=
-                                    norm_utils::getScaleBiasDim(xT->getDim()),
-                                ErrorCode::InvalidAttribute,
-                                "RmsNorm input tensor SCALE must have shape as "
-                                "tensor X with single batch");
+        FUSILLI_RETURN_ERROR_IF(
+            !norm_utils::isScaleBiasBroadcastCompatible(sT->getDim(),
+                                                        xT->getDim()),
+            ErrorCode::InvalidAttribute,
+            "RmsNorm input tensor SCALE must have a broadcast-compatible "
+            "shape with tensor X (each dim must be 1 or match X, with "
+            "single batch)");
       }
 
       if (!sT->getStride().empty()) {
@@ -140,9 +143,11 @@ public:
     const std::vector<int64_t> &xDim = xT->getDim();
 
     // Infer shape and stride of input SCALE tensor if they're not set.
+    // Scale may be broadcast-compatible; dims are expanded to match X's
+    // shape and strides are computed from the target shape.
     std::shared_ptr<TensorAttr> sT = rmsnormAttr.getSCALE();
     if (sT) {
-      norm_utils::inferScaleBiasDimAndStride(sT, xDim, xT->getStride());
+      norm_utils::inferRmsScaleDimAndStride(sT, xDim, xT->getStride());
     }
 
     // Infer shape and stride of output Y tensor.
