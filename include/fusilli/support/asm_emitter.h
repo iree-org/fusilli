@@ -2024,19 +2024,20 @@ inline std::string SdpaNode::emitNodePreAsm() const {
   std::string permuteV = getLayoutConversionOpsAsm(sdpaAttr.getV(), "permute_V",
                                                    suffix, /*isInput=*/true);
 
-  std::string permuteMask;
-  std::string noneMask;
-  if (sdpaAttr.getMASK()) {
-    permuteMask =
-        getLayoutConversionOpsAsm(sdpaAttr.getMASK(), "permute_mask", suffix,
-                                  /*isInput=*/true);
-  } else {
-    noneMask = std::format("%none_mask_{} = torch.constant.none", suffix);
-  }
+  std::string mask;
+  if (sdpaAttr.getMASK())
+    mask = getLayoutConversionOpsAsm(sdpaAttr.getMASK(), "permute_mask", suffix,
+                                     /*isInput=*/true);
+  else
+    mask = std::format("%none_mask_{} = torch.constant.none", suffix);
 
   // Permute output.
   std::string permuteO = getLayoutConversionOpsAsm(sdpaAttr.getO(), "permute_O",
                                                    suffix, /*isInput=*/false);
+
+  std::string operandNames = getOperandNamesAsm() + ", %dropout_" + suffix +
+                             ", %is_causal_" + suffix + ", %scale_" + suffix +
+                             ", %enable_gqa_" + suffix;
 
   // Scale type for the MLIR signature.
   std::string scaleType =
@@ -2056,22 +2057,20 @@ inline std::string SdpaNode::emitNodePreAsm() const {
   )";
 
   return std::format(schema,
-                     permuteQ,                                     // {0}
-                     permuteK,                                     // {1}
-                     permuteV,                                     // {2}
-                     permuteMask.empty() ? noneMask : permuteMask, // {3}
-                     getDropoutOpsAsm(),                           // {4}
-                     getIsCausalOpsAsm(),                          // {5}
-                     getScaleOpsAsm(),                             // {6}
-                     getEnableGqaOpsAsm(),                         // {7}
-                     getResultNamesAsm(),                          // {8}
-                     getOperandNamesAsm() + ", %dropout_" + suffix +
-                         ", %is_causal_" + suffix + ", %scale_" + suffix +
-                         ", %enable_gqa_" + suffix, // {9}
-                     getOperandTypesAsm(),          // {10}
-                     scaleType,                     // {11}
-                     getResultTypesAsm(),           // {12}
-                     permuteO                       // {13}
+                     permuteQ,             // {0}
+                     permuteK,             // {1}
+                     permuteV,             // {2}
+                     mask,                 // {3}
+                     getDropoutOpsAsm(),   // {4}
+                     getIsCausalOpsAsm(),  // {5}
+                     getScaleOpsAsm(),     // {6}
+                     getEnableGqaOpsAsm(), // {7}
+                     getResultNamesAsm(),  // {8}
+                     operandNames,         // {9}
+                     getOperandTypesAsm(), // {10}
+                     scaleType,            // {11}
+                     getResultTypesAsm(),  // {12}
+                     permuteO              // {13}
   );
 }
 

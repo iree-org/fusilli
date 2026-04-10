@@ -5,8 +5,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 // NOLINTNEXTLINE(llvm-header-guard)
-#ifndef FUSILLI_SAMPLES_SDPA_SDPA_UTILS_H
-#define FUSILLI_SAMPLES_SDPA_SDPA_UTILS_H
+#ifndef FUSILLI_SAMPLES_CUSTOM_OP_SDPA_SDPA_UTILS_H
+#define FUSILLI_SAMPLES_CUSTOM_OP_SDPA_SDPA_UTILS_H
 
 #include <fusilli.h>
 
@@ -42,7 +42,7 @@ using namespace fusilli;
 // Positional args: {0}=DROPOUT_P, {1}=IS_CAUSAL, {2}=SCALE_CONST,
 //                  {3}=SCALE_TYPE, {4}=ENABLE_GQA
 // clang-format off
-static constexpr std::string_view kSdpaNoMask = R"mlir(
+inline constexpr std::string_view kSdpaNoMask = R"mlir(
   func.func private @{{FUNC_NAME}}(
       %arg0: {{IN0_TYPE}},
       %arg1: {{IN1_TYPE}},
@@ -64,7 +64,7 @@ static constexpr std::string_view kSdpaNoMask = R"mlir(
 
 // SDPA template: 4 tensor inputs (Q, K, V, attn_mask).
 // Positional args: same as kSdpaNoMask.
-static constexpr std::string_view kSdpaWithMask = R"mlir(
+inline constexpr std::string_view kSdpaWithMask = R"mlir(
   func.func private @{{FUNC_NAME}}(
       %arg0: {{IN0_TYPE}},
       %arg1: {{IN1_TYPE}},
@@ -94,7 +94,7 @@ static constexpr std::string_view kSdpaWithMask = R"mlir(
 ///
 /// When hasAttnMask is false: 3 tensor inputs (Q=IN0, K=IN1, V=IN2).
 /// When hasAttnMask is true:  4 tensor inputs (Q=IN0, K=IN1, V=IN2, mask=IN3).
-static std::string buildSdpaMlir(bool hasAttnMask = false,
+inline std::string buildSdpaMlir(bool hasAttnMask = false,
                                  float dropoutP = 0.0f, bool isCausal = false,
                                  std::optional<float> scale = std::nullopt,
                                  bool enableGqa = false) {
@@ -120,7 +120,7 @@ static std::string buildSdpaMlir(bool hasAttnMask = false,
 // CPU reference implementation of scaled dot-product attention.
 // Computes SDPA in float precision for numerical verification against the GPU.
 // Layout: [batch, heads, seq_len, head_dim] contiguous.
-static std::vector<float>
+inline std::vector<float>
 referenceSdpa(float qVal, float kVal, float vVal, float maskVal, int64_t batch,
               int64_t headsQ, int64_t headsKV, int64_t seqQ, int64_t seqKV,
               int64_t headDim, bool isCausal, std::optional<float> scale,
@@ -179,7 +179,7 @@ referenceSdpa(float qVal, float kVal, float vVal, float maskVal, int64_t batch,
 
 // Build a graph that runs scaled dot-product attention on Q, K, V tensors.
 // Shape convention: [batch, heads, seq_len, head_dim].
-static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
+inline void executeSdpa(Handle &handle, DataType dt, int64_t batch,
                         int64_t headsQ, int64_t headsKV, int64_t seqQ,
                         int64_t seqKV, int64_t headDim, bool isCausal = false,
                         std::optional<float> scale = std::nullopt,
@@ -319,4 +319,4 @@ static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
   }
 }
 
-#endif // FUSILLI_SAMPLES_SDPA_SDPA_UTILS_H
+#endif // FUSILLI_SAMPLES_CUSTOM_OP_SDPA_SDPA_UTILS_H
