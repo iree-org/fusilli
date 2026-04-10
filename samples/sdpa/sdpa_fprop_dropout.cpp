@@ -18,7 +18,7 @@ TEST_CASE("SDPA forward: dropout f16",
           "[sdpa][custom_op][graph][!shouldfail]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   executeSdpa(handle, DataType::Half,
-              /*batch=*/1, /*headsQ=*/8, /*headsKV=*/8,
+              /*batch=*/1, /*headsQ=*/8, /*headsK=*/8,
               /*seqQ=*/64, /*seqKV=*/64, /*headDim=*/64,
               /*isCausal=*/false, /*scale=*/std::nullopt,
               /*enableGqa=*/false, /*hasAttnMask=*/false,

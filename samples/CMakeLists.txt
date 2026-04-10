@@ -128,6 +128,7 @@ add_fusilli_samples(
     sdpa/sdpa_fprop_with_mask.cpp
     sdpa/sdpa_fprop_dropout.cpp
     sdpa/sdpa_fprop_gqa.cpp
+    sdpa/sdpa_fprop_gqa_independent_kv.cpp
     sdpa/sdpa_fprop_cross_attn.cpp
   DEPS
     libfusilli

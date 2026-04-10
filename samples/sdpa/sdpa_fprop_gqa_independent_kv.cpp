@@ -11,13 +11,15 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-// Cross-attention: query sequence length differs from key/value sequence
-// length. This is typical in encoder-decoder architectures where the decoder
-// (query) attends to the encoder output (key/value) which has a different
-// length.
-TEST_CASE("SDPA forward: cross attention f16", "[sdpa][custom_op][graph]") {
+#include <optional>
+
+TEST_CASE("SDPA forward: GQA independent K/V heads f16",
+          "[sdpa][custom_op][graph]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   executeSdpa(handle, DataType::Half,
-              /*batch=*/1, /*headsQ=*/8, /*headsK=*/8,
-              /*seqQ=*/32, /*seqKV=*/128, /*headDim=*/64);
+              /*batch=*/1, /*headsQ=*/8, /*headsK=*/4,
+              /*seqQ=*/64, /*seqKV=*/64, /*headDim=*/64,
+              /*isCausal=*/false, /*scale=*/std::nullopt,
+              /*enableGqa=*/true, /*hasAttnMask=*/false,
+              /*dropoutP=*/0.0f, /*headsV=*/2);
 }
