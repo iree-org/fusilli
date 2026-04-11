@@ -76,18 +76,20 @@ public:
     FUSILLI_RETURN_ERROR_IF(!oT, ErrorCode::AttributeNotSet,
                             "SDPA output tensor O not set");
 
-    // Rank checks: all tensors must be rank 4 [batch, heads, seq_len,
-    // head_dim].
+    // Rank checks: all tensors must be rank 4.
     constexpr size_t kRequiredRank = 4;
-    FUSILLI_RETURN_ERROR_IF(
-        qT->getDim().size() != kRequiredRank, ErrorCode::InvalidAttribute,
-        "SDPA input tensor Q must be rank 4 [batch, heads, seq_len, head_dim]");
-    FUSILLI_RETURN_ERROR_IF(
-        kT->getDim().size() != kRequiredRank, ErrorCode::InvalidAttribute,
-        "SDPA input tensor K must be rank 4 [batch, heads, seq_len, head_dim]");
-    FUSILLI_RETURN_ERROR_IF(
-        vT->getDim().size() != kRequiredRank, ErrorCode::InvalidAttribute,
-        "SDPA input tensor V must be rank 4 [batch, heads, seq_len, head_dim]");
+    FUSILLI_RETURN_ERROR_IF(qT->getDim().size() != kRequiredRank,
+                            ErrorCode::InvalidAttribute,
+                            "SDPA input tensor Q must be rank 4 "
+                            "[batch, heads_q, seq_q, head_dim]");
+    FUSILLI_RETURN_ERROR_IF(kT->getDim().size() != kRequiredRank,
+                            ErrorCode::InvalidAttribute,
+                            "SDPA input tensor K must be rank 4 "
+                            "[batch, heads_kv, seq_kv, head_dim]");
+    FUSILLI_RETURN_ERROR_IF(vT->getDim().size() != kRequiredRank,
+                            ErrorCode::InvalidAttribute,
+                            "SDPA input tensor V must be rank 4 "
+                            "[batch, heads_kv, seq_kv, head_dim]");
 
     const std::vector<int64_t> &qDim = qT->getDim();
     const std::vector<int64_t> &kDim = kT->getDim();
@@ -107,7 +109,7 @@ public:
     // TODO(#280): Relax the h_k == h_v constraint once IREE fix is in.
     FUSILLI_RETURN_ERROR_IF(
         kDim[1] != vDim[1], ErrorCode::InvalidAttribute,
-        "SDPA input tensors K and V must have matching heads dimension");
+        "SDPA input tensors K and V must have matching number of heads");
     FUSILLI_RETURN_ERROR_IF(
         kDim[2] != vDim[2], ErrorCode::InvalidAttribute,
         "SDPA input tensors K and V must have matching sequence length");
