@@ -114,9 +114,8 @@ TEST_CASE("SdpaNode preValidateNode rank checks", "[sdpa_node]") {
     auto status = node.preValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
-    REQUIRE(status.getMessage() ==
-            "SDPA input tensor Q must be rank 4 [batch, heads, seq_len, "
-            "head_dim]");
+    REQUIRE(status.getMessage() == "SDPA input tensor Q must be rank 4 "
+                                   "[batch, heads_q, seq_q, head_dim]");
   }
 
   SECTION("K must be rank 4") {
@@ -132,9 +131,8 @@ TEST_CASE("SdpaNode preValidateNode rank checks", "[sdpa_node]") {
     auto status = node.preValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
-    REQUIRE(status.getMessage() ==
-            "SDPA input tensor K must be rank 4 [batch, heads, seq_len, "
-            "head_dim]");
+    REQUIRE(status.getMessage() == "SDPA input tensor K must be rank 4 "
+                                   "[batch, heads_kv, seq_kv, head_dim]");
   }
 }
 
@@ -198,7 +196,7 @@ TEST_CASE("SdpaNode preValidateNode dimension checks", "[sdpa_node]") {
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "SDPA input tensors K and V must have matching heads dimension");
+            "SDPA input tensors K and V must have matching number of heads");
   }
 
   SECTION("K and V sequence length mismatch") {
