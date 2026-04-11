@@ -31,7 +31,7 @@ using namespace fusilli;
 // CPU reference implementation of scaled dot-product attention.
 // Computes SDPA in float precision for numerical verification against the GPU.
 // Layout: [batch, heads, seq_len, head_dim] contiguous.
-static std::vector<float>
+inline std::vector<float>
 referenceSdpa(float qVal, float kVal, float vVal, float maskVal, int64_t batch,
               int64_t headsQ, int64_t headsKV, int64_t seqQ, int64_t seqKV,
               int64_t headDim, bool isCausal, std::optional<float> scale,
@@ -91,7 +91,7 @@ referenceSdpa(float qVal, float kVal, float vVal, float maskVal, int64_t batch,
 // Build a graph that runs scaled dot-product attention on Q, K, V tensors
 // using the built-in SDPA op.
 // Shape convention: [batch, heads, seq_len, head_dim].
-static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
+inline void executeSdpa(Handle &handle, DataType dt, int64_t batch,
                         int64_t headsQ, int64_t headsKV, int64_t seqQ,
                         int64_t seqKV, int64_t headDim, bool isCausal = false,
                         std::optional<float> scale = std::nullopt,
