@@ -17,7 +17,7 @@
 // length.
 TEST_CASE("SDPA forward: cross attention f16", "[sdpa][custom_op][graph]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-  executeSdpa(handle, DataType::Half,
-              /*batch=*/1, /*headsQ=*/8, /*headsKV=*/8,
-              /*seqQ=*/32, /*seqKV=*/128, /*headDim=*/64);
+  executeSdpaCustomOp(handle, DataType::Half,
+                      /*batch=*/1, /*headsQ=*/8, /*headsKV=*/8,
+                      /*seqQ=*/32, /*seqKV=*/128, /*headDim=*/64);
 }
