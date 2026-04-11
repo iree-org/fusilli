@@ -128,6 +128,34 @@ inline std::string buildTensorTypeStr(const std::vector<int64_t> &dims,
   return oss.str();
 }
 
+// ---------------------------------------------------------------------------
+// Torch IR constant helpers
+//
+// Emit `torch.constant.*` SSA declarations as strings. Each returns a
+// single line of the form `%<name>_<suffix> = torch.constant.<kind> <val>`.
+// ---------------------------------------------------------------------------
+
+inline std::string torchNoneAsm(std::string_view name,
+                                std::string_view suffix) {
+  return std::format("%{}_{} = torch.constant.none", name, suffix);
+}
+
+inline std::string torchBoolAsm(std::string_view name, std::string_view suffix,
+                                bool value) {
+  return std::format("%{}_{} = torch.constant.bool {}", name, suffix,
+                     value ? "true" : "false");
+}
+
+inline std::string torchFloatAsm(std::string_view name, std::string_view suffix,
+                                 float value) {
+  return std::format("%{}_{} = torch.constant.float {:e}", name, suffix, value);
+}
+
+inline std::string torchIntAsm(std::string_view name, std::string_view suffix,
+                               int64_t value) {
+  return std::format("%{}_{} = torch.constant.int {}", name, suffix, value);
+}
+
 // Emits layout conversion ops (permute + broadcast expand if needed) for a
 // tensor in MLIR assembly format. Handles both directions:
 //
@@ -568,8 +596,7 @@ inline std::string ConvFPropNode::getGroupOpsAsm() const {
   int64_t filterChannels = convFPropAttr.getW()->getDim()[channelsIdx];
   int64_t groupCount = inChannels / filterChannels;
 
-  return std::format("%groups_{} = torch.constant.int {}",
-                     convFPropAttr.getName(), groupCount);
+  return torchIntAsm("groups", convFPropAttr.getName(), groupCount);
 }
 
 // Get strides in MLIR assembly format.
@@ -730,8 +757,7 @@ inline std::string ConvWGradNode::getGroupOpsAsm() const {
   int64_t filterChannels = convWGradAttr.getDW()->getDim()[channelsIdx];
   int64_t groupCount = inChannels / filterChannels;
 
-  return std::format("%groups_{} = torch.constant.int {}",
-                     convWGradAttr.getName(), groupCount);
+  return torchIntAsm("groups", convWGradAttr.getName(), groupCount);
 }
 
 // Get strides in MLIR assembly format.
@@ -893,8 +919,7 @@ inline std::string ConvDGradNode::getGroupOpsAsm() const {
   int64_t filterChannels = convDGradAttr.getW()->getDim()[channelsIdx];
   int64_t groupCount = inChannels / filterChannels;
 
-  return std::format("%groups_{} = torch.constant.int {}",
-                     convDGradAttr.getName(), groupCount);
+  return torchIntAsm("groups", convDGradAttr.getName(), groupCount);
 }
 
 // Get strides in MLIR assembly format.
@@ -1179,7 +1204,7 @@ inline std::string BatchNormNode::emitNodePreAsm() const {
                             const std::string &name) -> std::string {
     if (t)
       return "";
-    return std::format("%none_{}_{} = torch.constant.none", name, suffix);
+    return torchNoneAsm("none_" + name, suffix);
   };
 
   std::string scaleNone = getNoneOrEmpty(batchnormAttr.getSCALE(), "scale");
@@ -1368,13 +1393,12 @@ inline std::string LayerNormNode::emitNodePreAsm() const {
       layernormAttr.getSCALE()
           ? getLayoutConversionOpsAsm(layernormAttr.getSCALE(), "permute_scale",
                                       uniqueSSASuffix, /*isInput=*/true)
-          : std::format("%none_scale_{} = torch.constant.none",
-                        uniqueSSASuffix);
+          : torchNoneAsm("none_scale", uniqueSSASuffix);
   std::string permuteBias =
       layernormAttr.getBIAS()
           ? getLayoutConversionOpsAsm(layernormAttr.getBIAS(), "permute_bias",
                                       uniqueSSASuffix, /*isInput=*/true)
-          : std::format("%none_bias_{} = torch.constant.none", uniqueSSASuffix);
+          : torchNoneAsm("none_bias", uniqueSSASuffix);
 
   if (isTrainingForwardPhase()) {
     std::string permuteMean =
@@ -1537,8 +1561,7 @@ inline std::string RmsNormNode::emitNodePreAsm() const {
       rmsnormAttr.getSCALE()
           ? getLayoutConversionOpsAsm(rmsnormAttr.getSCALE(), "permute_scale",
                                       uniqueSSASuffix, /*isInput=*/true)
-          : std::format("%none_scale_{} = torch.constant.none",
-                        uniqueSSASuffix);
+          : torchNoneAsm("none_scale", uniqueSSASuffix);
 
   constexpr std::string_view schema = R"(
     {0}
@@ -1985,32 +2008,26 @@ inline std::string SdpaNode::getResultTypesAsm() const {
 
 // Emits the dropout probability constant.
 inline std::string SdpaNode::getDropoutOpsAsm() const {
-  std::string suffix = sdpaAttr.getName();
-  return std::format("%dropout_{0} = torch.constant.float {1:e}", suffix,
-                     sdpaAttr.getDropout());
+  return torchFloatAsm("dropout", sdpaAttr.getName(), sdpaAttr.getDropout());
 }
 
 // Emits the is_causal boolean constant.
 inline std::string SdpaNode::getIsCausalOpsAsm() const {
-  std::string suffix = sdpaAttr.getName();
-  return std::format("%is_causal_{} = torch.constant.bool {}", suffix,
-                     sdpaAttr.getIsCausal() ? "true" : "false");
+  return torchBoolAsm("is_causal", sdpaAttr.getName(), sdpaAttr.getIsCausal());
 }
 
 // Emits the scale constant (float or none).
 inline std::string SdpaNode::getScaleOpsAsm() const {
   std::string suffix = sdpaAttr.getName();
   if (sdpaAttr.getScale().has_value())
-    return std::format("%scale_{0} = torch.constant.float {1:e}", suffix,
-                       *sdpaAttr.getScale());
-  return std::format("%scale_{} = torch.constant.none", suffix);
+    return torchFloatAsm("scale", suffix, *sdpaAttr.getScale());
+  return torchNoneAsm("scale", suffix);
 }
 
 // Emits the enable_gqa boolean constant.
 inline std::string SdpaNode::getEnableGqaOpsAsm() const {
-  std::string suffix = sdpaAttr.getName();
-  return std::format("%enable_gqa_{} = torch.constant.bool {}", suffix,
-                     sdpaAttr.getEnableGqa() ? "true" : "false");
+  return torchBoolAsm("enable_gqa", sdpaAttr.getName(),
+                      sdpaAttr.getEnableGqa());
 }
 
 inline std::string SdpaNode::emitNodePreAsm() const {
@@ -2029,7 +2046,7 @@ inline std::string SdpaNode::emitNodePreAsm() const {
     mask = getLayoutConversionOpsAsm(sdpaAttr.getMASK(), "permute_mask", suffix,
                                      /*isInput=*/true);
   else
-    mask = std::format("%none_mask_{} = torch.constant.none", suffix);
+    mask = torchNoneAsm("none_mask", suffix);
 
   // Permute output.
   std::string permuteO = getLayoutConversionOpsAsm(sdpaAttr.getO(), "permute_O",
