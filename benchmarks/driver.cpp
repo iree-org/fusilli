@@ -6,7 +6,6 @@
 
 #include <fusilli.h>
 
-#include "sdpa_utils.h"
 #include "utils.h"
 
 #include <CLI/CLI.hpp>
@@ -677,26 +676,21 @@ static ErrorObject benchmarkSdpaFwd(const SdpaOptions &opts,
                              .setDataType(sdpaIOType));
   }
 
-  // Build the MLIR template with scalar parameters.
-  std::string sdpaMlir = buildSdpaMlir(opts.hasAttnMask, opts.dropoutP,
-                                       opts.isCausal, scale, opts.enableGqa);
+  SdpaAttr sdpaAttr;
+  sdpaAttr.setName("sdpa")
+      .setDropout(opts.dropoutP)
+      .setIsCausal(opts.isCausal)
+      .setScale(scale)
+      .setEnableGqa(opts.enableGqa);
 
-  CustomOpAttr sdpaAttr;
-  sdpaAttr.setName("sdpa").setMlir(sdpaMlir).setNumOutputs(1);
-
-  std::vector<std::shared_ptr<TensorAttr>> inputs = {qT, kT, vT};
-  if (opts.hasAttnMask)
-    inputs.push_back(maskT);
-
-  auto outs = graph.customOp(inputs, sdpaAttr);
+  auto oT = graph.sdpa(qT, kT, vT, maskT, sdpaAttr);
 
   // Output: [batch, headsQ, seqQ, headDim]
   std::vector<int64_t> outDim = {opts.batch, opts.headsQ, opts.seqQ,
                                  opts.headDim};
   auto outStride =
       generateStrideFromDim(outDim, getContiguousStrideOrder(outDim.size()));
-  outs[0]
-      ->setDim(outDim)
+  oT->setDim(outDim)
       .setStride(outStride)
       .setDataType(sdpaIOType)
       .setOutput(true);
@@ -714,12 +708,12 @@ static ErrorObject benchmarkSdpaFwd(const SdpaOptions &opts,
                            allocateBufferOfType(handle, kT, sdpaIOType, 0.01f));
   FUSILLI_ASSIGN_OR_RETURN(auto vBuf,
                            allocateBufferOfType(handle, vT, sdpaIOType, 0.01f));
-  FUSILLI_ASSIGN_OR_RETURN(
-      auto outBuf, allocateBufferOfType(handle, outs[0], sdpaIOType, 0.0f));
+  FUSILLI_ASSIGN_OR_RETURN(auto outBuf,
+                           allocateBufferOfType(handle, oT, sdpaIOType, 0.0f));
 
   // Create variant pack.
   std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
-      variantPack = {{qT, qBuf}, {kT, kBuf}, {vT, vBuf}, {outs[0], outBuf}};
+      variantPack = {{qT, qBuf}, {kT, kBuf}, {vT, vBuf}, {oT, outBuf}};
 
   if (opts.hasAttnMask) {
     FUSILLI_ASSIGN_OR_RETURN(

@@ -4,14 +4,12 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-// NOLINTNEXTLINE(llvm-header-guard)
-#ifndef FUSILLI_SAMPLES_SDPA_SDPA_UTILS_H
-#define FUSILLI_SAMPLES_SDPA_SDPA_UTILS_H
-
 #include <fusilli.h>
 
+#include "sdpa_utils.h"
 #include "utils.h"
 
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
@@ -29,78 +27,8 @@
 
 using namespace fusilli;
 
-// SDPA MLIR templates for torch.aten.scaled_dot_product_attention.
-//
-// Templates are stored as R-string literals so the MLIR structure is
-// directly readable in source. Standard CustomOp placeholders
-// ({FUNC_NAME}, {IN<i>_DTYPE}, {OUT0_DTYPE}) are resolved by
-// CustomOpNode::resolveMlirPlaceholders(). Scalar placeholders
-// ({DROPOUT_P}, {IS_CAUSAL}, {SCALE_CONST}, {SCALE_TYPE}, {ENABLE_GQA})
-// are resolved by buildSdpaMlir().
-//
-// Tensor rank is hardcoded to 4 ([batch, heads, seq_len, head_dim]).
-
-// SDPA template: 3 tensor inputs (Q, K, V), attention mask is none.
-// Positional args: {0}=DROPOUT_P, {1}=IS_CAUSAL, {2}=SCALE_CONST,
-//                  {3}=SCALE_TYPE, {4}=ENABLE_GQA
-// clang-format off
-static constexpr std::string_view kSdpaNoMask = R"mlir(
-  func.func private @{{FUNC_NAME}}(
-      %arg0: {{IN0_TYPE}},
-      %arg1: {{IN1_TYPE}},
-      %arg2: {{IN2_TYPE}})
-      -> {{OUT0_TYPE}} {{
-    %none_mask = torch.constant.none
-    %dropout = torch.constant.float {0}
-    %is_causal = torch.constant.bool {1}
-    %scale = {2}
-    %enable_gqa = torch.constant.bool {4}
-    %0 = torch.aten.scaled_dot_product_attention %arg0, %arg1, %arg2,
-        %none_mask, %dropout, %is_causal, %scale, %enable_gqa :
-        {{IN0_TYPE}}, {{IN1_TYPE}},
-        {{IN2_TYPE}}, !torch.none, !torch.float, !torch.bool,
-        {3}, !torch.bool -> {{OUT0_TYPE}}
-    return %0 : {{OUT0_TYPE}}
-  }}
-)mlir";
-
-// SDPA template: 4 tensor inputs (Q, K, V, attn_mask).
-// Positional args: same as kSdpaNoMask.
-static constexpr std::string_view kSdpaWithMask = R"mlir(
-  func.func private @{{FUNC_NAME}}(
-      %arg0: {{IN0_TYPE}},
-      %arg1: {{IN1_TYPE}},
-      %arg2: {{IN2_TYPE}},
-      %arg3: {{IN3_TYPE}})
-      -> {{OUT0_TYPE}} {{
-    %dropout = torch.constant.float {0}
-    %is_causal = torch.constant.bool {1}
-    %scale = {2}
-    %enable_gqa = torch.constant.bool {4}
-    %0 = torch.aten.scaled_dot_product_attention %arg0, %arg1, %arg2,
-        %arg3, %dropout, %is_causal, %scale, %enable_gqa :
-        {{IN0_TYPE}}, {{IN1_TYPE}},
-        {{IN2_TYPE}}, {{IN3_TYPE}},
-        !torch.float, !torch.bool,
-        {3}, !torch.bool -> {{OUT0_TYPE}}
-    return %0 : {{OUT0_TYPE}}
-  }}
-)mlir";
-// clang-format on
-
-/// Builds the MLIR template for torch.aten.scaled_dot_product_attention.
-///
-/// Selects the appropriate R-string template (with/without attn_mask) and
-/// resolves scalar placeholders. Standard CustomOp dtype/name placeholders
-/// are left for CustomOpNode to resolve at emission time.
-///
-/// When hasAttnMask is false: 3 tensor inputs (Q=IN0, K=IN1, V=IN2).
-/// When hasAttnMask is true:  4 tensor inputs (Q=IN0, K=IN1, V=IN2, mask=IN3).
-static std::string buildSdpaMlir(bool hasAttnMask = false,
-                                 float dropoutP = 0.0f, bool isCausal = false,
-                                 std::optional<float> scale = std::nullopt,
-                                 bool enableGqa = false) {
-  // Compute raw values for scalar placeholders.
+std::string buildSdpaMlir(bool hasAttnMask, float dropoutP, bool isCausal,
+                          std::optional<float> scale, bool enableGqa) {
   std::string dropoutStr = std::format("{:e}", dropoutP);
   std::string isCausalStr = isCausal ? "true" : "false";
   std::string scaleConstStr =
@@ -109,7 +37,6 @@ static std::string buildSdpaMlir(bool hasAttnMask = false,
   std::string scaleTypeStr = scale.has_value() ? "!torch.float" : "!torch.none";
   std::string enableGqaStr = enableGqa ? "true" : "false";
 
-  // Resolve all scalar placeholders in a single format pass.
   return std::vformat(hasAttnMask ? kSdpaWithMask : kSdpaNoMask,
                       std::make_format_args(dropoutStr,    // {0} DROPOUT_P
                                             isCausalStr,   // {1} IS_CAUSAL
@@ -119,14 +46,12 @@ static std::string buildSdpaMlir(bool hasAttnMask = false,
                                             ));
 }
 
-// CPU reference implementation of scaled dot-product attention.
-// Computes SDPA in float precision for numerical verification against the GPU.
-// Layout: [batch, heads, seq_len, head_dim] contiguous.
-static std::vector<float>
-referenceSdpa(float qVal, float kVal, float vVal, float maskVal, int64_t batch,
-              int64_t headsQ, int64_t headsKV, int64_t seqQ, int64_t seqKV,
-              int64_t headDim, bool isCausal, std::optional<float> scale,
-              bool enableGqa, bool hasAttnMask) {
+std::vector<float> referenceSdpa(float qVal, float kVal, float vVal,
+                                 float maskVal, int64_t batch, int64_t headsQ,
+                                 int64_t headsKV, int64_t seqQ, int64_t seqKV,
+                                 int64_t headDim, bool isCausal,
+                                 std::optional<float> scale, bool enableGqa,
+                                 bool hasAttnMask) {
   float s = scale.value_or(1.0f / std::sqrt(static_cast<float>(headDim)));
   int64_t outSize = batch * headsQ * seqQ * headDim;
   std::vector<float> out(outSize);
@@ -179,18 +104,24 @@ referenceSdpa(float qVal, float kVal, float vVal, float maskVal, int64_t batch,
   return out;
 }
 
-// Build a graph that runs scaled dot-product attention on Q, K, V tensors.
-// Shape convention: [batch, heads, seq_len, head_dim].
-static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
-                        int64_t headsQ, int64_t headsKV, int64_t seqQ,
-                        int64_t seqKV, int64_t headDim, bool isCausal = false,
-                        std::optional<float> scale = std::nullopt,
-                        bool enableGqa = false, bool hasAttnMask = false,
-                        float dropoutP = 0.0f) {
-  // attn_mask and is_causal are mutually exclusive: is_causal internally
-  // applies a causal mask, making an explicit mask contradictory.
-  REQUIRE(!(hasAttnMask && isCausal));
+// ---------------------------------------------------------------------------
+// Shared setup and verification helpers
+// ---------------------------------------------------------------------------
 
+namespace {
+
+struct SdpaTestContext {
+  std::shared_ptr<Graph> graph;
+  std::shared_ptr<TensorAttr> qT, kT, vT, maskT;
+};
+
+SdpaTestContext setupSdpaGraph(DataType dt, int64_t batch, int64_t headsQ,
+                               int64_t headsKV, int64_t seqQ, int64_t seqKV,
+                               int64_t headDim, bool isCausal, bool enableGqa,
+                               bool hasAttnMask, float dropoutP,
+                               std::optional<float> scale,
+                               std::string_view namePrefix) {
+  REQUIRE(!(hasAttnMask && isCausal));
   if (enableGqa) {
     // GQA constraint: query heads must be a multiple of KV heads.
     REQUIRE(headsQ % headsKV == 0);
@@ -209,9 +140,10 @@ static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
 
   auto graph = std::make_shared<Graph>();
   graph
-      ->setName(std::format("sdpa_b{}hq{}hkv{}sq{}skv{}d{}{}{}{}{}{}", batch,
-                            headsQ, headsKV, seqQ, seqKV, headDim, causalSuffix,
-                            maskSuffix, gqaSuffix, scaleSuffix, dropoutSuffix))
+      ->setName(std::format("{}_b{}hq{}hkv{}sq{}skv{}d{}{}{}{}{}{}", namePrefix,
+                            batch, headsQ, headsKV, seqQ, seqKV, headDim,
+                            causalSuffix, maskSuffix, gqaSuffix, scaleSuffix,
+                            dropoutSuffix))
       .setIODataType(dt)
       .setIntermediateDataType(dt);
 
@@ -237,8 +169,6 @@ static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
       graph->tensor(TensorAttr().setName("v").setDim(vDim).setStride(vStride));
 
   // Attention mask: [batch, 1, seqQ, seqKV] — broadcast across heads.
-  // Float masks are additive (attn_scores += mask), consistent with the
-  // PyTorch reference: attn_bias = attn_mask + attn_bias.
   std::shared_ptr<TensorAttr> maskT;
   if (hasAttnMask) {
     std::vector<int64_t> maskDim = {batch, 1, seqQ, seqKV};
@@ -248,47 +178,41 @@ static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
         TensorAttr().setName("mask").setDim(maskDim).setStride(maskStride));
   }
 
-  // Build the MLIR template with the given scalar parameters.
-  std::string sdpaMlir =
-      buildSdpaMlir(hasAttnMask, dropoutP, isCausal, scale, enableGqa);
+  return {graph, qT, kT, vT, maskT};
+}
 
-  CustomOpAttr sdpaAttr;
-  sdpaAttr.setName("sdpa").setMlir(sdpaMlir).setNumOutputs(1);
+void executeAndVerify(Handle &handle, const SdpaTestContext &ctx,
+                      const std::shared_ptr<TensorAttr> &oT, DataType dt,
+                      int64_t batch, int64_t headsQ, int64_t headsKV,
+                      int64_t seqQ, int64_t seqKV, int64_t headDim,
+                      bool isCausal, std::optional<float> scale, bool enableGqa,
+                      bool hasAttnMask, float dropoutP) {
+  FUSILLI_REQUIRE_OK(ctx.graph->validate());
+  FUSILLI_REQUIRE_OK(ctx.graph->compile(handle, /*remove=*/true));
 
-  std::vector<std::shared_ptr<TensorAttr>> inputs = {qT, kT, vT};
-  if (hasAttnMask)
-    inputs.push_back(maskT);
-
-  auto outs = graph->customOp(inputs, sdpaAttr);
-
-  // Output: [batch, headsQ, seqQ, headDim]
-  std::vector<int64_t> outDim = {batch, headsQ, seqQ, headDim};
-  auto outStride =
-      generateStrideFromDim(outDim, getContiguousStrideOrder(outDim.size()));
-  outs[0]->setDim(outDim).setStride(outStride).setDataType(dt).setOutput(true);
-
-  FUSILLI_REQUIRE_OK(graph->validate());
-  FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
-
-  FUSILLI_REQUIRE_ASSIGN(auto qBuf, allocateBufferOfType(handle, qT, dt, 0.01));
-  FUSILLI_REQUIRE_ASSIGN(auto kBuf, allocateBufferOfType(handle, kT, dt, 0.01));
-  FUSILLI_REQUIRE_ASSIGN(auto vBuf, allocateBufferOfType(handle, vT, dt, 0.01));
+  FUSILLI_REQUIRE_ASSIGN(auto qBuf,
+                         allocateBufferOfType(handle, ctx.qT, dt, 0.01));
+  FUSILLI_REQUIRE_ASSIGN(auto kBuf,
+                         allocateBufferOfType(handle, ctx.kT, dt, 0.01));
+  FUSILLI_REQUIRE_ASSIGN(auto vBuf,
+                         allocateBufferOfType(handle, ctx.vT, dt, 0.01));
   FUSILLI_REQUIRE_ASSIGN(auto outBuf,
-                         allocateBufferOfType(handle, outs[0], dt, 0.0));
+                         allocateBufferOfType(handle, oT, dt, 0.0));
 
   std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
-      variantPack = {{qT, qBuf}, {kT, kBuf}, {vT, vBuf}, {outs[0], outBuf}};
+      variantPack = {
+          {ctx.qT, qBuf}, {ctx.kT, kBuf}, {ctx.vT, vBuf}, {oT, outBuf}};
 
   if (hasAttnMask) {
     FUSILLI_REQUIRE_ASSIGN(auto maskBuf,
-                           allocateBufferOfType(handle, maskT, dt, -1.0));
-    variantPack[maskT] = maskBuf;
+                           allocateBufferOfType(handle, ctx.maskT, dt, -1.0));
+    variantPack[ctx.maskT] = maskBuf;
   }
 
-  FUSILLI_REQUIRE_ASSIGN(auto workspace,
-                         allocateWorkspace(handle, graph->getWorkspaceSize()));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto workspace, allocateWorkspace(handle, ctx.graph->getWorkspaceSize()));
 
-  FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
+  FUSILLI_REQUIRE_OK(ctx.graph->execute(handle, variantPack, workspace));
 
   // Read back output and verify against CPU reference.
   std::vector<half> result;
@@ -320,4 +244,62 @@ static void executeSdpa(Handle &handle, DataType dt, int64_t batch,
   }
 }
 
-#endif // FUSILLI_SAMPLES_SDPA_SDPA_UTILS_H
+} // namespace
+
+// ---------------------------------------------------------------------------
+// Public entry points
+// ---------------------------------------------------------------------------
+
+void executeSdpa(Handle &handle, DataType dt, int64_t batch, int64_t headsQ,
+                 int64_t headsKV, int64_t seqQ, int64_t seqKV, int64_t headDim,
+                 bool isCausal, std::optional<float> scale, bool enableGqa,
+                 bool hasAttnMask, float dropoutP) {
+  auto ctx =
+      setupSdpaGraph(dt, batch, headsQ, headsKV, seqQ, seqKV, headDim, isCausal,
+                     enableGqa, hasAttnMask, dropoutP, scale, "sdpa");
+
+  SdpaAttr sdpaAttr;
+  sdpaAttr.setName("sdpa")
+      .setDropout(dropoutP)
+      .setIsCausal(isCausal)
+      .setScale(scale)
+      .setEnableGqa(enableGqa);
+
+  auto oT = ctx.graph->sdpa(ctx.qT, ctx.kT, ctx.vT, ctx.maskT, sdpaAttr);
+  oT->setOutput(true);
+
+  executeAndVerify(handle, ctx, oT, dt, batch, headsQ, headsKV, seqQ, seqKV,
+                   headDim, isCausal, scale, enableGqa, hasAttnMask, dropoutP);
+}
+
+void executeSdpaCustomOp(Handle &handle, DataType dt, int64_t batch,
+                         int64_t headsQ, int64_t headsKV, int64_t seqQ,
+                         int64_t seqKV, int64_t headDim, bool isCausal,
+                         std::optional<float> scale, bool enableGqa,
+                         bool hasAttnMask, float dropoutP) {
+  auto ctx =
+      setupSdpaGraph(dt, batch, headsQ, headsKV, seqQ, seqKV, headDim, isCausal,
+                     enableGqa, hasAttnMask, dropoutP, scale, "sdpa_custom_op");
+
+  std::string sdpaMlir =
+      buildSdpaMlir(hasAttnMask, dropoutP, isCausal, scale, enableGqa);
+
+  CustomOpAttr sdpaAttr;
+  sdpaAttr.setName("sdpa").setMlir(sdpaMlir).setNumOutputs(1);
+
+  std::vector<std::shared_ptr<TensorAttr>> inputs = {ctx.qT, ctx.kT, ctx.vT};
+  if (hasAttnMask)
+    inputs.push_back(ctx.maskT);
+
+  auto outs = ctx.graph->customOp(inputs, sdpaAttr);
+
+  // Output: [batch, headsQ, seqQ, headDim]
+  std::vector<int64_t> outDim = {batch, headsQ, seqQ, headDim};
+  auto outStride =
+      generateStrideFromDim(outDim, getContiguousStrideOrder(outDim.size()));
+  outs[0]->setDim(outDim).setStride(outStride).setDataType(dt).setOutput(true);
+
+  executeAndVerify(handle, ctx, outs[0], dt, batch, headsQ, headsKV, seqQ,
+                   seqKV, headDim, isCausal, scale, enableGqa, hasAttnMask,
+                   dropoutP);
+}
