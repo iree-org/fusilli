@@ -5,24 +5,52 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 // RUN: %{TEST_EXE} | iree-opt --verify-roundtrip
-// RUN: %{TEST_EXE} | FileCheck %s
-
-// Verifies GQA SDPA built-in op ASM emission:
-//   - Q has 8 heads, KV has 2 heads (4:1 ratio)
-//   - enable_gqa set to true
+// RUN: %{TEST_EXE} | FileCheck %s --check-prefix=TORCH-CHECK
+// RUN: %{TEST_EXE} stats | FileCheck %s --check-prefix=%{BACKEND}-STATS-CHECK
 
 // clang-format off
 //
-// CHECK:       module @module {
-// CHECK:         func.func @main(
-// CHECK-SAME:      %k: !torch.vtensor<[1,2,64,64],f16>
-// CHECK-SAME:      %q: !torch.vtensor<[1,8,64,64],f16>
-// CHECK-SAME:      %v: !torch.vtensor<[1,2,64,64],f16>
-// CHECK:           %enable_gqa_sdpa = torch.constant.bool true
-// CHECK:           torch.aten.scaled_dot_product_attention
-// CHECK:           return
-// CHECK:         }
-// CHECK:       }
+// TORCH-CHECK:   module @module {
+// TORCH-CHECK:     func.func @main(%sdpa_O_: !torch.tensor<[1,8,64,64],f16>, %k: !torch.vtensor<[1,2,64,64],f16>, %q: !torch.vtensor<[1,8,64,64],f16>, %v: !torch.vtensor<[1,2,64,64],f16>) attributes {torch.assume_strict_symbolic_shapes} {
+// TORCH-CHECK:       %permute_Q_val_0_sdpa = torch.constant.int 0
+// TORCH-CHECK:       %permute_Q_val_1_sdpa = torch.constant.int 1
+// TORCH-CHECK:       %permute_Q_val_2_sdpa = torch.constant.int 2
+// TORCH-CHECK:       %permute_Q_val_3_sdpa = torch.constant.int 3
+// TORCH-CHECK:       %permute_Q_sdpa = torch.prim.ListConstruct %permute_Q_val_0_sdpa, %permute_Q_val_1_sdpa, %permute_Q_val_2_sdpa, %permute_Q_val_3_sdpa : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
+// TORCH-CHECK:       %q_sdpa_perm = torch.aten.permute %q, %permute_Q_sdpa : !torch.vtensor<[1,8,64,64],f16>, !torch.list<int> -> !torch.vtensor<[1,8,64,64],f16>
+// TORCH-CHECK:       %permute_K_val_0_sdpa = torch.constant.int 0
+// TORCH-CHECK:       %permute_K_val_1_sdpa = torch.constant.int 1
+// TORCH-CHECK:       %permute_K_val_2_sdpa = torch.constant.int 2
+// TORCH-CHECK:       %permute_K_val_3_sdpa = torch.constant.int 3
+// TORCH-CHECK:       %permute_K_sdpa = torch.prim.ListConstruct %permute_K_val_0_sdpa, %permute_K_val_1_sdpa, %permute_K_val_2_sdpa, %permute_K_val_3_sdpa : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
+// TORCH-CHECK:       %k_sdpa_perm = torch.aten.permute %k, %permute_K_sdpa : !torch.vtensor<[1,2,64,64],f16>, !torch.list<int> -> !torch.vtensor<[1,2,64,64],f16>
+// TORCH-CHECK:       %permute_V_val_0_sdpa = torch.constant.int 0
+// TORCH-CHECK:       %permute_V_val_1_sdpa = torch.constant.int 1
+// TORCH-CHECK:       %permute_V_val_2_sdpa = torch.constant.int 2
+// TORCH-CHECK:       %permute_V_val_3_sdpa = torch.constant.int 3
+// TORCH-CHECK:       %permute_V_sdpa = torch.prim.ListConstruct %permute_V_val_0_sdpa, %permute_V_val_1_sdpa, %permute_V_val_2_sdpa, %permute_V_val_3_sdpa : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
+// TORCH-CHECK:       %v_sdpa_perm = torch.aten.permute %v, %permute_V_sdpa : !torch.vtensor<[1,2,64,64],f16>, !torch.list<int> -> !torch.vtensor<[1,2,64,64],f16>
+// TORCH-CHECK:       %none_mask_sdpa = torch.constant.none
+// TORCH-CHECK:       %dropout_sdpa = torch.constant.float 0.000000e+00
+// TORCH-CHECK:       %is_causal_sdpa = torch.constant.bool false
+// TORCH-CHECK:       %scale_sdpa = torch.constant.none
+// TORCH-CHECK:       %enable_gqa_sdpa = torch.constant.bool true
+// TORCH-CHECK:       %sdpa_O_sdpa_perm = torch.aten.scaled_dot_product_attention %q_sdpa_perm, %k_sdpa_perm, %v_sdpa_perm, %none_mask_sdpa, %dropout_sdpa, %is_causal_sdpa, %scale_sdpa, %enable_gqa_sdpa : !torch.vtensor<[1,8,64,64],f16>, !torch.vtensor<[1,2,64,64],f16>, !torch.vtensor<[1,2,64,64],f16>, !torch.none, !torch.float, !torch.bool, !torch.none, !torch.bool -> !torch.vtensor<[1,8,64,64],f16>
+// TORCH-CHECK:       %permute_O_val_0_sdpa = torch.constant.int 0
+// TORCH-CHECK:       %permute_O_val_1_sdpa = torch.constant.int 1
+// TORCH-CHECK:       %permute_O_val_2_sdpa = torch.constant.int 2
+// TORCH-CHECK:       %permute_O_val_3_sdpa = torch.constant.int 3
+// TORCH-CHECK:       %permute_O_sdpa = torch.prim.ListConstruct %permute_O_val_0_sdpa, %permute_O_val_1_sdpa, %permute_O_val_2_sdpa, %permute_O_val_3_sdpa : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
+// TORCH-CHECK:       %sdpa_O = torch.aten.permute %sdpa_O_sdpa_perm, %permute_O_sdpa : !torch.vtensor<[1,8,64,64],f16>, !torch.list<int> -> !torch.vtensor<[1,8,64,64],f16>
+// TORCH-CHECK:       torch.overwrite.tensor.contents %sdpa_O overwrites %sdpa_O_ : !torch.vtensor<[1,8,64,64],f16>, !torch.tensor<[1,8,64,64],f16>
+// TORCH-CHECK:       return
+// TORCH-CHECK:     }
+// TORCH-CHECK:   }
+//
+// AMDGPU-STATS-CHECK: "transient-memory-size": 0
+// AMDGPU-STATS-CHECK: "dispatch-count": 1
+// CPU-STATS-CHECK: "transient-memory-size": 0
+// CPU-STATS-CHECK: "dispatch-count": 1
 //
 // clang-format on
 
@@ -32,14 +60,15 @@
 
 #include <cstdint>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
 using namespace fusilli;
 
-int main() {
-  Graph g;
-  g.setName("sdpa_asm_emitter_gqa").setIODataType(DataType::Half);
+static ErrorObject testSdpaAsmEmitterGqa(const std::string &mode) {
+  auto graph = std::make_shared<Graph>();
+  graph->setName("sdpa_asm_emitter_gqa").setIODataType(DataType::Half);
 
   std::vector<int64_t> qDim = {1, 8, 64, 64};
   auto qStride =
@@ -49,18 +78,18 @@ int main() {
   auto kvStride =
       generateStrideFromDim(kvDim, getContiguousStrideOrder(kvDim.size()));
 
-  auto q = g.tensor(
+  auto q = graph->tensor(
       TensorAttr().setName("q").setDim(qDim).setStride(qStride).setDataType(
           DataType::Half));
-  auto k = g.tensor(
+  auto k = graph->tensor(
       TensorAttr().setName("k").setDim(kvDim).setStride(kvStride).setDataType(
           DataType::Half));
-  auto v = g.tensor(
+  auto v = graph->tensor(
       TensorAttr().setName("v").setDim(kvDim).setStride(kvStride).setDataType(
           DataType::Half));
 
   auto sdpaAttr = SdpaAttr().setName("sdpa").setEnableGqa(true);
-  auto o = g.sdpa(q, k, v, /*mask=*/nullptr, sdpaAttr);
+  auto o = graph->sdpa(q, k, v, /*mask=*/nullptr, sdpaAttr);
 
   std::vector<int64_t> oDim = {1, 8, 64, 64};
   auto oStride =
@@ -70,24 +99,32 @@ int main() {
       .setDataType(DataType::Half)
       .setOutput(true);
 
-  auto status = g.validate();
+  FUSILLI_CHECK_ERROR(graph->validate());
+
+  if (mode == "default") {
+    FUSILLI_ASSIGN_OR_RETURN(auto generatedAsm, graph->emitAsm());
+    FUSILLI_CHECK_ERROR(checkMlirIndentation(generatedAsm));
+    std::cout << generatedAsm << std::endl;
+  }
+
+  if (mode == "stats") {
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(kDefaultBackend));
+    FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
+    FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
+                                             CachedAssetsType::Statistics));
+    std::cout << stats << std::endl;
+  }
+
+  return ok();
+}
+
+int main(int argc, char **argv) {
+  std::string mode = (argc > 1) ? argv[1] : "default";
+
+  auto status = testSdpaAsmEmitterGqa(mode);
   if (isError(status)) {
-    std::cerr << "Validation failed: " << status << std::endl;
+    std::cerr << "Test failed: " << status << std::endl;
     return 1;
   }
-
-  auto asmOrErr = g.emitAsm();
-  if (isError(asmOrErr)) {
-    std::cerr << "ASM emission failed: " << asmOrErr << std::endl;
-    return 1;
-  }
-
-  auto indentErr = checkMlirIndentation(*asmOrErr);
-  if (isError(indentErr)) {
-    std::cerr << "Indentation check failed: " << indentErr << std::endl;
-    return 1;
-  }
-
-  std::cout << *asmOrErr << std::endl;
   return 0;
 }
