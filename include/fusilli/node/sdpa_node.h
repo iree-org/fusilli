@@ -135,11 +135,38 @@ public:
         maskT && sdpaAttr.getIsCausal(), ErrorCode::InvalidAttribute,
         "SDPA attention mask and is_causal are mutually exclusive");
 
-    // Mask rank check.
+    // Mask validation: rank and broadcastability to attention weight shape
+    // [batch, heads_q, seq_q, seq_kv] per PyTorch SDPA specification.
     if (maskT) {
-      FUSILLI_RETURN_ERROR_IF(maskT->getDim().size() != kRequiredRank,
+      const std::vector<int64_t> &maskDim = maskT->getDim();
+      int64_t seqQ = qDim[2];
+      int64_t seqKV = kDim[2];
+
+      // Rank check.
+      FUSILLI_RETURN_ERROR_IF(maskDim.size() != kRequiredRank,
                               ErrorCode::InvalidAttribute,
                               "SDPA attention mask must be rank 4");
+
+      // Shape checks.
+      FUSILLI_RETURN_ERROR_IF(
+          maskDim[0] != 1 && maskDim[0] != qDim[0], ErrorCode::InvalidAttribute,
+          "SDPA attention mask batch dim (" + std::to_string(maskDim[0]) +
+              ") must be 1 or match input batch (" + std::to_string(qDim[0]) +
+              ")");
+      FUSILLI_RETURN_ERROR_IF(
+          maskDim[1] != 1 && maskDim[1] != headsQ, ErrorCode::InvalidAttribute,
+          "SDPA attention mask heads dim (" + std::to_string(maskDim[1]) +
+              ") must be 1 or match Q heads (" + std::to_string(headsQ) + ")");
+      FUSILLI_RETURN_ERROR_IF(
+          maskDim[2] != 1 && maskDim[2] != seqQ, ErrorCode::InvalidAttribute,
+          "SDPA attention mask seq_q dim (" + std::to_string(maskDim[2]) +
+              ") must be 1 or match Q sequence length (" +
+              std::to_string(seqQ) + ")");
+      FUSILLI_RETURN_ERROR_IF(
+          maskDim[3] != 1 && maskDim[3] != seqKV, ErrorCode::InvalidAttribute,
+          "SDPA attention mask seq_kv dim (" + std::to_string(maskDim[3]) +
+              ") must be 1 or match KV sequence length (" +
+              std::to_string(seqKV) + ")");
     }
 
     // Dropout range check.

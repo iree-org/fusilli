@@ -248,6 +248,102 @@ TEST_CASE("SdpaNode GQA validation", "[sdpa_node]") {
   }
 }
 
+TEST_CASE("SdpaNode mask broadcastability checks", "[sdpa_node]") {
+  Context ctx;
+
+  SECTION("Valid: mask broadcasts on batch and heads [1,1,L,S]") {
+    SdpaAttr attr;
+    attr.setQ(makeTensor4D("Q", 2, 8, 64, 64));
+    attr.setK(makeTensor4D("K", 2, 8, 128, 64));
+    attr.setV(makeTensor4D("V", 2, 8, 128, 64));
+    attr.setMASK(makeTensor4D("MASK", 1, 1, 64, 128));
+    attr.setO(std::make_shared<TensorAttr>());
+    SdpaNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+  }
+
+  SECTION("Valid: mask with exact dimensions [N,H,L,S]") {
+    SdpaAttr attr;
+    attr.setQ(makeTensor4D("Q", 2, 8, 64, 64));
+    attr.setK(makeTensor4D("K", 2, 8, 128, 64));
+    attr.setV(makeTensor4D("V", 2, 8, 128, 64));
+    attr.setMASK(makeTensor4D("MASK", 2, 8, 64, 128));
+    attr.setO(std::make_shared<TensorAttr>());
+    SdpaNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+  }
+
+  SECTION("Invalid: mask batch dim not broadcastable") {
+    SdpaAttr attr;
+    attr.setQ(makeTensor4D("Q", 2, 8, 64, 64));
+    attr.setK(makeTensor4D("K", 2, 8, 64, 64));
+    attr.setV(makeTensor4D("V", 2, 8, 64, 64));
+    attr.setMASK(makeTensor4D("MASK", 3, 1, 64, 64));
+    attr.setO(std::make_shared<TensorAttr>());
+    SdpaNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "SDPA attention mask batch dim (3) must be 1 or match input "
+            "batch (2)");
+  }
+
+  SECTION("Invalid: mask heads dim not broadcastable") {
+    SdpaAttr attr;
+    attr.setQ(makeTensor4D("Q", 1, 8, 64, 64));
+    attr.setK(makeTensor4D("K", 1, 8, 64, 64));
+    attr.setV(makeTensor4D("V", 1, 8, 64, 64));
+    attr.setMASK(makeTensor4D("MASK", 1, 3, 64, 64));
+    attr.setO(std::make_shared<TensorAttr>());
+    SdpaNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "SDPA attention mask heads dim (3) must be 1 or match Q heads "
+            "(8)");
+  }
+
+  SECTION("Invalid: mask seq_q dim not broadcastable") {
+    SdpaAttr attr;
+    attr.setQ(makeTensor4D("Q", 1, 8, 64, 64));
+    attr.setK(makeTensor4D("K", 1, 8, 128, 64));
+    attr.setV(makeTensor4D("V", 1, 8, 128, 64));
+    attr.setMASK(makeTensor4D("MASK", 1, 1, 32, 128));
+    attr.setO(std::make_shared<TensorAttr>());
+    SdpaNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "SDPA attention mask seq_q dim (32) must be 1 or match Q "
+            "sequence length (64)");
+  }
+
+  SECTION("Invalid: mask seq_kv dim not broadcastable") {
+    SdpaAttr attr;
+    attr.setQ(makeTensor4D("Q", 1, 8, 64, 64));
+    attr.setK(makeTensor4D("K", 1, 8, 128, 64));
+    attr.setV(makeTensor4D("V", 1, 8, 128, 64));
+    attr.setMASK(makeTensor4D("MASK", 1, 1, 64, 64));
+    attr.setO(std::make_shared<TensorAttr>());
+    SdpaNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "SDPA attention mask seq_kv dim (64) must be 1 or match KV "
+            "sequence length (128)");
+  }
+}
+
 TEST_CASE("SdpaNode mask and is_causal mutual exclusion", "[sdpa_node]") {
   Context ctx;
   SdpaAttr attr;
