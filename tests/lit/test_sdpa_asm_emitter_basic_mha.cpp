@@ -66,9 +66,9 @@
 
 using namespace fusilli;
 
-static ErrorObject testSdpaAsmEmitterBasic(const std::string &mode) {
+static ErrorObject testSdpaAsmEmitterBasicMha(const std::string &mode) {
   auto graph = std::make_shared<Graph>();
-  graph->setName("sdpa_asm_emitter_basic").setIODataType(DataType::Half);
+  graph->setName("sdpa_asm_emitter_basic_mha").setIODataType(DataType::Half);
 
   std::vector<int64_t> dim = {1, 8, 64, 64};
   auto stride =
@@ -110,7 +110,7 @@ static ErrorObject testSdpaAsmEmitterBasic(const std::string &mode) {
 int main(int argc, char **argv) {
   std::string mode = (argc > 1) ? argv[1] : "default";
 
-  auto status = testSdpaAsmEmitterBasic(mode);
+  auto status = testSdpaAsmEmitterBasicMha(mode);
   if (isError(status)) {
     std::cerr << "Test failed: " << status << std::endl;
     return 1;

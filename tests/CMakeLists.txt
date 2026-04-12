@@ -200,7 +200,7 @@ add_fusilli_lit_tests(
     lit/test_custom_op_asm_emitter_sdpa.cpp
     lit/test_custom_op_asm_emitter_static.cpp
     lit/test_custom_op_asm_emitter_dim_placeholder.cpp
-    lit/test_sdpa_asm_emitter_basic.cpp
+    lit/test_sdpa_asm_emitter_basic_mha.cpp
     lit/test_sdpa_asm_emitter_causal.cpp
     lit/test_sdpa_asm_emitter_with_mask.cpp
     lit/test_sdpa_asm_emitter_gqa.cpp
