@@ -11,10 +11,10 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("SDPA forward: causal f16", "[sdpa][graph]") {
+TEST_CASE("SDPA forward: custom scale f16", "[sdpa][custom_op][graph]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-  executeSdpa(handle, DataType::Half,
-              /*batch=*/1, /*headsQ=*/8, /*headsKV=*/8,
-              /*seqQ=*/64, /*seqKV=*/64, /*headDim=*/64,
-              /*isCausal=*/true);
+  executeSdpaCustomOp(handle, DataType::Half,
+                      /*batch=*/1, /*headsQ=*/8, /*headsKV=*/8,
+                      /*seqQ=*/64, /*seqKV=*/64, /*headDim=*/64,
+                      /*isCausal=*/false, /*scale=*/0.125f);
 }
