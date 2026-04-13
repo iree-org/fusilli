@@ -12,7 +12,6 @@
 //
 // TORCH-CHECK:   module @module {
 // TORCH-CHECK:     func.func @main(%result_: !torch.tensor<[16,64,32,128],f32>, %arg0_scale: !torch.vtensor<[1,64,32,128],f32>, %arg0_x: !torch.vtensor<[16,64,32,128],f32>) attributes {torch.assume_strict_symbolic_shapes} {
-// Graph-level scalar constant emission for epsilon:
 // TORCH-CHECK:       %rmsnorm_infer_EPSILON = torch.vtensor.literal(dense<0x3727C5AC> : tensor<1xf32>) : !torch.vtensor<[1],f32>
 // TORCH-CHECK:       %normalized_shape_val_0_rmsnorm_infer = torch.constant.int 128
 // TORCH-CHECK:       %normalized_shape_val_1_rmsnorm_infer = torch.constant.int 64

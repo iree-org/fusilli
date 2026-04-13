@@ -4,25 +4,32 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-set(FUSILLI_CONV_SAMPLE_FILES
-  convolution/conv_fprop_nchw_kcrs.cpp
-  convolution/conv_fprop_nchw_kcrs_grouped.cpp
-  convolution/conv_fprop_nhwc_krsc.cpp
-  convolution/conv_fprop_nhwc_krsc_with_pad.cpp
-  convolution/conv_fprop_with_bias.cpp
-  convolution/conv_fprop_with_relu.cpp
-  convolution/conv_fprop_with_relu_and_bias.cpp
-  convolution/conv_fprop_grouped_with_relu_and_bias.cpp
-  convolution/conv_wgrad_nhwc_krsc.cpp
-  convolution/conv_wgrad_nhwc_krsc_grouped.cpp
-  convolution/conv_wgrad_nhwc_krsc_grouped_strided.cpp
-  convolution/conv_dgrad_nhwc_krsc.cpp
-  convolution/conv_dgrad_nhwc_krsc_grouped.cpp)
+# Shared SDPA test utilities.
+add_library(libsdpautils OBJECT sdpa_utils.cpp)
+target_include_directories(libsdpautils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(libsdpautils PUBLIC
+  libfusilli
+  libutils
+  Catch2::Catch2WithMain
+)
+fusilli_enable_clang_tidy(libsdpautils)
 
 add_fusilli_samples(
   PREFIX fusilli_conv_samples
   SRCS
-    ${FUSILLI_CONV_SAMPLE_FILES}
+    convolution/conv_fprop_nchw_kcrs.cpp
+    convolution/conv_fprop_nchw_kcrs_grouped.cpp
+    convolution/conv_fprop_nhwc_krsc.cpp
+    convolution/conv_fprop_nhwc_krsc_with_pad.cpp
+    convolution/conv_fprop_with_bias.cpp
+    convolution/conv_fprop_with_relu.cpp
+    convolution/conv_fprop_with_relu_and_bias.cpp
+    convolution/conv_fprop_grouped_with_relu_and_bias.cpp
+    convolution/conv_wgrad_nhwc_krsc.cpp
+    convolution/conv_wgrad_nhwc_krsc_grouped.cpp
+    convolution/conv_wgrad_nhwc_krsc_grouped_strided.cpp
+    convolution/conv_dgrad_nhwc_krsc.cpp
+    convolution/conv_dgrad_nhwc_krsc_grouped.cpp
   DEPS
     libfusilli
     libutils
@@ -120,6 +127,26 @@ add_fusilli_samples(
     Catch2::Catch2WithMain
 )
 
+
+
+add_fusilli_samples(
+  PREFIX fusilli_sdpa_custom_op_samples
+  SRCS
+    custom_op/sdpa/sdpa_fprop_basic_mha.cpp
+    custom_op/sdpa/sdpa_fprop_causal.cpp
+    custom_op/sdpa/sdpa_fprop_custom_scale.cpp
+    custom_op/sdpa/sdpa_fprop_with_mask.cpp
+    # TODO(#277): torch-mlir + IREE lowering needs to support dropout.
+    # custom_op/sdpa/sdpa_fprop_dropout.cpp
+    custom_op/sdpa/sdpa_fprop_gqa.cpp
+    custom_op/sdpa/sdpa_fprop_cross_attn.cpp
+  DEPS
+    libfusilli
+    libutils
+    libsdpautils
+    Catch2::Catch2WithMain
+)
+
 add_fusilli_samples(
   PREFIX fusilli_sdpa_samples
   SRCS
@@ -127,11 +154,13 @@ add_fusilli_samples(
     sdpa/sdpa_fprop_causal.cpp
     sdpa/sdpa_fprop_custom_scale.cpp
     sdpa/sdpa_fprop_with_mask.cpp
-    sdpa/sdpa_fprop_dropout.cpp
+    # TODO(#277): torch-mlir + IREE lowering needs to support dropout.
+    # sdpa/sdpa_fprop_dropout.cpp
     sdpa/sdpa_fprop_gqa.cpp
     sdpa/sdpa_fprop_cross_attn.cpp
   DEPS
     libfusilli
     libutils
+    libsdpautils
     Catch2::Catch2WithMain
 )
