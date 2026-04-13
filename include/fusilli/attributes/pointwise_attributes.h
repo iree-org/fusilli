@@ -47,7 +47,7 @@ namespace fusilli {
   /* OP(GELU_BWD) */                                                           \
   /* OP(GELU_FWD) */                                                           \
   /* OP(GEN_INDEX) */                                                          \
-  /* OP(IDENTITY)  */                                                          \
+  OP(IDENTITY)                                                                 \
   OP(LOG)                                                                      \
   OP(LOGICAL_AND)                                                              \
   OP(LOGICAL_NOT)                                                              \
@@ -59,17 +59,17 @@ namespace fusilli {
   OP(RECIPROCAL)                                                               \
   /* OP(RELU_BWD) */                                                           \
   OP(RELU_FWD)                                                                 \
-  /* OP(RSQRT) */                                                              \
+  OP(RSQRT)                                                                    \
   /* OP(SIGMOID_BWD) */                                                        \
   OP(SIGMOID_FWD)                                                              \
-  /* OP(SIN) */                                                                \
+  OP(SIN)                                                                      \
   /* OP(SOFTPLUS_BWD) */                                                       \
   /* OP(SOFTPLUS_FWD) */                                                       \
-  /* OP(SQRT) */                                                               \
+  OP(SQRT)                                                                     \
   OP(SUB)                                                                      \
   /* OP(SWISH_BWD) */                                                          \
   /* OP(SWISH_FWD) */                                                          \
-  /* OP(TAN) */                                                                \
+  OP(TAN)                                                                      \
   /* OP(TANH_BWD) */                                                           \
   OP(TANH_FWD)
 
@@ -157,10 +157,15 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::MIN_OP, 2},
         {PointwiseAttr::Mode::MUL, 2},
         {PointwiseAttr::Mode::NEG, 1},
+        {PointwiseAttr::Mode::IDENTITY, 1},
         {PointwiseAttr::Mode::RECIPROCAL, 1},
         {PointwiseAttr::Mode::RELU_FWD, 1},
+        {PointwiseAttr::Mode::RSQRT, 1},
         {PointwiseAttr::Mode::SIGMOID_FWD, 1},
+        {PointwiseAttr::Mode::SIN, 1},
+        {PointwiseAttr::Mode::SQRT, 1},
         {PointwiseAttr::Mode::SUB, 2},
+        {PointwiseAttr::Mode::TAN, 1},
         {PointwiseAttr::Mode::TANH_FWD, 1}};
 
 } // namespace fusilli
