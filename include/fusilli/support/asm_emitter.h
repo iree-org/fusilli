@@ -1778,6 +1778,13 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {6}
 )";
 
+  constexpr std::string_view kIdentitySchema = R"(
+    {0}
+    %none_{7} = torch.constant.none
+    {1} = {6} {2}, %none_{7} : {3}, !torch.none -> {4}
+    {5}
+)";
+
   constexpr std::string_view kEluSchema = R"(
     {0}
     %elu_alpha_{7} = torch.constant.float {8:e}
@@ -1809,6 +1816,8 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
                        pointwiseAttr.getEluAlpha() /* {8} */
     );
   }
+    FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(IDENTITY, kIdentitySchema,
+                                            torch.aten.clone)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(ERF, torch.aten.erf)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(EXP, torch.aten.exp)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(FLOOR, torch.aten.floor)
@@ -1817,8 +1826,12 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(NEG, torch.aten.neg)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RECIPROCAL, torch.aten.reciprocal)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RELU_FWD, torch.aten.relu)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RSQRT, torch.aten.rsqrt)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(SIGMOID_FWD, torch.aten.sigmoid)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(SIN, torch.aten.sin)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(SQRT, torch.aten.sqrt)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(TANH_FWD, torch.aten.tanh)
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(TAN, torch.aten.tan)
 
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_EQ, torch.aten.eq.Tensor)
     FUSILLI_DECLARE_BINARY_TORCH_EMITTER(CMP_LT, torch.aten.lt.Tensor)

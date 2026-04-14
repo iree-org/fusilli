@@ -42,6 +42,7 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
   auto supportsInteger = [](PointwiseAttr::Mode m) {
     switch (m) {
     case PointwiseAttr::Mode::ABS:
+    case PointwiseAttr::Mode::IDENTITY:
     case PointwiseAttr::Mode::NEG:
     case PointwiseAttr::Mode::RELU_FWD:
       return true;
@@ -51,8 +52,9 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
   };
 
   auto supportsNegative = [](PointwiseAttr::Mode m) {
-    // LOG is undefined for non-positive inputs.
-    return m != PointwiseAttr::Mode::LOG;
+    // LOG, RSQRT, and SQRT are undefined for non-positive inputs.
+    return m != PointwiseAttr::Mode::LOG && m != PointwiseAttr::Mode::RSQRT &&
+           m != PointwiseAttr::Mode::SQRT;
   };
 
   auto supportsFloat = [](PointwiseAttr::Mode m) {
@@ -63,11 +65,16 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     case PointwiseAttr::Mode::ERF:
     case PointwiseAttr::Mode::EXP:
     case PointwiseAttr::Mode::FLOOR:
+    case PointwiseAttr::Mode::IDENTITY:
     case PointwiseAttr::Mode::LOG:
     case PointwiseAttr::Mode::NEG:
     case PointwiseAttr::Mode::RECIPROCAL:
     case PointwiseAttr::Mode::RELU_FWD:
+    case PointwiseAttr::Mode::RSQRT:
     case PointwiseAttr::Mode::SIGMOID_FWD:
+    case PointwiseAttr::Mode::SIN:
+    case PointwiseAttr::Mode::SQRT:
+    case PointwiseAttr::Mode::TAN:
     case PointwiseAttr::Mode::TANH_FWD:
       return true;
     default:
@@ -83,11 +90,16 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       PointwiseAttr::Mode::ERF,
       PointwiseAttr::Mode::EXP,
       PointwiseAttr::Mode::FLOOR,
+      PointwiseAttr::Mode::IDENTITY,
       PointwiseAttr::Mode::LOG,
       PointwiseAttr::Mode::NEG,
       PointwiseAttr::Mode::RECIPROCAL,
       PointwiseAttr::Mode::RELU_FWD,
+      PointwiseAttr::Mode::RSQRT,
       PointwiseAttr::Mode::SIGMOID_FWD,
+      PointwiseAttr::Mode::SIN,
+      PointwiseAttr::Mode::SQRT,
+      PointwiseAttr::Mode::TAN,
       PointwiseAttr::Mode::TANH_FWD);
   // clang-format on
 
@@ -190,6 +202,10 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       y = std::floor(xD);
       break;
     }
+    case PointwiseAttr::Mode::IDENTITY: {
+      y = x;
+      break;
+    }
     case PointwiseAttr::Mode::LOG: {
       double xD = static_cast<double>(x);
       y = std::log(xD);
@@ -202,6 +218,26 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     case PointwiseAttr::Mode::RECIPROCAL: {
       double xD = static_cast<double>(x);
       y = 1.0 / xD;
+      break;
+    }
+    case PointwiseAttr::Mode::RSQRT: {
+      double xD = static_cast<double>(x);
+      y = 1.0 / std::sqrt(xD);
+      break;
+    }
+    case PointwiseAttr::Mode::SIN: {
+      double xD = static_cast<double>(x);
+      y = std::sin(xD);
+      break;
+    }
+    case PointwiseAttr::Mode::SQRT: {
+      double xD = static_cast<double>(x);
+      y = std::sqrt(xD);
+      break;
+    }
+    case PointwiseAttr::Mode::TAN: {
+      double xD = static_cast<double>(x);
+      y = std::tan(xD);
       break;
     }
     default:
