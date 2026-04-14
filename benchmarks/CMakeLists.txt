@@ -42,6 +42,33 @@ if(FUSILLI_SYSTEMS_AMDGPU)
       ENVIRONMENT "${FUSILLI_SANITIZER_TEST_ENV_VARS}"
     )
   endif()
+
+  # Test tuner runner (GPU integration tests)
+  add_test(
+    NAME fusilli_tuner_runner_tests
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test_tuner_runner.sh
+            ${CMAKE_CURRENT_SOURCE_DIR}/run_tuner.py
+            $<TARGET_FILE:fusilli_benchmark_driver>
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+  )
+
+  # Configure sanitizer options
+  if(FUSILLI_SANITIZER_TEST_ENV_VARS)
+    set_tests_properties(
+      fusilli_tuner_runner_tests PROPERTIES
+      ENVIRONMENT "${FUSILLI_SANITIZER_TEST_ENV_VARS}"
+    )
+  endif()
+endif()
+
+# Tuner cache extraction unit tests (CPU-only, no GPU or amdsharktuner needed)
+if(FUSILLI_BUILD_TESTS)
+  add_test(
+    NAME fusilli_tuner_cache_tests
+    COMMAND python3 -m unittest
+            ${CMAKE_CURRENT_SOURCE_DIR}/test_tuner_cache.py -v
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  )
 endif()
 
 # Add some benchmark configurations for CI coverage.
