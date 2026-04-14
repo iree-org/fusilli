@@ -1794,6 +1794,13 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {5}
 )";
 
+  constexpr std::string_view kGeluSchema = R"(
+    {0}
+    %gelu_approximate_{7} = torch.constant.str "{8}"
+    {1} = {6} {2}, %gelu_approximate_{7} : {3}, !torch.str -> {4}
+    {5}
+)";
+
 #define FUSILLI_DECLARE_UNARY_TORCH_EMITTER(PWOP, OPIR)                        \
   FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(PWOP, kUnaryTorchSchema, OPIR)
 #define FUSILLI_DECLARE_BINARY_TORCH_EMITTER(PWOP, OPIR)                       \
@@ -1818,6 +1825,30 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
   }
     FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(IDENTITY, kIdentitySchema,
                                             torch.aten.clone)
+  case PointwiseAttr::Mode::GELU_FWD: {
+    return std::format(kGeluSchema, permuteIN0, /* {0} */
+                       getResultNamesAsm(),     /* {1} */
+                       getOperandNamesAsm(),    /* {2} */
+                       getOperandTypesAsm(),    /* {3} */
+                       getResultTypesAsm(),     /* {4} */
+                       permuteOUT0,             /* {5} */
+                       "torch.aten.gelu",       /* {6} */
+                       getName(),               /* {7} */
+                       "none"                   /* {8} */
+    );
+  }
+  case PointwiseAttr::Mode::GELU_APPROX_TANH_FWD: {
+    return std::format(kGeluSchema, permuteIN0, /* {0} */
+                       getResultNamesAsm(),     /* {1} */
+                       getOperandNamesAsm(),    /* {2} */
+                       getOperandTypesAsm(),    /* {3} */
+                       getResultTypesAsm(),     /* {4} */
+                       permuteOUT0,             /* {5} */
+                       "torch.aten.gelu",       /* {6} */
+                       getName(),               /* {7} */
+                       "tanh"                   /* {8} */
+    );
+  }
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(ERF, torch.aten.erf)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(EXP, torch.aten.exp)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(FLOOR, torch.aten.floor)
