@@ -443,7 +443,7 @@ private:
     if (checkCompileBackendEnv()) {
       // Use CompileCommand (CLI).
       CompileCommand cmd = CompileCommand::build(
-          handle, cache.input, cache.output, cache.statistics);
+          handle.getBackend(), cache.input, cache.output, cache.statistics);
       FUSILLI_CHECK_ERROR(cmd.writeTo(cache.command));
       FUSILLI_LOG_LABEL_ENDL("INFO: iree-compile command (CLI)");
       FUSILLI_LOG_ENDL(cmd.toString());
@@ -451,8 +451,8 @@ private:
     } else {
       // Use CompileSession (C API) - DEFAULT.
       FUSILLI_ASSIGN_OR_RETURN(CompileSession session,
-                               CompileSession::build(handle, cache.input,
-                                                     cache.output,
+                               CompileSession::build(handle.getBackend(),
+                                                     cache.input, cache.output,
                                                      cache.statistics));
       FUSILLI_CHECK_ERROR(session.writeTo(cache.command));
       FUSILLI_LOG_LABEL_ENDL("INFO: iree-compile command (C API)");
@@ -539,13 +539,13 @@ private:
     if (checkCompileBackendEnv()) {
       // Use CompileCommand (CLI).
       CompileCommand cmd =
-          CompileCommand::build(handle, input, output, statistics);
+          CompileCommand::build(handle.getBackend(), input, output, statistics);
       cmdString = cmd.toString();
     } else {
       // Use CompileSession (C API) - DEFAULT.
-      FUSILLI_ASSIGN_OR_RETURN(
-          auto session,
-          CompileSession::build(handle, input, output, statistics));
+      FUSILLI_ASSIGN_OR_RETURN(auto session,
+                               CompileSession::build(handle.getBackend(), input,
+                                                     output, statistics));
       cmdString = session.toString();
     }
 

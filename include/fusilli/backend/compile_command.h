@@ -14,7 +14,6 @@
 #define FUSILLI_BACKEND_COMPILE_COMMAND_H
 
 #include "fusilli/backend/backend.h"
-#include "fusilli/backend/handle.h"
 #include "fusilli/support/cache.h"
 #include "fusilli/support/external_tools.h"
 #include "fusilli/support/extras.h"
@@ -34,7 +33,7 @@ namespace fusilli {
 //
 // Usage:
 //   ErrorOr<CompileCommand> cmd = CompileCommand::build(
-//       handle, inputFile, outputFile, statisticsFile);
+//       backend, inputFile, outputFile, statisticsFile);
 //   FUSILLI_CHECK_ERROR(cmd->writeTo(commandFile));
 //   FUSILLI_CHECK_ERROR(cmd->execute());
 //
@@ -54,13 +53,13 @@ public:
   // - output file specification
   //
   // Returns CompileCommand containing the built command or error.
-  static CompileCommand build(const Handle &handle, const CacheFile &input,
+  static CompileCommand build(Backend backend, const CacheFile &input,
                               const CacheFile &output,
                               const CacheFile &statistics) {
     std::vector<std::string> args = {getIreeCompilePath(), input.path.string()};
 
     // Get backend-specific flags.
-    auto flags = getBackendFlags(handle.getBackend());
+    auto flags = getBackendFlags(backend);
     for (const auto &flag : flags) {
       args.push_back(flag);
     }
