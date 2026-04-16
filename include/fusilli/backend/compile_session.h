@@ -21,7 +21,6 @@
 #define FUSILLI_BACKEND_COMPILE_SESSION_H
 
 #include "fusilli/backend/backend.h"
-#include "fusilli/backend/handle.h"
 #include "fusilli/support/cache.h"
 #include "fusilli/support/dllib.h"
 #include "fusilli/support/external_tools.h"
@@ -57,7 +56,7 @@ class CompileSession;
 // Usage:
 //   ErrorOr<CompileContext*> ctx =
 //       CompileContext::create();
-//   ErrorOr<CompileSession> session = ctx->createSession(handle);
+//   ErrorOr<CompileSession> session = ctx->createSession(backend);
 //   FUSILLI_CHECK_ERROR(session->compile(inputFile, outputFile));
 //
 // Design principles:
@@ -89,7 +88,7 @@ public:
   // Sessions can have different flags and configurations.
   //
   // Returns ErrorOr<CompileSession> containing the session or error.
-  ErrorOr<CompileSession> createSession(const Handle &handle);
+  ErrorOr<CompileSession> createSession(Backend backend);
 
   // Gets the API version of the loaded compiler.
   int getAPIVersion() const;
@@ -164,7 +163,7 @@ private:
 // - Compiles input files to output files
 //
 // Usage:
-//   ErrorOr<CompileSession> session = context->createSession(handle);
+//   ErrorOr<CompileSession> session = context->createSession(backend);
 //   FUSILLI_CHECK_ERROR(session->addFlag("--iree-hal-target-backends=rocm"));
 //   FUSILLI_CHECK_ERROR(session->compile(inputFile, outputFile));
 //
@@ -175,8 +174,7 @@ private:
 class CompileSession {
 public:
   // Static factory method matching CompileCommand::build().
-  static ErrorOr<CompileSession> build(const Handle &handle,
-                                       const CacheFile &input,
+  static ErrorOr<CompileSession> build(Backend backend, const CacheFile &input,
                                        const CacheFile &output,
                                        const CacheFile &statistics);
 
@@ -372,8 +370,7 @@ inline ErrorObject CompileContext::loadSymbols() noexcept {
   return ok();
 }
 
-inline ErrorOr<CompileSession>
-CompileContext::createSession(const Handle &handle) {
+inline ErrorOr<CompileSession> CompileContext::createSession(Backend backend) {
   FUSILLI_LOG_LABEL_ENDL("INFO: Creating compiler session");
 
   // Create a new IREE compiler session.
@@ -382,9 +379,6 @@ CompileContext::createSession(const Handle &handle) {
     return fusilli::error(ErrorCode::CompileFailure,
                           "Failed to create compiler session");
   }
-
-  // Get the backend type from the handle.
-  Backend backend = handle.getBackend();
 
   // Create the CompileSession object.
   CompileSession compileSession(this, session, backend);
@@ -580,7 +574,7 @@ inline ErrorObject CompileSession::compile(std::string_view input,
 // ----------------------------------------------------------------------------
 
 inline ErrorOr<CompileSession>
-CompileSession::build(const Handle &handle, const CacheFile &input,
+CompileSession::build(Backend backend, const CacheFile &input,
                       const CacheFile &output, const CacheFile &statistics) {
   FUSILLI_LOG_LABEL_ENDL("INFO: Building compile session");
 
@@ -588,7 +582,7 @@ CompileSession::build(const Handle &handle, const CacheFile &input,
   FUSILLI_ASSIGN_OR_RETURN(auto *context, CompileContext::create());
 
   // Create session with backend-specific flags.
-  FUSILLI_ASSIGN_OR_RETURN(auto session, context->createSession(handle));
+  FUSILLI_ASSIGN_OR_RETURN(auto session, context->createSession(backend));
 
   // Add statistics flags (matching CompileCommand behavior).
   FUSILLI_CHECK_ERROR(
