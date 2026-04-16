@@ -119,12 +119,12 @@ public:
   Handle &operator=(Handle &&) noexcept = default;
   ~Handle() = default;
 
-  // Allow Graph, Buffer, and CompileCommand objects to access private Handle
-  // methods namely `getDevice()`, `getInstance()`, and `getBackend()`.
+  Backend getBackend() const { return backend_; }
+
+  // Allow Graph and Buffer to access private Handle methods `getDevice()`
+  // and `getInstance()`.
   friend class Graph;
   friend class Buffer;
-  friend class CompileCommand;
-  friend class CompileContext;
 
 private:
   // Creates static singleton IREE VM instance shared across
@@ -142,8 +142,6 @@ private:
   // Private constructor (use factory `create` method for handle creation).
   Handle(Backend backend, IreeVmInstanceSharedPtrType instance)
       : backend_(backend), instance_(std::move(instance)) {}
-
-  Backend getBackend() const { return backend_; }
 
   // Returns a raw pointer to the underlying IREE HAL device.
   // WARNING: The returned raw pointer is not safe to store since
