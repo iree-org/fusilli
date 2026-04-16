@@ -121,12 +121,10 @@ public:
 
   Backend getBackend() const { return backend_; }
 
-  // Allow Graph, Buffer, and CompileCommand objects to access private Handle
-  // methods namely `getDevice()`, `getInstance()`, and `getBackend()`.
+  // Allow Graph and Buffer to access private Handle methods `getDevice()`
+  // and `getInstance()`.
   friend class Graph;
   friend class Buffer;
-  friend class CompileCommand;
-  friend class CompileContext;
 
 private:
   // Creates static singleton IREE VM instance shared across
