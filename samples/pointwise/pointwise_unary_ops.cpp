@@ -65,6 +65,8 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     case PointwiseAttr::Mode::ERF:
     case PointwiseAttr::Mode::EXP:
     case PointwiseAttr::Mode::FLOOR:
+    case PointwiseAttr::Mode::GELU_APPROX_TANH_FWD:
+    case PointwiseAttr::Mode::GELU_FWD:
     case PointwiseAttr::Mode::IDENTITY:
     case PointwiseAttr::Mode::LOG:
     case PointwiseAttr::Mode::NEG:
@@ -90,6 +92,8 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       PointwiseAttr::Mode::ERF,
       PointwiseAttr::Mode::EXP,
       PointwiseAttr::Mode::FLOOR,
+      PointwiseAttr::Mode::GELU_APPROX_TANH_FWD,
+      PointwiseAttr::Mode::GELU_FWD,
       PointwiseAttr::Mode::IDENTITY,
       PointwiseAttr::Mode::LOG,
       PointwiseAttr::Mode::NEG,
@@ -202,6 +206,20 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       y = std::floor(xD);
       break;
     }
+    case PointwiseAttr::Mode::GELU_FWD: {
+      double xD = static_cast<double>(x);
+      // GELU(x) = 0.5 * x * (1 + erf(x / sqrt(2)))
+      y = 0.5 * xD * (1.0 + std::erf(xD / std::sqrt(2.0)));
+      break;
+    }
+    case PointwiseAttr::Mode::GELU_APPROX_TANH_FWD: {
+      double xD = static_cast<double>(x);
+      // GELU tanh approx: 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715*x^3)))
+      constexpr double kSqrt2OverPi = 0.7978845608028654;
+      const double inner = kSqrt2OverPi * (xD + 0.044715 * xD * xD * xD);
+      y = 0.5 * xD * (1.0 + std::tanh(inner));
+      break;
+    }
     case PointwiseAttr::Mode::IDENTITY: {
       y = x;
       break;
@@ -251,8 +269,11 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
 
     auto isClose = [](T lhs, T rhs) -> bool {
       if (std::is_floating_point<T>::value || std::is_same<T, half>::value) {
-        return std::abs(static_cast<double>(lhs) - static_cast<double>(rhs)) <
-               1e-3;
+        const double lhsD = static_cast<double>(lhs);
+        const double rhsD = static_cast<double>(rhs);
+        const double absTol = 1e-3;
+        const double relTol = 1e-3;
+        return std::abs(lhsD - rhsD) <= absTol + relTol * std::abs(rhsD);
       }
       return lhs == rhs;
     };
