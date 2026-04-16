@@ -1823,19 +1823,11 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
                        pointwiseAttr.getEluAlpha() /* {8} */
     );
   }
-  case PointwiseAttr::Mode::GELU_FWD: {
-    return std::format(kGeluSchema, permuteIN0, /* {0} */
-                       getResultNamesAsm(),     /* {1} */
-                       getOperandNamesAsm(),    /* {2} */
-                       getOperandTypesAsm(),    /* {3} */
-                       getResultTypesAsm(),     /* {4} */
-                       permuteOUT0,             /* {5} */
-                       "torch.aten.gelu",       /* {6} */
-                       getName(),               /* {7} */
-                       "none"                   /* {8} */
-    );
-  }
+  case PointwiseAttr::Mode::GELU_FWD:
   case PointwiseAttr::Mode::GELU_APPROX_TANH_FWD: {
+    const char *approx =
+        pointwiseAttr.getMode() == PointwiseAttr::Mode::GELU_FWD ? "none"
+                                                                 : "tanh";
     return std::format(kGeluSchema, permuteIN0, /* {0} */
                        getResultNamesAsm(),     /* {1} */
                        getOperandNamesAsm(),    /* {2} */
@@ -1844,7 +1836,7 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
                        permuteOUT0,             /* {5} */
                        "torch.aten.gelu",       /* {6} */
                        getName(),               /* {7} */
-                       "tanh"                   /* {8} */
+                       approx                   /* {8} */
     );
   }
     FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(IDENTITY, kIdentitySchema,
