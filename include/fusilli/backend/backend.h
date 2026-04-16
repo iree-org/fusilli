@@ -261,7 +261,7 @@ inline std::span<const std::string> getBackendFlags(Backend backend) {
                 "--iree-hal-target-backends=rocm",
                 std::format("--iree-rocm-target={}", rocmTarget),
                 "--iree-opt-level=O3",
-                "--iree-preprocessing-pass-pipeline=builtin.module(util.func(iree-preprocessing-backward-data-conv-pipeline))",
+                "--iree-preprocessing-pass-pipeline=builtin.module(iree-preprocessing-backward-data-conv-pipeline)",
                 "--iree-flow-enable-pad-handling",
                 "--iree-global-opt-propagate-transposes-through-conv",
                 "--iree-global-opt-enable-sink-transpose-through-pad",
