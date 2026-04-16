@@ -163,7 +163,7 @@ private:
 // - Compiles input files to output files
 //
 // Usage:
-//   ErrorOr<CompileSession> session = context->createSession(handle);
+//   ErrorOr<CompileSession> session = context->createSession(backend);
 //   FUSILLI_CHECK_ERROR(session->addFlag("--iree-hal-target-backends=rocm"));
 //   FUSILLI_CHECK_ERROR(session->compile(inputFile, outputFile));
 //

@@ -48,7 +48,7 @@ public:
   // This constructs the full command with:
   // - iree-compile executable path
   // - input file path
-  // - backend-specific flags from Handle
+  // - backend-specific flags
   // - statistics output flags
   // - output file specification
   //
