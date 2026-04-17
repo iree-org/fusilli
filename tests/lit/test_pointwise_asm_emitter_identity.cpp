@@ -40,7 +40,7 @@
 
 #include <fusilli.h>
 
-#include "utils.h"
+#include "pointwise_utils.h"
 
 #include <iostream>
 #include <string>
