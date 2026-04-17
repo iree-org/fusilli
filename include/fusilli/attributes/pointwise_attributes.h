@@ -64,11 +64,11 @@ namespace fusilli {
   OP(SIGMOID_FWD)                                                              \
   OP(SIN)                                                                      \
   /* OP(SOFTPLUS_BWD) */                                                       \
-  /* OP(SOFTPLUS_FWD) */                                                       \
+  OP(SOFTPLUS_FWD)                                                             \
   OP(SQRT)                                                                     \
   OP(SUB)                                                                      \
   /* OP(SWISH_BWD) */                                                          \
-  /* OP(SWISH_FWD) */                                                          \
+  OP(SWISH_FWD)                                                                \
   OP(TAN)                                                                      \
   /* OP(TANH_BWD) */                                                           \
   OP(TANH_FWD)
@@ -106,6 +106,16 @@ public:
     return *this;
   }
 
+  PointwiseAttr &setSoftplusBeta(float beta) {
+    softplusBeta_ = beta;
+    return *this;
+  }
+
+  PointwiseAttr &setSoftplusThreshold(float threshold) {
+    softplusThreshold_ = threshold;
+    return *this;
+  }
+
   // Getters:
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, IN_0)
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, IN_1)
@@ -114,6 +124,8 @@ public:
 
   Mode getMode() const { return mode_; }
   float getEluAlpha() const { return eluAlpha_; }
+  float getSoftplusBeta() const { return softplusBeta_; }
+  float getSoftplusThreshold() const { return softplusThreshold_; }
 
   // Utilities for pointwise modes.
   static const std::unordered_map<Mode, std::string> kModeToStr;
@@ -123,6 +135,8 @@ public:
 private:
   Mode mode_ = Mode::NOT_SET;
   float eluAlpha_ = 1.0f;
+  float softplusBeta_ = 1.0f;
+  float softplusThreshold_ = 20.0f;
 };
 
 #define FUSILLI_DECLARE_STRINGIFY_POINTWISE_MODE(mode)                         \
@@ -165,8 +179,10 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::RSQRT, 1},
         {PointwiseAttr::Mode::SIGMOID_FWD, 1},
         {PointwiseAttr::Mode::SIN, 1},
+        {PointwiseAttr::Mode::SOFTPLUS_FWD, 1},
         {PointwiseAttr::Mode::SQRT, 1},
         {PointwiseAttr::Mode::SUB, 2},
+        {PointwiseAttr::Mode::SWISH_FWD, 1},
         {PointwiseAttr::Mode::TAN, 1},
         {PointwiseAttr::Mode::TANH_FWD, 1}};
 
