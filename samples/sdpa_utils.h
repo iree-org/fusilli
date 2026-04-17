@@ -91,27 +91,31 @@ std::string buildSdpaMlir(bool hasAttnMask = false, float dropoutP = 0.0f,
 /// CPU reference implementation of scaled dot-product attention.
 /// Computes SDPA in float precision for numerical verification against the GPU.
 /// Layout: [batch, heads, seq_len, head_dim] contiguous.
+/// K and V may have different head counts (headsK vs headsV).
 std::vector<float> referenceSdpa(float qVal, float kVal, float vVal,
                                  float maskVal, int64_t batch, int64_t headsQ,
-                                 int64_t headsKV, int64_t seqQ, int64_t seqKV,
-                                 int64_t headDim, bool isCausal,
+                                 int64_t headsK, int64_t headsV, int64_t seqQ,
+                                 int64_t seqKV, int64_t headDim, bool isCausal,
                                  std::optional<float> scale, bool enableGqa,
                                  bool hasAttnMask);
 
 /// Build and execute SDPA using the built-in graph API.
 /// Shape convention: [batch, heads, seq_len, head_dim].
+/// K and V may have different head counts (headsK vs headsV).
 void executeSdpa(Handle &handle, DataType dt, int64_t batch, int64_t headsQ,
-                 int64_t headsKV, int64_t seqQ, int64_t seqKV, int64_t headDim,
-                 bool isCausal = false,
+                 int64_t headsK, int64_t headsV, int64_t seqQ, int64_t seqKV,
+                 int64_t headDim, bool isCausal = false,
                  std::optional<float> scale = std::nullopt,
                  bool enableGqa = false, bool hasAttnMask = false,
                  float dropoutP = 0.0f);
 
 /// Build and execute SDPA using the custom op graph API with MLIR templates.
 /// Shape convention: [batch, heads, seq_len, head_dim].
+/// K and V may have different head counts (headsK vs headsV).
 void executeSdpaCustomOp(Handle &handle, DataType dt, int64_t batch,
-                         int64_t headsQ, int64_t headsKV, int64_t seqQ,
-                         int64_t seqKV, int64_t headDim, bool isCausal = false,
+                         int64_t headsQ, int64_t headsK, int64_t headsV,
+                         int64_t seqQ, int64_t seqKV, int64_t headDim,
+                         bool isCausal = false,
                          std::optional<float> scale = std::nullopt,
                          bool enableGqa = false, bool hasAttnMask = false,
                          float dropoutP = 0.0f);

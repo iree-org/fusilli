@@ -138,6 +138,7 @@ add_fusilli_samples(
     # TODO(#277): torch-mlir + IREE lowering needs to support dropout.
     # custom_op/sdpa/sdpa_fprop_dropout.cpp
     custom_op/sdpa/sdpa_fprop_gqa.cpp
+    custom_op/sdpa/sdpa_fprop_gqa_hk_ne_hv.cpp
     custom_op/sdpa/sdpa_fprop_cross_attn.cpp
   DEPS
     libfusilli
@@ -156,6 +157,7 @@ add_fusilli_samples(
     # TODO(#277): torch-mlir + IREE lowering needs to support dropout.
     # sdpa/sdpa_fprop_dropout.cpp
     sdpa/sdpa_fprop_gqa.cpp
+    sdpa/sdpa_fprop_gqa_hk_ne_hv.cpp
     sdpa/sdpa_fprop_cross_attn.cpp
   DEPS
     libfusilli
