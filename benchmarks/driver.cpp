@@ -210,7 +210,8 @@ static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
   FUSILLI_CHECK_ERROR(graph.validate());
 
   // Compile
-  FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
+  FUSILLI_CHECK_ERROR(graph.compile(handle.getBackend(), /*remove=*/!dump));
+  FUSILLI_CHECK_ERROR(graph.load(handle));
 
   // Allocate input, weight and output buffers.
   FUSILLI_ASSIGN_OR_RETURN(auto xBuf,
@@ -341,7 +342,8 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
   FUSILLI_CHECK_ERROR(graph.validate());
 
   // Compile
-  FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
+  FUSILLI_CHECK_ERROR(graph.compile(handle.getBackend(), /*remove=*/!dump));
+  FUSILLI_CHECK_ERROR(graph.load(handle));
 
   // Allocate buffers.
   FUSILLI_ASSIGN_OR_RETURN(auto dyBuf,
@@ -472,7 +474,8 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
   FUSILLI_CHECK_ERROR(graph.validate());
 
   // Compile
-  FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
+  FUSILLI_CHECK_ERROR(graph.compile(handle.getBackend(), /*remove=*/!dump));
+  FUSILLI_CHECK_ERROR(graph.load(handle));
 
   // Allocate buffers.
   FUSILLI_ASSIGN_OR_RETURN(auto dyBuf,
@@ -563,7 +566,8 @@ static ErrorObject benchmarkLayerNormFwd(const LayerNormOptions &opts,
   FUSILLI_CHECK_ERROR(graph.validate());
 
   // Compile
-  FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
+  FUSILLI_CHECK_ERROR(graph.compile(handle.getBackend(), /*remove=*/!dump));
+  FUSILLI_CHECK_ERROR(graph.load(handle));
 
   // Allocate input and output buffers.
   FUSILLI_ASSIGN_OR_RETURN(
@@ -699,7 +703,8 @@ static ErrorObject benchmarkSdpaFwd(const SdpaOptions &opts,
   FUSILLI_CHECK_ERROR(graph.validate());
 
   // Compile
-  FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
+  FUSILLI_CHECK_ERROR(graph.compile(handle.getBackend(), /*remove=*/!dump));
+  FUSILLI_CHECK_ERROR(graph.load(handle));
 
   // Allocate input and output buffers.
   FUSILLI_ASSIGN_OR_RETURN(auto qBuf,
@@ -826,7 +831,8 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts, DataType aType,
   FUSILLI_CHECK_ERROR(graph.validate());
 
   // Compile
-  FUSILLI_CHECK_ERROR(graph.compile(handle, /*remove=*/!dump));
+  FUSILLI_CHECK_ERROR(graph.compile(handle.getBackend(), /*remove=*/!dump));
+  FUSILLI_CHECK_ERROR(graph.load(handle));
 
   // Allocate input, weight and output buffers.
   FUSILLI_ASSIGN_OR_RETURN(auto aBuf,

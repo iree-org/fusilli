@@ -124,7 +124,9 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       FUSILLI_REQUIRE_OK(graph->validate());
 
       // Compile
-      FUSILLI_REQUIRE_OK(graph->compile(handleArg, /*remove=*/true));
+      FUSILLI_REQUIRE_OK(
+          graph->compile(handleArg.getBackend(), /*remove=*/true));
+      FUSILLI_REQUIRE_OK(graph->load(handleArg));
 
       return std::make_tuple(graph, xT, pointwiseResult);
     };

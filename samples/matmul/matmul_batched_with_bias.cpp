@@ -57,7 +57,8 @@ TEST_CASE("Batched matrix multiplication with bias; A (B, M, K), B (B, K, N), "
     FUSILLI_REQUIRE_OK(graph->validate());
 
     // Compile
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handle.getBackend(), /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->load(handle));
 
     return std::make_tuple(graph, aT, bT, biasT, resultT);
   };
@@ -159,7 +160,8 @@ TEST_CASE("Batched matrix multiplication with broadcast and bias; A (B, M, K), "
     FUSILLI_REQUIRE_OK(graph->validate());
 
     // Compile
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handle.getBackend(), /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->load(handle));
 
     return std::make_tuple(graph, aT, bT, biasT, resultT);
   };

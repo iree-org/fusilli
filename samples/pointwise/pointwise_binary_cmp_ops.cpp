@@ -75,7 +75,8 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
     yT->setName("result").setOutput(true);
 
     FUSILLI_REQUIRE_OK(graph->validate());
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handle.getBackend(), /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->load(handle));
 
     return std::make_tuple(graph, x0T, x1T, yT);
   };

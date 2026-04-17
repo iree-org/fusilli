@@ -52,7 +52,8 @@ TEST_CASE("Layer normalization; inference mode; NCHW layout; no bias/scale",
     FUSILLI_REQUIRE_OK(graph->validate());
 
     // Compile
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handle.getBackend(), /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->load(handle));
 
     return std::make_tuple(graph, xT, yT);
   };

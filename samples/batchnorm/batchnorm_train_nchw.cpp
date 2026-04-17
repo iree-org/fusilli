@@ -55,7 +55,8 @@ TEST_CASE("Batch normalization; training mode; NCHW layout; no scale/bias",
     sivT->setName("saved_inv_var").setDataType(DataType::Float).setOutput(true);
 
     FUSILLI_REQUIRE_OK(graph->validate());
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handle.getBackend(), /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->load(handle));
 
     return std::make_tuple(graph, xT, yT, smT, sivT);
   };

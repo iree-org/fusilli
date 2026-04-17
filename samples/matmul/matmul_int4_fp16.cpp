@@ -44,7 +44,8 @@ TEST_CASE("Int4 x fp16 matmul", "[matmul][int4]") {
     cT->setOutput(true);
 
     FUSILLI_REQUIRE_OK(graph->validate());
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handle.getBackend(), /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->load(handle));
 
     return std::make_tuple(graph, aT, bT, cT);
   };

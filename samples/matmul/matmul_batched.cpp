@@ -48,7 +48,8 @@ TEST_CASE(
     FUSILLI_REQUIRE_OK(graph->validate());
 
     // Compile
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handle.getBackend(), /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->load(handle));
 
     return std::make_tuple(graph, aT, bT, cT);
   };
@@ -130,7 +131,8 @@ TEST_CASE("Batched matrix multiplication with broadcast; A (B, M, K), B (1, K, "
     FUSILLI_REQUIRE_OK(graph->validate());
 
     // Compile
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handle.getBackend(), /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->load(handle));
 
     return std::make_tuple(graph, aT, bT, cT);
   };

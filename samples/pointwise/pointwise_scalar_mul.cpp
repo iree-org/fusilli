@@ -46,7 +46,8 @@ TEST_CASE("Pointwise MUL with scalar operand", "[pointwise][scalar][graph]") {
   yT->setName("result").setOutput(true);
 
   FUSILLI_REQUIRE_OK(graph->validate());
-  FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+  FUSILLI_REQUIRE_OK(graph->compile(handle.getBackend(), /*remove=*/true));
+  FUSILLI_REQUIRE_OK(graph->load(handle));
 
   // Allocate input buffer (all elements = inputVal).
   FUSILLI_REQUIRE_ASSIGN(

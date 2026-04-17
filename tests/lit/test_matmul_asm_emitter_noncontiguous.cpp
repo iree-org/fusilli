@@ -104,7 +104,8 @@ static ErrorObject testMatmulAsmEmitterNoncontiguous(const std::string &mode) {
 
   if (mode == "stats") {
     FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(kDefaultBackend));
-    FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
+    FUSILLI_CHECK_ERROR(graph->compile(handle.getBackend(), /*remove=*/true));
+    FUSILLI_CHECK_ERROR(graph->load(handle));
     FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
                                              CachedAssetsType::Statistics));
     std::cout << stats << std::endl;

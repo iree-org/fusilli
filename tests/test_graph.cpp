@@ -175,40 +175,35 @@ TEST_CASE("Graph asm_emitter requires validation to be run first", "[graph]") {
 
 TEST_CASE("Graph `getCompiledArtifact` cache generation and invalidation",
           "[graph]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle cpuHandle, Handle::create(Backend::CPU));
-#if defined(FUSILLI_ENABLE_AMDGPU)
-  FUSILLI_REQUIRE_ASSIGN(Handle gpuHandle, Handle::create(Backend::AMDGPU));
-#endif
-
   Graph g = testGraph(/*validate=*/true);
 
   FUSILLI_REQUIRE_ASSIGN(std::string generatedAsm, g.emitAsm());
 
   // Cache should be empty, compilation artifacts should be generated.
   std::optional<bool> reCompiled = std::nullopt;
-  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(cpuHandle, generatedAsm,
+  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(Backend::CPU, generatedAsm,
                                            /*remove=*/true, &reCompiled));
   REQUIRE(reCompiled.has_value());
   REQUIRE(reCompiled.value());
 
   // Cache should hit, no compilation should be required.
   reCompiled = std::nullopt;
-  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(cpuHandle, generatedAsm,
+  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(Backend::CPU, generatedAsm,
                                            /*remove=*/true, &reCompiled));
   REQUIRE(reCompiled.has_value());
   REQUIRE(!reCompiled.value());
 
 #if defined(FUSILLI_ENABLE_AMDGPU)
-  // Cache should miss based on different handle / device / compile command.
+  // Cache should miss based on different backend / compile command.
   reCompiled = std::nullopt;
-  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(gpuHandle, generatedAsm,
+  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(Backend::AMDGPU, generatedAsm,
                                            /*remove=*/true, &reCompiled));
   REQUIRE(reCompiled.has_value());
   REQUIRE(reCompiled.value());
 
-  // Cache should hit with a re-run on the different handle.
+  // Cache should hit with a re-run on the different backend.
   reCompiled = std::nullopt;
-  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(gpuHandle, generatedAsm,
+  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(Backend::AMDGPU, generatedAsm,
                                            /*remove=*/true, &reCompiled));
   REQUIRE(reCompiled.has_value());
   REQUIRE(!reCompiled.value());
@@ -216,14 +211,14 @@ TEST_CASE("Graph `getCompiledArtifact` cache generation and invalidation",
 
   // Cache should miss because of different generated asm.
   reCompiled = std::nullopt;
-  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(cpuHandle, generatedAsm + " ",
+  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(Backend::CPU, generatedAsm + " ",
                                            /*remove=*/true, &reCompiled));
   REQUIRE(reCompiled.has_value());
   REQUIRE(reCompiled.value());
 
   // Cache should hit with the same generated asm.
   reCompiled = std::nullopt;
-  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(cpuHandle, generatedAsm + " ",
+  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(Backend::CPU, generatedAsm + " ",
                                            /*remove=*/true, &reCompiled));
   REQUIRE(reCompiled.has_value());
   REQUIRE(!reCompiled.value());
@@ -231,7 +226,7 @@ TEST_CASE("Graph `getCompiledArtifact` cache generation and invalidation",
   // Cache should miss because graph name change.
   g.setName("new_graph_name");
   reCompiled = std::nullopt;
-  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(cpuHandle, generatedAsm + " ",
+  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(Backend::CPU, generatedAsm + " ",
                                            /*remove=*/true, &reCompiled));
   REQUIRE(reCompiled.has_value());
   REQUIRE(reCompiled.value());
@@ -240,8 +235,6 @@ TEST_CASE("Graph `getCompiledArtifact` cache generation and invalidation",
 TEST_CASE("Graph `getCompiledArtifact` should not read cached items from "
           "other/previous Graph instances",
           "[graph]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-
   std::string generatedAsm;
   {
     Graph g = testGraph(/*validate=*/true);
@@ -250,14 +243,14 @@ TEST_CASE("Graph `getCompiledArtifact` should not read cached items from "
 
     // Cache should be empty.
     std::optional<bool> reCompiled = std::nullopt;
-    FUSILLI_REQUIRE_OK(g.getCompiledArtifact(handle, generatedAsm,
+    FUSILLI_REQUIRE_OK(g.getCompiledArtifact(kDefaultBackend, generatedAsm,
                                              /*remove=*/false, &reCompiled));
     REQUIRE(reCompiled.has_value());
     REQUIRE(reCompiled.value());
 
     // Cache should hit with the same generated asm.
     reCompiled = std::nullopt;
-    FUSILLI_REQUIRE_OK(g.getCompiledArtifact(handle, generatedAsm,
+    FUSILLI_REQUIRE_OK(g.getCompiledArtifact(kDefaultBackend, generatedAsm,
                                              /*remove=*/false, &reCompiled));
     REQUIRE(reCompiled.has_value());
     REQUIRE(!reCompiled.value());
@@ -274,20 +267,19 @@ TEST_CASE("Graph `getCompiledArtifact` should not read cached items from "
 
   // Nonetheless a new instance should regenerate cache.
   std::optional<bool> reCompiled = std::nullopt;
-  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(handle, generatedAsm,
+  FUSILLI_REQUIRE_OK(g.getCompiledArtifact(kDefaultBackend, generatedAsm,
                                            /*remove=*/true, &reCompiled));
   REQUIRE(reCompiled.has_value());
   REQUIRE(reCompiled.value());
 }
 
 TEST_CASE("Graph `getCompiledArtifact` invalid input IR", "[graph]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   std::string graphName;
   {
     Graph g;
     g.setName("invalid_input_ir");
     ErrorObject err =
-        g.getCompiledArtifact(handle, "invalid mlir", /*remove=*/true);
+        g.getCompiledArtifact(kDefaultBackend, "invalid mlir", /*remove=*/true);
     REQUIRE(isError(err));
     REQUIRE(err.getCode() == ErrorCode::CompileFailure);
     // Error message varies between subprocess and C API backends.
@@ -301,22 +293,45 @@ TEST_CASE("Graph `getCompiledArtifact` invalid input IR", "[graph]") {
 }
 
 TEST_CASE("Graph `compile` method fails without validation", "[graph]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-
   Graph g = testGraph(/*validate=*/false);
 
-  auto status = g.compile(handle, /*remove=*/true);
+  auto status = g.compile(kDefaultBackend, /*remove=*/true);
   REQUIRE(isError(status));
   REQUIRE(status.getCode() == ErrorCode::NotValidated);
   REQUIRE(status.getMessage() ==
           "Graph must be validated before being compiled");
 }
 
-TEST_CASE("Graph `compile` recompilations with changed handle", "[graph]") {
+TEST_CASE("Graph `load` fails without prior compile", "[graph]") {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+
+  Graph g = testGraph(/*validate=*/true);
+
+  auto status = g.load(handle);
+  REQUIRE(isError(status));
+  REQUIRE(status.getCode() == ErrorCode::NotCompiled);
+  REQUIRE(status.getMessage() ==
+          "Graph must be compiled before loading (call compile() first)");
+}
+
+#if defined(FUSILLI_ENABLE_AMDGPU)
+TEST_CASE("Graph `load` fails with backend mismatch", "[graph]") {
+  // Compile for CPU, then try to load with a GPU handle.
+  Graph g = testGraph(/*validate=*/true);
+  FUSILLI_REQUIRE_OK(g.compile(Backend::CPU, /*remove=*/true));
+
+  FUSILLI_REQUIRE_ASSIGN(Handle gpuHandle, Handle::create(Backend::AMDGPU));
+  auto status = g.load(gpuHandle);
+  REQUIRE(isError(status));
+  REQUIRE(status.getCode() == ErrorCode::InvalidArgument);
+  REQUIRE(status.getMessage().find("does not match") != std::string::npos);
+}
+#endif
+
+TEST_CASE("Graph `compile` recompilations with changed backend", "[graph]") {
   // This test constructs a single graph but compiles it with different
-  // handles and backends, ensuring that the graph did not use cached
-  // artifacts from a previous compilation and correctly re-compiled
-  // for the new handle/backend.
+  // backends, ensuring that the graph did not use cached artifacts from
+  // a previous compilation and correctly re-compiled for the new backend.
   Graph g = testGraph(/*validate=*/true);
 
   // Path to compile command cache file.
@@ -324,8 +339,7 @@ TEST_CASE("Graph `compile` recompilations with changed handle", "[graph]") {
   std::filesystem::path cmdPath =
       cacheDir / g.getName() / "iree-compile-command.txt";
 
-  FUSILLI_REQUIRE_ASSIGN(Handle cpuHandle, Handle::create(Backend::CPU));
-  FUSILLI_REQUIRE_OK(g.compile(cpuHandle, /*remove=*/true));
+  FUSILLI_REQUIRE_OK(g.compile(Backend::CPU, /*remove=*/true));
 
   std::string cpuCmd;
   REQUIRE(std::filesystem::exists(cmdPath));
@@ -335,8 +349,7 @@ TEST_CASE("Graph `compile` recompilations with changed handle", "[graph]") {
   REQUIRE(!cpuCmd.empty());
 
 #if defined(FUSILLI_ENABLE_AMDGPU)
-  FUSILLI_REQUIRE_ASSIGN(Handle gpuHandle, Handle::create(Backend::AMDGPU));
-  FUSILLI_REQUIRE_OK(g.compile(gpuHandle, /*remove=*/true));
+  FUSILLI_REQUIRE_OK(g.compile(Backend::AMDGPU, /*remove=*/true));
 
   std::string gpuCmd;
   REQUIRE(std::filesystem::exists(cmdPath));
@@ -345,7 +358,7 @@ TEST_CASE("Graph `compile` recompilations with changed handle", "[graph]") {
   std::getline(gpuCmdFile, gpuCmd);
   REQUIRE(!gpuCmd.empty());
 
-  // The compile commands should be different for CPU and GPU handles.
+  // The compile commands should be different for CPU and GPU backends.
   REQUIRE(cpuCmd != gpuCmd);
 #endif
 }
@@ -382,7 +395,8 @@ TEST_CASE("Graph `execute`", "[graph]") {
 
     FUSILLI_REQUIRE_OK(graph->validate());
 
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handle.getBackend(), /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->load(handle));
 
     return std::make_tuple(graph, xT, wT, yT);
   };
@@ -390,7 +404,7 @@ TEST_CASE("Graph `execute`", "[graph]") {
   // Create handle for the target backend.
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
-  // Build graph for the given handle (device), validate and compile it.
+  // Build graph for the given handle (device), validate, compile and load.
   auto [graph, X, W, Y] = buildNewGraph(handle);
 
   // Allocate input buffer.
@@ -500,10 +514,11 @@ TEST_CASE("Graph `getWorkspaceSize` after compilation", "[graph]") {
 
   Graph g = testGraph(/*validate=*/true);
 
-  // Compile the graph.
-  FUSILLI_REQUIRE_OK(g.compile(handle, /*remove=*/true));
+  // Compile and load the graph.
+  FUSILLI_REQUIRE_OK(g.compile(handle.getBackend(), /*remove=*/true));
+  FUSILLI_REQUIRE_OK(g.load(handle));
 
-  // After compilation, getWorkspaceSize returns the queried transient size.
+  // After loading, getWorkspaceSize returns the queried transient size.
   // It should have a value (not nullopt). The actual size is
   // implementation-dependent.
   auto workspaceSize = g.getWorkspaceSize();
@@ -515,7 +530,8 @@ TEST_CASE("Graph `getWorkspaceSize` consistency across multiple queries",
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   Graph g = testGraph(/*validate=*/true);
-  FUSILLI_REQUIRE_OK(g.compile(handle, /*remove=*/true));
+  FUSILLI_REQUIRE_OK(g.compile(handle.getBackend(), /*remove=*/true));
+  FUSILLI_REQUIRE_OK(g.load(handle));
 
   // Multiple queries should return the same value.
   auto size1 = g.getWorkspaceSize();

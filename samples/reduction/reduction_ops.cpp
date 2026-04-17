@@ -73,7 +73,8 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
 
     // Validate and compile.
     FUSILLI_REQUIRE_OK(graph->validate());
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handle.getBackend(), /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->load(handle));
 
     // Calculate total input size
     int64_t xSize = 1;

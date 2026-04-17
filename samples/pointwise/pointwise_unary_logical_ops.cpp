@@ -59,7 +59,8 @@ TEST_CASE("Pointwise unary logical ops", "[pointwise][graph]") {
 
     // Validate and compile.
     FUSILLI_REQUIRE_OK(graph->validate());
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handle.getBackend(), /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->load(handle));
 
     // Allocate input buffer.
     FUSILLI_REQUIRE_ASSIGN(auto xBuf, allocateBufferOfType(handle, xT, dt, x));

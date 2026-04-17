@@ -121,7 +121,8 @@ TEST_CASE("CustomOp compile + execute round-trip", "[custom_op]") {
   FUSILLI_REQUIRE_OK(g.validate());
 
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-  FUSILLI_REQUIRE_OK(g.compile(handle, /*remove=*/true));
+  FUSILLI_REQUIRE_OK(g.compile(handle.getBackend(), /*remove=*/true));
+  FUSILLI_REQUIRE_OK(g.load(handle));
 
   // Allocate buffers.
   FUSILLI_REQUIRE_ASSIGN(
@@ -190,7 +191,8 @@ TEST_CASE("CustomOp composition: built-in op -> custom op", "[custom_op]") {
   FUSILLI_REQUIRE_OK(g.validate());
 
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-  FUSILLI_REQUIRE_OK(g.compile(handle, /*remove=*/true));
+  FUSILLI_REQUIRE_OK(g.compile(handle.getBackend(), /*remove=*/true));
+  FUSILLI_REQUIRE_OK(g.load(handle));
 
   FUSILLI_REQUIRE_ASSIGN(
       auto aBuf,

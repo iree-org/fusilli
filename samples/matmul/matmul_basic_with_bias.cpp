@@ -53,7 +53,8 @@ TEST_CASE("Matrix multiplication with bias; A (M, K), B (K, N), bias (1, N); "
     FUSILLI_REQUIRE_OK(graph->validate());
 
     // Compile
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handle.getBackend(), /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->load(handle));
 
     return std::make_tuple(graph, aT, bT, biasT, resultT);
   };
@@ -148,7 +149,8 @@ TEST_CASE("Matrix multiplication with bias; A (M, K), B^T (N, K), bias (1, N); "
     FUSILLI_REQUIRE_OK(graph->validate());
 
     // Compile
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handle.getBackend(), /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->load(handle));
 
     return std::make_tuple(graph, aT, bT, biasT, resultT);
   };

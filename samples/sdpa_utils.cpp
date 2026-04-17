@@ -188,7 +188,8 @@ void executeAndVerify(Handle &handle, const SdpaTestContext &ctx,
                       bool isCausal, std::optional<float> scale, bool enableGqa,
                       bool hasAttnMask, float dropoutP) {
   FUSILLI_REQUIRE_OK(ctx.graph->validate());
-  FUSILLI_REQUIRE_OK(ctx.graph->compile(handle, /*remove=*/true));
+  FUSILLI_REQUIRE_OK(ctx.graph->compile(handle.getBackend(), /*remove=*/true));
+  FUSILLI_REQUIRE_OK(ctx.graph->load(handle));
 
   FUSILLI_REQUIRE_ASSIGN(auto qBuf,
                          allocateBufferOfType(handle, ctx.qT, dt, 0.01));

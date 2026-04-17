@@ -74,7 +74,8 @@ TEST_CASE("Convolution fprop with hip stream; X (NCHW), W (KCRS); 1x1 conv; no "
   FUSILLI_REQUIRE_OK(graph.validate());
 
   // Compile
-  FUSILLI_REQUIRE_OK(graph.compile(handle, /*remove=*/true));
+  FUSILLI_REQUIRE_OK(graph.compile(handle.getBackend(), /*remove=*/true));
+  FUSILLI_REQUIRE_OK(graph.load(handle));
 
   // Allocate input buffer.
   FUSILLI_REQUIRE_ASSIGN(

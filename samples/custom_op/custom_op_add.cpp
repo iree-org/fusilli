@@ -74,7 +74,8 @@ TEST_CASE("Custom op: compose built-in pointwise add with custom negate",
     outs[0]->setDim(dim).setStride(stride).setDataType(dt).setOutput(true);
 
     FUSILLI_REQUIRE_OK(graph->validate());
-    FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->compile(handle.getBackend(), /*remove=*/true));
+    FUSILLI_REQUIRE_OK(graph->load(handle));
 
     FUSILLI_REQUIRE_ASSIGN(
         auto aBuf, allocateBufferOfType(handle, aT, dt, double(fillVal)));
