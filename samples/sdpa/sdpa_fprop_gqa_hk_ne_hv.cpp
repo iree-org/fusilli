@@ -14,7 +14,7 @@
 #include <optional>
 
 // GQA with different K and V head counts: K and V may have independently
-// grouped heads relative to Q. This is supported by PyTorch SDPA and IREE.
+// grouped heads relative to Q.
 TEST_CASE("SDPA forward: GQA Hk!=Hv f16", "[sdpa][graph]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   executeSdpa(handle, DataType::Half,

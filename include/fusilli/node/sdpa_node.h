@@ -111,8 +111,7 @@ public:
         "SDPA input tensors K and V must have matching sequence length");
 
     // Head count validation: K and V may have different head counts
-    // (supported by PyTorch SDPA and IREE), but Q heads must be
-    // compatible with both independently.
+    // but Q heads must be compatible with both independently.
     int64_t headsQ = qDim[1];
     int64_t headsK = kDim[1];
     int64_t headsV = vDim[1];

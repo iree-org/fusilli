@@ -58,13 +58,6 @@ std::vector<float> referenceSdpa(float qVal, float kVal, float vVal,
 
   for (int64_t b = 0; b < batch; ++b) {
     for (int64_t hq = 0; hq < headsQ; ++hq) {
-      // Map query head to K/V heads independently (identity for MHA,
-      // grouped for GQA). K and V may have different head counts.
-      // Not used in computation because tensors are constant-filled, but
-      // kept for documentation of the actual head mapping:
-      //   hk = enableGqa ? hq / (headsQ / headsK) : hq
-      //   hv = enableGqa ? hq / (headsQ / headsV) : hq
-
       for (int64_t sq = 0; sq < seqQ; ++sq) {
         // Compute attention scores: dot(Q[b,hq,sq,:], K[b,hk,sk,:]) * scale.
         // Since Q and K are constant-filled, dot product = qVal * kVal *
@@ -127,9 +120,12 @@ SdpaTestContext setupSdpaGraph(DataType dt, int64_t batch, int64_t headsQ,
                                std::string_view namePrefix) {
   REQUIRE(!(hasAttnMask && isCausal));
   if (enableGqa) {
+    // GQA constraint: query heads must be a multiple of key heads and value
+    // heads independently.
     REQUIRE(headsQ % headsK == 0);
     REQUIRE(headsQ % headsV == 0);
   } else {
+    // MHA constraint: query heads must be equal to key heads and value heads.
     REQUIRE(headsQ == headsK);
     REQUIRE(headsQ == headsV);
   }
