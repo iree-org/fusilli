@@ -105,29 +105,35 @@ public:
         qDim[3] != kDim[3], ErrorCode::InvalidAttribute,
         "SDPA input tensors Q and K must have matching head_dim");
 
-    // K and V must have matching sequence length and heads.
-    // TODO(#280): Relax the h_k == h_v constraint once IREE fix is in.
-    FUSILLI_RETURN_ERROR_IF(
-        kDim[1] != vDim[1], ErrorCode::InvalidAttribute,
-        "SDPA input tensors K and V must have matching number of heads");
+    // K and V must have matching sequence length.
     FUSILLI_RETURN_ERROR_IF(
         kDim[2] != vDim[2], ErrorCode::InvalidAttribute,
         "SDPA input tensors K and V must have matching sequence length");
 
-    // Head count validation.
+    // Head count validation: K and V may have different head counts
+    // (supported by PyTorch SDPA and IREE), but Q heads must be
+    // compatible with both independently.
     int64_t headsQ = qDim[1];
-    int64_t headsKV = kDim[1];
+    int64_t headsK = kDim[1];
+    int64_t headsV = vDim[1];
     if (sdpaAttr.getEnableGqa()) {
       FUSILLI_RETURN_ERROR_IF(
-          headsQ % headsKV != 0, ErrorCode::InvalidAttribute,
+          headsQ % headsK != 0, ErrorCode::InvalidAttribute,
           "SDPA with GQA requires Q heads (" + std::to_string(headsQ) +
-              ") to be a multiple of KV heads (" + std::to_string(headsKV) +
-              ")");
+              ") to be a multiple of K heads (" + std::to_string(headsK) + ")");
+      FUSILLI_RETURN_ERROR_IF(
+          headsQ % headsV != 0, ErrorCode::InvalidAttribute,
+          "SDPA with GQA requires Q heads (" + std::to_string(headsQ) +
+              ") to be a multiple of V heads (" + std::to_string(headsV) + ")");
     } else {
       FUSILLI_RETURN_ERROR_IF(
-          headsQ != headsKV, ErrorCode::InvalidAttribute,
+          headsQ != headsK, ErrorCode::InvalidAttribute,
           "SDPA without GQA requires Q heads (" + std::to_string(headsQ) +
-              ") to equal KV heads (" + std::to_string(headsKV) + ")");
+              ") to equal K heads (" + std::to_string(headsK) + ")");
+      FUSILLI_RETURN_ERROR_IF(
+          headsQ != headsV, ErrorCode::InvalidAttribute,
+          "SDPA without GQA requires Q heads (" + std::to_string(headsQ) +
+              ") to equal V heads (" + std::to_string(headsV) + ")");
     }
 
     // Mask and is_causal are mutually exclusive.

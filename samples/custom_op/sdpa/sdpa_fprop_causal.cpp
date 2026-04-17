@@ -14,7 +14,7 @@
 TEST_CASE("SDPA forward: causal f16", "[sdpa][custom_op][graph]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   executeSdpaCustomOp(handle, DataType::Half,
-                      /*batch=*/1, /*headsQ=*/8, /*headsKV=*/8,
+                      /*batch=*/1, /*headsQ=*/8, /*headsK=*/8, /*headsV=*/8,
                       /*seqQ=*/64, /*seqKV=*/64, /*headDim=*/64,
                       /*isCausal=*/true);
 }

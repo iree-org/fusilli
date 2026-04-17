@@ -48,8 +48,8 @@ std::string buildSdpaMlir(bool hasAttnMask, float dropoutP, bool isCausal,
 
 std::vector<float> referenceSdpa(float qVal, float kVal, float vVal,
                                  float maskVal, int64_t batch, int64_t headsQ,
-                                 int64_t headsKV, int64_t seqQ, int64_t seqKV,
-                                 int64_t headDim, bool isCausal,
+                                 int64_t headsK, int64_t headsV, int64_t seqQ,
+                                 int64_t seqKV, int64_t headDim, bool isCausal,
                                  std::optional<float> scale, bool enableGqa,
                                  bool hasAttnMask) {
   float s = scale.value_or(1.0f / std::sqrt(static_cast<float>(headDim)));
@@ -58,11 +58,15 @@ std::vector<float> referenceSdpa(float qVal, float kVal, float vVal,
 
   for (int64_t b = 0; b < batch; ++b) {
     for (int64_t hq = 0; hq < headsQ; ++hq) {
-      // Map query head to KV head (identity for MHA, grouped for GQA).
-      int64_t hkv = enableGqa ? hq / (headsQ / headsKV) : hq;
+      // Map query head to K/V heads independently (identity for MHA,
+      // grouped for GQA). K and V may have different head counts.
+      // Not used in computation because tensors are constant-filled, but
+      // kept for documentation of the actual head mapping:
+      //   hk = enableGqa ? hq / (headsQ / headsK) : hq
+      //   hv = enableGqa ? hq / (headsQ / headsV) : hq
 
       for (int64_t sq = 0; sq < seqQ; ++sq) {
-        // Compute attention scores: dot(Q[b,hq,sq,:], K[b,hkv,sk,:]) * scale.
+        // Compute attention scores: dot(Q[b,hq,sq,:], K[b,hk,sk,:]) * scale.
         // Since Q and K are constant-filled, dot product = qVal * kVal *
         // headDim for every (sq, sk) pair. We still compute per-element to
         // handle causal/mask variations correctly.
@@ -91,7 +95,7 @@ std::vector<float> referenceSdpa(float qVal, float kVal, float vVal,
           scores[sk] /= sumExp;
 
         // Output: weighted sum of V rows.
-        // V[b, hkv, sk, d] = vVal for all elements.
+        // V[b, hv, sk, d] = vVal for all elements.
         for (int64_t d = 0; d < headDim; ++d) {
           float val = 0.0f;
           for (int64_t sk = 0; sk < seqKV; ++sk)
@@ -116,18 +120,18 @@ struct SdpaTestContext {
 };
 
 SdpaTestContext setupSdpaGraph(DataType dt, int64_t batch, int64_t headsQ,
-                               int64_t headsKV, int64_t seqQ, int64_t seqKV,
-                               int64_t headDim, bool isCausal, bool enableGqa,
-                               bool hasAttnMask, float dropoutP,
+                               int64_t headsK, int64_t headsV, int64_t seqQ,
+                               int64_t seqKV, int64_t headDim, bool isCausal,
+                               bool enableGqa, bool hasAttnMask, float dropoutP,
                                std::optional<float> scale,
                                std::string_view namePrefix) {
   REQUIRE(!(hasAttnMask && isCausal));
   if (enableGqa) {
-    // GQA constraint: query heads must be a multiple of KV heads.
-    REQUIRE(headsQ % headsKV == 0);
+    REQUIRE(headsQ % headsK == 0);
+    REQUIRE(headsQ % headsV == 0);
   } else {
-    // Standard MHA: query and KV head counts must match.
-    REQUIRE(headsQ == headsKV);
+    REQUIRE(headsQ == headsK);
+    REQUIRE(headsQ == headsV);
   }
 
   std::string causalSuffix = isCausal ? "_causal" : "";
@@ -140,10 +144,10 @@ SdpaTestContext setupSdpaGraph(DataType dt, int64_t batch, int64_t headsQ,
 
   auto graph = std::make_shared<Graph>();
   graph
-      ->setName(std::format("{}_b{}hq{}hkv{}sq{}skv{}d{}{}{}{}{}{}", namePrefix,
-                            batch, headsQ, headsKV, seqQ, seqKV, headDim,
-                            causalSuffix, maskSuffix, gqaSuffix, scaleSuffix,
-                            dropoutSuffix))
+      ->setName(std::format("{}_b{}hq{}hk{}hv{}sq{}skv{}d{}{}{}{}{}{}",
+                            namePrefix, batch, headsQ, headsK, headsV, seqQ,
+                            seqKV, headDim, causalSuffix, maskSuffix, gqaSuffix,
+                            scaleSuffix, dropoutSuffix))
       .setIODataType(dt)
       .setIntermediateDataType(dt);
 
@@ -154,15 +158,15 @@ SdpaTestContext setupSdpaGraph(DataType dt, int64_t batch, int64_t headsQ,
   auto qT =
       graph->tensor(TensorAttr().setName("q").setDim(qDim).setStride(qStride));
 
-  // K: [batch, headsKV, seqKV, headDim]
-  std::vector<int64_t> kDim = {batch, headsKV, seqKV, headDim};
+  // K: [batch, headsK, seqKV, headDim]
+  std::vector<int64_t> kDim = {batch, headsK, seqKV, headDim};
   auto kStride =
       generateStrideFromDim(kDim, getContiguousStrideOrder(kDim.size()));
   auto kT =
       graph->tensor(TensorAttr().setName("k").setDim(kDim).setStride(kStride));
 
-  // V: [batch, headsKV, seqKV, headDim]
-  std::vector<int64_t> vDim = {batch, headsKV, seqKV, headDim};
+  // V: [batch, headsV, seqKV, headDim]
+  std::vector<int64_t> vDim = {batch, headsV, seqKV, headDim};
   auto vStride =
       generateStrideFromDim(vDim, getContiguousStrideOrder(vDim.size()));
   auto vT =
@@ -183,9 +187,10 @@ SdpaTestContext setupSdpaGraph(DataType dt, int64_t batch, int64_t headsQ,
 
 void executeAndVerify(Handle &handle, const SdpaTestContext &ctx,
                       const std::shared_ptr<TensorAttr> &oT, DataType dt,
-                      int64_t batch, int64_t headsQ, int64_t headsKV,
-                      int64_t seqQ, int64_t seqKV, int64_t headDim,
-                      bool isCausal, std::optional<float> scale, bool enableGqa,
+                      int64_t batch, int64_t headsQ, int64_t headsK,
+                      int64_t headsV, int64_t seqQ, int64_t seqKV,
+                      int64_t headDim, bool isCausal,
+                      std::optional<float> scale, bool enableGqa,
                       bool hasAttnMask, float dropoutP) {
   FUSILLI_REQUIRE_OK(ctx.graph->validate());
   FUSILLI_REQUIRE_OK(ctx.graph->compile(handle, /*remove=*/true));
@@ -231,8 +236,8 @@ void executeAndVerify(Handle &handle, const SdpaTestContext &ctx,
   constexpr float kInitMask = -1.0f;
 
   auto expected = referenceSdpa(kInitQ, kInitK, kInitV, kInitMask, batch,
-                                headsQ, headsKV, seqQ, seqKV, headDim, isCausal,
-                                scale, enableGqa, hasAttnMask);
+                                headsQ, headsK, headsV, seqQ, seqKV, headDim,
+                                isCausal, scale, enableGqa, hasAttnMask);
 
   // f16 has ~3 decimal digits of precision; use a tolerance that accounts
   // for accumulation error across the softmax and weighted-sum steps.
@@ -251,12 +256,12 @@ void executeAndVerify(Handle &handle, const SdpaTestContext &ctx,
 // ---------------------------------------------------------------------------
 
 void executeSdpa(Handle &handle, DataType dt, int64_t batch, int64_t headsQ,
-                 int64_t headsKV, int64_t seqQ, int64_t seqKV, int64_t headDim,
-                 bool isCausal, std::optional<float> scale, bool enableGqa,
-                 bool hasAttnMask, float dropoutP) {
+                 int64_t headsK, int64_t headsV, int64_t seqQ, int64_t seqKV,
+                 int64_t headDim, bool isCausal, std::optional<float> scale,
+                 bool enableGqa, bool hasAttnMask, float dropoutP) {
   auto ctx =
-      setupSdpaGraph(dt, batch, headsQ, headsKV, seqQ, seqKV, headDim, isCausal,
-                     enableGqa, hasAttnMask, dropoutP, scale, "sdpa");
+      setupSdpaGraph(dt, batch, headsQ, headsK, headsV, seqQ, seqKV, headDim,
+                     isCausal, enableGqa, hasAttnMask, dropoutP, scale, "sdpa");
 
   SdpaAttr sdpaAttr;
   sdpaAttr.setName("sdpa")
@@ -268,18 +273,19 @@ void executeSdpa(Handle &handle, DataType dt, int64_t batch, int64_t headsQ,
   auto oT = ctx.graph->sdpa(ctx.qT, ctx.kT, ctx.vT, ctx.maskT, sdpaAttr);
   oT->setOutput(true);
 
-  executeAndVerify(handle, ctx, oT, dt, batch, headsQ, headsKV, seqQ, seqKV,
-                   headDim, isCausal, scale, enableGqa, hasAttnMask, dropoutP);
+  executeAndVerify(handle, ctx, oT, dt, batch, headsQ, headsK, headsV, seqQ,
+                   seqKV, headDim, isCausal, scale, enableGqa, hasAttnMask,
+                   dropoutP);
 }
 
 void executeSdpaCustomOp(Handle &handle, DataType dt, int64_t batch,
-                         int64_t headsQ, int64_t headsKV, int64_t seqQ,
-                         int64_t seqKV, int64_t headDim, bool isCausal,
-                         std::optional<float> scale, bool enableGqa,
-                         bool hasAttnMask, float dropoutP) {
-  auto ctx =
-      setupSdpaGraph(dt, batch, headsQ, headsKV, seqQ, seqKV, headDim, isCausal,
-                     enableGqa, hasAttnMask, dropoutP, scale, "sdpa_custom_op");
+                         int64_t headsQ, int64_t headsK, int64_t headsV,
+                         int64_t seqQ, int64_t seqKV, int64_t headDim,
+                         bool isCausal, std::optional<float> scale,
+                         bool enableGqa, bool hasAttnMask, float dropoutP) {
+  auto ctx = setupSdpaGraph(dt, batch, headsQ, headsK, headsV, seqQ, seqKV,
+                            headDim, isCausal, enableGqa, hasAttnMask, dropoutP,
+                            scale, "sdpa_custom_op");
 
   std::string sdpaMlir =
       buildSdpaMlir(hasAttnMask, dropoutP, isCausal, scale, enableGqa);
@@ -299,7 +305,7 @@ void executeSdpaCustomOp(Handle &handle, DataType dt, int64_t batch,
       generateStrideFromDim(outDim, getContiguousStrideOrder(outDim.size()));
   outs[0]->setDim(outDim).setStride(outStride).setDataType(dt).setOutput(true);
 
-  executeAndVerify(handle, ctx, outs[0], dt, batch, headsQ, headsKV, seqQ,
-                   seqKV, headDim, isCausal, scale, enableGqa, hasAttnMask,
-                   dropoutP);
+  executeAndVerify(handle, ctx, outs[0], dt, batch, headsQ, headsK, headsV,
+                   seqQ, seqKV, headDim, isCausal, scale, enableGqa,
+                   hasAttnMask, dropoutP);
 }

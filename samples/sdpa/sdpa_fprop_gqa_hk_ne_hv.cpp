@@ -13,12 +13,13 @@
 
 #include <optional>
 
-TEST_CASE("SDPA forward: dropout f16", "[sdpa][graph]") {
+// GQA with different K and V head counts: K and V may have independently
+// grouped heads relative to Q. This is supported by PyTorch SDPA and IREE.
+TEST_CASE("SDPA forward: GQA Hk!=Hv f16", "[sdpa][graph]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   executeSdpa(handle, DataType::Half,
-              /*batch=*/1, /*headsQ=*/8, /*headsK=*/8, /*headsV=*/8,
+              /*batch=*/1, /*headsQ=*/8, /*headsK=*/4, /*headsV=*/2,
               /*seqQ=*/64, /*seqKV=*/64, /*headDim=*/64,
               /*isCausal=*/false, /*scale=*/std::nullopt,
-              /*enableGqa=*/false, /*hasAttnMask=*/false,
-              /*dropoutP=*/0.1f);
+              /*enableGqa=*/true);
 }
