@@ -169,11 +169,11 @@ TEST_CASE("SdpaNode preValidateNode dimension checks", "[sdpa_node]") {
             "SDPA input tensors Q and K must have matching head_dim");
   }
 
-  SECTION("Heads mismatch without GQA") {
+  SECTION("K heads mismatch without GQA") {
     SdpaAttr attr;
     attr.setQ(makeTensor4D("Q", 1, 8, 64, 64));
     attr.setK(makeTensor4D("K", 1, 4, 64, 64));
-    attr.setV(makeTensor4D("V", 1, 4, 64, 64));
+    attr.setV(makeTensor4D("V", 1, 8, 64, 64));
     attr.setO(std::make_shared<TensorAttr>());
     SdpaNode node(std::move(attr), ctx);
 
@@ -181,10 +181,10 @@ TEST_CASE("SdpaNode preValidateNode dimension checks", "[sdpa_node]") {
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "SDPA without GQA requires Q heads (8) to equal KV heads (4)");
+            "SDPA without GQA requires Q heads (8) to equal K heads (4)");
   }
 
-  SECTION("K and V heads mismatch") {
+  SECTION("V heads mismatch without GQA") {
     SdpaAttr attr;
     attr.setQ(makeTensor4D("Q", 1, 8, 64, 64));
     attr.setK(makeTensor4D("K", 1, 8, 64, 64));
@@ -196,7 +196,7 @@ TEST_CASE("SdpaNode preValidateNode dimension checks", "[sdpa_node]") {
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "SDPA input tensors K and V must have matching number of heads");
+            "SDPA without GQA requires Q heads (8) to equal V heads (4)");
   }
 
   SECTION("K and V sequence length mismatch") {
@@ -230,11 +230,23 @@ TEST_CASE("SdpaNode GQA validation", "[sdpa_node]") {
     FUSILLI_REQUIRE_OK(node.preValidateNode());
   }
 
-  SECTION("Invalid GQA: Q heads not a multiple of KV heads") {
+  SECTION("Valid GQA: Hk != Hv, Q divisible by both") {
+    SdpaAttr attr;
+    attr.setQ(makeTensor4D("Q", 1, 8, 64, 64));
+    attr.setK(makeTensor4D("K", 1, 4, 64, 64));
+    attr.setV(makeTensor4D("V", 1, 2, 64, 64));
+    attr.setO(std::make_shared<TensorAttr>());
+    attr.setEnableGqa(true);
+    SdpaNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+  }
+
+  SECTION("Invalid GQA: Q heads not a multiple of K heads") {
     SdpaAttr attr;
     attr.setQ(makeTensor4D("Q", 1, 7, 64, 64));
     attr.setK(makeTensor4D("K", 1, 2, 64, 64));
-    attr.setV(makeTensor4D("V", 1, 2, 64, 64));
+    attr.setV(makeTensor4D("V", 1, 7, 64, 64));
     attr.setO(std::make_shared<TensorAttr>());
     attr.setEnableGqa(true);
     SdpaNode node(std::move(attr), ctx);
@@ -243,8 +255,25 @@ TEST_CASE("SdpaNode GQA validation", "[sdpa_node]") {
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "SDPA with GQA requires Q heads (7) to be a multiple of KV heads "
+            "SDPA with GQA requires Q heads (7) to be a multiple of K heads "
             "(2)");
+  }
+
+  SECTION("Invalid GQA: Q heads not a multiple of V heads") {
+    SdpaAttr attr;
+    attr.setQ(makeTensor4D("Q", 1, 8, 64, 64));
+    attr.setK(makeTensor4D("K", 1, 4, 64, 64));
+    attr.setV(makeTensor4D("V", 1, 3, 64, 64));
+    attr.setO(std::make_shared<TensorAttr>());
+    attr.setEnableGqa(true);
+    SdpaNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "SDPA with GQA requires Q heads (8) to be a multiple of V heads "
+            "(3)");
   }
 }
 
