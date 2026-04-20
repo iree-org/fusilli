@@ -128,6 +128,59 @@ inline std::string buildTensorTypeStr(const std::vector<int64_t> &dims,
   return oss.str();
 }
 
+// Returns the signless MLIR element type for a DataType, stripping the
+// leading "s"/"u" that kDataTypeToMlirTypeAsm carries on integer types
+// ("si32" → "i32", "ui8" → "i8"). Builtin MLIR tensors and arith ops use
+// signless integers, unlike torch vtensors which preserve signedness.
+inline std::string getSignlessElementTypeAsm(DataType dtype) {
+  std::string elemType = kDataTypeToMlirTypeAsm.at(dtype);
+  if (elemType.size() >= 2 &&
+      (elemType.substr(0, 2) == "si" || elemType.substr(0, 2) == "ui"))
+    elemType = "i" + elemType.substr(2);
+  return elemType;
+}
+
+// Builds a builtin MLIR tensor type string (e.g. "tensor<16x256xf32>") from
+// explicit dims and dtype. Uses the signless element type so the result
+// bridges cleanly with torch vtensors via torch_c.from_builtin_tensor.
+inline std::string buildBuiltinTensorTypeStr(const std::vector<int64_t> &dims,
+                                             DataType dtype) {
+  std::ostringstream oss;
+  oss << "tensor<";
+  for (int64_t dim : dims)
+    oss << dim << "x";
+  oss << getSignlessElementTypeAsm(dtype) << ">";
+  return oss.str();
+}
+
+// Builds an identity affine_map over `rank` dimensions, e.g.
+//   rank=3 → "affine_map<(d0, d1, d2) -> (d0, d1, d2)>"
+// Used for linalg.generic indexing_maps where every operand/result accesses
+// the full iteration space in natural order.
+inline std::string getIdentityAffineMapAsm(size_t rank) {
+  std::ostringstream dims;
+  for (size_t i = 0; i < rank; ++i) {
+    if (i > 0)
+      dims << ", ";
+    dims << "d" << i;
+  }
+  return std::format("affine_map<({0}) -> ({0})>", dims.str());
+}
+
+// Builds a comma-separated list of `rank` linalg iterator type attrs all of
+// the given kind (e.g. "parallel" or "reduction"), e.g.
+//   rank=3, kind="parallel" → "\"parallel\", \"parallel\", \"parallel\""
+// Paired with an indexing_maps attribute on a linalg.generic.
+inline std::string getIteratorTypesAsm(size_t rank, std::string_view kind) {
+  std::ostringstream oss;
+  for (size_t i = 0; i < rank; ++i) {
+    if (i > 0)
+      oss << ", ";
+    oss << "\"" << kind << "\"";
+  }
+  return oss.str();
+}
+
 // ---------------------------------------------------------------------------
 // Torch IR constant helpers
 //
@@ -1894,6 +1947,106 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(ADD, torch.aten.add.Tensor)
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(SUB, torch.aten.sub.Tensor)
 
+<<<<<<< Updated upstream
+=======
+  case PointwiseAttr::Mode::ADD_SQUARE: {
+    const auto &in0 = pointwiseAttr.getIN_0();
+    const auto &in1 = pointwiseAttr.getIN_1();
+    const std::string suffix = getName();
+    const std::string in0Name = in0->getValueNameAsm() + "_" + suffix + "_perm";
+    const std::string in1Name = in1->getValueNameAsm() + "_" + suffix + "_perm";
+    const std::string in0Type =
+        in0->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
+    const std::string in1Type =
+        in1->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
+    return std::format(kAddSquareSchema, permuteIN0, /* {0} */
+                       permuteIN1,                   /* {1} */
+                       in0Name,                      /* {2} */
+                       in1Name,                      /* {3} */
+                       in0Type,                      /* {4} */
+                       in1Type,                      /* {5} */
+                       getResultNamesAsm(),          /* {6} */
+                       getResultTypesAsm(),          /* {7} */
+                       permuteOUT0,                  /* {8} */
+                       suffix                        /* {9} */
+    );
+  }
+
+  case PointwiseAttr::Mode::GEN_INDEX: {
+    const auto &out0 = pointwiseAttr.getOUT_0();
+    const std::string suffix = getName();
+    const std::vector<int64_t> &outDims = out0->getDim();
+    const int64_t axis = pointwiseAttr.getGenIdxAxis();
+    assert(axis >= 0 && axis < static_cast<int64_t>(outDims.size()) &&
+           "GEN_INDEX axis out of range");
+
+    const size_t rank = outDims.size();
+    const std::string signlessDtype =
+        getSignlessElementTypeAsm(out0->getDataType());
+    const bool isFloat = signlessDtype == "f16" || signlessDtype == "bf16" ||
+                         signlessDtype == "f32" || signlessDtype == "f64";
+    assert((isFloat || signlessDtype.substr(0, 1) == "i") &&
+           "GEN_INDEX only supports integer or float output dtypes");
+
+    const std::string builtinTensorType =
+        buildBuiltinTensorTypeStr(outDims, out0->getDataType());
+    const std::string vtensorType = out0->getTensorTypeAsm(
+        /*isValueTensor=*/true, /*useLogicalDims=*/true);
+
+    const std::string indexingMap = getIdentityAffineMapAsm(rank);
+    const std::string iterators = getIteratorTypesAsm(rank, "parallel");
+
+    // One full schema per cast flavour: integer outputs take a single
+    // index_cast, floats go through i64 and then sitofp. Keeping the
+    // linalg.generic and the cast together lets each variant be read as a
+    // cohesive block of IR.
+    constexpr std::string_view kGenIndexIntSchema = R"(
+    %gen_index_empty_{0} = tensor.empty() : {1}
+    %gen_index_linalg_{0} = linalg.generic {{indexing_maps = [{2}], iterator_types = [{3}]}} outs(%gen_index_empty_{0} : {1}) {{
+    ^bb0(%gen_index_out_{0}: {4}):
+      %gen_index_idx_{0} = linalg.index {5} : index
+      %gen_index_val_{0} = arith.index_cast %gen_index_idx_{0} : index to {4}
+      linalg.yield %gen_index_val_{0} : {4}
+    }} -> {1}
+    {6} = torch_c.from_builtin_tensor %gen_index_linalg_{0} : {1} -> {7}
+    {8})";
+
+    constexpr std::string_view kGenIndexFloatSchema = R"(
+    %gen_index_empty_{0} = tensor.empty() : {1}
+    %gen_index_linalg_{0} = linalg.generic {{indexing_maps = [{2}], iterator_types = [{3}]}} outs(%gen_index_empty_{0} : {1}) {{
+    ^bb0(%gen_index_out_{0}: {4}):
+      %gen_index_idx_{0} = linalg.index {5} : index
+      %gen_index_int_{0} = arith.index_cast %gen_index_idx_{0} : index to i64
+      %gen_index_val_{0} = arith.sitofp %gen_index_int_{0} : i64 to {4}
+      linalg.yield %gen_index_val_{0} : {4}
+    }} -> {1}
+    {6} = torch_c.from_builtin_tensor %gen_index_linalg_{0} : {1} -> {7}
+    {8})";
+
+    if (isFloat)
+      return std::format(kGenIndexFloatSchema, suffix, /* {0} */
+                         builtinTensorType,            /* {1} */
+                         indexingMap,                  /* {2} */
+                         iterators,                    /* {3} */
+                         signlessDtype,                /* {4} */
+                         axis,                         /* {5} */
+                         getResultNamesAsm(),          /* {6} */
+                         vtensorType,                  /* {7} */
+                         permuteOUT0                   /* {8} */
+      );
+    return std::format(kGenIndexIntSchema, suffix, /* {0} */
+                       builtinTensorType,          /* {1} */
+                       indexingMap,                /* {2} */
+                       iterators,                  /* {3} */
+                       signlessDtype,              /* {4} */
+                       axis,                       /* {5} */
+                       getResultNamesAsm(),        /* {6} */
+                       vtensorType,                /* {7} */
+                       permuteOUT0                 /* {8} */
+    );
+  }
+
+>>>>>>> Stashed changes
   default:
     assert(false && "Unsupported pointwise mode");
     return "";

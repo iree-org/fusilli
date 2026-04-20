@@ -99,6 +99,46 @@ inline ErrorObject testBinaryPointwiseAsmEmitter(const std::string &graphName,
   return ok();
 }
 
+inline ErrorObject testGenIndexAsmEmitter(const std::string &graphName,
+                                          const std::string &opName,
+                                          const std::string &mode,
+                                          std::vector<int64_t> inDims,
+                                          int64_t axis) {
+
+  auto graph = std::make_shared<Graph>();
+  graph->setName(graphName);
+  graph->setIODataType(DataType::Float).setComputeDataType(DataType::Float);
+
+  auto xT = createTestTensor("arg0", inDims, graph.get());
+
+  auto pointwiseAttr = PointwiseAttr()
+                           .setMode(PointwiseAttr::Mode::GEN_INDEX)
+                           .setName(opName)
+                           .setGenIdxAxis(axis);
+
+  auto yT = graph->pointwise(xT, pointwiseAttr);
+
+  yT->setName("result").setOutput(true);
+
+  FUSILLI_CHECK_ERROR(graph->validate());
+
+  if (mode == "default") {
+    FUSILLI_ASSIGN_OR_RETURN(auto generatedAsm, graph->emitAsm());
+    FUSILLI_CHECK_ERROR(checkMlirIndentation(generatedAsm));
+    std::cout << generatedAsm << std::endl;
+  }
+
+  if (mode == "stats") {
+    FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(kDefaultBackend));
+    FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
+    FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
+                                             CachedAssetsType::Statistics));
+    std::cout << stats << std::endl;
+  }
+
+  return ok();
+}
+
 } // namespace fusilli
 
 #endif // FUSILLI_TESTS_POINTWISE_UTILS_H
