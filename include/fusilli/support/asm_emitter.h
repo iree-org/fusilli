@@ -1947,31 +1947,6 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(ADD, torch.aten.add.Tensor)
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(SUB, torch.aten.sub.Tensor)
 
-<<<<<<< Updated upstream
-=======
-  case PointwiseAttr::Mode::ADD_SQUARE: {
-    const auto &in0 = pointwiseAttr.getIN_0();
-    const auto &in1 = pointwiseAttr.getIN_1();
-    const std::string suffix = getName();
-    const std::string in0Name = in0->getValueNameAsm() + "_" + suffix + "_perm";
-    const std::string in1Name = in1->getValueNameAsm() + "_" + suffix + "_perm";
-    const std::string in0Type =
-        in0->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
-    const std::string in1Type =
-        in1->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
-    return std::format(kAddSquareSchema, permuteIN0, /* {0} */
-                       permuteIN1,                   /* {1} */
-                       in0Name,                      /* {2} */
-                       in1Name,                      /* {3} */
-                       in0Type,                      /* {4} */
-                       in1Type,                      /* {5} */
-                       getResultNamesAsm(),          /* {6} */
-                       getResultTypesAsm(),          /* {7} */
-                       permuteOUT0,                  /* {8} */
-                       suffix                        /* {9} */
-    );
-  }
-
   case PointwiseAttr::Mode::GEN_INDEX: {
     const auto &out0 = pointwiseAttr.getOUT_0();
     const std::string suffix = getName();
@@ -2046,7 +2021,6 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     );
   }
 
->>>>>>> Stashed changes
   default:
     assert(false && "Unsupported pointwise mode");
     return "";
