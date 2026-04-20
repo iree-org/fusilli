@@ -1778,6 +1778,15 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {6}
 )";
 
+  constexpr std::string_view kAddSquareSchema = R"(
+    {0}
+    {1}
+    %add_square_sq_{9} = torch.aten.mul.Tensor {3}, {3} : {5}, {5} -> {5}
+    %alpha_{9} = torch.constant.int 1
+    {6} = torch.aten.add.Tensor {2}, %add_square_sq_{9}, %alpha_{9} : {4}, {5}, !torch.int -> {7}
+    {8}
+)";
+
   constexpr std::string_view kIdentitySchema = R"(
     {0}
     %none_{7} = torch.constant.none
@@ -1893,6 +1902,29 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
 
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(ADD, torch.aten.add.Tensor)
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(SUB, torch.aten.sub.Tensor)
+
+  case PointwiseAttr::Mode::ADD_SQUARE: {
+    const auto &in0 = pointwiseAttr.getIN_0();
+    const auto &in1 = pointwiseAttr.getIN_1();
+    const std::string suffix = getName();
+    const std::string in0Name = in0->getValueNameAsm() + "_" + suffix + "_perm";
+    const std::string in1Name = in1->getValueNameAsm() + "_" + suffix + "_perm";
+    const std::string in0Type =
+        in0->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
+    const std::string in1Type =
+        in1->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
+    return std::format(kAddSquareSchema, permuteIN0, /* {0} */
+                       permuteIN1,                   /* {1} */
+                       in0Name,                      /* {2} */
+                       in1Name,                      /* {3} */
+                       in0Type,                      /* {4} */
+                       in1Type,                      /* {5} */
+                       getResultNamesAsm(),          /* {6} */
+                       getResultTypesAsm(),          /* {7} */
+                       permuteOUT0,                  /* {8} */
+                       suffix                        /* {9} */
+    );
+  }
 
   default:
     assert(false && "Unsupported pointwise mode");
