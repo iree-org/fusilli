@@ -1801,6 +1801,14 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {5}
 )";
 
+  constexpr std::string_view kSoftplusSchema = R"(
+    {0}
+    %softplus_beta_{7} = torch.constant.float {8:e}
+    %softplus_threshold_{7} = torch.constant.float {9:e}
+    {1} = {6} {2}, %softplus_beta_{7}, %softplus_threshold_{7} : {3}, !torch.float, !torch.float -> {4}
+    {5}
+)";
+
 #define FUSILLI_DECLARE_UNARY_TORCH_EMITTER(PWOP, OPIR)                        \
   FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(PWOP, kUnaryTorchSchema, OPIR)
 #define FUSILLI_DECLARE_BINARY_TORCH_EMITTER(PWOP, OPIR)                       \
@@ -1839,6 +1847,20 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
                        approx                   /* {8} */
     );
   }
+  case PointwiseAttr::Mode::SOFTPLUS_FWD: {
+    return std::format(kSoftplusSchema, permuteIN0,         /* {0} */
+                       getResultNamesAsm(),                 /* {1} */
+                       getOperandNamesAsm(),                /* {2} */
+                       getOperandTypesAsm(),                /* {3} */
+                       getResultTypesAsm(),                 /* {4} */
+                       permuteOUT0,                         /* {5} */
+                       "torch.aten.softplus",               /* {6} */
+                       getName(),                           /* {7} */
+                       pointwiseAttr.getSoftplusBeta(),     /* {8} */
+                       pointwiseAttr.getSoftplusThreshold() /* {9} */
+    );
+  }
+    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(SWISH_FWD, torch.aten.silu)
     FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(IDENTITY, kIdentitySchema,
                                             torch.aten.clone)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(ERF, torch.aten.erf)

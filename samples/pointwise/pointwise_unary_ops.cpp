@@ -75,7 +75,9 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     case PointwiseAttr::Mode::RSQRT:
     case PointwiseAttr::Mode::SIGMOID_FWD:
     case PointwiseAttr::Mode::SIN:
+    case PointwiseAttr::Mode::SOFTPLUS_FWD:
     case PointwiseAttr::Mode::SQRT:
+    case PointwiseAttr::Mode::SWISH_FWD:
     case PointwiseAttr::Mode::TAN:
     case PointwiseAttr::Mode::TANH_FWD:
       return true;
@@ -102,7 +104,9 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       PointwiseAttr::Mode::RSQRT,
       PointwiseAttr::Mode::SIGMOID_FWD,
       PointwiseAttr::Mode::SIN,
+      PointwiseAttr::Mode::SOFTPLUS_FWD,
       PointwiseAttr::Mode::SQRT,
+      PointwiseAttr::Mode::SWISH_FWD,
       PointwiseAttr::Mode::TAN,
       PointwiseAttr::Mode::TANH_FWD);
   // clang-format on
@@ -248,9 +252,23 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
       y = std::sin(xD);
       break;
     }
+    case PointwiseAttr::Mode::SOFTPLUS_FWD: {
+      double xD = static_cast<double>(x);
+      // SOFTPLUS(x) = log(1 + exp(x)); for x > threshold, result ~= x.
+      // Matches torch.aten.softplus with beta=1.0 and threshold=20.0.
+      constexpr double threshold = 20.0;
+      y = xD > threshold ? xD : std::log1p(std::exp(xD));
+      break;
+    }
     case PointwiseAttr::Mode::SQRT: {
       double xD = static_cast<double>(x);
       y = std::sqrt(xD);
+      break;
+    }
+    case PointwiseAttr::Mode::SWISH_FWD: {
+      double xD = static_cast<double>(x);
+      // SWISH(x) = SiLU(x) = x * sigmoid(x).
+      y = xD / (1.0 + std::exp(-xD));
       break;
     }
     case PointwiseAttr::Mode::TAN: {
