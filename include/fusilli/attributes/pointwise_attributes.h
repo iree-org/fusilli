@@ -116,6 +116,11 @@ public:
     return *this;
   }
 
+  PointwiseAttr &setSwishBeta(float beta) {
+    swishBeta_ = beta;
+    return *this;
+  }
+
   // Getters:
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, IN_0)
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, IN_1)
@@ -126,6 +131,7 @@ public:
   float getEluAlpha() const { return eluAlpha_; }
   float getSoftplusBeta() const { return softplusBeta_; }
   float getSoftplusThreshold() const { return softplusThreshold_; }
+  float getSwishBeta() const { return swishBeta_; }
 
   // Utilities for pointwise modes.
   static const std::unordered_map<Mode, std::string> kModeToStr;
@@ -137,6 +143,7 @@ private:
   float eluAlpha_ = 1.0f;
   float softplusBeta_ = 1.0f;
   float softplusThreshold_ = 20.0f;
+  float swishBeta_ = 1.0f;
 };
 
 #define FUSILLI_DECLARE_STRINGIFY_POINTWISE_MODE(mode)                         \

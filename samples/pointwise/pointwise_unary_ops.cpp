@@ -38,6 +38,7 @@ static std::string generateName(PointwiseAttr::Mode mode, DataType type,
 
 TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
   const auto dim = std::vector<int64_t>{2, 16, 64, 64};
+  constexpr float kSwishBeta = 2.0f;
 
   auto supportsInteger = [](PointwiseAttr::Mode m) {
     switch (m) {
@@ -124,6 +125,8 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
 
       // Create Pointwise unary op
       auto pointwiseAttr = PointwiseAttr().setMode(mode);
+      if (mode == PointwiseAttr::Mode::SWISH_FWD)
+        pointwiseAttr.setSwishBeta(kSwishBeta);
       auto pointwiseResult = graph->pointwise(xT, pointwiseAttr);
 
       pointwiseResult->setName("result").setOutput(true);
@@ -267,8 +270,8 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
     }
     case PointwiseAttr::Mode::SWISH_FWD: {
       double xD = static_cast<double>(x);
-      // SWISH(x) = SiLU(x) = x * sigmoid(x).
-      y = xD / (1.0 + std::exp(-xD));
+      // SWISH(x) = x * sigmoid(beta * x).
+      y = xD / (1.0 + std::exp(-static_cast<double>(kSwishBeta) * xD));
       break;
     }
     case PointwiseAttr::Mode::TAN: {
