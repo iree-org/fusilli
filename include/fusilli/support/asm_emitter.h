@@ -48,6 +48,7 @@
 #include <cstdint>
 #include <format> // C++20
 #include <memory>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -128,18 +129,6 @@ inline std::string buildTensorTypeStr(const std::vector<int64_t> &dims,
   return oss.str();
 }
 
-// Returns the signless MLIR element type for a DataType, stripping the
-// leading "s"/"u" that kDataTypeToMlirTypeAsm carries on integer types
-// ("si32" → "i32", "ui8" → "i8"). Builtin MLIR tensors and arith ops use
-// signless integers, unlike torch vtensors which preserve signedness.
-inline std::string getSignlessElementTypeAsm(DataType dtype) {
-  std::string elemType = kDataTypeToMlirTypeAsm.at(dtype);
-  if (elemType.size() >= 2 &&
-      (elemType.substr(0, 2) == "si" || elemType.substr(0, 2) == "ui"))
-    elemType = "i" + elemType.substr(2);
-  return elemType;
-}
-
 // Builds a builtin MLIR tensor type string (e.g. "tensor<16x256xf32>") from
 // explicit dims and dtype. Uses the signless element type so the result
 // bridges cleanly with torch vtensors via torch_c.from_builtin_tensor.
@@ -159,11 +148,11 @@ inline std::string buildBuiltinTensorTypeStr(const std::vector<int64_t> &dims,
 // the full iteration space in natural order.
 inline std::string getIdentityAffineMapAsm(size_t rank) {
   std::ostringstream dims;
-  for (size_t i = 0; i < rank; ++i) {
-    if (i > 0)
-      dims << ", ";
-    dims << "d" << i;
-  }
+  std::vector<size_t> indices(rank);
+  std::iota(indices.begin(), indices.end(), 0);
+  interleave(
+      indices.begin(), indices.end(), [&](size_t i) { dims << "d" << i; },
+      [&] { dims << ", "; });
   return std::format("affine_map<({0}) -> ({0})>", dims.str());
 }
 
@@ -173,11 +162,11 @@ inline std::string getIdentityAffineMapAsm(size_t rank) {
 // Paired with an indexing_maps attribute on a linalg.generic.
 inline std::string getIteratorTypesAsm(size_t rank, std::string_view kind) {
   std::ostringstream oss;
-  for (size_t i = 0; i < rank; ++i) {
-    if (i > 0)
-      oss << ", ";
-    oss << "\"" << kind << "\"";
-  }
+  std::vector<size_t> indices(rank);
+  std::iota(indices.begin(), indices.end(), 0);
+  interleave(
+      indices.begin(), indices.end(),
+      [&](size_t) { oss << "\"" << kind << "\""; }, [&] { oss << ", "; });
   return oss.str();
 }
 
@@ -1952,16 +1941,18 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     const std::string suffix = getName();
     const std::vector<int64_t> &outDims = out0->getDim();
     const int64_t axis = pointwiseAttr.getGenIdxAxis();
+    // Range and dtype correctness are enforced in postValidateNode; these
+    // asserts are safety nets in case emitNodePreAsm is called without a
+    // prior graph->validate().
     assert(axis >= 0 && axis < static_cast<int64_t>(outDims.size()) &&
            "GEN_INDEX axis out of range");
 
     const size_t rank = outDims.size();
-    const std::string signlessDtype =
-        getSignlessElementTypeAsm(out0->getDataType());
-    const bool isFloat = signlessDtype == "f16" || signlessDtype == "bf16" ||
-                         signlessDtype == "f32" || signlessDtype == "f64";
-    assert((isFloat || signlessDtype.substr(0, 1) == "i") &&
+    const DataType outDtype = out0->getDataType();
+    const bool isFloat = isFloatDataType(outDtype);
+    assert((isFloat || isIntegerDataType(outDtype)) &&
            "GEN_INDEX only supports integer or float output dtypes");
+    const std::string signlessDtype = getSignlessElementTypeAsm(outDtype);
 
     const std::string builtinTensorType =
         buildBuiltinTensorTypeStr(outDims, out0->getDataType());

@@ -43,7 +43,6 @@ add_fusilli_samples(
     pointwise/pointwise_binary_cmp_ops.cpp
     pointwise/pointwise_unary_ops.cpp
     pointwise/pointwise_add_transposed.cpp
-    pointwise/pointwise_gen_index.cpp
     pointwise/pointwise_scalar_mul.cpp
   DEPS
     libfusilli

@@ -97,6 +97,7 @@ add_fusilli_tests(
   PREFIX
     fusilli_support_tests
   SRCS
+    test_asm_emitter_helpers.cpp
     test_cache.cpp
     test_dllib.cpp
     test_extras.cpp
@@ -163,6 +164,7 @@ add_fusilli_lit_tests(
     lit/test_pointwise_asm_emitter_gelu_approx_tanh_fwd.cpp
     lit/test_pointwise_asm_emitter_gelu_fwd.cpp
     lit/test_pointwise_asm_emitter_gen_index.cpp
+    lit/test_pointwise_asm_emitter_gen_index_int.cpp
     lit/test_pointwise_asm_emitter_identity.cpp
     lit/test_pointwise_asm_emitter_log.cpp
     lit/test_pointwise_asm_emitter_logical_and.cpp

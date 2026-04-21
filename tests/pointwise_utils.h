@@ -99,15 +99,14 @@ inline ErrorObject testBinaryPointwiseAsmEmitter(const std::string &graphName,
   return ok();
 }
 
-inline ErrorObject testGenIndexAsmEmitter(const std::string &graphName,
-                                          const std::string &opName,
-                                          const std::string &mode,
-                                          std::vector<int64_t> inDims,
-                                          int64_t axis) {
+inline ErrorObject
+testGenIndexAsmEmitter(const std::string &graphName, const std::string &opName,
+                       const std::string &mode, std::vector<int64_t> inDims,
+                       int64_t axis, DataType dtype = DataType::Float) {
 
   auto graph = std::make_shared<Graph>();
   graph->setName(graphName);
-  graph->setIODataType(DataType::Float).setComputeDataType(DataType::Float);
+  graph->setIODataType(dtype).setComputeDataType(dtype);
 
   auto xT = createTestTensor("arg0", inDims, graph.get());
 
