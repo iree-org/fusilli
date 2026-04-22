@@ -156,6 +156,45 @@ inline std::string torchIntAsm(std::string_view name, std::string_view suffix,
   return std::format("%{}_{} = torch.constant.int {}", name, suffix, value);
 }
 
+// Emits a `torch.aten.to.dtype` cast for a value tensor.
+inline std::string getTensorToDtypeOpsAsm(
+    const std::string &operandName, const std::string &resultName,
+    const std::string &operandType, const std::string &resultType,
+    DataType targetType, const std::string &prefix, const std::string &suffix) {
+  assert(hasTorchScalarType(targetType) &&
+         "torch.aten.to.dtype requires a Torch-representable target dtype");
+
+  std::string dtypeName = "%dtype_" + prefix + "_" + suffix;
+  std::string nonBlockingName = "%non_blocking_" + prefix + "_" + suffix;
+  std::string copyName = "%copy_" + prefix + "_" + suffix;
+  std::string memoryFormatName = "%memory_format_" + prefix + "_" + suffix;
+
+  constexpr std::string_view schema = R"(
+    {0}
+    {1}
+    {2}
+    {3}
+    {4} = torch.aten.to.dtype {5}, {6}, {7}, {8}, {9} : {10}, !torch.int, !torch.bool, !torch.bool, !torch.none -> {11}
+  )";
+  return std::format(
+      schema,
+      torchIntAsm(
+          "dtype_" + prefix, suffix,
+          static_cast<int64_t>(kDataTypeToTorchType.at(targetType))), // {0}
+      torchBoolAsm("non_blocking_" + prefix, suffix, false),          // {1}
+      torchBoolAsm("copy_" + prefix, suffix, false),                  // {2}
+      torchNoneAsm("memory_format_" + prefix, suffix),                // {3}
+      resultName,                                                     // {4}
+      operandName,                                                    // {5}
+      dtypeName,                                                      // {6}
+      nonBlockingName,                                                // {7}
+      copyName,                                                       // {8}
+      memoryFormatName,                                               // {9}
+      operandType,                                                    // {10}
+      resultType                                                      // {11}
+  );
+}
+
 // Emits layout conversion ops (permute + broadcast expand if needed) for a
 // tensor in MLIR assembly format. Handles both directions:
 //
@@ -1629,8 +1668,9 @@ inline std::string MatmulNode::emitNodePreAsm() const {
   constexpr std::string_view schema = R"(
     {0}
     {1}
-    {2} = torch.aten.matmul {3} : {4} -> {5}
-    {6}
+    {2}
+    {3} = torch.aten.matmul {4} : {5} -> {6}
+    {7}
   )";
 
   std::string uniqueSSASuffix = matmulAttr.getName();
@@ -1641,14 +1681,60 @@ inline std::string MatmulNode::emitNodePreAsm() const {
   std::string permuteC = getLayoutConversionOpsAsm(
       matmulAttr.getC(), "permute_C", uniqueSSASuffix, /*isInput=*/false);
 
+  std::string matmulOperandNames = getOperandNamesAsm();
+  std::string matmulOperandTypes = getOperandTypesAsm();
+  std::string dtypeNormalizationOps;
+
+  ErrorOr<DataType> targetTypeOr = getMatmulCastTargetType();
+  assert(isOk(targetTypeOr) &&
+         "Matmul cast target type should have been validated before ASM "
+         "emission");
+  DataType targetType = *targetTypeOr;
+
+  auto aT = matmulAttr.getA();
+  auto bT = matmulAttr.getB();
+
+  std::string aOperandName =
+      aT->getValueNameAsm() + "_" + uniqueSSASuffix + "_perm";
+  std::string bOperandName =
+      bT->getValueNameAsm() + "_" + uniqueSSASuffix + "_perm";
+  std::string aOperandType =
+      aT->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
+  std::string bOperandType =
+      bT->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
+
+  if (aT->getDataType() != targetType) {
+    std::string castResultName = aOperandName + "_cast";
+    std::string castResultType = buildTensorTypeStr(aT->getDim(), targetType);
+    dtypeNormalizationOps += getTensorToDtypeOpsAsm(
+        aOperandName, castResultName, aOperandType, castResultType, targetType,
+        "A_cast", uniqueSSASuffix);
+    aOperandName = castResultName;
+    aOperandType = castResultType;
+  }
+
+  if (bT->getDataType() != targetType) {
+    std::string castResultName = bOperandName + "_cast";
+    std::string castResultType = buildTensorTypeStr(bT->getDim(), targetType);
+    dtypeNormalizationOps += getTensorToDtypeOpsAsm(
+        bOperandName, castResultName, bOperandType, castResultType, targetType,
+        "B_cast", uniqueSSASuffix);
+    bOperandName = castResultName;
+    bOperandType = castResultType;
+  }
+
+  matmulOperandNames = aOperandName + ", " + bOperandName;
+  matmulOperandTypes = aOperandType + ", " + bOperandType;
+
   std::string output = std::format(schema,
-                                   permuteA,             // {0}
-                                   permuteB,             // {1}
-                                   getResultNamesAsm(),  // {2}
-                                   getOperandNamesAsm(), // {3}
-                                   getOperandTypesAsm(), // {4}
-                                   getResultTypesAsm(),  // {5}
-                                   permuteC              // {6}
+                                   permuteA,              // {0}
+                                   permuteB,              // {1}
+                                   dtypeNormalizationOps, // {2}
+                                   getResultNamesAsm(),   // {3}
+                                   matmulOperandNames,    // {4}
+                                   matmulOperandTypes,    // {5}
+                                   getResultTypesAsm(),   // {6}
+                                   permuteC               // {7}
   );
 
   return output;
