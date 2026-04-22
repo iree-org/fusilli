@@ -305,6 +305,11 @@ public:
                                         const std::shared_ptr<TensorAttr> &in1,
                                         PointwiseAttr &attributes);
 
+  std::shared_ptr<TensorAttr> pointwise(const std::shared_ptr<TensorAttr> &in0,
+                                        const std::shared_ptr<TensorAttr> &in1,
+                                        const std::shared_ptr<TensorAttr> &in2,
+                                        PointwiseAttr &attributes);
+
   std::shared_ptr<TensorAttr> reduction(const std::shared_ptr<TensorAttr> &x,
                                         ReductionAttr &attributes);
 
@@ -979,6 +984,41 @@ Graph::pointwise(const std::shared_ptr<TensorAttr> &in0,
 
   // Set inputs.
   pointwiseAttr.setIN_0(in0).setIN_1(in1);
+
+  // Set outputs.
+  auto out = outputTensor(pointwiseAttr.getName() + "_OUT_0");
+  pointwiseAttr.setOUT_0(out);
+
+  // Create node and add to Graph's subNodes_.
+  subNodes_.emplace_back(
+      std::make_unique<PointwiseNode>(std::move(pointwiseAttr), context));
+
+  return out;
+}
+
+// Create a PointwiseNode for cases with three operands (e.g. BINARY_SELECT),
+// populate it with the specified attributes, create output tensors and add the
+// node to the graph's sub nodes.
+inline std::shared_ptr<TensorAttr>
+Graph::pointwise(const std::shared_ptr<TensorAttr> &in0,
+                 const std::shared_ptr<TensorAttr> &in1,
+                 const std::shared_ptr<TensorAttr> &in2,
+                 PointwiseAttr &pointwiseAttr) {
+  // Populate names when not set.
+  if (pointwiseAttr.getName().empty())
+    pointwiseAttr.setName("pointwise_" + std::to_string(subNodes_.size()));
+  if (in0 && in0->getName().empty())
+    in0->setName(pointwiseAttr.getName() + "_IN_0");
+  if (in1 && in1->getName().empty())
+    in1->setName(pointwiseAttr.getName() + "_IN_1");
+  if (in2 && in2->getName().empty())
+    in2->setName(pointwiseAttr.getName() + "_IN_2");
+
+  FUSILLI_LOG_LABEL_ENDL("INFO: Adding PointwiseNode '"
+                         << pointwiseAttr.getName() << "' to Graph");
+
+  // Set inputs.
+  pointwiseAttr.setIN_0(in0).setIN_1(in1).setIN_2(in2);
 
   // Set outputs.
   auto out = outputTensor(pointwiseAttr.getName() + "_OUT_0");
