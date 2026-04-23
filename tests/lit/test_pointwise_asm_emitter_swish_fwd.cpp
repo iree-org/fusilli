@@ -52,9 +52,13 @@ using namespace fusilli;
 int main(int argc, char **argv) {
   std::string mode = (argc > 1) ? argv[1] : "default";
 
-  auto status = testSwishPointwiseAsmEmitter("pointwise_asm_emitter_swish_fwd",
-                                             "pointwise_swish_fwd", mode,
-                                             {16, 256, 64, 32}, /*beta=*/2.0f);
+  auto pointwiseAttr = PointwiseAttr()
+                           .setMode(PointwiseAttr::Mode::SWISH_FWD)
+                           .setName("pointwise_swish_fwd")
+                           .setSwishBeta(2.0f);
+  auto status =
+      testUnaryPointwiseAsmEmitter("pointwise_asm_emitter_swish_fwd", mode,
+                                   pointwiseAttr, {16, 256, 64, 32});
   if (isError(status)) {
     std::cerr << "Test failed: " << status << std::endl;
     return 1;
