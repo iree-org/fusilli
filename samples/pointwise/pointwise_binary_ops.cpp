@@ -46,6 +46,7 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
   // clang-format off
   const auto mode = GENERATE(
       PointwiseAttr::Mode::ADD,
+      PointwiseAttr::Mode::ADD_SQUARE,
       PointwiseAttr::Mode::DIV,
       PointwiseAttr::Mode::MAX_OP,
       PointwiseAttr::Mode::MIN_OP,
@@ -118,6 +119,10 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
     switch (mode) {
     case PointwiseAttr::Mode::ADD: {
       y = x0 + x1;
+      break;
+    }
+    case PointwiseAttr::Mode::ADD_SQUARE: {
+      y = x0 + x1 * x1;
       break;
     }
     case PointwiseAttr::Mode::DIV: {
