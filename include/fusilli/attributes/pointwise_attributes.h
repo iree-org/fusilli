@@ -46,7 +46,7 @@ namespace fusilli {
   OP(GELU_APPROX_TANH_FWD)                                                     \
   /* OP(GELU_BWD) */                                                           \
   OP(GELU_FWD)                                                                 \
-  /* OP(GEN_INDEX) */                                                          \
+  OP(GEN_INDEX)                                                                \
   OP(IDENTITY)                                                                 \
   OP(LOG)                                                                      \
   OP(LOGICAL_AND)                                                              \
@@ -116,6 +116,11 @@ public:
     return *this;
   }
 
+  PointwiseAttr &setGenIdxAxis(int64_t axis) {
+    genIdxAxis_ = axis;
+    return *this;
+  }
+
   // Getters:
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, IN_0)
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, IN_1)
@@ -126,6 +131,7 @@ public:
   float getEluAlpha() const { return eluAlpha_; }
   float getSoftplusBeta() const { return softplusBeta_; }
   float getSoftplusThreshold() const { return softplusThreshold_; }
+  int64_t getGenIdxAxis() const { return genIdxAxis_; }
 
   // Utilities for pointwise modes.
   static const std::unordered_map<Mode, std::string> kModeToStr;
@@ -137,6 +143,7 @@ private:
   float eluAlpha_ = 1.0f;
   float softplusBeta_ = 1.0f;
   float softplusThreshold_ = 20.0f;
+  int64_t genIdxAxis_ = 0;
 };
 
 #define FUSILLI_DECLARE_STRINGIFY_POINTWISE_MODE(mode)                         \
@@ -165,6 +172,7 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::FLOOR, 1},
         {PointwiseAttr::Mode::GELU_APPROX_TANH_FWD, 1},
         {PointwiseAttr::Mode::GELU_FWD, 1},
+        {PointwiseAttr::Mode::GEN_INDEX, 1},
         {PointwiseAttr::Mode::LOG, 1},
         {PointwiseAttr::Mode::LOGICAL_AND, 2},
         {PointwiseAttr::Mode::LOGICAL_NOT, 1},

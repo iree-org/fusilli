@@ -103,6 +103,28 @@ public:
     return ok();
   }
 
+  ErrorObject postValidateNode() const override final {
+    FUSILLI_LOG_LABEL_ENDL("INFO: Post-Validating PointwiseNode '"
+                           << pointwiseAttr.getName() << "'");
+
+    if (pointwiseAttr.getMode() == PointwiseAttr::Mode::GEN_INDEX) {
+      const auto &out = pointwiseAttr.getOUT_0();
+      const int64_t axis = pointwiseAttr.getGenIdxAxis();
+      const int64_t outRank = static_cast<int64_t>(out->getDim().size());
+      FUSILLI_RETURN_ERROR_IF(
+          axis < 0 || axis >= outRank, ErrorCode::InvalidAttribute,
+          "GEN_INDEX axis " + std::to_string(axis) +
+              " is out of range for output of rank " + std::to_string(outRank));
+      const DataType outDtype = out->getDataType();
+      FUSILLI_RETURN_ERROR_IF(
+          !isFloatDataType(outDtype) && !isIntegerDataType(outDtype),
+          ErrorCode::InvalidAttribute,
+          "GEN_INDEX only supports integer or float output dtypes");
+    }
+
+    return ok();
+  }
+
   ErrorObject inferPropertiesNode() override final {
     FUSILLI_LOG_LABEL_ENDL("INFO: Inferring properties for PointwiseNode '"
                            << pointwiseAttr.getName() << "'");
