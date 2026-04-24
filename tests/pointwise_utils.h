@@ -24,9 +24,8 @@
 namespace fusilli {
 
 inline ErrorObject testUnaryPointwiseAsmEmitter(const std::string &graphName,
-                                                const std::string &opName,
                                                 const std::string &mode,
-                                                PointwiseAttr::Mode pwMode,
+                                                PointwiseAttr &pointwiseAttr,
                                                 std::vector<int64_t> inDims) {
 
   auto graph = std::make_shared<Graph>();
@@ -34,8 +33,6 @@ inline ErrorObject testUnaryPointwiseAsmEmitter(const std::string &graphName,
   graph->setIODataType(DataType::Float).setComputeDataType(DataType::Float);
 
   auto xT = createTestTensor("arg0", inDims, graph.get());
-
-  auto pointwiseAttr = PointwiseAttr().setMode(pwMode).setName(opName);
 
   auto yT = graph->pointwise(xT, pointwiseAttr);
 
@@ -61,9 +58,8 @@ inline ErrorObject testUnaryPointwiseAsmEmitter(const std::string &graphName,
 }
 
 inline ErrorObject testBinaryPointwiseAsmEmitter(const std::string &graphName,
-                                                 const std::string &opName,
                                                  const std::string &mode,
-                                                 PointwiseAttr::Mode pwMode,
+                                                 PointwiseAttr &pointwiseAttr,
                                                  std::vector<int64_t> lhsDims,
                                                  std::vector<int64_t> rhsDims) {
 
@@ -73,8 +69,6 @@ inline ErrorObject testBinaryPointwiseAsmEmitter(const std::string &graphName,
 
   auto xT = createTestTensor("arg0", lhsDims, graph.get());
   auto bT = createTestTensor("arg1", rhsDims, graph.get());
-
-  auto pointwiseAttr = PointwiseAttr().setMode(pwMode).setName(opName);
 
   auto yT = graph->pointwise(xT, bT, pointwiseAttr);
 
