@@ -1846,6 +1846,17 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {5}
 )";
 
+  // Swish: y = x * sigmoid(beta * x). When beta=1 this matches torch.aten.silu,
+  // but we expand it to the composite form so the beta knob is honored.
+  constexpr std::string_view kSwishSchema = R"(
+    {0}
+    %swish_beta_{6} = torch.constant.float {7:e}
+    %swish_scaled_{6} = torch.aten.mul.Scalar {2}, %swish_beta_{6} : {3}, !torch.float -> {4}
+    %swish_sig_{6} = torch.aten.sigmoid %swish_scaled_{6} : {4} -> {4}
+    {1} = torch.aten.mul.Tensor {2}, %swish_sig_{6} : {3}, {4} -> {4}
+    {5}
+)";
+
   constexpr std::string_view kSoftplusSchema = R"(
     {0}
     %softplus_beta_{7} = torch.constant.float {8:e}
@@ -1907,7 +1918,17 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
                        pointwiseAttr.getSoftplusThreshold() /* {9} */
     );
   }
-    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(SWISH_FWD, torch.aten.silu)
+  case PointwiseAttr::Mode::SWISH_FWD: {
+    return std::format(kSwishSchema, permuteIN0,    /* {0} */
+                       getResultNamesAsm(),         /* {1} */
+                       getOperandNamesAsm(),        /* {2} */
+                       getOperandTypesAsm(),        /* {3} */
+                       getResultTypesAsm(),         /* {4} */
+                       permuteOUT0,                 /* {5} */
+                       getName(),                   /* {6} */
+                       pointwiseAttr.getSwishBeta() /* {7} */
+    );
+  }
     FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(IDENTITY, kIdentitySchema,
                                             torch.aten.clone)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(ERF, torch.aten.erf)

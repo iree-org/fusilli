@@ -49,9 +49,11 @@ using namespace fusilli;
 int main(int argc, char **argv) {
   std::string mode = (argc > 1) ? argv[1] : "default";
 
-  auto status = testUnaryPointwiseAsmEmitter(
-      "pointwise_asm_emitter_abs", "pointwise_abs", mode,
-      PointwiseAttr::Mode::ABS, {16, 256, 64, 32});
+  auto pointwiseAttr = PointwiseAttr()
+                           .setMode(PointwiseAttr::Mode::ABS)
+                           .setName("pointwise_abs");
+  auto status = testUnaryPointwiseAsmEmitter("pointwise_asm_emitter_abs", mode,
+                                             pointwiseAttr, {16, 256, 64, 32});
   if (isError(status)) {
     std::cerr << "Test failed: " << status << std::endl;
     return 1;
