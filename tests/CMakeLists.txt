@@ -174,6 +174,7 @@ add_fusilli_lit_tests(
     lit/test_pointwise_asm_emitter_mul_scalar.cpp
     lit/test_pointwise_asm_emitter_neg.cpp
     lit/test_pointwise_asm_emitter_reciprocal.cpp
+    lit/test_pointwise_asm_emitter_relu_bwd.cpp
     lit/test_pointwise_asm_emitter_rsqrt.cpp
     lit/test_pointwise_asm_emitter_sigmoid.cpp
     lit/test_pointwise_asm_emitter_sin.cpp
