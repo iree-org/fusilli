@@ -183,6 +183,7 @@ add_fusilli_lit_tests(
     lit/test_pointwise_asm_emitter_swish_fwd.cpp
     lit/test_pointwise_asm_emitter_tan.cpp
     lit/test_pointwise_asm_emitter_tanh.cpp
+    lit/test_pointwise_asm_emitter_tanh_bwd.cpp
     lit/test_pointwise_asm_emitter_sub.cpp
     lit/test_conv_wgrad_asm_emitter_nhwc_krsc.cpp
     lit/test_conv_wgrad_asm_emitter_nhwc_krsc_grouped.cpp
