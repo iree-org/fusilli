@@ -1660,35 +1660,43 @@ inline std::string MatmulNode::emitNodePreAsm() const {
 //
 //===----------------------------------------------------------------------===//
 
-// Emits PointwiseNode's operand names in MLIR assembly format.
+// Emits the SSA name for a single PointwiseNode input in MLIR assembly
+// format.
 //
 // The unique suffix is included to ensure SSA uniqueness when the same
 // tensor is used by multiple operations in a graph.
+inline std::string PointwiseNode::getInputNameAsm(size_t inputIndex) const {
+  const auto &in = pointwiseAttr.inputs.at(
+      static_cast<PointwiseAttr::InputNames>(inputIndex));
+  return in->getValueNameAsm() + "_" + pointwiseAttr.getName() + "_perm";
+}
+
+// Emits the type for a single PointwiseNode input in MLIR assembly format.
+inline std::string PointwiseNode::getInputTypeAsm(size_t inputIndex) const {
+  const auto &in = pointwiseAttr.inputs.at(
+      static_cast<PointwiseAttr::InputNames>(inputIndex));
+  return in->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
+}
+
+// Emits PointwiseNode's operand names in MLIR assembly format.
 inline std::string PointwiseNode::getOperandNamesAsm() const {
   std::ostringstream oss;
-  std::string suffix = pointwiseAttr.getName();
-  const auto &in0 = pointwiseAttr.getIN_0();
-  oss << in0->getValueNameAsm() << "_" << suffix << "_perm";
-  if (const auto &in1 = pointwiseAttr.getIN_1())
-    oss << ", " << in1->getValueNameAsm() << "_" << suffix << "_perm";
-  if (const auto &in2 = pointwiseAttr.getIN_2())
-    oss << ", " << in2->getValueNameAsm() << "_" << suffix << "_perm";
+  oss << getInputNameAsm(0);
+  if (pointwiseAttr.getIN_1())
+    oss << ", " << getInputNameAsm(1);
+  if (pointwiseAttr.getIN_2())
+    oss << ", " << getInputNameAsm(2);
   return oss.str();
 }
 
 // Emits PointwiseNode's operand types in MLIR assembly format.
 inline std::string PointwiseNode::getOperandTypesAsm() const {
   std::ostringstream oss;
-  const auto &in0 = pointwiseAttr.getIN_0();
-  oss << in0->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
-  if (const auto &in1 = pointwiseAttr.getIN_1())
-    oss << ", "
-        << in1->getTensorTypeAsm(/*isValueTensor=*/true,
-                                 /*useLogicalDims=*/true);
-  if (const auto &in2 = pointwiseAttr.getIN_2())
-    oss << ", "
-        << in2->getTensorTypeAsm(/*isValueTensor=*/true,
-                                 /*useLogicalDims=*/true);
+  oss << getInputTypeAsm(0);
+  if (pointwiseAttr.getIN_1())
+    oss << ", " << getInputTypeAsm(1);
+  if (pointwiseAttr.getIN_2())
+    oss << ", " << getInputTypeAsm(2);
   return oss.str();
 }
 
@@ -1804,6 +1812,15 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     %alpha_{8} = torch.constant.int 1
     {2} = {7} {3}, %alpha_{8} : {4}, !torch.int -> {5}
     {6}
+)";
+
+  constexpr std::string_view kAddSquareSchema = R"(
+    {0}
+    {1}
+    %add_square_sq_{8} = torch.aten.mul.Tensor {3}, {3} : {4}, {4} -> {4}
+    %alpha_{8} = torch.constant.int 1
+    {5} = torch.aten.add.Tensor {2}, %add_square_sq_{8}, %alpha_{8} : {9}, !torch.int -> {6}
+    {7}
 )";
 
   constexpr std::string_view kIdentitySchema = R"(
@@ -1925,6 +1942,20 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(SUB, torch.aten.sub.Tensor)
 
     FUSILLI_DECLARE_TERNARY_TORCH_EMITTER(BINARY_SELECT, torch.aten.where.self)
+
+  case PointwiseAttr::Mode::ADD_SQUARE: {
+    return std::format(kAddSquareSchema, permuteIN0, /* {0} */
+                       permuteIN1,                   /* {1} */
+                       getInputNameAsm(0),           /* {2} */
+                       getInputNameAsm(1),           /* {3} */
+                       getInputTypeAsm(1),           /* {4} */
+                       getResultNamesAsm(),          /* {5} */
+                       getResultTypesAsm(),          /* {6} */
+                       permuteOUT0,                  /* {7} */
+                       getName(),                    /* {8} */
+                       getOperandTypesAsm()          /* {9} */
+    );
+  }
 
   default:
     assert(false && "Unsupported pointwise mode");

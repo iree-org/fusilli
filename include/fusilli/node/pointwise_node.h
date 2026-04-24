@@ -52,6 +52,8 @@ public:
   std::string emitNodePreAsm() const override final;
   std::string getPermuteInputOpsAsm(int inputIndex) const;
   std::string getPermuteOut0OpsAsm() const;
+  std::string getInputNameAsm(size_t inputIndex) const;
+  std::string getInputTypeAsm(size_t inputIndex) const;
   std::string getOperandNamesAsm() const;
   std::string getOperandTypesAsm() const;
   std::string getResultNamesAsm() const;
