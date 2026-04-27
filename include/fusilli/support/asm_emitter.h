@@ -1831,7 +1831,6 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {9}
 )";
 
-
   constexpr std::string_view kIdentitySchema = R"(
     {0}
     %none_{7} = torch.constant.none
@@ -2000,7 +1999,6 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
                        permuteOUT0                 /* {9} */
     );
   }
-
 
   default:
     assert(false && "Unsupported pointwise mode");

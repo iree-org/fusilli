@@ -36,8 +36,7 @@ TEST_CASE("Pointwise TANH_BWD op", "[pointwise][graph]") {
         generateStrideFromDim(dim, getContiguousStrideOrder(dim.size()))));
 
     // Create Pointwise TANH_BWD op
-    auto pointwiseAttr =
-        PointwiseAttr().setMode(PointwiseAttr::Mode::TANH_BWD);
+    auto pointwiseAttr = PointwiseAttr().setMode(PointwiseAttr::Mode::TANH_BWD);
     auto dxT = graph->pointwise(dyT, xT, pointwiseAttr);
 
     dxT->setName("result").setOutput(true);
@@ -62,18 +61,17 @@ TEST_CASE("Pointwise TANH_BWD op", "[pointwise][graph]") {
   const half x = half(0.5f);
 
   // Allocate input buffers.
-  FUSILLI_REQUIRE_ASSIGN(
-      auto dyBuf, allocateBufferOfType(handle, dyT, DataType::Half, dy));
-  FUSILLI_REQUIRE_ASSIGN(auto xBuf, allocateBufferOfType(handle, xT,
-                                                         DataType::Half, x));
+  FUSILLI_REQUIRE_ASSIGN(auto dyBuf,
+                         allocateBufferOfType(handle, dyT, DataType::Half, dy));
+  FUSILLI_REQUIRE_ASSIGN(auto xBuf,
+                         allocateBufferOfType(handle, xT, DataType::Half, x));
 
   // Allocate output buffer.
   FUSILLI_REQUIRE_ASSIGN(
       auto dxBuf, allocateBufferOfType(handle, dxT, DataType::Half, 0.0f));
 
   // Create variant pack.
-  const std::unordered_map<std::shared_ptr<TensorAttr>,
-                           std::shared_ptr<Buffer>>
+  const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
       variantPack = {
           {dyT, dyBuf},
           {xT, xBuf},
