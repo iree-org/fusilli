@@ -31,8 +31,12 @@ TEST_CASE("Pointwise SWISH_BWD op", "[pointwise][graph]") {
     graph->setIODataType(dt).setComputeDataType(dt);
 
     // Initialize input tensors: IN_0 = grad_output (dy), IN_1 = self (x).
-    auto dyT = graph->tensor(TensorAttr().setName("grad_out").setDim(dim).setStride(
-        generateStrideFromDim(dim, getContiguousStrideOrder(dim.size()))));
+    auto dyT =
+        graph->tensor(TensorAttr()
+                          .setName("grad_out")
+                          .setDim(dim)
+                          .setStride(generateStrideFromDim(
+                              dim, getContiguousStrideOrder(dim.size()))));
     auto xT = graph->tensor(TensorAttr().setName("self").setDim(dim).setStride(
         generateStrideFromDim(dim, getContiguousStrideOrder(dim.size()))));
 
@@ -66,7 +70,8 @@ TEST_CASE("Pointwise SWISH_BWD op", "[pointwise][graph]") {
   // Allocate input buffers.
   FUSILLI_REQUIRE_ASSIGN(auto dyBuf,
                          allocateBufferOfType(handle, dyT, dt, kDyVal));
-  FUSILLI_REQUIRE_ASSIGN(auto xBuf, allocateBufferOfType(handle, xT, dt, kXVal));
+  FUSILLI_REQUIRE_ASSIGN(auto xBuf,
+                         allocateBufferOfType(handle, xT, dt, kXVal));
 
   // Allocate output buffer.
   FUSILLI_REQUIRE_ASSIGN(auto dxBuf,
