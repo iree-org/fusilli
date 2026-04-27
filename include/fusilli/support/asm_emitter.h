@@ -1847,7 +1847,6 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {6}
 )";
 
-
   constexpr std::string_view kGeluSchema = R"(
     {0}
     %gelu_approximate_{7} = torch.constant.str "{8}"

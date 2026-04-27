@@ -24,8 +24,8 @@ using namespace fusilli;
 // Based on parameters, generates a unique name for the graph
 static std::string generateName(DataType type,
                                 const std::vector<int64_t> &dim) {
-  std::string name = std::format("pointwise_relu_bwd_dt{}",
-                                 kDataTypeToMlirTypeAsm.at(type));
+  std::string name =
+      std::format("pointwise_relu_bwd_dt{}", kDataTypeToMlirTypeAsm.at(type));
   for (const auto &d : dim) {
     name += std::format("_{}", d);
   }
@@ -46,13 +46,14 @@ TEST_CASE("Pointwise RELU_BWD", "[pointwise][graph]") {
       // Initialize input tensors: IN_0 = grad_output (dy), IN_1 = self (x)
       auto dyT =
           graph->tensor(TensorAttr().setName("in0").setDim(dim).setStride(
-              generateStrideFromDim(dim, getContiguousStrideOrder(dim.size()))));
-      auto xT =
-          graph->tensor(TensorAttr().setName("in1").setDim(dim).setStride(
-              generateStrideFromDim(dim, getContiguousStrideOrder(dim.size()))));
+              generateStrideFromDim(dim,
+                                    getContiguousStrideOrder(dim.size()))));
+      auto xT = graph->tensor(TensorAttr().setName("in1").setDim(dim).setStride(
+          generateStrideFromDim(dim, getContiguousStrideOrder(dim.size()))));
 
       // Create Pointwise RELU_BWD op
-      auto pointwiseAttr = PointwiseAttr().setMode(PointwiseAttr::Mode::RELU_BWD);
+      auto pointwiseAttr =
+          PointwiseAttr().setMode(PointwiseAttr::Mode::RELU_BWD);
       auto pointwiseResult = graph->pointwise(dyT, xT, pointwiseAttr);
 
       pointwiseResult->setName("result").setOutput(true);
@@ -71,8 +72,7 @@ TEST_CASE("Pointwise RELU_BWD", "[pointwise][graph]") {
     // Allocate input buffers.
     FUSILLI_REQUIRE_ASSIGN(auto dyBuf,
                            allocateBufferOfType(handle, dyT, kDt, dy));
-    FUSILLI_REQUIRE_ASSIGN(auto xBuf,
-                           allocateBufferOfType(handle, xT, kDt, x));
+    FUSILLI_REQUIRE_ASSIGN(auto xBuf, allocateBufferOfType(handle, xT, kDt, x));
 
     // Allocate output buffer.
     FUSILLI_REQUIRE_ASSIGN(auto dxBuf,

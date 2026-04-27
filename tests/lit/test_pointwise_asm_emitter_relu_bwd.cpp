@@ -59,8 +59,8 @@ int main(int argc, char **argv) {
                            .setMode(PointwiseAttr::Mode::RELU_BWD)
                            .setName("pointwise_relu_bwd");
   auto status = testBinaryPointwiseAsmEmitter(
-      "pointwise_asm_emitter_relu_bwd", mode, pointwiseAttr,
-      {16, 256, 64, 32}, {16, 256, 64, 32});
+      "pointwise_asm_emitter_relu_bwd", mode, pointwiseAttr, {16, 256, 64, 32},
+      {16, 256, 64, 32});
   if (isError(status)) {
     std::cerr << "Test failed: " << status << std::endl;
     return 1;
