@@ -28,7 +28,7 @@ namespace fusilli {
   OP(ABS)                                                                      \
   OP(ADD)                                                                      \
   OP(ADD_SQUARE)                                                               \
-  /* OP(BINARY_SELECT)  */                                                     \
+  OP(BINARY_SELECT)                                                            \
   OP(CEIL)                                                                     \
   OP(CMP_EQ)                                                                   \
   OP(CMP_GE)                                                                   \
@@ -159,6 +159,7 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::ABS, 1},
         {PointwiseAttr::Mode::ADD, 2},
         {PointwiseAttr::Mode::ADD_SQUARE, 2},
+        {PointwiseAttr::Mode::BINARY_SELECT, 3},
         {PointwiseAttr::Mode::CEIL, 1},
         {PointwiseAttr::Mode::CMP_EQ, 2},
         {PointwiseAttr::Mode::CMP_LT, 2},
