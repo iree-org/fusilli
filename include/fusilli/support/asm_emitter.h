@@ -1747,6 +1747,21 @@ inline std::string PointwiseNode::getResultNamesAndTypesAsm() const {
     );                                                                         \
   }
 
+#define FUSILLI_DECLARE_TERNARY_POINTWISE_EMITTER(PWOP, SCHEMA, OPIR)          \
+  case PointwiseAttr::Mode::PWOP: {                                            \
+    return std::format(SCHEMA, permuteIN0,   /* {0} */                         \
+                       permuteIN1,           /* {1} */                         \
+                       permuteIN2,           /* {2} */                         \
+                       getResultNamesAsm(),  /* {3} */                         \
+                       getOperandNamesAsm(), /* {4} */                         \
+                       getOperandTypesAsm(), /* {5} */                         \
+                       getResultTypesAsm(),  /* {6} */                         \
+                       permuteOUT0,          /* {7} */                         \
+                       #OPIR,                /* {8} */                         \
+                       getName()             /* {9} */                         \
+    );                                                                         \
+  }
+
 inline std::string PointwiseNode::emitNodePreAsm() const {
   std::string uniqueSSASuffix = pointwiseAttr.getName();
 
@@ -1759,6 +1774,11 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
   std::string permuteIN1 =
       pointwiseAttr.getIN_1()
           ? getLayoutConversionOpsAsm(pointwiseAttr.getIN_1(), "permute_IN_1",
+                                      uniqueSSASuffix, /*isInput=*/true)
+          : "";
+  std::string permuteIN2 =
+      pointwiseAttr.getIN_2()
+          ? getLayoutConversionOpsAsm(pointwiseAttr.getIN_2(), "permute_IN_2",
                                       uniqueSSASuffix, /*isInput=*/true)
           : "";
   std::string permuteOUT0 =
@@ -1776,6 +1796,14 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {1}
     {2} = {7} {3} : {4} -> {5}
     {6}
+)";
+
+  constexpr std::string_view kTernaryTorchSchema = R"(
+    {0}
+    {1}
+    {2}
+    {3} = {8} {4} : {5} -> {6}
+    {7}
 )";
 
   constexpr std::string_view kSubAddSchema = R"(
@@ -1861,6 +1889,8 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
   FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(PWOP, kUnaryTorchSchema, OPIR)
 #define FUSILLI_DECLARE_BINARY_TORCH_EMITTER(PWOP, OPIR)                       \
   FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kBinaryTorchSchema, OPIR)
+#define FUSILLI_DECLARE_TERNARY_TORCH_EMITTER(PWOP, OPIR)                      \
+  FUSILLI_DECLARE_TERNARY_POINTWISE_EMITTER(PWOP, kTernaryTorchSchema, OPIR)
 #define FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(PWOP, OPIR)                      \
   FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kSubAddSchema, OPIR)
 
@@ -1966,6 +1996,8 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(ADD, torch.aten.add.Tensor)
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(SUB, torch.aten.sub.Tensor)
 
+    FUSILLI_DECLARE_TERNARY_TORCH_EMITTER(BINARY_SELECT, torch.aten.where.self)
+
   case PointwiseAttr::Mode::ADD_SQUARE: {
     return std::format(kAddSquareSchema, permuteIN0, /* {0} */
                        permuteIN1,                   /* {1} */
@@ -1988,8 +2020,10 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
 
 #undef FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER
 #undef FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER
+#undef FUSILLI_DECLARE_TERNARY_POINTWISE_EMITTER
 #undef FUSILLI_DECLARE_UNARY_TORCH_EMITTER
 #undef FUSILLI_DECLARE_BINARY_TORCH_EMITTER
+#undef FUSILLI_DECLARE_TERNARY_TORCH_EMITTER
 #undef FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER
 
 //===----------------------------------------------------------------------===//
