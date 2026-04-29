@@ -115,8 +115,8 @@ TEST_CASE("Pointwise binary backward ops", "[pointwise][graph]") {
       // where sig = sigmoid(beta * x).
       const double betaD = static_cast<double>(kSwishBeta);
       const double sig = 1.0 / (1.0 + std::exp(-betaD * xD));
-      const double dinner = sig + betaD * xD * sig * (1.0 - sig);
-      expected = T(dyD * dinner);
+      const double comp = sig + betaD * xD * sig * (1.0 - sig);
+      expected = T(dyD * comp);
       break;
     }
     case PointwiseAttr::Mode::TANH_BWD: {
