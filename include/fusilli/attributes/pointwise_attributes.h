@@ -57,7 +57,7 @@ namespace fusilli {
   OP(MUL)                                                                      \
   OP(NEG)                                                                      \
   OP(RECIPROCAL)                                                               \
-  /* OP(RELU_BWD) */                                                           \
+  OP(RELU_BWD)                                                                 \
   OP(RELU_FWD)                                                                 \
   OP(RSQRT)                                                                    \
   /* OP(SIGMOID_BWD) */                                                        \
@@ -70,7 +70,7 @@ namespace fusilli {
   /* OP(SWISH_BWD) */                                                          \
   OP(SWISH_FWD)                                                                \
   OP(TAN)                                                                      \
-  /* OP(TANH_BWD) */                                                           \
+  OP(TANH_BWD)                                                                 \
   OP(TANH_FWD)
 
 class PointwiseAttr : public AttributesCRTP<PointwiseAttr> {
@@ -184,6 +184,7 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::NEG, 1},
         {PointwiseAttr::Mode::IDENTITY, 1},
         {PointwiseAttr::Mode::RECIPROCAL, 1},
+        {PointwiseAttr::Mode::RELU_BWD, 2},
         {PointwiseAttr::Mode::RELU_FWD, 1},
         {PointwiseAttr::Mode::RSQRT, 1},
         {PointwiseAttr::Mode::SIGMOID_FWD, 1},
@@ -193,6 +194,7 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::SUB, 2},
         {PointwiseAttr::Mode::SWISH_FWD, 1},
         {PointwiseAttr::Mode::TAN, 1},
+        {PointwiseAttr::Mode::TANH_BWD, 2},
         {PointwiseAttr::Mode::TANH_FWD, 1}};
 
 } // namespace fusilli
