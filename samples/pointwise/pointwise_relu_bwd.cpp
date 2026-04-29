@@ -122,4 +122,6 @@ TEST_CASE("Pointwise RELU_BWD", "[pointwise][graph]") {
   execute(handle, half(2.5f), half(1.25f));
   // Negative x case: dx = 0.
   execute(handle, half(2.5f), half(-1.25f));
+  // Zero x case: dx = 0 (threshold boundary, x > 0 is false).
+  execute(handle, half(2.5f), half(0.0f));
 }
