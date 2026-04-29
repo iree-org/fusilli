@@ -1847,6 +1847,14 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {5}
 )";
 
+  constexpr std::string_view kReluBwdSchema = R"(
+    {0}
+    {1}
+    %relu_bwd_threshold_{7} = torch.constant.int 0
+    {2} = torch.aten.threshold_backward {3}, %relu_bwd_threshold_{7} : {4}, !torch.int -> {5}
+    {6}
+)";
+
   constexpr std::string_view kGeluSchema = R"(
     {0}
     %gelu_approximate_{7} = torch.constant.str "{8}"
@@ -1946,6 +1954,17 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(LOGICAL_NOT, torch.aten.logical_not)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(NEG, torch.aten.neg)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RECIPROCAL, torch.aten.reciprocal)
+  case PointwiseAttr::Mode::RELU_BWD: {
+    return std::format(kReluBwdSchema, permuteIN0, /* {0} */
+                       permuteIN1,                 /* {1} */
+                       getResultNamesAsm(),        /* {2} */
+                       getOperandNamesAsm(),       /* {3} */
+                       getOperandTypesAsm(),       /* {4} */
+                       getResultTypesAsm(),        /* {5} */
+                       permuteOUT0,                /* {6} */
+                       getName()                   /* {7} */
+    );
+  }
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RELU_FWD, torch.aten.relu)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RSQRT, torch.aten.rsqrt)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(SIGMOID_FWD, torch.aten.sigmoid)
