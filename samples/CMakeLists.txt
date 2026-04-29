@@ -42,9 +42,8 @@ add_fusilli_samples(
     pointwise/pointwise_add_transposed.cpp
     pointwise/pointwise_binary_ops.cpp
     pointwise/pointwise_binary_cmp_ops.cpp
+    pointwise/pointwise_bwd.cpp
     pointwise/pointwise_scalar_mul.cpp
-    pointwise/pointwise_swish_bwd.cpp
-    pointwise/pointwise_tanh_bwd.cpp
     pointwise/pointwise_ternary_ops.cpp
     pointwise/pointwise_unary_ops.cpp
   DEPS
