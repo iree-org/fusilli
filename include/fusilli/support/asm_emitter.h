@@ -1854,8 +1854,6 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {5}
 )";
 
-  // Swish: y = x * sigmoid(beta * x). When beta=1 this matches torch.aten.silu,
-  // but we expand it to the composite form so the beta knob is honored.
   constexpr std::string_view kSwishSchema = R"(
     {0}
     %swish_beta_{6} = torch.constant.float {7:e}

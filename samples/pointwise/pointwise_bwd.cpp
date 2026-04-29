@@ -37,7 +37,7 @@ static std::string generateName(PointwiseAttr::Mode mode, DataType type,
 
 TEST_CASE("Pointwise binary backward ops", "[pointwise][graph]") {
   const auto dim = std::vector<int64_t>{2, 16, 64, 64};
-  constexpr float kSwishBeta = 1.0f;
+  constexpr float kSwishBeta = 2.0f;
 
   // clang-format off
   const auto mode = GENERATE(
@@ -53,13 +53,16 @@ TEST_CASE("Pointwise binary backward ops", "[pointwise][graph]") {
       graph->setIODataType(dt).setComputeDataType(dt);
 
       // Initialize input tensors: IN_0 = grad_output (dy), IN_1 = self (x).
-      auto dyT = graph->tensor(TensorAttr().setName("in0").setDim(dim).setStride(
-          generateStrideFromDim(dim, getContiguousStrideOrder(dim.size()))));
+      auto dyT =
+          graph->tensor(TensorAttr().setName("in0").setDim(dim).setStride(
+              generateStrideFromDim(dim,
+                                    getContiguousStrideOrder(dim.size()))));
       auto xT = graph->tensor(TensorAttr().setName("in1").setDim(dim).setStride(
           generateStrideFromDim(dim, getContiguousStrideOrder(dim.size()))));
 
       // Create Pointwise op.
-      auto pointwiseAttr = PointwiseAttr().setMode(mode).setSwishBeta(kSwishBeta);
+      auto pointwiseAttr =
+          PointwiseAttr().setMode(mode).setSwishBeta(kSwishBeta);
       auto pointwiseResult = graph->pointwise(dyT, xT, pointwiseAttr);
 
       pointwiseResult->setName("result").setOutput(true);
