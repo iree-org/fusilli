@@ -159,6 +159,24 @@ inline ErrorObject Handle::createCPUDevice() {
   return ok();
 }
 
+inline ErrorObject Handle::createDeviceGroup() {
+  FUSILLI_LOG_LABEL_ENDL("INFO: Creating per-handle IREE HAL device group");
+  iree_allocator_t allocator = iree_allocator_system();
+
+  iree_async_frontier_tracker_t *rawFrontierTracker = nullptr;
+  FUSILLI_CHECK_ERROR(iree_async_frontier_tracker_create(
+      iree_async_frontier_tracker_options_default(), allocator,
+      &rawFrontierTracker));
+  IreeAsyncFrontierTrackerUniquePtrType frontierTracker(rawFrontierTracker);
+
+  iree_hal_device_group_t *rawDeviceGroup = nullptr;
+  FUSILLI_CHECK_ERROR(iree_hal_device_group_create_from_device(
+      getDevice(), frontierTracker.get(), allocator, &rawDeviceGroup));
+  deviceGroup_ = IreeHalDeviceGroupUniquePtrType(rawDeviceGroup);
+
+  return ok();
+}
+
 // Copied from the IREE runtime code.
 #define HIP_DEVICE_ID_TO_IREE_DEVICE_ID(device)                                \
   (iree_hal_device_id_t)((device) + 1)
@@ -239,21 +257,11 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
 
   // Create HAL module and register it with the context.
   {
-    iree_async_frontier_tracker_t *rawFrontierTracker = nullptr;
-    FUSILLI_CHECK_ERROR(iree_async_frontier_tracker_create(
-        iree_async_frontier_tracker_options_default(), allocator,
-        &rawFrontierTracker));
-    IreeAsyncFrontierTrackerUniquePtrType frontierTracker(rawFrontierTracker);
-
-    iree_hal_device_group_t *deviceGroup = nullptr;
-    FUSILLI_CHECK_ERROR(iree_hal_device_group_create_from_device(
-        handle.getDevice(), frontierTracker.get(), allocator, &deviceGroup));
     iree_vm_module_t *halModule = nullptr;
     FUSILLI_CHECK_ERROR(iree_hal_module_create(
         handle.getInstance(), iree_hal_module_device_policy_default(),
-        deviceGroup, IREE_HAL_MODULE_FLAG_NONE,
+        handle.getDeviceGroup(), IREE_HAL_MODULE_FLAG_NONE,
         iree_hal_module_debug_sink_null(), allocator, &halModule));
-    iree_hal_device_group_release(deviceGroup);
     iree_status_t status = iree_vm_context_register_modules(
         vmContext_.get(), /*module_count=*/1, &halModule);
     iree_vm_module_release(halModule);

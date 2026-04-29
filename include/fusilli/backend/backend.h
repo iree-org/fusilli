@@ -377,6 +377,14 @@ struct IreeHalDeviceDeleter {
   }
 };
 
+// Custom deleter for IREE HAL device group.
+struct IreeHalDeviceGroupDeleter {
+  void operator()(iree_hal_device_group_t *deviceGroup) const {
+    if (deviceGroup)
+      iree_hal_device_group_release(deviceGroup);
+  }
+};
+
 // Custom deleter for IREE VM context.
 struct IreeVmContextDeleter {
   void operator()(iree_vm_context_t *context) const {
@@ -413,6 +421,8 @@ struct IreeHalBufferViewDeleter {
 using IreeVmInstanceSharedPtrType = std::shared_ptr<iree_vm_instance_t>;
 using IreeHalDeviceUniquePtrType =
     std::unique_ptr<iree_hal_device_t, IreeHalDeviceDeleter>;
+using IreeHalDeviceGroupUniquePtrType =
+    std::unique_ptr<iree_hal_device_group_t, IreeHalDeviceGroupDeleter>;
 using IreeVmContextUniquePtrType =
     std::unique_ptr<iree_vm_context_t, IreeVmContextDeleter>;
 using IreeAsyncFrontierTrackerUniquePtrType =
