@@ -1823,6 +1823,14 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {7}
 )";
 
+  constexpr std::string_view kTanhBwdSchema = R"(
+    {0}
+    {1}
+    %tanh_bwd_y_{6} = torch.aten.tanh {2} : {3} -> {3}
+    {4} = torch.aten.tanh_backward {7}, %tanh_bwd_y_{6} : {8}, {3} -> {5}
+    {9}
+)";
+
   constexpr std::string_view kIdentitySchema = R"(
     {0}
     %none_{7} = torch.constant.none
@@ -1994,6 +2002,20 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
                        permuteOUT0,                  /* {7} */
                        getName(),                    /* {8} */
                        getOperandTypesAsm()          /* {9} */
+    );
+  }
+
+  case PointwiseAttr::Mode::TANH_BWD: {
+    return std::format(kTanhBwdSchema, permuteIN0, /* {0} */
+                       permuteIN1,                 /* {1} */
+                       getInputNameAsm(1),         /* {2} */
+                       getInputTypeAsm(1),         /* {3} */
+                       getResultNamesAsm(),        /* {4} */
+                       getResultTypesAsm(),        /* {5} */
+                       getName(),                  /* {6} */
+                       getInputNameAsm(0),         /* {7} */
+                       getInputTypeAsm(0),         /* {8} */
+                       permuteOUT0                 /* {9} */
     );
   }
 
