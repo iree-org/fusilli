@@ -43,9 +43,7 @@ TEST_CASE("Pointwise ternary ops", "[pointwise][graph]") {
       GENERATE(std::vector<int64_t>{2, 16, 64, 64},
                std::vector<int64_t>{1, 16, 1, 1})};
 
-  // clang-format off
   const auto mode = GENERATE(PointwiseAttr::Mode::BINARY_SELECT);
-  // clang-format on
 
   auto execute = [&]<typename T>(Handle &handle, DataType dt, bool cond,
                                  T xTrue, T xFalse) {
