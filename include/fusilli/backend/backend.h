@@ -19,6 +19,7 @@
 #include "fusilli/support/logging.h"
 #include "fusilli/support/process.h"
 
+#include <iree/async/frontier_tracker.h>
 #include <iree/hal/api.h>
 #include <iree/hal/drivers/hip/api.h>
 #include <iree/vm/api.h>
@@ -384,6 +385,14 @@ struct IreeVmContextDeleter {
   }
 };
 
+// Custom deleter for IREE async frontier tracker.
+struct IreeAsyncFrontierTrackerDeleter {
+  void operator()(iree_async_frontier_tracker_t *tracker) const {
+    if (tracker)
+      iree_async_frontier_tracker_release(tracker);
+  }
+};
+
 // Custom deleter for IREE VM list.
 struct IreeVmListDeleter {
   void operator()(iree_vm_list_t *list) const {
@@ -406,6 +415,9 @@ using IreeHalDeviceUniquePtrType =
     std::unique_ptr<iree_hal_device_t, IreeHalDeviceDeleter>;
 using IreeVmContextUniquePtrType =
     std::unique_ptr<iree_vm_context_t, IreeVmContextDeleter>;
+using IreeAsyncFrontierTrackerUniquePtrType =
+    std::unique_ptr<iree_async_frontier_tracker_t,
+                    IreeAsyncFrontierTrackerDeleter>;
 using IreeVmListUniquePtrType =
     std::unique_ptr<iree_vm_list_t, IreeVmListDeleter>;
 using IreeHalBufferViewUniquePtrType =

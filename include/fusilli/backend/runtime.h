@@ -239,9 +239,15 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
 
   // Create HAL module and register it with the context.
   {
+    iree_async_frontier_tracker_t *rawFrontierTracker = nullptr;
+    FUSILLI_CHECK_ERROR(iree_async_frontier_tracker_create(
+        iree_async_frontier_tracker_options_default(), allocator,
+        &rawFrontierTracker));
+    IreeAsyncFrontierTrackerUniquePtrType frontierTracker(rawFrontierTracker);
+
     iree_hal_device_group_t *deviceGroup = nullptr;
     FUSILLI_CHECK_ERROR(iree_hal_device_group_create_from_device(
-        handle.getDevice(), allocator, &deviceGroup));
+        handle.getDevice(), frontierTracker.get(), allocator, &deviceGroup));
     iree_vm_module_t *halModule = nullptr;
     FUSILLI_CHECK_ERROR(iree_hal_module_create(
         handle.getInstance(), iree_hal_module_device_policy_default(),
