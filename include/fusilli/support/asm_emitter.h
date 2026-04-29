@@ -1823,6 +1823,14 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {7}
 )";
 
+  constexpr std::string_view kTanhBwdSchema = R"(
+    {0}
+    {1}
+    %tanh_bwd_y_{6} = torch.aten.tanh {2} : {3} -> {3}
+    {4} = torch.aten.tanh_backward {7}, %tanh_bwd_y_{6} : {8}, {3} -> {5}
+    {9}
+)";
+
   constexpr std::string_view kIdentitySchema = R"(
     {0}
     %none_{7} = torch.constant.none
@@ -1837,6 +1845,14 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     %elu_input_scale_{7} = torch.constant.float 1.000000e+00
     {1} = {6} {2}, %elu_alpha_{7}, %elu_scale_{7}, %elu_input_scale_{7} : {3}, !torch.float, !torch.float, !torch.float -> {4}
     {5}
+)";
+
+  constexpr std::string_view kReluBwdSchema = R"(
+    {0}
+    {1}
+    %relu_bwd_threshold_{7} = torch.constant.int 0
+    {2} = torch.aten.threshold_backward {3}, %relu_bwd_threshold_{7} : {4}, !torch.int -> {5}
+    {6}
 )";
 
   constexpr std::string_view kGeluSchema = R"(
@@ -1938,6 +1954,17 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(LOGICAL_NOT, torch.aten.logical_not)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(NEG, torch.aten.neg)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RECIPROCAL, torch.aten.reciprocal)
+  case PointwiseAttr::Mode::RELU_BWD: {
+    return std::format(kReluBwdSchema, permuteIN0, /* {0} */
+                       permuteIN1,                 /* {1} */
+                       getResultNamesAsm(),        /* {2} */
+                       getOperandNamesAsm(),       /* {3} */
+                       getOperandTypesAsm(),       /* {4} */
+                       getResultTypesAsm(),        /* {5} */
+                       permuteOUT0,                /* {6} */
+                       getName()                   /* {7} */
+    );
+  }
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RELU_FWD, torch.aten.relu)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RSQRT, torch.aten.rsqrt)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(SIGMOID_FWD, torch.aten.sigmoid)
@@ -1975,6 +2002,20 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
                        permuteOUT0,                  /* {7} */
                        getName(),                    /* {8} */
                        getOperandTypesAsm()          /* {9} */
+    );
+  }
+
+  case PointwiseAttr::Mode::TANH_BWD: {
+    return std::format(kTanhBwdSchema, permuteIN0, /* {0} */
+                       permuteIN1,                 /* {1} */
+                       getInputNameAsm(1),         /* {2} */
+                       getInputTypeAsm(1),         /* {3} */
+                       getResultNamesAsm(),        /* {4} */
+                       getResultTypesAsm(),        /* {5} */
+                       getName(),                  /* {6} */
+                       getInputNameAsm(0),         /* {7} */
+                       getInputTypeAsm(0),         /* {8} */
+                       permuteOUT0                 /* {9} */
     );
   }
 
