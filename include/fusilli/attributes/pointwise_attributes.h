@@ -57,7 +57,7 @@ namespace fusilli {
   OP(MUL)                                                                      \
   OP(NEG)                                                                      \
   OP(RECIPROCAL)                                                               \
-  /* OP(RELU_BWD) */                                                           \
+  OP(RELU_BWD)                                                                 \
   OP(RELU_FWD)                                                                 \
   OP(RSQRT)                                                                    \
   /* OP(SIGMOID_BWD) */                                                        \
@@ -184,6 +184,7 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::NEG, 1},
         {PointwiseAttr::Mode::IDENTITY, 1},
         {PointwiseAttr::Mode::RECIPROCAL, 1},
+        {PointwiseAttr::Mode::RELU_BWD, 2},
         {PointwiseAttr::Mode::RELU_FWD, 1},
         {PointwiseAttr::Mode::RSQRT, 1},
         {PointwiseAttr::Mode::SIGMOID_FWD, 1},
