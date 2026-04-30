@@ -67,7 +67,7 @@ namespace fusilli {
   OP(SOFTPLUS_FWD)                                                             \
   OP(SQRT)                                                                     \
   OP(SUB)                                                                      \
-  /* OP(SWISH_BWD) */                                                          \
+  OP(SWISH_BWD)                                                                \
   OP(SWISH_FWD)                                                                \
   OP(TAN)                                                                      \
   OP(TANH_BWD)                                                                 \
@@ -192,6 +192,7 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::SOFTPLUS_FWD, 1},
         {PointwiseAttr::Mode::SQRT, 1},
         {PointwiseAttr::Mode::SUB, 2},
+        {PointwiseAttr::Mode::SWISH_BWD, 2},
         {PointwiseAttr::Mode::SWISH_FWD, 1},
         {PointwiseAttr::Mode::TAN, 1},
         {PointwiseAttr::Mode::TANH_BWD, 2},
