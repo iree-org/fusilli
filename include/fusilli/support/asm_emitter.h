@@ -1865,9 +1865,7 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
 
   // Swish backward: for y = x * sigmoid(beta*x), dy/dx = sig +
   // beta*x*sig*(1-sig) where sig = sigmoid(beta*x). IN_0 is grad_output (dy),
-  // IN_1 is self (x). Emitted as a composite expansion (mirrors kSwishSchema)
-  // so the beta knob is honored even when beta != 1 (silu_backward only
-  // supports beta=1).
+  // IN_1 is self (x). Emitted as a composite expansion (mirrors kSwishSchema).
   constexpr std::string_view kSwishBwdSchema = R"(
     {0}
     {1}
