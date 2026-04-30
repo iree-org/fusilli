@@ -395,6 +395,15 @@ Graph::execute(const Handle &handle,
   if (!kBackendExecuteAsync.contains(handle.getBackend())) // C++20
     return ErrorObject(ErrorCode::InternalError,
                        "Graph::execute got an unknown backend");
+  FUSILLI_RETURN_ERROR_IF(!loadedBackend_.has_value(), ErrorCode::NotCompiled,
+                          "Graph::execute requires a successful compile() first"
+                          " (loaded backend not set)");
+  FUSILLI_RETURN_ERROR_IF(handle.getBackend() != *loadedBackend_,
+                          ErrorCode::InvalidArgument,
+                          "Graph::execute got a handle for backend " +
+                              kBackendToStr.at(handle.getBackend()) +
+                              ", but the loaded artifact uses backend " +
+                              kBackendToStr.at(*loadedBackend_));
   bool executeAsync = kBackendExecuteAsync.at(handle.getBackend());
 
   iree_allocator_t allocator = iree_allocator_system();

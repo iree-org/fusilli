@@ -30,6 +30,58 @@ software effectively.
 
 ![Fusilli](docs/fusilli.png)
 
+## JIT and AOT support
+
+Fusilli's default API is built for the JIT usecase:
+
+```cpp
+graph.compile(handle);
+graph.execute(handle, variantPack, workspace);
+```
+
+`Graph::compile(handle)` compiles for `handle.getBackend()` and immediately loads
+the resulting artifact into runtime state owned by that `Graph`. The compiled
+artifacts are cached in-process and tied to the lifetime of the `Graph` instance.
+Here `Graph::compile` is just an implementation detail that goes hand-in-hand
+with `Graph::execute` (in the same process and using the same device handle).
+
+For AOT-style callers we recognize that the compilation may happen in a separate
+process, or without access to the specific execution device. To support the AOT
+usecase, Fusilli exposes alternate APIs with explicit artifact save/load steps:
+
+```cpp
+// Compile doesn't require a device handle
+auto vmfbPath = graph.compileToArtifact(backend);
+// Copy or serialize the VMFB here if it must outlive this compile-side graph.
+
+Graph runtimeGraph;
+// Rebuild and validate the same logical graph.
+runtimeGraph.loadFromArtifact(handle, vmfbPath);
+runtimeGraph.execute(handle, variantPack, workspace);
+```
+
+Important constraints for multi-backend AOT compilation:
+
+- Compiled artifacts are backend-specific. An artifact produced for one backend
+  must be loaded and executed with a handle for the same backend. `execute()`
+  rejects handles whose backend does not match the currently loaded artifact's
+  backend.
+- `compileToArtifact()` does not load or unload runtime state. If a `Graph`
+  already has an artifact loaded, compiling another artifact leaves the loaded
+  artifact executable until `loadFromArtifact()` replaces it.
+- A `Graph` owns one loaded runtime state at a time. Loading another artifact
+  replaces the previous VM context, function and workspace size.
+- If compiling artifacts for multiple backends from one `Graph`, copy or
+  serialize each returned VMFB before compiling the next backend. Fusilli's
+  in-process cache owns only the current compile-side artifact and is not a
+  persistent cache contract.
+- To keep multiple backend artifacts loaded concurrently, use one validated
+  `Graph` instance per backend. To switch backends on the same `Graph`, call
+  `loadFromArtifact(handleForSelectedBackend, artifactForSelectedBackend)`
+  before `execute()`.
+
+AOT samples are under `samples/aot/`, everything else in `samples/` uses the JIT API.
+
 ## Developer Guide
 
 ### Setup

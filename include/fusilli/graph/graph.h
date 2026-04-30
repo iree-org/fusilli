@@ -111,13 +111,43 @@ public:
     return ok();
   }
 
-  // Compiles the graph using IREE compiler and sets up the IREE VM
-  // context for future g->execute calls.
+  // Compiles the graph using IREE compiler and sets up the IREE VM context for
+  // future g->execute calls. This is the default JIT convenience API.
+  //
+  // This is equivalent to:
+  //   compileToArtifact(handle.getBackend(), remove)
+  //   loadFromArtifact(handle, artifactPath)
+  //
+  // The compiled artifact is backend-specific and is immediately loaded using
+  // the same backend from `handle`.
   //
   // Set `remove = true` to remove compilation artifacts (cache files) when
   // this `Graph` instance goes out of scope.
   ErrorObject compile(const Handle &handle, bool remove = false) {
     FUSILLI_LOG_LABEL_ENDL("INFO: Compiling Graph");
+    FUSILLI_ASSIGN_OR_RETURN(auto vmfbPath,
+                             compileToArtifact(handle.getBackend(), remove));
+    return loadFromArtifact(handle, vmfbPath);
+  }
+
+  // Compiles the graph using IREE compiler to produce a backend-specific VMFB
+  // artifact. This does not create any runtime state; call
+  // `loadFromArtifact()` before executing.
+  //
+  // If callers need artifacts for multiple backends, they should copy or
+  // serialize each returned VMFB path before compiling the next backend.
+  // Fusilli owns only the in-process `cache_` for the most recent compile-side
+  // artifact; it does not provide persistent artifact storage or invalidation.
+  //
+  // Compiling a new artifact does not load or unload runtime state. If this
+  // `Graph` already has an artifact loaded, that artifact remains executable
+  // until a later `loadFromArtifact()` replaces it.
+  //
+  // Set `remove = true` to remove compilation artifacts (cache files) when
+  // this `Graph` instance goes out of scope.
+  ErrorOr<std::filesystem::path> compileToArtifact(Backend backend,
+                                                   bool remove = false) {
+    FUSILLI_LOG_LABEL_ENDL("INFO: Compiling Graph to artifact");
     FUSILLI_RETURN_ERROR_IF(!isValidated_, ErrorCode::NotValidated,
                             "Graph must be validated before being compiled");
 
@@ -125,15 +155,46 @@ public:
     FUSILLI_ASSIGN_OR_RETURN(std::string generatedAsm, emitAsm());
 
     // Compile using IREE compiler or reuse cached artifact.
-    FUSILLI_ASSIGN_OR_RETURN(auto vmfbPath,
-                             getCompiledArtifact(handle, generatedAsm, remove));
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto vmfbPath, getCompiledArtifact(backend, generatedAsm, remove));
 
     FUSILLI_LOG_LABEL_ENDL("INFO: Compiled Graph cached at \"" +
                            vmfbPath.string() + "\"");
 
-    // Create per-graph IREE VM context and load the compiled artifact.
-    FUSILLI_CHECK_ERROR(createVmContext(handle, vmfbPath.string()));
+    return ok(vmfbPath);
+  }
 
+  // Loads a compiled VMFB artifact onto the device owned by `handle`, creating
+  // per-graph runtime state and querying workspace size. This does not require
+  // the artifact to have been produced by this `Graph` instance.
+  //
+  // The artifact must be compatible with `handle.getBackend()`. A VMFB compiled
+  // for one backend is not a portable artifact for another backend.
+  //
+  // A `Graph` owns one loaded runtime state at a time. Loading a new artifact
+  // replaces any previously loaded VM context, function, workspace size, and VM
+  // input list capacity. To keep multiple backends loaded concurrently, use one
+  // `Graph` instance per backend artifact. To switch backends on one `Graph`,
+  // call `loadFromArtifact()` with the selected backend artifact before
+  // `execute()`.
+  ErrorObject loadFromArtifact(const Handle &handle,
+                               const std::filesystem::path &vmfbPath) {
+    FUSILLI_LOG_LABEL_ENDL("INFO: Loading compiled artifact into VM context");
+    FUSILLI_RETURN_ERROR_IF(
+        !isValidated_, ErrorCode::NotValidated,
+        "Graph must be validated before loading a compiled artifact");
+    // Loading replaces the currently executable artifact. Clear first so a
+    // failed load cannot leave execute() using stale runtime state from an
+    // older artifact.
+    clearRuntimeState();
+    ErrorObject status = createVmContext(handle, vmfbPath.string());
+    if (isError(status)) {
+      // createVmContext may have partially populated runtime state before
+      // failing; leave the graph in a clean "not loaded" state.
+      clearRuntimeState();
+      return status;
+    }
+    loadedBackend_ = handle.getBackend();
     return ok();
   }
 
@@ -354,11 +415,11 @@ public:
   // TODO(#13): Make this private. It is public for now to aid testing and
   // debuggability, however the intended user facing API is `Graph::compile()`.
   ErrorOr<std::filesystem::path>
-  getCompiledArtifact(const Handle &handle, const std::string &generatedAsm,
+  getCompiledArtifact(Backend backend, const std::string &generatedAsm,
                       bool remove, std::optional<bool> *reCompiled = nullptr) {
     // Check for cache hit.
     FUSILLI_ASSIGN_OR_RETURN(bool cacheValid,
-                             validateCache(handle, generatedAsm));
+                             validateCache(backend, generatedAsm));
     if (cacheValid) {
       if (reCompiled)
         *reCompiled = false;
@@ -367,7 +428,7 @@ public:
     // (Re)generate cache.
     FUSILLI_ASSIGN_OR_RETURN(
         auto generatedCache,
-        generateCompiledArtifact(handle, generatedAsm, remove));
+        generateCompiledArtifact(backend, generatedAsm, remove));
     cache_ = std::move(generatedCache);
     if (reCompiled)
       *reCompiled = true;
@@ -400,6 +461,14 @@ private:
   ErrorObject createVmContext(const Handle &handle,
                               const std::string &vmfbPath);
 
+  void clearRuntimeState() {
+    workspaceSize_.reset();
+    loadedBackend_.reset();
+    vmContext_.reset();
+    vmFunction_.reset();
+    vmInputListCapacity_ = 0;
+  }
+
   // Queries the required transient/workspace buffer size from the compiled
   // module. Returns the size in bytes, or 0 if no transients are needed.
   // Returns an error if the module requires dynamic transient sizes.
@@ -410,8 +479,8 @@ private:
   // `remove = true` to remove cache files when returned `CachedAssets` lifetime
   // ends.
   ErrorOr<CachedAssets>
-  generateCompiledArtifact(const Handle &handle,
-                           const std::string &generatedAsm, bool remove) {
+  generateCompiledArtifact(Backend backend, const std::string &generatedAsm,
+                           bool remove) {
     FUSILLI_LOG_LABEL_ENDL("INFO: Generating compiled artifacts");
 
     // Create cache files.
@@ -448,7 +517,7 @@ private:
     if (checkCompileBackendEnv()) {
       // Use CompileCommand (CLI).
       CompileCommand cmd = CompileCommand::build(
-          handle.getBackend(), cache.input, cache.output, cache.statistics);
+          backend, cache.input, cache.output, cache.statistics);
       FUSILLI_CHECK_ERROR(cmd.writeTo(cache.command));
       FUSILLI_LOG_LABEL_ENDL("INFO: iree-compile command (CLI)");
       FUSILLI_LOG_ENDL(cmd.toString());
@@ -456,8 +525,8 @@ private:
     } else {
       // Use CompileSession (C API) - DEFAULT.
       FUSILLI_ASSIGN_OR_RETURN(CompileSession session,
-                               CompileSession::build(handle.getBackend(),
-                                                     cache.input, cache.output,
+                               CompileSession::build(backend, cache.input,
+                                                     cache.output,
                                                      cache.statistics));
       FUSILLI_CHECK_ERROR(session.writeTo(cache.command));
       FUSILLI_LOG_LABEL_ENDL("INFO: iree-compile command (C API)");
@@ -473,8 +542,8 @@ private:
   //  - Graph name (and therefore cache path) has changed
   //  - Generated assembly differs
   //  - Compile commands have changed
-  //  - Handle/backend (and therefore compile command) has changed
-  ErrorOr<bool> validateCache(const Handle &handle,
+  //  - Backend (and therefore compile command) has changed
+  ErrorOr<bool> validateCache(Backend backend,
                               const std::string &generatedAsm) {
     FUSILLI_LOG_LABEL_ENDL("INFO: Validating cache");
 
@@ -544,13 +613,13 @@ private:
     if (checkCompileBackendEnv()) {
       // Use CompileCommand (CLI).
       CompileCommand cmd =
-          CompileCommand::build(handle.getBackend(), input, output, statistics);
+          CompileCommand::build(backend, input, output, statistics);
       cmdString = cmd.toString();
     } else {
       // Use CompileSession (C API) - DEFAULT.
-      FUSILLI_ASSIGN_OR_RETURN(auto session,
-                               CompileSession::build(handle.getBackend(), input,
-                                                     output, statistics));
+      FUSILLI_ASSIGN_OR_RETURN(
+          auto session,
+          CompileSession::build(backend, input, output, statistics));
       cmdString = session.toString();
     }
 
@@ -635,7 +704,13 @@ private:
   // Set during createVmContext() to avoid recomputing on every execute().
   iree_host_size_t vmInputListCapacity_ = 0;
 
-  // Cache set by `getCompiledArtifact()`.
+  // Backend for the currently loaded runtime state. `execute()` requires a
+  // handle for this backend because VMFB artifacts are backend-specific.
+  std::optional<Backend> loadedBackend_;
+
+  // Compile-side cache set by `getCompiledArtifact()`. This is used as the
+  // JIT cache. The AOT `loadFromArtifact()` API uses caller-provided VMFB
+  // paths directly and does not consult this cache.
   //
   // Note: new instances should always re-generate cache even if the results
   // could be read from the file system. Old results may have been generated
