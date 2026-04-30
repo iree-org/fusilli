@@ -41,6 +41,7 @@ TEST_CASE("Pointwise binary backward ops", "[pointwise][graph]") {
 
   // clang-format off
   const auto mode = GENERATE(
+      PointwiseAttr::Mode::RELU_BWD,
       PointwiseAttr::Mode::SWISH_BWD,
       PointwiseAttr::Mode::TANH_BWD);
   // clang-format on
@@ -109,6 +110,11 @@ TEST_CASE("Pointwise binary backward ops", "[pointwise][graph]") {
     const double xD = static_cast<double>(T(x));
     T expected = T(0.0f);
     switch (mode) {
+    case PointwiseAttr::Mode::RELU_BWD: {
+      // For y = max(x, 0): dx = dy if x > 0 else 0.
+      expected = xD > 0.0 ? T(dyD) : T(0.0f);
+      break;
+    }
     case PointwiseAttr::Mode::SWISH_BWD: {
       // For y = x * sigmoid(beta * x):
       //   dx = dy * (sig + beta * x * sig * (1 - sig)),
@@ -159,6 +165,9 @@ TEST_CASE("Pointwise binary backward ops", "[pointwise][graph]") {
   // Create handle for the target backend.
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
-  // fp16
+  // Exercise positive, negative, and zero x to pin RELU_BWD's threshold
+  // boundary; the SWISH_BWD/TANH_BWD formulas are well-defined for all three.
   execute(handle, DataType::Half, half(0.5f), half(1.25f));
+  execute(handle, DataType::Half, half(0.5f), half(-1.25f));
+  execute(handle, DataType::Half, half(0.5f), half(0.0f));
 }
