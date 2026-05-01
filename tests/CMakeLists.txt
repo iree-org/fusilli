@@ -162,7 +162,9 @@ add_fusilli_lit_tests(
     lit/test_pointwise_asm_emitter_erf.cpp
     lit/test_pointwise_asm_emitter_exp.cpp
     lit/test_pointwise_asm_emitter_floor.cpp
+    lit/test_pointwise_asm_emitter_gelu_approx_tanh_bwd.cpp
     lit/test_pointwise_asm_emitter_gelu_approx_tanh_fwd.cpp
+    lit/test_pointwise_asm_emitter_gelu_bwd.cpp
     lit/test_pointwise_asm_emitter_gelu_fwd.cpp
     lit/test_pointwise_asm_emitter_identity.cpp
     lit/test_pointwise_asm_emitter_log.cpp

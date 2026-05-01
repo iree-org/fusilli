@@ -1862,6 +1862,14 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {5}
 )";
 
+  constexpr std::string_view kGeluBwdSchema = R"(
+    {0}
+    {1}
+    %gelu_approximate_{7} = torch.constant.str "{8}"
+    {2} = torch.aten.gelu_backward {3}, %gelu_approximate_{7} : {4}, !torch.str -> {5}
+    {6}
+)";
+
   constexpr std::string_view kSwishSchema = R"(
     {0}
     %swish_beta_{6} = torch.constant.float {7:e}
@@ -1936,6 +1944,22 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
                        "torch.aten.gelu",       /* {6} */
                        getName(),               /* {7} */
                        approx                   /* {8} */
+    );
+  }
+  case PointwiseAttr::Mode::GELU_BWD:
+  case PointwiseAttr::Mode::GELU_APPROX_TANH_BWD: {
+    const char *approx =
+        pointwiseAttr.getMode() == PointwiseAttr::Mode::GELU_BWD ? "none"
+                                                                 : "tanh";
+    return std::format(kGeluBwdSchema, permuteIN0, /* {0} */
+                       permuteIN1,                 /* {1} */
+                       getResultNamesAsm(),        /* {2} */
+                       getOperandNamesAsm(),       /* {3} */
+                       getOperandTypesAsm(),       /* {4} */
+                       getResultTypesAsm(),        /* {5} */
+                       permuteOUT0,                /* {6} */
+                       getName(),                  /* {7} */
+                       approx                      /* {8} */
     );
   }
   case PointwiseAttr::Mode::SOFTPLUS_FWD: {
