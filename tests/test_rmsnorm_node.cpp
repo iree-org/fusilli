@@ -289,25 +289,132 @@ TEST_CASE("RmsNormNode shape checks on SCALE tensor", "[rmsnorm_node]") {
   Context ctx;
   RmsnormAttr attr;
 
-  int64_t n = 2, c = 3, d = 4;
+  // 4D NCHW-packed x for trailing-suffix coverage.
+  int64_t n = 2, c = 4, h = 8, w = 8;
+  std::vector<int64_t> xDim = {n, c, h, w};
+  std::vector<int64_t> xStride = {c * h * w, h * w, w, 1};
 
-  SECTION("Incorrect SCALE shape") {
-    attr.setForwardPhase(NormFwdPhase::INFERENCE)
-        .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
-    attr.setX(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
+  attr.setForwardPhase(NormFwdPhase::INFERENCE)
+      .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
+  attr.setX(std::make_shared<TensorAttr>(
+      TensorAttr().setDim(xDim).setStride(xStride)));
+  attr.setY(std::make_shared<TensorAttr>());
+
+  // Each SECTION re-runs from the top of the TEST_CASE body, so `attr` is
+  // freshly populated; we override SCALE per SECTION to test the trailing-
+  // suffix rule:
+  //   reduction = maximal trailing suffix where scale[i] == x[i],
+  //   leading region (excluding batch) must be all-1,
+  //   batch dim (scale[0]) must be 1.
+
+  SECTION("Canonical full suffix accepted") {
     attr.setSCALE(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({n, c, d}).setStride({c * d, d, 1})));
-    attr.setY(std::make_shared<TensorAttr>());
+        TensorAttr().setDim({1, c, h, w}).setStride({c * h * w, h * w, w, 1})));
+    RmsNormNode node(std::move(attr), ctx);
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+  }
+
+  SECTION("Trailing suffix [H,W] accepted") {
+    attr.setSCALE(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({1, 1, h, w}).setStride({h * w, h * w, w, 1})));
+    RmsNormNode node(std::move(attr), ctx);
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+  }
+
+  SECTION("Trailing suffix [W] only accepted") {
+    attr.setSCALE(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({1, 1, 1, w}).setStride({w, w, w, 1})));
+    RmsNormNode node(std::move(attr), ctx);
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+  }
+
+  SECTION("Leading region non-1 rejected (sandwich)") {
+    // scale=[1, c, 1, w]: trailing match is [w] (matchCount=1), but the
+    // leading region (positions 1..2) contains scale[1]=c != 1.
+    attr.setSCALE(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({1, c, 1, w}).setStride({c * w, w, w, 1})));
+    RmsNormNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() == "RmsNorm SCALE leading region (before "
+                                   "normalized shape) must be 1");
+  }
+
+  SECTION("No trailing match rejected (per-channel)") {
+    // scale=[1, c, 1, 1]: trailing dim 1 vs x's W=w → no match.
+    attr.setSCALE(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({1, c, 1, 1}).setStride({c, 1, 1, 1})));
     RmsNormNode node(std::move(attr), ctx);
 
     auto status = node.preValidateNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "RmsNorm input tensor SCALE must have shape as "
-            "tensor X with single batch");
+            "RmsNorm SCALE has no trailing dims matching X — at least "
+            "one normalized dim is required");
   }
+
+  SECTION("All-1 scale on non-degenerate x rejected") {
+    // x=[N,C,H,W] with non-1 spatials, scale=[1,1,1,1] → no trailing
+    // match (scale[3]=1 vs x[3]=W).
+    attr.setSCALE(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({1, 1, 1, 1}).setStride({1, 1, 1, 1})));
+    RmsNormNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "RmsNorm SCALE has no trailing dims matching X — at least "
+            "one normalized dim is required");
+  }
+
+  SECTION("Different rank rejected") {
+    attr.setSCALE(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({c, h, w}).setStride({h * w, w, 1})));
+    RmsNormNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "RmsNorm SCALE tensor must have the same rank as X");
+  }
+
+  SECTION("Non-1 batch dim rejected") {
+    attr.setSCALE(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({n, c, h, w}).setStride({c * h * w, h * w, w, 1})));
+    RmsNormNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "RmsNorm SCALE tensor must have batch dim equal to 1 "
+            "(broadcast across batch)");
+  }
+}
+
+TEST_CASE("RmsNormNode degenerate all-1 x accepted with all-1 scale",
+          "[rmsnorm_node]") {
+  // Special case from the cuDNN/hipDNN rule: x=[N,1,1,...] with
+  // scale=[1,1,1,...] passes because trailing match goes all the way to
+  // the batch boundary.
+  Context ctx;
+  RmsnormAttr attr;
+
+  attr.setForwardPhase(NormFwdPhase::INFERENCE)
+      .setEpsilon(std::make_shared<TensorAttr>(1e-5f));
+  attr.setX(std::make_shared<TensorAttr>(
+      TensorAttr().setDim({2, 1, 1, 1}).setStride({1, 1, 1, 1})));
+  attr.setSCALE(std::make_shared<TensorAttr>(
+      TensorAttr().setDim({1, 1, 1, 1}).setStride({1, 1, 1, 1})));
+  attr.setY(std::make_shared<TensorAttr>());
+  RmsNormNode node(std::move(attr), ctx);
+
+  FUSILLI_REQUIRE_OK(node.preValidateNode());
 }
 
 TEST_CASE("RmsNormNode postValidateNode detects incorrect shapes and strides",
