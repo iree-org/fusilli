@@ -2241,15 +2241,15 @@ inline std::string ReductionNode::emitNodePreAsm() const {
     std::string boolType = boolTypeOss.str();
 
     return std::format(kMulNoZerosSchema,
-                       permuteX,             // {0}
-                       dimListOss.str(),     // {1}
-                       suffix,               // {2}
-                       getResultNamesAsm(),  // {3}
-                       getOperandNamesAsm(), // {4}
-                       getOperandTypesAsm(), // {5}
-                       getResultTypesAsm(),  // {6}
-                       permuteY,             // {7}
-                       boolType              // {8}
+                       permuteX,             /* {0} */
+                       dimListOss.str(),     /* {1} */
+                       suffix,               /* {2} */
+                       getResultNamesAsm(),  /* {3} */
+                       getOperandNamesAsm(), /* {4} */
+                       getOperandTypesAsm(), /* {5} */
+                       getResultTypesAsm(),  /* {6} */
+                       permuteY,             /* {7} */
+                       boolType              /* {8} */
     );
   }
   default:
