@@ -47,11 +47,14 @@
 #include "fusilli/support/extras.h"
 #include "fusilli/support/logging.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <optional>
 #include <set>
+#include <span>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -124,15 +127,12 @@ public:
     // Generate MLIR assembly for this graph.
     FUSILLI_ASSIGN_OR_RETURN(std::string generatedAsm, emitAsm());
 
-    // Compile using IREE compiler or reuse cached artifact.
-    FUSILLI_ASSIGN_OR_RETURN(auto vmfbPath,
-                             getCompiledArtifact(handle, generatedAsm, remove));
-
-    FUSILLI_LOG_LABEL_ENDL("INFO: Compiled Graph cached at \"" +
-                           vmfbPath.string() + "\"");
-
-    // Create per-graph IREE VM context and load the compiled artifact.
-    FUSILLI_CHECK_ERROR(createVmContext(handle, vmfbPath.string()));
+    // Compile using IREE compiler and load the artifact bytes. The C API path
+    // compiles directly to memory; the CLI path still reads the file artifact
+    // produced by iree-compile.
+    FUSILLI_ASSIGN_OR_RETURN(auto vmfbBytes, generateCompiledArtifactBytes(
+                                                 handle, generatedAsm, remove));
+    FUSILLI_CHECK_ERROR(loadCompiledArtifactBytes(handle, vmfbBytes));
 
     return ok();
   }
@@ -397,8 +397,21 @@ public:
 
 private:
   // Definition in `fusilli/backend/runtime.h`.
-  ErrorObject createVmContext(const Handle &handle,
-                              const std::string &vmfbPath);
+  ErrorObject createVmContext(const Handle &handle);
+
+  // Definition in `fusilli/backend/runtime.h`.
+  ErrorObject loadBytecodeModule(const Handle &handle,
+                                 std::span<const uint8_t> vmfbBytes);
+
+  // Definition in `fusilli/backend/runtime.h`.
+  ErrorObject initializeRuntimeState(const Handle &handle);
+
+  void clearRuntimeState() {
+    workspaceSize_.reset();
+    vmContext_.reset();
+    vmFunction_.reset();
+    vmInputListCapacity_ = 0;
+  }
 
   // Queries the required transient/workspace buffer size from the compiled
   // module. Returns the size in bytes, or 0 if no transients are needed.
@@ -466,6 +479,110 @@ private:
     }
 
     return ok(std::move(cache));
+  }
+
+  ErrorOr<std::vector<uint8_t>>
+  generateCompiledArtifactBytes(const Handle &handle,
+                                const std::string &generatedAsm, bool remove) {
+    FUSILLI_LOG_LABEL_ENDL("INFO: Generating compiled artifact bytes");
+
+    if (checkCompileBackendEnv()) {
+      FUSILLI_ASSIGN_OR_RETURN(
+          auto vmfbPath, getCompiledArtifact(handle, generatedAsm, remove));
+      FUSILLI_LOG_LABEL_ENDL("INFO: Compiled Graph cached at \""
+                             << vmfbPath.string() << "\"");
+      return readFileBytes(vmfbPath);
+    }
+
+    FUSILLI_ASSIGN_OR_RETURN(auto inputCache,
+                             CacheFile::create(
+                                 /*graphName=*/getName(),
+                                 /*fileName=*/IREE_COMPILE_INPUT_FILENAME,
+                                 /*remove=*/remove));
+    FUSILLI_ASSIGN_OR_RETURN(auto outputCache,
+                             CacheFile::create(
+                                 /*graphName=*/getName(),
+                                 /*fileName=*/IREE_COMPILE_OUTPUT_FILENAME,
+                                 /*remove=*/remove));
+    FUSILLI_ASSIGN_OR_RETURN(auto commandCache,
+                             CacheFile::create(
+                                 /*graphName=*/getName(),
+                                 /*fileName=*/IREE_COMPILE_COMMAND_FILENAME,
+                                 /*remove=*/remove));
+    FUSILLI_ASSIGN_OR_RETURN(auto statisticsCache,
+                             CacheFile::create(
+                                 /*graphName=*/getName(),
+                                 /*fileName=*/IREE_COMPILE_STATISTICS_FILENAME,
+                                 /*remove=*/remove));
+
+    CachedAssets cache = CachedAssets(
+        /*in=*/std::move(inputCache),
+        /*out=*/std::move(outputCache),
+        /*cmd=*/std::move(commandCache),
+        /*stats=*/std::move(statisticsCache));
+
+    FUSILLI_CHECK_ERROR(cache.input.write(generatedAsm));
+
+    FUSILLI_ASSIGN_OR_RETURN(
+        CompileSession session,
+        CompileSession::buildInMemory(handle.getBackend(), cache.statistics));
+    FUSILLI_CHECK_ERROR(session.writeTo(cache.command));
+    FUSILLI_LOG_LABEL_ENDL("INFO: iree-compile command (C API, in-memory)");
+    FUSILLI_LOG_ENDL(session.toString());
+
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto vmfbBytes,
+        session.compileToBytes(generatedAsm, IREE_COMPILE_INPUT_FILENAME));
+    cache_ = std::move(cache);
+    return ok(std::move(vmfbBytes));
+  }
+
+  ErrorObject loadCompiledArtifactBytes(const Handle &handle,
+                                        std::span<const uint8_t> vmfbBytes) {
+    FUSILLI_RETURN_ERROR_IF(vmfbBytes.empty(), ErrorCode::InvalidArgument,
+                            "Compiled artifact bytes must not be empty");
+
+    // Loading replaces the currently executable artifact. Clear first so a
+    // failed load cannot leave execute() using stale runtime state from an
+    // older artifact.
+    clearRuntimeState();
+    ErrorObject status = createVmContext(handle);
+    if (isError(status)) {
+      clearRuntimeState();
+      return status;
+    }
+    status = loadBytecodeModule(handle, vmfbBytes);
+    if (isError(status)) {
+      clearRuntimeState();
+      return status;
+    }
+    status = initializeRuntimeState(handle);
+    if (isError(status)) {
+      clearRuntimeState();
+      return status;
+    }
+
+    return ok();
+  }
+
+  static ErrorOr<std::vector<uint8_t>>
+  readFileBytes(const std::filesystem::path &path) {
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    FUSILLI_RETURN_ERROR_IF(!file.is_open(), ErrorCode::FileSystemFailure,
+                            "Failed to open file: " + path.string());
+
+    const std::streamsize size = file.tellg();
+    FUSILLI_RETURN_ERROR_IF(size < 0, ErrorCode::FileSystemFailure,
+                            "Failed to get file size: " + path.string());
+
+    file.seekg(0, std::ios::beg);
+    std::vector<uint8_t> buffer(static_cast<size_t>(size));
+    if (!buffer.empty())
+      file.read(reinterpret_cast<char *>(buffer.data()), size);
+    FUSILLI_RETURN_ERROR_IF(!file.good(), ErrorCode::FileSystemFailure,
+                            "Failed to read file: " + path.string());
+
+    return ok(std::move(buffer));
   }
 
   // Check for cache validity. Cache should be invalidated if:
@@ -618,8 +735,8 @@ private:
   // This is set after `validate()` is run at least once successfully.
   bool isValidated_ = false;
 
-  // Required workspace buffer size in bytes. Set during createVmContext()
-  // by querying the iree.abi.transients.size.constant attribute.
+  // Required workspace buffer size in bytes. Set after loading bytecode by
+  // querying the iree.abi.transients.size.constant attribute.
   // std::nullopt indicates the graph has not been compiled yet.
   std::optional<size_t> workspaceSize_;
 
@@ -627,12 +744,12 @@ private:
   // (deleted when the `Graph` object goes out of scope).
   IreeVmContextUniquePtrType vmContext_;
 
-  // Memoized function handle resolved during createVmContext().
+  // Memoized function handle resolved after loading bytecode.
   // Avoids repeated function lookup on every execute() call.
   std::optional<iree_vm_function_t> vmFunction_;
 
-  // Pre-computed VM input list capacity for iree_vm_list_create().
-  // Set during createVmContext() to avoid recomputing on every execute().
+  // Pre-computed VM input list capacity for iree_vm_list_create(). Set after
+  // loading bytecode to avoid recomputing on every execute().
   iree_host_size_t vmInputListCapacity_ = 0;
 
   // Cache set by `getCompiledArtifact()`.

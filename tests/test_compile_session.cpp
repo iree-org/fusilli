@@ -215,6 +215,24 @@ TEST_CASE("CompileSession::compile with valid MLIR",
   REQUIRE(std::filesystem::file_size(output.path) > 0);
 }
 
+TEST_CASE("CompileSession::compileToBytes with valid MLIR",
+          "[CompileSession][integration]") {
+  FUSILLI_REQUIRE_ASSIGN(
+      CacheFile statistics,
+      CacheFile::create(kGraphName, "bytes_statistics.json", /*remove=*/true));
+  auto cleanup = ScopeExit(
+      [&] { std::filesystem::remove_all(statistics.path.parent_path()); });
+
+  FUSILLI_REQUIRE_ASSIGN(CompileSession session, CompileSession::buildInMemory(
+                                                     Backend::CPU, statistics));
+
+  FUSILLI_REQUIRE_ASSIGN(
+      auto bytecode,
+      session.compileToBytes(getSimpleMLIRModule(), "input.mlir"));
+
+  REQUIRE(!bytecode.empty());
+}
+
 TEST_CASE("CompileSession::compile with custom flags",
           "[CompileSession][integration]") {
   // Get the shared compiler context and create a session.

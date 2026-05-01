@@ -44,14 +44,15 @@
 #include <iree/hal/api.h>
 #include <iree/hal/drivers/hip/api.h>
 #include <iree/hal/drivers/init.h>
-#include <iree/io/file_contents.h>
 #include <iree/modules/hal/module.h>
 #include <iree/vm/api.h>
 #include <iree/vm/bytecode/module.h>
 
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -239,9 +240,8 @@ inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
 //
 //===----------------------------------------------------------------------===//
 
-// Create IREE VM context for this graph and load the compiled artifact.
-inline ErrorObject Graph::createVmContext(const Handle &handle,
-                                          const std::string &vmfbPath) {
+// Create IREE VM context for this graph and register the HAL module.
+inline ErrorObject Graph::createVmContext(const Handle &handle) {
   // Create a context even if one was created earlier, since the handle
   // (hence device) might have changed and we might be re-compiling the graph
   // for the new device.
@@ -268,25 +268,34 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
     FUSILLI_CHECK_ERROR(status);
   }
 
-  // Read the VMFB file and create a bytecode module from it.
+  return ok();
+}
+
+// Create a bytecode module from in-memory VMFB bytes and register it.
+inline ErrorObject
+Graph::loadBytecodeModule(const Handle &handle,
+                          std::span<const uint8_t> vmfbBytes) {
+  iree_allocator_t allocator = iree_allocator_system();
+
   FUSILLI_LOG_LABEL_ENDL("INFO: Loading bytecode module into IREE VM context");
   {
-    iree_io_file_contents_t *fileContents = nullptr;
-    FUSILLI_CHECK_ERROR(iree_io_file_contents_read(
-        iree_make_cstring_view(vmfbPath.c_str()), allocator, &fileContents));
+    void *archiveData = nullptr;
+    FUSILLI_CHECK_ERROR(
+        iree_allocator_malloc(allocator, vmfbBytes.size(), &archiveData));
+    std::memcpy(archiveData, vmfbBytes.data(), vmfbBytes.size());
 
     iree_vm_module_t *bytecodeModule = nullptr;
     iree_status_t status = iree_vm_bytecode_module_create(
         handle.getInstance(), IREE_VM_BYTECODE_MODULE_FLAG_NONE,
-        fileContents->const_buffer,
-        iree_io_file_contents_deallocator(fileContents), allocator,
-        &bytecodeModule);
+        iree_make_const_byte_span(archiveData, vmfbBytes.size()), allocator,
+        allocator, &bytecodeModule);
     if (!iree_status_is_ok(status)) {
-      iree_io_file_contents_free(fileContents);
+      iree_allocator_free(allocator, archiveData);
       FUSILLI_CHECK_ERROR(status);
     }
-    // File contents ownership transferred to bytecode module on success
-    // so there's no `iree_io_file_contents_free` on the success path.
+    // Archive ownership transfers to the bytecode module on success. The
+    // module release below will release the bytes after registration failure,
+    // and the VM context owns the registered module on success.
 
     status =
         iree_vm_context_register_modules(vmContext_.get(),
@@ -295,6 +304,11 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
     FUSILLI_CHECK_ERROR(status);
   }
 
+  return ok();
+}
+
+// Resolve entry points and query runtime metadata after module registration.
+inline ErrorObject Graph::initializeRuntimeState(const Handle &handle) {
   // Resolve and cache the function handle for `module.main` or
   // `module.main$async`.
   bool executeAsync = kBackendExecuteAsync.at(handle.getBackend());

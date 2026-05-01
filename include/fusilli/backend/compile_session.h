@@ -26,11 +26,13 @@
 #include "fusilli/support/external_tools.h"
 #include "fusilli/support/extras.h"
 #include "fusilli/support/logging.h"
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <span>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace fusilli {
@@ -144,11 +146,18 @@ private:
   iree_compiler_error_t *(*ireeCompilerSourceOpenFile_)(
       iree_compiler_session_t *, const char *,
       iree_compiler_source_t **) = nullptr;
+  iree_compiler_error_t *(*ireeCompilerSourceWrapBuffer_)(
+      iree_compiler_session_t *, const char *, const char *, size_t, bool,
+      iree_compiler_source_t **) = nullptr;
   void (*ireeCompilerSourceDestroy_)(iree_compiler_source_t *) = nullptr;
 
   // Output management.
   iree_compiler_error_t *(*ireeCompilerOutputOpenFile_)(
       const char *, iree_compiler_output_t **) = nullptr;
+  iree_compiler_error_t *(*ireeCompilerOutputOpenMembuffer_)(
+      iree_compiler_output_t **) = nullptr;
+  iree_compiler_error_t *(*ireeCompilerOutputMapMemory_)(
+      iree_compiler_output_t *, void **, uint64_t *) = nullptr;
   void (*ireeCompilerOutputKeep_)(iree_compiler_output_t *) = nullptr;
   void (*ireeCompilerOutputDestroy_)(iree_compiler_output_t *) = nullptr;
   iree_compiler_error_t *(*ireeCompilerInvocationOutputVMBytecode_)(
@@ -177,6 +186,11 @@ public:
   static ErrorOr<CompileSession> build(Backend backend, const CacheFile &input,
                                        const CacheFile &output,
                                        const CacheFile &statistics);
+
+  // Static factory method for in-memory compilation. The generated command
+  // string uses placeholder input/output names for logging and cache metadata.
+  static ErrorOr<CompileSession> buildInMemory(Backend backend,
+                                               const CacheFile &statistics);
 
   // Move constructors (RAII pattern).
   CompileSession(CompileSession &&other) noexcept;
@@ -209,6 +223,11 @@ public:
   //
   // Returns ErrorObject indicating success or failure.
   ErrorObject compile(std::string_view input, std::string_view output);
+
+  // Compiles MLIR assembly held in memory to VMFB bytes.
+  ErrorOr<std::vector<uint8_t>>
+  compileToBytes(std::string_view input,
+                 std::string_view inputName = "<memory>");
 
   // Serialize to string (for caching/logging).
   std::string toString() const;
@@ -359,8 +378,11 @@ inline ErrorObject CompileContext::loadSymbols() noexcept {
   LOAD_SYMBOL(ireeCompilerInvocationParseSource);
   LOAD_SYMBOL(ireeCompilerInvocationPipeline);
   LOAD_SYMBOL(ireeCompilerSourceOpenFile);
+  LOAD_SYMBOL(ireeCompilerSourceWrapBuffer);
   LOAD_SYMBOL(ireeCompilerSourceDestroy);
   LOAD_SYMBOL(ireeCompilerOutputOpenFile);
+  LOAD_SYMBOL(ireeCompilerOutputOpenMembuffer);
+  LOAD_SYMBOL(ireeCompilerOutputMapMemory);
   LOAD_SYMBOL(ireeCompilerOutputDestroy);
   LOAD_SYMBOL(ireeCompilerOutputKeep);
   LOAD_SYMBOL(ireeCompilerInvocationOutputVMBytecode);
@@ -569,6 +591,103 @@ inline ErrorObject CompileSession::compile(std::string_view input,
   return ok();
 }
 
+inline ErrorOr<std::vector<uint8_t>>
+CompileSession::compileToBytes(std::string_view input,
+                               std::string_view inputName) {
+  FUSILLI_LOG_LABEL_ENDL("INFO: Compiling " << inputName
+                                            << " to in-memory VMFB");
+
+  inputPath_ = std::string(inputName);
+  outputPath_ = "<memory>";
+
+  iree_compiler_invocation_t *inv =
+      context_->ireeCompilerInvocationCreate_(session_);
+  if (!inv) {
+    return fusilli::error(ErrorCode::CompileFailure,
+                          "Failed to create compiler invocation");
+  }
+
+  iree_compiler_source_t *source = nullptr;
+  iree_compiler_output_t *output = nullptr;
+  auto cleanup = [&] {
+    if (output)
+      context_->ireeCompilerOutputDestroy_(output);
+    if (source)
+      context_->ireeCompilerSourceDestroy_(source);
+    context_->ireeCompilerInvocationDestroy_(inv);
+  };
+
+  std::string inputNameStorage(inputName);
+  iree_compiler_error_t *error = context_->ireeCompilerSourceWrapBuffer_(
+      session_, inputNameStorage.c_str(), input.data(), input.size(),
+      /*isNullTerminated=*/false, &source);
+  if (error) {
+    std::string errMsg = getErrorMessage(error);
+    destroyError(error);
+    cleanup();
+    return fusilli::error(ErrorCode::CompileFailure,
+                          "Failed to wrap source buffer: " + errMsg);
+  }
+
+  bool parseSuccess = context_->ireeCompilerInvocationParseSource_(inv, source);
+  if (!parseSuccess) {
+    cleanup();
+    return fusilli::error(ErrorCode::CompileFailure,
+                          "Failed to parse source buffer");
+  }
+
+  bool pipelineSuccess = context_->ireeCompilerInvocationPipeline_(
+      inv, IREE_COMPILER_PIPELINE_STD);
+  if (!pipelineSuccess) {
+    cleanup();
+    return fusilli::error(ErrorCode::CompileFailure,
+                          "Compilation pipeline failed");
+  }
+
+  error = context_->ireeCompilerOutputOpenMembuffer_(&output);
+  if (error) {
+    std::string errMsg = getErrorMessage(error);
+    destroyError(error);
+    cleanup();
+    return fusilli::error(ErrorCode::CompileFailure,
+                          "Failed to open memory output: " + errMsg);
+  }
+
+  error = context_->ireeCompilerInvocationOutputVMBytecode_(inv, output);
+  if (error) {
+    std::string errMsg = getErrorMessage(error);
+    destroyError(error);
+    cleanup();
+    return fusilli::error(ErrorCode::CompileFailure,
+                          "Failed to output VM bytecode: " + errMsg);
+  }
+
+  void *bytecode = nullptr;
+  uint64_t bytecodeSize = 0;
+  error =
+      context_->ireeCompilerOutputMapMemory_(output, &bytecode, &bytecodeSize);
+  if (error) {
+    std::string errMsg = getErrorMessage(error);
+    destroyError(error);
+    cleanup();
+    return fusilli::error(ErrorCode::CompileFailure,
+                          "Failed to map VM bytecode output: " + errMsg);
+  }
+
+  if (bytecodeSize == 0) {
+    cleanup();
+    return fusilli::error(ErrorCode::CompileFailure,
+                          "Output bytecode was empty");
+  }
+
+  const auto *bytes = static_cast<const uint8_t *>(bytecode);
+  std::vector<uint8_t> result(bytes, bytes + bytecodeSize);
+  cleanup();
+
+  FUSILLI_LOG_LABEL_ENDL("INFO: In-memory compilation successful");
+  return ok(std::move(result));
+}
+
 // ----------------------------------------------------------------------------
 // Interface that matches the build behavior of CompileCommand
 // ----------------------------------------------------------------------------
@@ -593,6 +712,24 @@ CompileSession::build(Backend backend, const CacheFile &input,
   // Store paths for later execution.
   session.inputPath_ = input.path.string();
   session.outputPath_ = output.path.string();
+
+  return ok(std::move(session));
+}
+
+inline ErrorOr<CompileSession>
+CompileSession::buildInMemory(Backend backend, const CacheFile &statistics) {
+  FUSILLI_LOG_LABEL_ENDL("INFO: Building in-memory compile session");
+
+  FUSILLI_ASSIGN_OR_RETURN(auto *context, CompileContext::create());
+  FUSILLI_ASSIGN_OR_RETURN(auto session, context->createSession(backend));
+
+  FUSILLI_CHECK_ERROR(
+      session.addFlag("--iree-scheduling-dump-statistics-format=json"));
+  FUSILLI_CHECK_ERROR(session.addFlag(
+      "--iree-scheduling-dump-statistics-file=" + statistics.path.string()));
+
+  session.inputPath_ = "<memory>";
+  session.outputPath_ = "<memory>";
 
   return ok(std::move(session));
 }
