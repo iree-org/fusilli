@@ -443,6 +443,7 @@ private:
 
     // Write input asm to cache.
     FUSILLI_CHECK_ERROR(cache.input.write(generatedAsm));
+    std::cout << generatedAsm << std::endl;
 
     // determine which implementation to use.
     if (checkCompileBackendEnv()) {

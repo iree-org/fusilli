@@ -2217,6 +2217,8 @@ inline std::string ReductionNode::emitNodePreAsm() const {
   switch (reductionAttr.getMode()) {
     FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER(SUM,
                                                     torch.aten.sum.dim_IntList)
+    FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER(ADD,
+                                                    torch.aten.sum.dim_IntList)
     FUSILLI_DECLARE_KEEPDIM_REDUCTION_EMITTER(MIN, torch.aten.amin)
     FUSILLI_DECLARE_KEEPDIM_REDUCTION_EMITTER(MAX, torch.aten.amax)
     FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER(AVG, torch.aten.mean.dim)
