@@ -35,12 +35,14 @@ static std::string generateName(PointwiseAttr::Mode mode, DataType type,
   return name;
 };
 
-TEST_CASE("Pointwise binary backward ops", "[pointwise][graph]") {
+TEST_CASE("Pointwise backward ops", "[pointwise][graph]") {
   const auto dim = std::vector<int64_t>{2, 16, 64, 64};
   constexpr float kSwishBeta = 2.0f;
 
   // clang-format off
   const auto mode = GENERATE(
+      PointwiseAttr::Mode::GELU_BWD,
+      PointwiseAttr::Mode::GELU_APPROX_TANH_BWD,
       PointwiseAttr::Mode::RELU_BWD,
       PointwiseAttr::Mode::SWISH_BWD,
       PointwiseAttr::Mode::TANH_BWD);
@@ -110,6 +112,30 @@ TEST_CASE("Pointwise binary backward ops", "[pointwise][graph]") {
     const double xD = static_cast<double>(T(x));
     T expected = T(0.0f);
     switch (mode) {
+    case PointwiseAttr::Mode::GELU_BWD: {
+      // d/dx[0.5 * x * (1 + erf(x/sqrt(2)))]
+      //   = 0.5 * (1 + erf(x/sqrt(2))) + x/sqrt(2*pi) * exp(-x^2/2)
+      constexpr double kSqrt2 = 1.4142135623730951;
+      constexpr double kInvSqrt2Pi = 0.3989422804014327;
+      const double cdf = 0.5 * (1.0 + std::erf(xD / kSqrt2));
+      const double pdf = kInvSqrt2Pi * std::exp(-0.5 * xD * xD);
+      expected = T(dyD * (cdf + xD * pdf));
+      break;
+    }
+    case PointwiseAttr::Mode::GELU_APPROX_TANH_BWD: {
+      // inner = sqrt(2/pi) * (x + 0.044715 * x^3)
+      // dinner/dx = sqrt(2/pi) * (1 + 3 * 0.044715 * x^2)
+      // d/dx[0.5 * x * (1 + tanh(inner))]
+      //   = 0.5 * (1 + tanh(inner))
+      //     + 0.5 * x * (1 - tanh(inner)^2) * dinner/dx
+      constexpr double kSqrt2OverPi = 0.7978845608028654;
+      const double inner = kSqrt2OverPi * (xD + 0.044715 * xD * xD * xD);
+      const double tanhInner = std::tanh(inner);
+      const double dInner = kSqrt2OverPi * (1.0 + 3.0 * 0.044715 * xD * xD);
+      expected = T(dyD * (0.5 * (1.0 + tanhInner) +
+                          0.5 * xD * (1.0 - tanhInner * tanhInner) * dInner));
+      break;
+    }
     case PointwiseAttr::Mode::RELU_BWD: {
       // For y = max(x, 0): dx = dy if x > 0 else 0.
       expected = xD > 0.0 ? T(dyD) : T(0.0f);
