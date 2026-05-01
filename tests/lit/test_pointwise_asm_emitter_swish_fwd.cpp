@@ -18,7 +18,10 @@
 // TORCH-CHECK:       %permute_IN_0_val_3_pointwise_swish_fwd = torch.constant.int 3
 // TORCH-CHECK:       %permute_IN_0_pointwise_swish_fwd = torch.prim.ListConstruct %permute_IN_0_val_0_pointwise_swish_fwd, %permute_IN_0_val_1_pointwise_swish_fwd, %permute_IN_0_val_2_pointwise_swish_fwd, %permute_IN_0_val_3_pointwise_swish_fwd : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
 // TORCH-CHECK:       %arg0_pointwise_swish_fwd_perm = torch.aten.permute %arg0, %permute_IN_0_pointwise_swish_fwd : !torch.vtensor<[16,256,64,32],f32>, !torch.list<int> -> !torch.vtensor<[16,256,64,32],f32>
-// TORCH-CHECK:       %result_pointwise_swish_fwd_perm = torch.aten.silu %arg0_pointwise_swish_fwd_perm : !torch.vtensor<[16,256,64,32],f32> -> !torch.vtensor<[16,256,64,32],f32>
+// TORCH-CHECK:       %swish_beta_pointwise_swish_fwd = torch.constant.float 2.000000e+00
+// TORCH-CHECK:       %swish_scaled_pointwise_swish_fwd = torch.aten.mul.Scalar %arg0_pointwise_swish_fwd_perm, %swish_beta_pointwise_swish_fwd : !torch.vtensor<[16,256,64,32],f32>, !torch.float -> !torch.vtensor<[16,256,64,32],f32>
+// TORCH-CHECK:       %swish_sig_pointwise_swish_fwd = torch.aten.sigmoid %swish_scaled_pointwise_swish_fwd : !torch.vtensor<[16,256,64,32],f32> -> !torch.vtensor<[16,256,64,32],f32>
+// TORCH-CHECK:       %result_pointwise_swish_fwd_perm = torch.aten.mul.Tensor %arg0_pointwise_swish_fwd_perm, %swish_sig_pointwise_swish_fwd : !torch.vtensor<[16,256,64,32],f32>, !torch.vtensor<[16,256,64,32],f32> -> !torch.vtensor<[16,256,64,32],f32>
 // TORCH-CHECK:       %permute_OUT_0_val_0_pointwise_swish_fwd = torch.constant.int 0
 // TORCH-CHECK:       %permute_OUT_0_val_1_pointwise_swish_fwd = torch.constant.int 1
 // TORCH-CHECK:       %permute_OUT_0_val_2_pointwise_swish_fwd = torch.constant.int 2
@@ -49,9 +52,13 @@ using namespace fusilli;
 int main(int argc, char **argv) {
   std::string mode = (argc > 1) ? argv[1] : "default";
 
-  auto status = testUnaryPointwiseAsmEmitter(
-      "pointwise_asm_emitter_swish_fwd", "pointwise_swish_fwd", mode,
-      PointwiseAttr::Mode::SWISH_FWD, {16, 256, 64, 32});
+  auto pointwiseAttr = PointwiseAttr()
+                           .setMode(PointwiseAttr::Mode::SWISH_FWD)
+                           .setName("pointwise_swish_fwd")
+                           .setSwishBeta(2.0f);
+  auto status =
+      testUnaryPointwiseAsmEmitter("pointwise_asm_emitter_swish_fwd", mode,
+                                   pointwiseAttr, {16, 256, 64, 32});
   if (isError(status)) {
     std::cerr << "Test failed: " << status << std::endl;
     return 1;

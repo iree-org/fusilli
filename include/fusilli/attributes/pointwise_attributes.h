@@ -27,8 +27,8 @@ namespace fusilli {
 #define FUSILLI_POINTWISE_OPS(OP)                                              \
   OP(ABS)                                                                      \
   OP(ADD)                                                                      \
-  /* OP(ADD_SQUARE)  */                                                        \
-  /* OP(BINARY_SELECT)  */                                                     \
+  OP(ADD_SQUARE)                                                               \
+  OP(BINARY_SELECT)                                                            \
   OP(CEIL)                                                                     \
   OP(CMP_EQ)                                                                   \
   OP(CMP_GE)                                                                   \
@@ -57,7 +57,7 @@ namespace fusilli {
   OP(MUL)                                                                      \
   OP(NEG)                                                                      \
   OP(RECIPROCAL)                                                               \
-  /* OP(RELU_BWD) */                                                           \
+  OP(RELU_BWD)                                                                 \
   OP(RELU_FWD)                                                                 \
   OP(RSQRT)                                                                    \
   /* OP(SIGMOID_BWD) */                                                        \
@@ -67,10 +67,10 @@ namespace fusilli {
   OP(SOFTPLUS_FWD)                                                             \
   OP(SQRT)                                                                     \
   OP(SUB)                                                                      \
-  /* OP(SWISH_BWD) */                                                          \
+  OP(SWISH_BWD)                                                                \
   OP(SWISH_FWD)                                                                \
   OP(TAN)                                                                      \
-  /* OP(TANH_BWD) */                                                           \
+  OP(TANH_BWD)                                                                 \
   OP(TANH_FWD)
 
 class PointwiseAttr : public AttributesCRTP<PointwiseAttr> {
@@ -116,6 +116,11 @@ public:
     return *this;
   }
 
+  PointwiseAttr &setSwishBeta(float beta) {
+    swishBeta_ = beta;
+    return *this;
+  }
+
   // Getters:
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, IN_0)
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, IN_1)
@@ -126,6 +131,7 @@ public:
   float getEluAlpha() const { return eluAlpha_; }
   float getSoftplusBeta() const { return softplusBeta_; }
   float getSoftplusThreshold() const { return softplusThreshold_; }
+  float getSwishBeta() const { return swishBeta_; }
 
   // Utilities for pointwise modes.
   static const std::unordered_map<Mode, std::string> kModeToStr;
@@ -137,6 +143,7 @@ private:
   float eluAlpha_ = 1.0f;
   float softplusBeta_ = 1.0f;
   float softplusThreshold_ = 20.0f;
+  float swishBeta_ = 1.0f;
 };
 
 #define FUSILLI_DECLARE_STRINGIFY_POINTWISE_MODE(mode)                         \
@@ -151,6 +158,8 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
     PointwiseAttr::kModeToRequiredInputCount = {
         {PointwiseAttr::Mode::ABS, 1},
         {PointwiseAttr::Mode::ADD, 2},
+        {PointwiseAttr::Mode::ADD_SQUARE, 2},
+        {PointwiseAttr::Mode::BINARY_SELECT, 3},
         {PointwiseAttr::Mode::CEIL, 1},
         {PointwiseAttr::Mode::CMP_EQ, 2},
         {PointwiseAttr::Mode::CMP_LT, 2},
@@ -177,6 +186,7 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::NEG, 1},
         {PointwiseAttr::Mode::IDENTITY, 1},
         {PointwiseAttr::Mode::RECIPROCAL, 1},
+        {PointwiseAttr::Mode::RELU_BWD, 2},
         {PointwiseAttr::Mode::RELU_FWD, 1},
         {PointwiseAttr::Mode::RSQRT, 1},
         {PointwiseAttr::Mode::SIGMOID_FWD, 1},
@@ -184,8 +194,10 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::SOFTPLUS_FWD, 1},
         {PointwiseAttr::Mode::SQRT, 1},
         {PointwiseAttr::Mode::SUB, 2},
+        {PointwiseAttr::Mode::SWISH_BWD, 2},
         {PointwiseAttr::Mode::SWISH_FWD, 1},
         {PointwiseAttr::Mode::TAN, 1},
+        {PointwiseAttr::Mode::TANH_BWD, 2},
         {PointwiseAttr::Mode::TANH_FWD, 1}};
 
 } // namespace fusilli

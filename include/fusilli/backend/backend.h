@@ -19,6 +19,7 @@
 #include "fusilli/support/logging.h"
 #include "fusilli/support/process.h"
 
+#include <iree/async/frontier_tracker.h>
 #include <iree/hal/api.h>
 #include <iree/hal/drivers/hip/api.h>
 #include <iree/vm/api.h>
@@ -376,11 +377,27 @@ struct IreeHalDeviceDeleter {
   }
 };
 
+// Custom deleter for IREE HAL device group.
+struct IreeHalDeviceGroupDeleter {
+  void operator()(iree_hal_device_group_t *deviceGroup) const {
+    if (deviceGroup)
+      iree_hal_device_group_release(deviceGroup);
+  }
+};
+
 // Custom deleter for IREE VM context.
 struct IreeVmContextDeleter {
   void operator()(iree_vm_context_t *context) const {
     if (context)
       iree_vm_context_release(context);
+  }
+};
+
+// Custom deleter for IREE async frontier tracker.
+struct IreeAsyncFrontierTrackerDeleter {
+  void operator()(iree_async_frontier_tracker_t *tracker) const {
+    if (tracker)
+      iree_async_frontier_tracker_release(tracker);
   }
 };
 
@@ -404,8 +421,13 @@ struct IreeHalBufferViewDeleter {
 using IreeVmInstanceSharedPtrType = std::shared_ptr<iree_vm_instance_t>;
 using IreeHalDeviceUniquePtrType =
     std::unique_ptr<iree_hal_device_t, IreeHalDeviceDeleter>;
+using IreeHalDeviceGroupUniquePtrType =
+    std::unique_ptr<iree_hal_device_group_t, IreeHalDeviceGroupDeleter>;
 using IreeVmContextUniquePtrType =
     std::unique_ptr<iree_vm_context_t, IreeVmContextDeleter>;
+using IreeAsyncFrontierTrackerUniquePtrType =
+    std::unique_ptr<iree_async_frontier_tracker_t,
+                    IreeAsyncFrontierTrackerDeleter>;
 using IreeVmListUniquePtrType =
     std::unique_ptr<iree_vm_list_t, IreeVmListDeleter>;
 using IreeHalBufferViewUniquePtrType =

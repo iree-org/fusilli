@@ -147,7 +147,9 @@ add_fusilli_lit_tests(
     lit/test_pointwise_asm_emitter_abs.cpp
     lit/test_pointwise_asm_emitter_relu.cpp
     lit/test_pointwise_asm_emitter_add.cpp
+    lit/test_pointwise_asm_emitter_add_square.cpp
     lit/test_pointwise_asm_emitter_add_transposed.cpp
+    lit/test_pointwise_asm_emitter_binary_select.cpp
     lit/test_pointwise_asm_emitter_ceil.cpp
     lit/test_pointwise_asm_emitter_cmp_eq.cpp
     lit/test_pointwise_asm_emitter_cmp_neq.cpp
@@ -175,14 +177,17 @@ add_fusilli_lit_tests(
     lit/test_pointwise_asm_emitter_mul_scalar.cpp
     lit/test_pointwise_asm_emitter_neg.cpp
     lit/test_pointwise_asm_emitter_reciprocal.cpp
+    lit/test_pointwise_asm_emitter_relu_bwd.cpp
     lit/test_pointwise_asm_emitter_rsqrt.cpp
     lit/test_pointwise_asm_emitter_sigmoid.cpp
     lit/test_pointwise_asm_emitter_sin.cpp
     lit/test_pointwise_asm_emitter_softplus_fwd.cpp
     lit/test_pointwise_asm_emitter_sqrt.cpp
+    lit/test_pointwise_asm_emitter_swish_bwd.cpp
     lit/test_pointwise_asm_emitter_swish_fwd.cpp
     lit/test_pointwise_asm_emitter_tan.cpp
     lit/test_pointwise_asm_emitter_tanh.cpp
+    lit/test_pointwise_asm_emitter_tanh_bwd.cpp
     lit/test_pointwise_asm_emitter_sub.cpp
     lit/test_conv_wgrad_asm_emitter_nhwc_krsc.cpp
     lit/test_conv_wgrad_asm_emitter_nhwc_krsc_grouped.cpp

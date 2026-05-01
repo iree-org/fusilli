@@ -1660,35 +1660,43 @@ inline std::string MatmulNode::emitNodePreAsm() const {
 //
 //===----------------------------------------------------------------------===//
 
-// Emits PointwiseNode's operand names in MLIR assembly format.
+// Emits the SSA name for a single PointwiseNode input in MLIR assembly
+// format.
 //
 // The unique suffix is included to ensure SSA uniqueness when the same
 // tensor is used by multiple operations in a graph.
+inline std::string PointwiseNode::getInputNameAsm(size_t inputIndex) const {
+  const auto &in = pointwiseAttr.inputs.at(
+      static_cast<PointwiseAttr::InputNames>(inputIndex));
+  return in->getValueNameAsm() + "_" + pointwiseAttr.getName() + "_perm";
+}
+
+// Emits the type for a single PointwiseNode input in MLIR assembly format.
+inline std::string PointwiseNode::getInputTypeAsm(size_t inputIndex) const {
+  const auto &in = pointwiseAttr.inputs.at(
+      static_cast<PointwiseAttr::InputNames>(inputIndex));
+  return in->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
+}
+
+// Emits PointwiseNode's operand names in MLIR assembly format.
 inline std::string PointwiseNode::getOperandNamesAsm() const {
   std::ostringstream oss;
-  std::string suffix = pointwiseAttr.getName();
-  const auto &in0 = pointwiseAttr.getIN_0();
-  oss << in0->getValueNameAsm() << "_" << suffix << "_perm";
-  if (const auto &in1 = pointwiseAttr.getIN_1())
-    oss << ", " << in1->getValueNameAsm() << "_" << suffix << "_perm";
-  if (const auto &in2 = pointwiseAttr.getIN_2())
-    oss << ", " << in2->getValueNameAsm() << "_" << suffix << "_perm";
+  oss << getInputNameAsm(0);
+  if (pointwiseAttr.getIN_1())
+    oss << ", " << getInputNameAsm(1);
+  if (pointwiseAttr.getIN_2())
+    oss << ", " << getInputNameAsm(2);
   return oss.str();
 }
 
 // Emits PointwiseNode's operand types in MLIR assembly format.
 inline std::string PointwiseNode::getOperandTypesAsm() const {
   std::ostringstream oss;
-  const auto &in0 = pointwiseAttr.getIN_0();
-  oss << in0->getTensorTypeAsm(/*isValueTensor=*/true, /*useLogicalDims=*/true);
-  if (const auto &in1 = pointwiseAttr.getIN_1())
-    oss << ", "
-        << in1->getTensorTypeAsm(/*isValueTensor=*/true,
-                                 /*useLogicalDims=*/true);
-  if (const auto &in2 = pointwiseAttr.getIN_2())
-    oss << ", "
-        << in2->getTensorTypeAsm(/*isValueTensor=*/true,
-                                 /*useLogicalDims=*/true);
+  oss << getInputTypeAsm(0);
+  if (pointwiseAttr.getIN_1())
+    oss << ", " << getInputTypeAsm(1);
+  if (pointwiseAttr.getIN_2())
+    oss << ", " << getInputTypeAsm(2);
   return oss.str();
 }
 
@@ -1739,6 +1747,21 @@ inline std::string PointwiseNode::getResultNamesAndTypesAsm() const {
     );                                                                         \
   }
 
+#define FUSILLI_DECLARE_TERNARY_POINTWISE_EMITTER(PWOP, SCHEMA, OPIR)          \
+  case PointwiseAttr::Mode::PWOP: {                                            \
+    return std::format(SCHEMA, permuteIN0,   /* {0} */                         \
+                       permuteIN1,           /* {1} */                         \
+                       permuteIN2,           /* {2} */                         \
+                       getResultNamesAsm(),  /* {3} */                         \
+                       getOperandNamesAsm(), /* {4} */                         \
+                       getOperandTypesAsm(), /* {5} */                         \
+                       getResultTypesAsm(),  /* {6} */                         \
+                       permuteOUT0,          /* {7} */                         \
+                       #OPIR,                /* {8} */                         \
+                       getName()             /* {9} */                         \
+    );                                                                         \
+  }
+
 inline std::string PointwiseNode::emitNodePreAsm() const {
   std::string uniqueSSASuffix = pointwiseAttr.getName();
 
@@ -1751,6 +1774,11 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
   std::string permuteIN1 =
       pointwiseAttr.getIN_1()
           ? getLayoutConversionOpsAsm(pointwiseAttr.getIN_1(), "permute_IN_1",
+                                      uniqueSSASuffix, /*isInput=*/true)
+          : "";
+  std::string permuteIN2 =
+      pointwiseAttr.getIN_2()
+          ? getLayoutConversionOpsAsm(pointwiseAttr.getIN_2(), "permute_IN_2",
                                       uniqueSSASuffix, /*isInput=*/true)
           : "";
   std::string permuteOUT0 =
@@ -1770,12 +1798,37 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {6}
 )";
 
+  constexpr std::string_view kTernaryTorchSchema = R"(
+    {0}
+    {1}
+    {2}
+    {3} = {8} {4} : {5} -> {6}
+    {7}
+)";
+
   constexpr std::string_view kSubAddSchema = R"(
     {0}
     {1}
     %alpha_{8} = torch.constant.int 1
     {2} = {7} {3}, %alpha_{8} : {4}, !torch.int -> {5}
     {6}
+)";
+
+  constexpr std::string_view kAddSquareSchema = R"(
+    {0}
+    {1}
+    %add_square_sq_{8} = torch.aten.mul.Tensor {3}, {3} : {4}, {4} -> {4}
+    %alpha_{8} = torch.constant.int 1
+    {5} = torch.aten.add.Tensor {2}, %add_square_sq_{8}, %alpha_{8} : {9}, !torch.int -> {6}
+    {7}
+)";
+
+  constexpr std::string_view kTanhBwdSchema = R"(
+    {0}
+    {1}
+    %tanh_bwd_y_{6} = torch.aten.tanh {2} : {3} -> {3}
+    {4} = torch.aten.tanh_backward {7}, %tanh_bwd_y_{6} : {8}, {3} -> {5}
+    {9}
 )";
 
   constexpr std::string_view kIdentitySchema = R"(
@@ -1794,6 +1847,14 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {5}
 )";
 
+  constexpr std::string_view kReluBwdSchema = R"(
+    {0}
+    {1}
+    %relu_bwd_threshold_{7} = torch.constant.int 0
+    {2} = torch.aten.threshold_backward {3}, %relu_bwd_threshold_{7} : {4}, !torch.int -> {5}
+    {6}
+)";
+
   constexpr std::string_view kGeluSchema = R"(
     {0}
     %gelu_approximate_{7} = torch.constant.str "{8}"
@@ -1809,6 +1870,34 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {6}
 )";
 
+  constexpr std::string_view kSwishSchema = R"(
+    {0}
+    %swish_beta_{6} = torch.constant.float {7:e}
+    %swish_scaled_{6} = torch.aten.mul.Scalar {2}, %swish_beta_{6} : {3}, !torch.float -> {4}
+    %swish_sig_{6} = torch.aten.sigmoid %swish_scaled_{6} : {4} -> {4}
+    {1} = torch.aten.mul.Tensor {2}, %swish_sig_{6} : {3}, {4} -> {4}
+    {5}
+)";
+
+  // Swish backward: for y = x * sigmoid(beta*x), dy/dx = sig +
+  // beta*x*sig*(1-sig) where sig = sigmoid(beta*x). IN_0 is grad_output (dy),
+  // IN_1 is self (x). Emitted as a composite expansion (mirrors kSwishSchema).
+  constexpr std::string_view kSwishBwdSchema = R"(
+    {0}
+    {1}
+    %swish_bwd_beta_{7} = torch.constant.float {8:e}
+    %swish_bwd_scaled_{7} = torch.aten.mul.Scalar {9}, %swish_bwd_beta_{7} : {10}, !torch.float -> {10}
+    %swish_bwd_sig_{7} = torch.aten.sigmoid %swish_bwd_scaled_{7} : {10} -> {10}
+    %swish_bwd_one_{7} = torch.constant.float 1.000000e+00
+    %swish_bwd_one_minus_sig_{7} = torch.aten.rsub.Scalar %swish_bwd_sig_{7}, %swish_bwd_one_{7}, %swish_bwd_one_{7} : {10}, !torch.float, !torch.float -> {10}
+    %swish_bwd_sig_ds_{7} = torch.aten.mul.Tensor %swish_bwd_sig_{7}, %swish_bwd_one_minus_sig_{7} : {10}, {10} -> {10}
+    %swish_bwd_betax_sig_ds_{7} = torch.aten.mul.Tensor %swish_bwd_scaled_{7}, %swish_bwd_sig_ds_{7} : {10}, {10} -> {10}
+    %swish_bwd_alpha_{7} = torch.constant.int 1
+    %swish_bwd_dinner_{7} = torch.aten.add.Tensor %swish_bwd_sig_{7}, %swish_bwd_betax_sig_ds_{7}, %swish_bwd_alpha_{7} : {10}, {10}, !torch.int -> {10}
+    {2} = torch.aten.mul.Tensor {3}, %swish_bwd_dinner_{7} : {4}, {10} -> {5}
+    {6}
+)";
+
   constexpr std::string_view kSoftplusSchema = R"(
     {0}
     %softplus_beta_{7} = torch.constant.float {8:e}
@@ -1821,6 +1910,8 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
   FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(PWOP, kUnaryTorchSchema, OPIR)
 #define FUSILLI_DECLARE_BINARY_TORCH_EMITTER(PWOP, OPIR)                       \
   FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kBinaryTorchSchema, OPIR)
+#define FUSILLI_DECLARE_TERNARY_TORCH_EMITTER(PWOP, OPIR)                      \
+  FUSILLI_DECLARE_TERNARY_POINTWISE_EMITTER(PWOP, kTernaryTorchSchema, OPIR)
 #define FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(PWOP, OPIR)                      \
   FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kSubAddSchema, OPIR)
 
@@ -1885,7 +1976,31 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
                        pointwiseAttr.getSoftplusThreshold() /* {9} */
     );
   }
-    FUSILLI_DECLARE_UNARY_TORCH_EMITTER(SWISH_FWD, torch.aten.silu)
+  case PointwiseAttr::Mode::SWISH_FWD: {
+    return std::format(kSwishSchema, permuteIN0,    /* {0} */
+                       getResultNamesAsm(),         /* {1} */
+                       getOperandNamesAsm(),        /* {2} */
+                       getOperandTypesAsm(),        /* {3} */
+                       getResultTypesAsm(),         /* {4} */
+                       permuteOUT0,                 /* {5} */
+                       getName(),                   /* {6} */
+                       pointwiseAttr.getSwishBeta() /* {7} */
+    );
+  }
+  case PointwiseAttr::Mode::SWISH_BWD: {
+    return std::format(kSwishBwdSchema, permuteIN0,  /* {0} */
+                       permuteIN1,                   /* {1} */
+                       getResultNamesAsm(),          /* {2} */
+                       getInputNameAsm(0),           /* {3} dy */
+                       getInputTypeAsm(0),           /* {4} dy type */
+                       getResultTypesAsm(),          /* {5} */
+                       permuteOUT0,                  /* {6} */
+                       getName(),                    /* {7} */
+                       pointwiseAttr.getSwishBeta(), /* {8} */
+                       getInputNameAsm(1),           /* {9} x */
+                       getInputTypeAsm(1)            /* {10} x type */
+    );
+  }
     FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(IDENTITY, kIdentitySchema,
                                             torch.aten.clone)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(ERF, torch.aten.erf)
@@ -1895,6 +2010,17 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(LOGICAL_NOT, torch.aten.logical_not)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(NEG, torch.aten.neg)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RECIPROCAL, torch.aten.reciprocal)
+  case PointwiseAttr::Mode::RELU_BWD: {
+    return std::format(kReluBwdSchema, permuteIN0, /* {0} */
+                       permuteIN1,                 /* {1} */
+                       getResultNamesAsm(),        /* {2} */
+                       getOperandNamesAsm(),       /* {3} */
+                       getOperandTypesAsm(),       /* {4} */
+                       getResultTypesAsm(),        /* {5} */
+                       permuteOUT0,                /* {6} */
+                       getName()                   /* {7} */
+    );
+  }
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RELU_FWD, torch.aten.relu)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RSQRT, torch.aten.rsqrt)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(SIGMOID_FWD, torch.aten.sigmoid)
@@ -1919,6 +2045,36 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(ADD, torch.aten.add.Tensor)
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(SUB, torch.aten.sub.Tensor)
 
+    FUSILLI_DECLARE_TERNARY_TORCH_EMITTER(BINARY_SELECT, torch.aten.where.self)
+
+  case PointwiseAttr::Mode::ADD_SQUARE: {
+    return std::format(kAddSquareSchema, permuteIN0, /* {0} */
+                       permuteIN1,                   /* {1} */
+                       getInputNameAsm(0),           /* {2} */
+                       getInputNameAsm(1),           /* {3} */
+                       getInputTypeAsm(1),           /* {4} */
+                       getResultNamesAsm(),          /* {5} */
+                       getResultTypesAsm(),          /* {6} */
+                       permuteOUT0,                  /* {7} */
+                       getName(),                    /* {8} */
+                       getOperandTypesAsm()          /* {9} */
+    );
+  }
+
+  case PointwiseAttr::Mode::TANH_BWD: {
+    return std::format(kTanhBwdSchema, permuteIN0, /* {0} */
+                       permuteIN1,                 /* {1} */
+                       getInputNameAsm(1),         /* {2} */
+                       getInputTypeAsm(1),         /* {3} */
+                       getResultNamesAsm(),        /* {4} */
+                       getResultTypesAsm(),        /* {5} */
+                       getName(),                  /* {6} */
+                       getInputNameAsm(0),         /* {7} */
+                       getInputTypeAsm(0),         /* {8} */
+                       permuteOUT0                 /* {9} */
+    );
+  }
+
   default:
     assert(false && "Unsupported pointwise mode");
     return "";
@@ -1927,8 +2083,10 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
 
 #undef FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER
 #undef FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER
+#undef FUSILLI_DECLARE_TERNARY_POINTWISE_EMITTER
 #undef FUSILLI_DECLARE_UNARY_TORCH_EMITTER
 #undef FUSILLI_DECLARE_BINARY_TORCH_EMITTER
+#undef FUSILLI_DECLARE_TERNARY_TORCH_EMITTER
 #undef FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER
 
 //===----------------------------------------------------------------------===//

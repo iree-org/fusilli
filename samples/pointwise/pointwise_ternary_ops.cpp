@@ -1,4 +1,4 @@
-// Copyright 2025 Advanced Micro Devices, Inc.
+// Copyright 2026 Advanced Micro Devices, Inc.
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -37,43 +37,43 @@ static std::string generateName(PointwiseAttr::Mode mode, DataType type,
   return name;
 };
 
-TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
+TEST_CASE("Pointwise ternary ops", "[pointwise][graph]") {
   const auto dims = std::vector<std::vector<int64_t>>{
-      std::vector<int64_t>{2, 16, 64, 64},
+      std::vector<int64_t>{2, 16, 64, 64}, std::vector<int64_t>{2, 16, 64, 64},
       GENERATE(std::vector<int64_t>{2, 16, 64, 64},
                std::vector<int64_t>{1, 16, 1, 1})};
 
-  // clang-format off
-  const auto mode = GENERATE(
-      PointwiseAttr::Mode::ADD,
-      PointwiseAttr::Mode::ADD_SQUARE,
-      PointwiseAttr::Mode::DIV,
-      PointwiseAttr::Mode::MAX_OP,
-      PointwiseAttr::Mode::MIN_OP,
-      PointwiseAttr::Mode::MUL,
-      PointwiseAttr::Mode::SUB);
-  // clang-format on
+  const auto mode = GENERATE(PointwiseAttr::Mode::BINARY_SELECT);
 
-  auto execute = [&]<typename T>(Handle &handle, DataType dt, T x0, T x1) {
+  auto execute = [&]<typename T>(Handle &handle, DataType dt, bool cond,
+                                 T xTrue, T xFalse) {
     auto buildNewGraph = [&](Handle &handleArg) {
       // Create graph
       auto graph = std::make_shared<Graph>();
       graph->setName(generateName(mode, dt, dims));
       graph->setIODataType(dt).setComputeDataType(dt);
 
-      // Initialize input tensors
-      auto x0T =
-          graph->tensor(TensorAttr().setName("in0").setDim(dims[0]).setStride(
-              generateStrideFromDim(dims[0],
-                                    getContiguousStrideOrder(dims[0].size()))));
-      auto x1T =
-          graph->tensor(TensorAttr().setName("in1").setDim(dims[1]).setStride(
+      // Condition tensor is boolean regardless of the IO data type.
+      auto condT = graph->tensor(
+          TensorAttr()
+              .setName("cond")
+              .setDataType(DataType::Boolean)
+              .setDim(dims[0])
+              .setStride(generateStrideFromDim(
+                  dims[0], getContiguousStrideOrder(dims[0].size()))));
+      auto xTrueT = graph->tensor(
+          TensorAttr().setName("x_true").setDim(dims[1]).setStride(
               generateStrideFromDim(dims[1],
                                     getContiguousStrideOrder(dims[1].size()))));
+      auto xFalseT = graph->tensor(
+          TensorAttr().setName("x_false").setDim(dims[2]).setStride(
+              generateStrideFromDim(dims[2],
+                                    getContiguousStrideOrder(dims[2].size()))));
 
       // Create Pointwise op
       auto pointwiseAttr = PointwiseAttr().setMode(mode);
-      auto pointwiseResult = graph->pointwise(x0T, x1T, pointwiseAttr);
+      auto pointwiseResult =
+          graph->pointwise(condT, xTrueT, xFalseT, pointwiseAttr);
 
       pointwiseResult->setName("result").setOutput(true);
 
@@ -83,16 +83,19 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
       // Compile
       FUSILLI_REQUIRE_OK(graph->compile(handleArg, /*remove=*/true));
 
-      return std::make_tuple(graph, x0T, x1T, pointwiseResult);
+      return std::make_tuple(graph, condT, xTrueT, xFalseT, pointwiseResult);
     };
     // Build graph for the given handle (device), validate and compile it.
-    auto [graph, x0T, x1T, yT] = buildNewGraph(handle);
+    auto [graph, condT, xTrueT, xFalseT, yT] = buildNewGraph(handle);
 
     // Allocate input buffers.
-    FUSILLI_REQUIRE_ASSIGN(auto x0Buf,
-                           allocateBufferOfType(handle, x0T, dt, x0));
-    FUSILLI_REQUIRE_ASSIGN(auto x1Buf,
-                           allocateBufferOfType(handle, x1T, dt, x1));
+    FUSILLI_REQUIRE_ASSIGN(
+        auto condBuf,
+        allocateBufferOfType(handle, condT, DataType::Boolean, cond));
+    FUSILLI_REQUIRE_ASSIGN(auto xTrueBuf,
+                           allocateBufferOfType(handle, xTrueT, dt, xTrue));
+    FUSILLI_REQUIRE_ASSIGN(auto xFalseBuf,
+                           allocateBufferOfType(handle, xFalseT, dt, xFalse));
 
     // Allocate output buffer.
     FUSILLI_REQUIRE_ASSIGN(auto yBuf,
@@ -102,8 +105,9 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
     const std::unordered_map<std::shared_ptr<TensorAttr>,
                              std::shared_ptr<Buffer>>
         variantPack = {
-            {x0T, x0Buf},
-            {x1T, x1Buf},
+            {condT, condBuf},
+            {xTrueT, xTrueBuf},
+            {xFalseT, xFalseBuf},
             {yT, yBuf},
         };
 
@@ -114,41 +118,8 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
     // Execute graph once.
     FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
 
-    // Calculate reference value
-    T y = 0;
-    switch (mode) {
-    case PointwiseAttr::Mode::ADD: {
-      y = x0 + x1;
-      break;
-    }
-    case PointwiseAttr::Mode::ADD_SQUARE: {
-      y = x0 + x1 * x1;
-      break;
-    }
-    case PointwiseAttr::Mode::DIV: {
-      y = x0 / x1;
-      break;
-    }
-    case PointwiseAttr::Mode::MAX_OP: {
-      y = x0 > x1 ? x0 : x1;
-      break;
-    }
-    case PointwiseAttr::Mode::MIN_OP: {
-      y = x0 < x1 ? x0 : x1;
-      break;
-    }
-    case PointwiseAttr::Mode::MUL: {
-      y = x0 * x1;
-      break;
-    }
-    case PointwiseAttr::Mode::SUB: {
-      y = x0 - x1;
-      break;
-    }
-    default:
-      FAIL(
-          "Unsupported pointwise mode: " << PointwiseAttr::kModeToStr.at(mode));
-    }
+    // Calculate reference value.
+    T y = cond ? xTrue : xFalse;
 
     // Read output buffers.
     std::vector<T> result;
@@ -171,8 +142,10 @@ TEST_CASE("Pointwise binary ops", "[pointwise][graph]") {
   // Create handle for the target backend.
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
-  // int32
-  execute(handle, DataType::Int32, int(-50), int(13));
-  // fp16
-  execute(handle, DataType::Half, half(-32.5f), half(2.f));
+  // int32: true/false condition cases.
+  execute(handle, DataType::Int32, true, int(7), int(-3));
+  execute(handle, DataType::Int32, false, int(7), int(-3));
+  // fp16: true/false condition cases.
+  execute(handle, DataType::Half, true, half(1.5f), half(-2.5f));
+  execute(handle, DataType::Half, false, half(1.5f), half(-2.5f));
 }
