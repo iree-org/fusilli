@@ -373,10 +373,10 @@ TEST_CASE("Graph `compileToArtifact` produces artifact without loading runtime",
           "[graph]") {
   Graph g = testGraph(/*validate=*/true);
 
-  FUSILLI_REQUIRE_ASSIGN(auto artifactPath,
+  FUSILLI_REQUIRE_ASSIGN(auto artifactBytes,
                          g.compileToArtifact(kDefaultBackend, /*remove=*/true));
 
-  REQUIRE(std::filesystem::exists(artifactPath));
+  REQUIRE(!artifactBytes.empty());
   REQUIRE(!g.getWorkspaceSize().has_value());
 }
 
@@ -386,9 +386,9 @@ TEST_CASE("Graph `loadFromArtifact` after compileToArtifact enables execute",
   auto ctx = makeTestExecutableGraph("aot_artifact_round_trip");
 
   FUSILLI_REQUIRE_ASSIGN(
-      auto artifactPath,
+      auto artifactBytes,
       ctx.graph->compileToArtifact(handle.getBackend(), /*remove=*/true));
-  FUSILLI_REQUIRE_OK(ctx.graph->loadFromArtifact(handle, artifactPath));
+  FUSILLI_REQUIRE_OK(ctx.graph->loadFromArtifact(handle, artifactBytes));
 
   REQUIRE(ctx.graph->getWorkspaceSize().has_value());
   executeAndCheckGraph(handle, ctx);
@@ -400,9 +400,9 @@ TEST_CASE("Graph `compileToArtifact` preserves loaded runtime state",
   auto ctx = makeTestExecutableGraph("aot_artifact_compile_after_load");
 
   FUSILLI_REQUIRE_ASSIGN(
-      auto loadedArtifact,
+      auto loadedArtifactBytes,
       ctx.graph->compileToArtifact(handle.getBackend(), /*remove=*/true));
-  FUSILLI_REQUIRE_OK(ctx.graph->loadFromArtifact(handle, loadedArtifact));
+  FUSILLI_REQUIRE_OK(ctx.graph->loadFromArtifact(handle, loadedArtifactBytes));
 
   Backend compileOnlyBackend = handle.getBackend();
 #if defined(FUSILLI_ENABLE_AMDGPU)
@@ -410,10 +410,10 @@ TEST_CASE("Graph `compileToArtifact` preserves loaded runtime state",
       handle.getBackend() == Backend::AMDGPU ? Backend::CPU : Backend::AMDGPU;
 #endif
   FUSILLI_REQUIRE_ASSIGN(
-      auto compileOnlyArtifact,
+      auto compileOnlyArtifactBytes,
       ctx.graph->compileToArtifact(compileOnlyBackend, /*remove=*/true));
 
-  REQUIRE(std::filesystem::exists(compileOnlyArtifact));
+  REQUIRE(!compileOnlyArtifactBytes.empty());
   REQUIRE(ctx.graph->getWorkspaceSize().has_value());
   executeAndCheckGraph(handle, ctx);
 }
@@ -425,10 +425,10 @@ TEST_CASE("Graph `loadFromArtifact` accepts another Graph instance's artifact",
 
   {
     auto producer = makeTestExecutableGraph("aot_artifact_producer");
-    FUSILLI_REQUIRE_ASSIGN(auto artifactPath,
+    FUSILLI_REQUIRE_ASSIGN(auto artifactBytes,
                            producer.graph->compileToArtifact(
                                handle.getBackend(), /*remove=*/true));
-    FUSILLI_REQUIRE_OK(consumer.graph->loadFromArtifact(handle, artifactPath));
+    FUSILLI_REQUIRE_OK(consumer.graph->loadFromArtifact(handle, artifactBytes));
   }
 
   REQUIRE(consumer.graph->getWorkspaceSize().has_value());
@@ -443,9 +443,9 @@ TEST_CASE("Graph `execute` rejects a handle with a different backend",
   Graph g = testGraph(/*validate=*/true);
 
   FUSILLI_REQUIRE_ASSIGN(
-      auto artifactPath,
+      auto artifactBytes,
       g.compileToArtifact(cpuHandle.getBackend(), /*remove=*/true));
-  FUSILLI_REQUIRE_OK(g.loadFromArtifact(cpuHandle, artifactPath));
+  FUSILLI_REQUIRE_OK(g.loadFromArtifact(cpuHandle, artifactBytes));
 
   const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
       variantPack;

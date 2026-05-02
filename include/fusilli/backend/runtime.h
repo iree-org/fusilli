@@ -44,7 +44,6 @@
 #include <iree/hal/api.h>
 #include <iree/hal/drivers/hip/api.h>
 #include <iree/hal/drivers/init.h>
-#include <iree/io/file_contents.h>
 #include <iree/modules/hal/module.h>
 #include <iree/vm/api.h>
 #include <iree/vm/bytecode/module.h>
@@ -240,8 +239,7 @@ inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
 //===----------------------------------------------------------------------===//
 
 // Create IREE VM context for this graph and load the compiled artifact.
-inline ErrorObject Graph::createVmContext(const Handle &handle,
-                                          const std::string &vmfbPath) {
+inline ErrorObject Graph::createVmContext(const Handle &handle) {
   // Create a context even if one was created earlier, since the handle
   // (hence device) might have changed and we might be re-compiling the graph
   // for the new device.
@@ -268,25 +266,16 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
     FUSILLI_CHECK_ERROR(status);
   }
 
-  // Read the VMFB file and create a bytecode module from it.
+  // Create a bytecode module from the graph-owned VMFB bytes.
   FUSILLI_LOG_LABEL_ENDL("INFO: Loading bytecode module into IREE VM context");
   {
-    iree_io_file_contents_t *fileContents = nullptr;
-    FUSILLI_CHECK_ERROR(iree_io_file_contents_read(
-        iree_make_cstring_view(vmfbPath.c_str()), allocator, &fileContents));
-
     iree_vm_module_t *bytecodeModule = nullptr;
     iree_status_t status = iree_vm_bytecode_module_create(
         handle.getInstance(), IREE_VM_BYTECODE_MODULE_FLAG_NONE,
-        fileContents->const_buffer,
-        iree_io_file_contents_deallocator(fileContents), allocator,
-        &bytecodeModule);
-    if (!iree_status_is_ok(status)) {
-      iree_io_file_contents_free(fileContents);
-      FUSILLI_CHECK_ERROR(status);
-    }
-    // File contents ownership transferred to bytecode module on success
-    // so there's no `iree_io_file_contents_free` on the success path.
+        iree_make_const_byte_span(loadedArtifactBytes_.data(),
+                                  loadedArtifactBytes_.size()),
+        iree_allocator_null(), allocator, &bytecodeModule);
+    FUSILLI_CHECK_ERROR(status);
 
     status =
         iree_vm_context_register_modules(vmContext_.get(),

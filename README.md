@@ -51,12 +51,12 @@ usecase, Fusilli exposes alternate APIs with explicit artifact save/load steps:
 
 ```cpp
 // Compile doesn't require a device handle
-auto vmfbPath = graph.compileToArtifact(backend);
-// Copy or serialize the VMFB here if it must outlive this compile-side graph.
+auto vmfbBytes = graph.compileToArtifact(backend);
+// Keep, copy, or serialize the VMFB bytes for later execution.
 
 Graph runtimeGraph;
 // Rebuild and validate the same logical graph.
-runtimeGraph.loadFromArtifact(handle, vmfbPath);
+runtimeGraph.loadFromArtifact(handle, vmfbBytes);
 runtimeGraph.execute(handle, variantPack, workspace);
 ```
 
@@ -71,10 +71,10 @@ Important constraints for multi-backend AOT compilation:
   artifact executable until `loadFromArtifact()` replaces it.
 - A `Graph` owns one loaded runtime state at a time. Loading another artifact
   replaces the previous VM context, function and workspace size.
-- If compiling artifacts for multiple backends from one `Graph`, copy or
-  serialize each returned VMFB before compiling the next backend. Fusilli's
-  in-process cache owns only the current compile-side artifact and is not a
-  persistent cache contract.
+- If compiling artifacts for multiple backends from one `Graph`, keep or
+  serialize each returned VMFB byte buffer before compiling the next backend.
+  Fusilli's in-process cache owns only the current compile-side artifact and is
+  not a persistent cache contract.
 - To keep multiple backend artifacts loaded concurrently, use one validated
   `Graph` instance per backend. To switch backends on the same `Graph`, call
   `loadFromArtifact(handleForSelectedBackend, artifactForSelectedBackend)`

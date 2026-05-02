@@ -28,6 +28,7 @@
 #include <string>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #if defined(FUSILLI_PLATFORM_WINDOWS)
 #include <KnownFolders.h>
@@ -247,6 +248,26 @@ private:
   // Whether to remove the file on destruction or not.
   bool remove_;
 };
+
+inline ErrorOr<std::vector<uint8_t>>
+readFileBytes(const std::filesystem::path &path) {
+  std::ifstream file(path, std::ios::binary | std::ios::ate);
+  FUSILLI_RETURN_ERROR_IF(!file.is_open(), ErrorCode::FileSystemFailure,
+                          "Failed to open file: " + path.string());
+
+  const std::streamsize size = file.tellg();
+  FUSILLI_RETURN_ERROR_IF(size < 0, ErrorCode::FileSystemFailure,
+                          "Failed to get file size: " + path.string());
+
+  file.seekg(0, std::ios::beg);
+  std::vector<uint8_t> buffer(static_cast<size_t>(size));
+  if (size > 0)
+    file.read(reinterpret_cast<char *>(buffer.data()), size);
+  FUSILLI_RETURN_ERROR_IF(!file.good(), ErrorCode::FileSystemFailure,
+                          "Failed to read file: " + path.string());
+
+  return ok(std::move(buffer));
+}
 
 // CleanupCacheDirectory removes a sub-directory from the main cache directory
 // if it's empty. When used as a base class, C++ destructor ordering (explained

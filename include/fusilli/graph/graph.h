@@ -52,6 +52,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <span>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -116,7 +117,7 @@ public:
   //
   // This is equivalent to:
   //   compileToArtifact(handle.getBackend(), remove)
-  //   loadFromArtifact(handle, artifactPath)
+  //   loadFromArtifact(handle, vmfbBytes)
   //
   // The compiled artifact is backend-specific and is immediately loaded using
   // the same backend from `handle`.
@@ -125,17 +126,17 @@ public:
   // this `Graph` instance goes out of scope.
   ErrorObject compile(const Handle &handle, bool remove = false) {
     FUSILLI_LOG_LABEL_ENDL("INFO: Compiling Graph");
-    FUSILLI_ASSIGN_OR_RETURN(auto vmfbPath,
+    FUSILLI_ASSIGN_OR_RETURN(auto vmfbBytes,
                              compileToArtifact(handle.getBackend(), remove));
-    return loadFromArtifact(handle, vmfbPath);
+    return loadFromArtifact(handle, vmfbBytes);
   }
 
   // Compiles the graph using IREE compiler to produce a backend-specific VMFB
   // artifact. This does not create any runtime state; call
   // `loadFromArtifact()` before executing.
   //
-  // If callers need artifacts for multiple backends, they should copy or
-  // serialize each returned VMFB path before compiling the next backend.
+  // If callers need artifacts for multiple backends, they should keep or
+  // serialize each returned VMFB byte buffer before compiling the next backend.
   // Fusilli owns only the in-process `cache_` for the most recent compile-side
   // artifact; it does not provide persistent artifact storage or invalidation.
   //
@@ -145,8 +146,8 @@ public:
   //
   // Set `remove = true` to remove compilation artifacts (cache files) when
   // this `Graph` instance goes out of scope.
-  ErrorOr<std::filesystem::path> compileToArtifact(Backend backend,
-                                                   bool remove = false) {
+  ErrorOr<std::vector<uint8_t>> compileToArtifact(Backend backend,
+                                                  bool remove = false) {
     FUSILLI_LOG_LABEL_ENDL("INFO: Compiling Graph to artifact");
     FUSILLI_RETURN_ERROR_IF(!isValidated_, ErrorCode::NotValidated,
                             "Graph must be validated before being compiled");
@@ -161,7 +162,7 @@ public:
     FUSILLI_LOG_LABEL_ENDL("INFO: Compiled Graph cached at \"" +
                            vmfbPath.string() + "\"");
 
-    return ok(vmfbPath);
+    return readFileBytes(vmfbPath);
   }
 
   // Loads a compiled VMFB artifact onto the device owned by `handle`, creating
@@ -178,16 +179,18 @@ public:
   // call `loadFromArtifact()` with the selected backend artifact before
   // `execute()`.
   ErrorObject loadFromArtifact(const Handle &handle,
-                               const std::filesystem::path &vmfbPath) {
+                               std::span<const uint8_t> vmfbBytes) {
     FUSILLI_LOG_LABEL_ENDL("INFO: Loading compiled artifact into VM context");
     FUSILLI_RETURN_ERROR_IF(
         !isValidated_, ErrorCode::NotValidated,
         "Graph must be validated before loading a compiled artifact");
+    std::vector<uint8_t> artifactBytes(vmfbBytes.begin(), vmfbBytes.end());
     // Loading replaces the currently executable artifact. Clear first so a
     // failed load cannot leave execute() using stale runtime state from an
     // older artifact.
     clearRuntimeState();
-    ErrorObject status = createVmContext(handle, vmfbPath.string());
+    loadedArtifactBytes_ = std::move(artifactBytes);
+    ErrorObject status = createVmContext(handle);
     if (isError(status)) {
       // createVmContext may have partially populated runtime state before
       // failing; leave the graph in a clean "not loaded" state.
@@ -296,12 +299,13 @@ public:
                                    std::shared_ptr<Buffer>> &variantPack,
           const std::shared_ptr<Buffer> &workspace) const;
 
-  // Delete copy constructors, keep default move constructor and destructor.
+  // Delete copy constructors and keep default move operations.
   Graph(const Graph &) = delete;
   Graph &operator=(const Graph &) = delete;
   Graph(Graph &&) noexcept = default;
   Graph &operator=(Graph &&) noexcept = default;
-  ~Graph() = default;
+  // The VM context may retain references into loadedArtifactBytes_.
+  ~Graph() { clearRuntimeState(); }
 
   // Getters and setters for graph context.
   const std::string &getName() const override final {
@@ -458,14 +462,17 @@ public:
 
 private:
   // Definition in `fusilli/backend/runtime.h`.
-  ErrorObject createVmContext(const Handle &handle,
-                              const std::string &vmfbPath);
+  ErrorObject createVmContext(const Handle &handle);
 
   void clearRuntimeState() {
-    workspaceSize_.reset();
-    loadedBackend_.reset();
+    // Teardown order matters: the IREE bytecode module owned by vmContext_ may
+    // retain references into loadedArtifactBytes_, so release vmContext_ before
+    // clearing the backing VMFB bytes.
     vmContext_.reset();
     vmFunction_.reset();
+    workspaceSize_.reset();
+    loadedBackend_.reset();
+    loadedArtifactBytes_.clear();
     vmInputListCapacity_ = 0;
   }
 
@@ -708,9 +715,14 @@ private:
   // handle for this backend because VMFB artifacts are backend-specific.
   std::optional<Backend> loadedBackend_;
 
-  // Compile-side cache set by `getCompiledArtifact()`. This is used as the
-  // JIT cache. The AOT `loadFromArtifact()` API uses caller-provided VMFB
-  // paths directly and does not consult this cache.
+  // Bytes backing the currently loaded VMFB artifact. IREE's bytecode module
+  // may retain references to this archive, so keep it alive for as long as the
+  // VM context is alive.
+  std::vector<uint8_t> loadedArtifactBytes_;
+
+  // Compile-side cache set by `getCompiledArtifact()`. The AOT
+  // `loadFromArtifact()` API uses caller-provided VMFB bytes directly and does
+  // not consult this cache.
   //
   // Note: new instances should always re-generate cache even if the results
   // could be read from the file system. Old results may have been generated

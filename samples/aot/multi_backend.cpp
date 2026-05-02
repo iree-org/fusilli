@@ -11,10 +11,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstdint>
-#include <filesystem>
 #include <memory>
 #include <string>
-#include <system_error>
 #include <unordered_map>
 #include <vector>
 
@@ -49,25 +47,49 @@ PointwiseGraph buildPointwiseAddGraph(const std::string &graphName) {
   return {graph, x0T, x1T, yT};
 }
 
-void executeAndCheck(Handle &handle, PointwiseGraph &ctx) {
+std::vector<uint8_t> compileArtifact(Backend backend) {
+  auto compileGraph = buildPointwiseAddGraph("aot_multi_backend_compile_graph");
   FUSILLI_REQUIRE_ASSIGN(
-      auto x0Buf, allocateBufferOfType(handle, ctx.x0, DataType::Int32, 2));
+      auto compiledArtifactBytes,
+      compileGraph.graph->compileToArtifact(backend, /*remove=*/true));
+
+  REQUIRE(!compiledArtifactBytes.empty());
+  REQUIRE(!compileGraph.graph->getWorkspaceSize().has_value());
+  return compiledArtifactBytes;
+}
+
+void loadAndExecuteArtifact(Backend backend,
+                            const std::vector<uint8_t> &vmfbBytes,
+                            const std::string &graphName) {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(backend));
+
+  auto runtimeGraph = buildPointwiseAddGraph(graphName);
+  FUSILLI_REQUIRE_OK(runtimeGraph.graph->loadFromArtifact(handle, vmfbBytes));
+
+  REQUIRE(runtimeGraph.graph->getWorkspaceSize().has_value());
+
   FUSILLI_REQUIRE_ASSIGN(
-      auto x1Buf, allocateBufferOfType(handle, ctx.x1, DataType::Int32, 3));
+      auto x0Buf,
+      allocateBufferOfType(handle, runtimeGraph.x0, DataType::Int32, 2));
   FUSILLI_REQUIRE_ASSIGN(
-      auto yBuf, allocateBufferOfType(handle, ctx.y, DataType::Int32, 0));
+      auto x1Buf,
+      allocateBufferOfType(handle, runtimeGraph.x1, DataType::Int32, 3));
+  FUSILLI_REQUIRE_ASSIGN(auto yBuf, allocateBufferOfType(handle, runtimeGraph.y,
+                                                         DataType::Int32, 0));
 
   const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
       variantPack = {
-          {ctx.x0, x0Buf},
-          {ctx.x1, x1Buf},
-          {ctx.y, yBuf},
+          {runtimeGraph.x0, x0Buf},
+          {runtimeGraph.x1, x1Buf},
+          {runtimeGraph.y, yBuf},
       };
 
   FUSILLI_REQUIRE_ASSIGN(
-      auto workspace, allocateWorkspace(handle, ctx.graph->getWorkspaceSize()));
+      auto workspace,
+      allocateWorkspace(handle, runtimeGraph.graph->getWorkspaceSize()));
 
-  FUSILLI_REQUIRE_OK(ctx.graph->execute(handle, variantPack, workspace));
+  FUSILLI_REQUIRE_OK(
+      runtimeGraph.graph->execute(handle, variantPack, workspace));
 
   std::vector<int> result;
   FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
@@ -75,63 +97,26 @@ void executeAndCheck(Handle &handle, PointwiseGraph &ctx) {
     REQUIRE(val == 5);
 }
 
-void compileAndCopyArtifact(Graph &graph, Backend backend,
-                            const std::filesystem::path &callerOwnedArtifact) {
-  FUSILLI_REQUIRE_ASSIGN(auto compiledArtifact,
-                         graph.compileToArtifact(backend, /*remove=*/true));
-
-  REQUIRE(std::filesystem::exists(compiledArtifact));
-  REQUIRE(!graph.getWorkspaceSize().has_value());
-
-  std::error_code err;
-  std::filesystem::copy_file(compiledArtifact, callerOwnedArtifact,
-                             std::filesystem::copy_options::overwrite_existing,
-                             err);
-  REQUIRE(!err);
-}
-
-void loadAndExecuteArtifact(Backend backend,
-                            const std::filesystem::path &callerOwnedArtifact,
-                            const std::string &graphName) {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(backend));
-
-  auto runtimeGraph = buildPointwiseAddGraph(graphName);
-  FUSILLI_REQUIRE_OK(
-      runtimeGraph.graph->loadFromArtifact(handle, callerOwnedArtifact));
-
-  REQUIRE(runtimeGraph.graph->getWorkspaceSize().has_value());
-  executeAndCheck(handle, runtimeGraph);
-}
-
 } // namespace
 
 TEST_CASE("AOT multi-backend artifacts can be selected per execution backend",
           "[aot][graph]") {
-  const auto artifactDir = std::filesystem::temp_directory_path();
-  const auto cpuArtifact = artifactDir / "fusilli_aot_multi_backend_cpu.vmfb";
-  auto cleanupCpu = ScopeExit([&] { std::filesystem::remove(cpuArtifact); });
-
-#if defined(FUSILLI_ENABLE_AMDGPU)
-  const auto gpuArtifact =
-      artifactDir / "fusilli_aot_multi_backend_amdgpu.vmfb";
-  auto cleanupGpu = ScopeExit([&] { std::filesystem::remove(gpuArtifact); });
-#endif
-
+  // Compile Phase:
   // Compile by backend only. Handles and devices are created later, matching an
   // AOT flow where compilation and execution happen on different machines.
-  auto compileGraph = buildPointwiseAddGraph("aot_multi_backend_compile_graph");
-  compileAndCopyArtifact(*compileGraph.graph, Backend::CPU, cpuArtifact);
-
+  auto cpuArtifact = compileArtifact(Backend::CPU);
 #if defined(FUSILLI_ENABLE_AMDGPU)
-  compileAndCopyArtifact(*compileGraph.graph, Backend::AMDGPU, gpuArtifact);
+  auto gpuArtifact = compileArtifact(Backend::AMDGPU);
 #endif
 
-  REQUIRE(std::filesystem::exists(cpuArtifact));
+  // Caller code may serialize and de-serialize the compiled artifacts here.
+  // <serialize / de-serialize>
+
+  // Execute Phase:
+  // Load needs handles / devices and the compiled artifact (bytes)
   loadAndExecuteArtifact(Backend::CPU, cpuArtifact,
                          "aot_multi_backend_runtime_cpu_graph");
-
 #if defined(FUSILLI_ENABLE_AMDGPU)
-  REQUIRE(std::filesystem::exists(gpuArtifact));
   loadAndExecuteArtifact(Backend::AMDGPU, gpuArtifact,
                          "aot_multi_backend_runtime_amdgpu_graph");
 #endif
