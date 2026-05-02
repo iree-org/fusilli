@@ -435,6 +435,23 @@ TEST_CASE("Graph `loadFromArtifact` accepts another Graph instance's artifact",
   executeAndCheckGraph(handle, consumer);
 }
 
+TEST_CASE("Graph failed `loadFromArtifact` clears loaded runtime state",
+          "[graph]") {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+  auto ctx = makeTestExecutableGraph("aot_artifact_failed_reload");
+
+  FUSILLI_REQUIRE_ASSIGN(
+      auto artifactBytes,
+      ctx.graph->compileToArtifact(handle.getBackend(), /*remove=*/true));
+  FUSILLI_REQUIRE_OK(ctx.graph->loadFromArtifact(handle, artifactBytes));
+  REQUIRE(ctx.graph->getWorkspaceSize().has_value());
+
+  const std::vector<uint8_t> invalidArtifactBytes = {0xde, 0xad, 0xbe, 0xef};
+  auto status = ctx.graph->loadFromArtifact(handle, invalidArtifactBytes);
+  REQUIRE(isError(status));
+  REQUIRE(!ctx.graph->getWorkspaceSize().has_value());
+}
+
 #if defined(FUSILLI_ENABLE_AMDGPU)
 TEST_CASE("Graph `execute` rejects a handle with a different backend",
           "[graph]") {

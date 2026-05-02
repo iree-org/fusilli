@@ -174,7 +174,8 @@ public:
   //
   // A `Graph` owns one loaded runtime state at a time. Loading a new artifact
   // replaces any previously loaded VM context, function, workspace size, and VM
-  // input list capacity. To keep multiple backends loaded concurrently, use one
+  // input list capacity. If loading fails, the `Graph` is left without loaded
+  // runtime state. To keep multiple backends loaded concurrently, use one
   // `Graph` instance per backend artifact. To switch backends on one `Graph`,
   // call `loadFromArtifact()` with the selected backend artifact before
   // `execute()`.
@@ -304,8 +305,7 @@ public:
   Graph &operator=(const Graph &) = delete;
   Graph(Graph &&) noexcept = default;
   Graph &operator=(Graph &&) noexcept = default;
-  // The VM context may retain references into loadedArtifactBytes_.
-  ~Graph() { clearRuntimeState(); }
+  ~Graph() = default;
 
   // Getters and setters for graph context.
   const std::string &getName() const override final {
@@ -465,11 +465,8 @@ private:
   ErrorObject createVmContext(const Handle &handle);
 
   void clearRuntimeState() {
-    // Teardown order matters: the IREE bytecode module owned by vmContext_ may
-    // retain references into loadedArtifactBytes_, so release vmContext_ before
-    // clearing the backing VMFB bytes.
-    vmContext_.reset();
     vmFunction_.reset();
+    vmContext_.reset();
     workspaceSize_.reset();
     loadedBackend_.reset();
     loadedArtifactBytes_.clear();
@@ -694,10 +691,14 @@ private:
   // This is set after `validate()` is run at least once successfully.
   bool isValidated_ = false;
 
-  // Required workspace buffer size in bytes. Set during createVmContext()
-  // by querying the iree.abi.transients.size.constant attribute.
-  // std::nullopt indicates the graph has not been compiled yet.
-  std::optional<size_t> workspaceSize_;
+  // Bytes backing the currently loaded VMFB artifact. IREE's bytecode module
+  // may retain references to this archive, so keep it alive for as long as the
+  // VM context is alive.
+  //
+  // Keep this declared before vmContext_: members destruct in reverse
+  // declaration order, and the context must be released before the backing VMFB
+  // bytes.
+  std::vector<uint8_t> loadedArtifactBytes_;
 
   // IREE VM context lifetime managed by the `Graph` object
   // (deleted when the `Graph` object goes out of scope).
@@ -707,6 +708,11 @@ private:
   // Avoids repeated function lookup on every execute() call.
   std::optional<iree_vm_function_t> vmFunction_;
 
+  // Required workspace buffer size in bytes. Set during createVmContext()
+  // by querying the iree.abi.transients.size.constant attribute.
+  // std::nullopt indicates the graph has not been compiled yet.
+  std::optional<size_t> workspaceSize_;
+
   // Pre-computed VM input list capacity for iree_vm_list_create().
   // Set during createVmContext() to avoid recomputing on every execute().
   iree_host_size_t vmInputListCapacity_ = 0;
@@ -714,11 +720,6 @@ private:
   // Backend for the currently loaded runtime state. `execute()` requires a
   // handle for this backend because VMFB artifacts are backend-specific.
   std::optional<Backend> loadedBackend_;
-
-  // Bytes backing the currently loaded VMFB artifact. IREE's bytecode module
-  // may retain references to this archive, so keep it alive for as long as the
-  // VM context is alive.
-  std::vector<uint8_t> loadedArtifactBytes_;
 
   // Compile-side cache set by `getCompiledArtifact()`. The AOT
   // `loadFromArtifact()` API uses caller-provided VMFB bytes directly and does
