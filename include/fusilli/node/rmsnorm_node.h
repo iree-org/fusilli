@@ -22,8 +22,10 @@
 #include "fusilli/node/norm_utils.h"
 #include "fusilli/support/logging.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <utility>
@@ -89,13 +91,48 @@ public:
     // Shape and layout checks on scale tensor.
     // If scale tensor's dims/strides are not set, they will be inferred in
     // inferPropertiesNode().
+    //
+    // Scale encodes the normalized_shape as a trailing suffix of x:
+    //   reduction = maximal trailing suffix where scale[i] == x[i],
+    //   leading region (excluding batch) must be all-1,
+    //   batch dim (scale[0]) must be 1 (broadcast across batch).
+    // This matches the cuDNN/hipDNN trailing-suffix rule and aligns with
+    // torch.aten.rms_norm's normalized_shape parameter (itself a trailing
+    // suffix of the input shape).
     if (sT) {
       if (!sT->getDim().empty()) {
-        FUSILLI_RETURN_ERROR_IF(sT->getDim() !=
-                                    norm_utils::getScaleBiasDim(xT->getDim()),
-                                ErrorCode::InvalidAttribute,
-                                "RmsNorm input tensor SCALE must have shape as "
-                                "tensor X with single batch");
+        const auto &xDim = xT->getDim();
+        const auto &sDim = sT->getDim();
+        constexpr size_t batchDim = 0;
+
+        FUSILLI_RETURN_ERROR_IF(
+            sDim.size() != xDim.size(), ErrorCode::InvalidAttribute,
+            "RmsNorm SCALE tensor must have the same rank as X");
+
+        FUSILLI_RETURN_ERROR_IF(
+            sDim[batchDim] != 1, ErrorCode::InvalidAttribute,
+            "RmsNorm SCALE tensor must have batch dim equal to 1 "
+            "(broadcast across batch)");
+
+        // matchCount = number of trailing dims where scale[i] == x[i].
+        const auto [sMismatch, _] = std::mismatch(sDim.rbegin(), sDim.rend(),
+                                                  xDim.rbegin(), xDim.rend());
+        const size_t matchCount =
+            static_cast<size_t>(std::distance(sDim.rbegin(), sMismatch));
+
+        FUSILLI_RETURN_ERROR_IF(
+            matchCount == 0, ErrorCode::InvalidAttribute,
+            "RmsNorm SCALE has no trailing dims matching X — at least "
+            "one normalized dim is required");
+
+        // Leading region (between batch and the matching trailing
+        // suffix) must be all-1.
+        for (size_t i = batchDim + 1; i < sDim.size() - matchCount; ++i) {
+          FUSILLI_RETURN_ERROR_IF(
+              sDim[i] != 1, ErrorCode::InvalidAttribute,
+              "RmsNorm SCALE leading region (before normalized shape) "
+              "must be 1");
+        }
       }
 
       if (!sT->getStride().empty()) {
@@ -214,7 +251,21 @@ private:
   }
 
   std::vector<int64_t> getNormalizedShape() const {
-    return norm_utils::getNormalizedShape(rmsnormAttr.getX()->getDim());
+    const auto &xDim = rmsnormAttr.getX()->getDim();
+    std::shared_ptr<TensorAttr> sT = rmsnormAttr.getSCALE();
+    if (!sT) {
+      // No scale provided: normalize over the whole non-batch shape.
+      return norm_utils::getNormalizedShape(xDim);
+    }
+    // Scale provided: normalized_shape is the trailing suffix of x where
+    // scale[i] == x[i] (cuDNN trailing-suffix rule, matches PyTorch's
+    // torch.aten.rms_norm normalized_shape parameter).
+    const auto &sDim = sT->getDim();
+    const auto [sMismatch, _] =
+        std::mismatch(sDim.rbegin(), sDim.rend(), xDim.rbegin(), xDim.rend());
+    const size_t matchCount =
+        static_cast<size_t>(std::distance(sDim.rbegin(), sMismatch));
+    return std::vector<int64_t>(xDim.end() - matchCount, xDim.end());
   }
 };
 
