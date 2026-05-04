@@ -205,6 +205,7 @@ add_fusilli_lit_tests(
     lit/test_rmsnorm_infer_asm_emitter_nchw.cpp
     lit/test_rmsnorm_infer_asm_emitter_scale_nhwc.cpp
     lit/test_matmul_asm_emitter_basic.cpp
+    lit/test_matmul_asm_emitter_mixed_dtype.cpp
     lit/test_matmul_asm_emitter_batched.cpp
     lit/test_matmul_asm_emitter_broadcast_3D.cpp
     lit/test_matmul_asm_emitter_broadcast_4D.cpp

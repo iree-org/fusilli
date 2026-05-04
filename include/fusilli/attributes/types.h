@@ -72,6 +72,42 @@ static const std::unordered_map<std::string, DataType> kMlirTypeAsmToDataType =
 #undef DEFINE_ENUM
 };
 
+// Returns whether a dtype has a valid Torch scalar type enum that can be passed
+// to ops such as `torch.aten.to.dtype`.
+inline bool hasTorchScalarType(DataType dtype) {
+  if (dtype == DataType::NotSet)
+    return false;
+  return kDataTypeToTorchType.at(dtype) !=
+         torch_upstream::ScalarType::Undefined;
+}
+
+// Returns the storage bitwidth for the given Fusilli dtype.
+inline uint8_t getDataTypeBitWidth(DataType dtype) {
+  switch (dtype) {
+  case DataType::NotSet:
+    return 0;
+  case DataType::Boolean:
+    return 1;
+  case DataType::Int4:
+    return 4;
+  case DataType::Uint8:
+  case DataType::Int8:
+  case DataType::FP8E5M2:
+    return 8;
+  case DataType::Half:
+  case DataType::BFloat16:
+  case DataType::Int16:
+    return 16;
+  case DataType::Float:
+  case DataType::Int32:
+    return 32;
+  case DataType::Double:
+  case DataType::Int64:
+    return 64;
+  }
+  return 0;
+}
+
 } // namespace fusilli
 
 #endif // FUSILLI_ATTRIBUTES_TYPES_H
