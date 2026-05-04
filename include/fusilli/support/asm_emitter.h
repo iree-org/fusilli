@@ -2155,6 +2155,56 @@ inline std::string ReductionNode::emitNodePreAsm() const {
     {7}
     )";
 
+  constexpr std::string_view kNorm1Schema = R"(
+    {0}
+    {1}
+    %abs_{2} = torch.aten.abs {4} : {5} -> {5}
+    %keepdim_{2} = torch.constant.bool true
+    %dtype_{2} = torch.constant.none
+    {3}_{2}_perm = torch.aten.sum.dim_IntList %abs_{2}, %reduction_dims_{2}, %keepdim_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.bool, !torch.none -> {6}
+    {7}
+    )";
+
+  constexpr std::string_view kAbsAmaxSchema = R"(
+    {0}
+    {1}
+    %abs_{2} = torch.aten.abs {4} : {5} -> {5}
+    %keepdim_{2} = torch.constant.bool true
+    {3}_{2}_perm = torch.aten.amax %abs_{2}, %reduction_dims_{2}, %keepdim_{2} : {5}, !torch.list<int>, !torch.bool -> {6}
+    {7}
+    )";
+
+  constexpr std::string_view kNorm2Schema = R"(
+    {0}
+    {1}
+    %sq_{2} = torch.aten.mul.Tensor {4}, {4} : {5}, {5} -> {5}
+    %keepdim_{2} = torch.constant.bool true
+    %dtype_{2} = torch.constant.none
+    %sumsq_{2} = torch.aten.sum.dim_IntList %sq_{2}, %reduction_dims_{2}, %keepdim_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.bool, !torch.none -> {6}
+    {3}_{2}_perm = torch.aten.sqrt %sumsq_{2} : {6} -> {6}
+    {7}
+    )";
+
+  constexpr std::string_view kMulSchema = R"(
+    {0}
+    {1}
+    %dtype_{2} = torch.constant.none
+    {3}_{2}_perm = torch.prims.prod {4}, %reduction_dims_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.none -> {6}
+    {7}
+    )";
+
+  constexpr std::string_view kMulNoZerosSchema = R"(
+    {0}
+    {1}
+    %zero_{2} = torch.constant.int 0
+    %mask_{2} = torch.aten.ne.Scalar {4}, %zero_{2} : {5}, !torch.int -> {8}
+    %one_{2} = torch.constant.int 1
+    %fixed_{2} = torch.aten.where.ScalarOther %mask_{2}, {4}, %one_{2} : {8}, {5}, !torch.int -> {5}
+    %dtype_{2} = torch.constant.none
+    {3}_{2}_perm = torch.prims.prod %fixed_{2}, %reduction_dims_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.none -> {6}
+    {7}
+    )";
+
 #define FUSILLI_DECLARE_REDUCTION_EMITTER(MODE, SCHEMA, OPIR)                  \
   case ReductionAttr::Mode::MODE: {                                            \
     return std::format(SCHEMA, permuteX,     /* {0} */                         \
@@ -2175,11 +2225,55 @@ inline std::string ReductionNode::emitNodePreAsm() const {
 #define FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER(MODE, OPIR)            \
   FUSILLI_DECLARE_REDUCTION_EMITTER(MODE, kKeepdimDtypeReductionSchema, OPIR)
 
+#define FUSILLI_DECLARE_CUSTOM_REDUCTION_EMITTER(MODE, SCHEMA)                 \
+  case ReductionAttr::Mode::MODE: {                                            \
+    return std::format(SCHEMA, permuteX,     /* {0} */                         \
+                       dimListOss.str(),     /* {1} */                         \
+                       suffix,               /* {2} */                         \
+                       getResultNamesAsm(),  /* {3} */                         \
+                       getOperandNamesAsm(), /* {4} */                         \
+                       getOperandTypesAsm(), /* {5} */                         \
+                       getResultTypesAsm(),  /* {6} */                         \
+                       permuteY              /* {7} */                         \
+    );                                                                         \
+  }
+
   switch (reductionAttr.getMode()) {
+  case ReductionAttr::Mode::ADD:
     FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER(SUM,
                                                     torch.aten.sum.dim_IntList)
     FUSILLI_DECLARE_KEEPDIM_REDUCTION_EMITTER(MIN, torch.aten.amin)
     FUSILLI_DECLARE_KEEPDIM_REDUCTION_EMITTER(MAX, torch.aten.amax)
+    FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER(AVG, torch.aten.mean.dim)
+    FUSILLI_DECLARE_CUSTOM_REDUCTION_EMITTER(NORM1, kNorm1Schema)
+    FUSILLI_DECLARE_CUSTOM_REDUCTION_EMITTER(NORM2, kNorm2Schema)
+    FUSILLI_DECLARE_CUSTOM_REDUCTION_EMITTER(AMAX, kAbsAmaxSchema)
+    FUSILLI_DECLARE_CUSTOM_REDUCTION_EMITTER(MUL, kMulSchema)
+
+  case ReductionAttr::Mode::MUL_NO_ZEROS: {
+    // Build a bool tensor type matching the (logical) shape of X. This is
+    // used for the mask produced by `torch.aten.ne.Scalar`.
+    std::ostringstream boolTypeOss;
+    boolTypeOss << "!torch.vtensor<[";
+    const auto &xDims = xT->getDim();
+    interleave(
+        xDims.begin(), xDims.end(),
+        [&](int64_t d) { boolTypeOss << std::to_string(d); },
+        [&] { boolTypeOss << ","; });
+    boolTypeOss << "],i1>";
+    std::string boolType = boolTypeOss.str();
+
+    return std::format(kMulNoZerosSchema, permuteX, /* {0} */
+                       dimListOss.str(),            /* {1} */
+                       suffix,                      /* {2} */
+                       getResultNamesAsm(),         /* {3} */
+                       getOperandNamesAsm(),        /* {4} */
+                       getOperandTypesAsm(),        /* {5} */
+                       getResultTypesAsm(),         /* {6} */
+                       permuteY,                    /* {7} */
+                       boolType                     /* {8} */
+    );
+  }
   default:
     assert(false && "Unsupported reduction mode");
     return "";
@@ -2189,6 +2283,7 @@ inline std::string ReductionNode::emitNodePreAsm() const {
 #undef FUSILLI_DECLARE_REDUCTION_EMITTER
 #undef FUSILLI_DECLARE_KEEPDIM_REDUCTION_EMITTER
 #undef FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER
+#undef FUSILLI_DECLARE_CUSTOM_REDUCTION_EMITTER
 
 //===----------------------------------------------------------------------===//
 //
