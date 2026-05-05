@@ -282,10 +282,11 @@ public:
   //     doSomethingWith(hostData);
   //
   // Workspace Buffer Usage:
-  //   After calling compile(), query getWorkspaceSize() to determine if a
-  //   workspace buffer is needed. If size > 0, allocate using
-  //   Buffer::allocateRaw() and pass it to execute(). The same workspace
-  //   buffer can be reused across multiple execute() calls.
+  //   After calling compile(), query getWorkspaceSize(variantPack) to determine
+  //   if a workspace buffer is needed. If size > 0, allocate using
+  //   Buffer::allocateRaw() and pass it to execute(). Calling
+  //   getWorkspaceSize(variantPack) before execute() is required, and the same
+  //   workspace buffer can be reused across multiple execute() calls.
   //
   //   Example:
   //     graph.compile(handle);

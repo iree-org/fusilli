@@ -401,6 +401,32 @@ TEST_CASE("Graph `loadFromArtifact` after compileToArtifact enables execute",
   executeAndCheckGraph(handle, ctx);
 }
 
+TEST_CASE("Graph `execute` requires prior workspace size query", "[graph]") {
+  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
+  auto ctx = makeTestExecutableGraph("execute_requires_workspace_query");
+  FUSILLI_REQUIRE_OK(ctx.graph->compile(handle, /*remove=*/true));
+
+  FUSILLI_REQUIRE_ASSIGN(
+      auto xBuf, allocateBufferOfType(handle, ctx.x, DataType::Half, 1.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto wBuf, allocateBufferOfType(handle, ctx.w, DataType::Half, 1.0f));
+  FUSILLI_REQUIRE_ASSIGN(
+      auto yBuf, allocateBufferOfType(handle, ctx.y, DataType::Half, 0.0f));
+
+  const Graph::VariantPack variantPack = {
+      {ctx.x, xBuf},
+      {ctx.w, wBuf},
+      {ctx.y, yBuf},
+  };
+
+  auto status = ctx.graph->execute(handle, variantPack, /*workspace=*/nullptr);
+  REQUIRE(isError(status));
+  REQUIRE(status.getCode() == ErrorCode::InvalidArgument);
+  REQUIRE(status.getMessage() ==
+          "Graph::execute requires getWorkspaceSize() to be called before "
+          "workspace allocation and execution");
+}
+
 TEST_CASE("Graph `compileToArtifact` preserves loaded runtime state",
           "[graph]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));

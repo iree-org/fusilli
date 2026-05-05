@@ -320,7 +320,8 @@ Graph::getWorkspaceSize(const VariantPack &variantPack) const {
     return ok(std::optional<size_t>());
 
   FUSILLI_LOG_LABEL_ENDL("INFO: Querying workspace size from compiled module");
-  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize, queryTransientSize(variantPack));
+  FUSILLI_ASSIGN_OR_RETURN(size_t workspaceSize,
+                           queryTransientSize(variantPack));
   if (!workspaceSize_.has_value() || workspaceSize > *workspaceSize_)
     workspaceSize_ = workspaceSize;
 
@@ -404,7 +405,10 @@ Graph::execute(const Handle &handle, const VariantPack &variantPack,
                               ", but the loaded artifact uses backend " +
                               kBackendToStr.at(*loadedBackend_));
   bool executeAsync = kBackendExecuteAsync.at(handle.getBackend());
-  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize, getWorkspaceSize(variantPack));
+  FUSILLI_RETURN_ERROR_IF(
+      !workspaceSize_.has_value(), ErrorCode::InvalidArgument,
+      "Graph::execute requires getWorkspaceSize() to be called before "
+      "workspace allocation and execution");
 
   iree_allocator_t allocator = iree_allocator_system();
 
@@ -459,18 +463,18 @@ Graph::execute(const Handle &handle, const VariantPack &variantPack,
   // adds a !hal.buffer argument to the generated function signature, even when
   // no transient storage is needed (size = 0). We must always push a buffer
   // (or null ref when size = 0) to satisfy the function signature.
-  if (workspaceSize.value_or(0) > 0) {
+  if (*workspaceSize_ > 0) {
     FUSILLI_RETURN_ERROR_IF(
         workspace == nullptr, ErrorCode::InvalidArgument,
         "Workspace buffer required but not provided (size=" +
-            std::to_string(*workspaceSize) + " bytes)");
+            std::to_string(*workspaceSize_) + " bytes)");
     iree_hal_buffer_t *halBuffer = iree_hal_buffer_view_buffer(*workspace);
     FUSILLI_RETURN_ERROR_IF(
-        iree_hal_buffer_byte_length(halBuffer) < *workspaceSize,
+        iree_hal_buffer_byte_length(halBuffer) < *workspaceSize_,
         ErrorCode::InvalidArgument,
         "Workspace buffer too small: provided " +
             std::to_string(iree_hal_buffer_byte_length(halBuffer)) +
-            " bytes, required " + std::to_string(*workspaceSize) + " bytes");
+            " bytes, required " + std::to_string(*workspaceSize_) + " bytes");
     iree_vm_ref_t bufferRef = iree_hal_buffer_retain_ref(halBuffer);
     FUSILLI_CHECK_ERROR(
         iree_vm_list_push_ref_move(inputList.get(), &bufferRef));
