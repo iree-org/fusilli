@@ -74,9 +74,6 @@ inline bool checkCompileBackendEnv() {
 
 class Graph : public INode {
 public:
-  using VariantPack =
-      std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>;
-
   Graph() : INode(Context{}) {}
 
   // Validates the graph for correctness and infers missing properties.
@@ -299,8 +296,11 @@ public:
   //       workspace = std::make_shared<Buffer>(std::move(wsBuf));
   //     }
   //     graph.execute(handle, variantPack, workspace);
-  ErrorObject execute(const Handle &handle, const VariantPack &variantPack,
-                      const std::shared_ptr<Buffer> &workspace) const;
+  ErrorObject
+  execute(const Handle &handle,
+          const std::unordered_map<std::shared_ptr<TensorAttr>,
+                                   std::shared_ptr<Buffer>> &variantPack,
+          const std::shared_ptr<Buffer> &workspace) const;
 
   // Delete copy constructors and keep default move operations.
   Graph(const Graph &) = delete;

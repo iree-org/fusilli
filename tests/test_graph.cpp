@@ -407,11 +407,12 @@ TEST_CASE("Graph `execute` requires prior workspace size query", "[graph]") {
   FUSILLI_REQUIRE_ASSIGN(
       auto yBuf, allocateBufferOfType(handle, ctx.y, DataType::Half, 0.0f));
 
-  const Graph::VariantPack variantPack = {
-      {ctx.x, xBuf},
-      {ctx.w, wBuf},
-      {ctx.y, yBuf},
-  };
+  const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
+      variantPack = {
+          {ctx.x, xBuf},
+          {ctx.w, wBuf},
+          {ctx.y, yBuf},
+      };
 
   auto status = ctx.graph->execute(handle, variantPack, /*workspace=*/nullptr);
   REQUIRE(isError(status));

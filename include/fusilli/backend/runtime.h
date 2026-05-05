@@ -377,7 +377,9 @@ inline ErrorOr<size_t> Graph::queryTransientSize() const {
 // The `workspace` parameter provides transient storage for intermediate values
 // when required by the compiled module.
 inline ErrorObject
-Graph::execute(const Handle &handle, const VariantPack &variantPack,
+Graph::execute(const Handle &handle,
+               const std::unordered_map<std::shared_ptr<TensorAttr>,
+                                        std::shared_ptr<Buffer>> &variantPack,
                const std::shared_ptr<Buffer> &workspace) const {
   FUSILLI_LOG_LABEL_ENDL("INFO: Executing Graph");
   FUSILLI_RETURN_ERROR_IF(vmContext_ == nullptr, ErrorCode::NotCompiled,
