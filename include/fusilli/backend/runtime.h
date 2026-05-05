@@ -314,7 +314,7 @@ inline ErrorObject Graph::createVmContext(const Handle &handle) {
   return ok();
 }
 
-inline ErrorOr<std::optional<size_t>> Graph::getWorkspaceSize() const {
+inline ErrorOr<std::optional<size_t>> Graph::getWorkspaceSize() {
   if (vmContext_ == nullptr)
     return ok(std::optional<size_t>());
 

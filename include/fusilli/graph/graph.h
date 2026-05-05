@@ -394,7 +394,7 @@ public:
   // artifact is loaded, 0 if no workspace is needed, or the maximum required
   // size in bytes seen for the currently loaded runtime state. Dynamic
   // workspace sizes are not supported yet and return an error.
-  ErrorOr<std::optional<size_t>> getWorkspaceSize() const;
+  ErrorOr<std::optional<size_t>> getWorkspaceSize();
 
   // ASM emitter driver method.
   //
@@ -714,7 +714,7 @@ private:
   // Maximum required workspace buffer size in bytes seen by getWorkspaceSize().
   // std::nullopt indicates the workspace size has not been queried for the
   // currently loaded runtime state.
-  mutable std::optional<size_t> workspaceSize_;
+  std::optional<size_t> workspaceSize_;
 
   // Pre-computed VM input list capacity for iree_vm_list_create().
   // Set during createVmContext() to avoid recomputing on every execute().
