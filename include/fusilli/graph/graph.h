@@ -282,16 +282,16 @@ public:
   //     doSomethingWith(hostData);
   //
   // Workspace Buffer Usage:
-  //   After calling compile(), query getWorkspaceSize(variantPack) to determine
+  //   After calling compile(), query getWorkspaceSize() to determine
   //   if a workspace buffer is needed. If size > 0, allocate using
   //   Buffer::allocateRaw() and pass it to execute(). Calling
-  //   getWorkspaceSize(variantPack) before execute() is required, and the same
+  //   getWorkspaceSize() before execute() is required, and the same
   //   workspace buffer can be reused across multiple execute() calls.
   //
   //   Example:
   //     graph.compile(handle);
   //     FUSILLI_ASSIGN_OR_RETURN(auto wsSize,
-  //                              graph.getWorkspaceSize(variantPack));
+  //                              graph.getWorkspaceSize());
   //     std::shared_ptr<Buffer> workspace = nullptr;
   //     if (wsSize.value_or(0) > 0) {
   //       FUSILLI_ASSIGN_OR_RETURN(auto wsBuf,
@@ -390,13 +390,11 @@ public:
   customOp(std::vector<std::shared_ptr<TensorAttr>> inputs,
            CustomOpAttr &customOpAttr);
 
-  // Query required workspace buffer size for the concrete runtime variant pack.
-  // Returns std::nullopt if no runtime artifact is loaded, 0 if no workspace is
-  // needed, or the maximum required size in bytes seen across queried variant
-  // packs for the currently loaded runtime state. Dynamic workspace sizes are
-  // not supported yet and return an error.
-  ErrorOr<std::optional<size_t>>
-  getWorkspaceSize(const VariantPack &variantPack) const;
+  // Query required workspace buffer size. Returns std::nullopt if no runtime
+  // artifact is loaded, 0 if no workspace is needed, or the maximum required
+  // size in bytes seen for the currently loaded runtime state. Dynamic
+  // workspace sizes are not supported yet and return an error.
+  ErrorOr<std::optional<size_t>> getWorkspaceSize() const;
 
   // ASM emitter driver method.
   //
@@ -479,11 +477,10 @@ private:
   }
 
   // Queries the required transient/workspace buffer size from the compiled
-  // module for the concrete runtime variant pack. Returns the size in bytes, or
-  // 0 if no transients are needed. Returns an error if the module requires
-  // dynamic transient sizes.
+  // module. Returns the size in bytes, or 0 if no transients are needed.
+  // Returns an error if the module requires dynamic transient sizes.
   // Definition in `fusilli/backend/runtime.h`.
-  ErrorOr<size_t> queryTransientSize(const VariantPack &variantPack) const;
+  ErrorOr<size_t> queryTransientSize() const;
 
   // Create compiled artifacts from graph writing results to the cache. Set
   // `remove = true` to remove cache files when returned `CachedAssets` lifetime

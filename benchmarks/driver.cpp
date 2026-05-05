@@ -235,8 +235,7 @@ static ErrorObject benchmarkConvFprop(const ConvOptions &opts,
   }
 
   // Allocate workspace buffer if needed.
-  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize,
-                           graph.getWorkspaceSize(variantPack));
+  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize, graph.getWorkspaceSize());
   FUSILLI_ASSIGN_OR_RETURN(auto workspace,
                            allocateWorkspace(handle, workspaceSize));
 
@@ -368,8 +367,7 @@ static ErrorObject benchmarkConvWGrad(const ConvOptions &opts,
   }
 
   // Allocate workspace buffer if needed.
-  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize,
-                           graph.getWorkspaceSize(variantPack));
+  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize, graph.getWorkspaceSize());
   FUSILLI_ASSIGN_OR_RETURN(auto workspace,
                            allocateWorkspace(handle, workspaceSize));
 
@@ -501,8 +499,7 @@ static ErrorObject benchmarkConvDGrad(const ConvOptions &opts,
   }
 
   // Allocate workspace buffer if needed.
-  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize,
-                           graph.getWorkspaceSize(variantPack));
+  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize, graph.getWorkspaceSize());
   FUSILLI_ASSIGN_OR_RETURN(auto workspace,
                            allocateWorkspace(handle, workspaceSize));
 
@@ -599,8 +596,7 @@ static ErrorObject benchmarkLayerNormFwd(const LayerNormOptions &opts,
   }
 
   // Allocate workspace buffer if needed.
-  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize,
-                           graph.getWorkspaceSize(variantPack));
+  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize, graph.getWorkspaceSize());
   FUSILLI_ASSIGN_OR_RETURN(auto workspace,
                            allocateWorkspace(handle, workspaceSize));
 
@@ -730,8 +726,7 @@ static ErrorObject benchmarkSdpaFwd(const SdpaOptions &opts,
   }
 
   // Allocate workspace buffer if needed.
-  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize,
-                           graph.getWorkspaceSize(variantPack));
+  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize, graph.getWorkspaceSize());
   FUSILLI_ASSIGN_OR_RETURN(auto workspace,
                            allocateWorkspace(handle, workspaceSize));
 
@@ -861,8 +856,7 @@ static ErrorObject benchmarkMatmul(const MatmulOptions &opts, DataType aType,
   }
 
   // Allocate workspace buffer if needed.
-  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize,
-                           graph.getWorkspaceSize(variantPack));
+  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize, graph.getWorkspaceSize());
   FUSILLI_ASSIGN_OR_RETURN(auto workspace,
                            allocateWorkspace(handle, workspaceSize));
 

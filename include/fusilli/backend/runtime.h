@@ -314,14 +314,12 @@ inline ErrorObject Graph::createVmContext(const Handle &handle) {
   return ok();
 }
 
-inline ErrorOr<std::optional<size_t>>
-Graph::getWorkspaceSize(const VariantPack &variantPack) const {
+inline ErrorOr<std::optional<size_t>> Graph::getWorkspaceSize() const {
   if (vmContext_ == nullptr)
     return ok(std::optional<size_t>());
 
   FUSILLI_LOG_LABEL_ENDL("INFO: Querying workspace size from compiled module");
-  FUSILLI_ASSIGN_OR_RETURN(size_t workspaceSize,
-                           queryTransientSize(variantPack));
+  FUSILLI_ASSIGN_OR_RETURN(size_t workspaceSize, queryTransientSize());
   if (!workspaceSize_.has_value() || workspaceSize > *workspaceSize_)
     workspaceSize_ = workspaceSize;
 
@@ -334,10 +332,7 @@ Graph::getWorkspaceSize(const VariantPack &variantPack) const {
 // for the constant workspace size case, or an "iree.abi.transients.size"
 // function for the data-dependent workspace size case. Only the former is
 // supported by Fusilli at the moment.
-inline ErrorOr<size_t>
-Graph::queryTransientSize(const VariantPack &variantPack) const {
-  (void)variantPack;
-
+inline ErrorOr<size_t> Graph::queryTransientSize() const {
   // Always resolve the async function for attribute queries. The
   // iree.abi.transients.size.constant attribute is stored in the
   // iree.reflection dict on the @main$async entry point. The sync wrapper

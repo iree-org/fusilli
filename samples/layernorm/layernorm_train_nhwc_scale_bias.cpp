@@ -94,8 +94,7 @@ TEST_CASE("Layer normalization; training mode; NHWC layout; scale, bias",
       };
 
   // Allocate workspace buffer if needed.
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
-                         graph->getWorkspaceSize(variantPack));
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
                          allocateWorkspace(handle, workspaceSize));
 

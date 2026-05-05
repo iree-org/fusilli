@@ -78,8 +78,7 @@ TEST_CASE("RMS normalization; inference mode; NCHW layout; no scale",
       };
 
   // Allocate workspace buffer if needed.
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
-                         graph->getWorkspaceSize(variantPack));
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
                          allocateWorkspace(handle, workspaceSize));
 

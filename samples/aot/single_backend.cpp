@@ -94,7 +94,7 @@ TEST_CASE("AOT single-backend artifact compile/load/execute round trip",
       };
 
   FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
-                         runtimeGraph.graph->getWorkspaceSize(variantPack));
+                         runtimeGraph.graph->getWorkspaceSize());
   REQUIRE(workspaceSize.has_value());
 
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
