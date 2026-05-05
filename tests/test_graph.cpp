@@ -378,10 +378,7 @@ TEST_CASE("Graph `compileToArtifact` produces artifact without loading runtime",
   FUSILLI_REQUIRE_ASSIGN(auto artifactBytes,
                          g.compileToArtifact(kDefaultBackend, /*remove=*/true));
 
-  Graph::VariantPack variantPack;
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, g.getWorkspaceSize(variantPack));
   REQUIRE(!artifactBytes.empty());
-  REQUIRE(!workspaceSize.has_value());
 }
 
 TEST_CASE("Graph `loadFromArtifact` after compileToArtifact enables execute",

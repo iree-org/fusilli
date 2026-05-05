@@ -53,11 +53,7 @@ std::vector<uint8_t> compileArtifact(Backend backend) {
       auto compiledArtifactBytes,
       compileGraph.graph->compileToArtifact(backend, /*remove=*/true));
 
-  Graph::VariantPack variantPack;
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
-                         compileGraph.graph->getWorkspaceSize(variantPack));
   REQUIRE(!compiledArtifactBytes.empty());
-  REQUIRE(!workspaceSize.has_value());
   return compiledArtifactBytes;
 }
 

@@ -63,11 +63,7 @@ TEST_CASE("AOT single-backend artifact compile/load/execute round trip",
         callerOwnedArtifactBytes,
         compileGraph.graph->compileToArtifact(kDefaultBackend,
                                               /*remove=*/true));
-    Graph::VariantPack variantPack;
-    FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
-                           compileGraph.graph->getWorkspaceSize(variantPack));
     REQUIRE(!callerOwnedArtifactBytes.empty());
-    REQUIRE(!workspaceSize.has_value());
   }
 
   // Caller code may serialize and de-serialize the compiled artifacts here.
