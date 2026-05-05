@@ -391,8 +391,9 @@ public:
 
   // Query required workspace buffer size for the concrete runtime variant pack.
   // Returns std::nullopt if no runtime artifact is loaded, 0 if no workspace is
-  // needed, or the required size in bytes. Dynamic workspace sizes are not
-  // supported yet and return an error.
+  // needed, or the maximum required size in bytes seen across queried variant
+  // packs for the currently loaded runtime state. Dynamic workspace sizes are
+  // not supported yet and return an error.
   ErrorOr<std::optional<size_t>>
   getWorkspaceSize(const VariantPack &variantPack) const;
 
@@ -712,7 +713,7 @@ private:
   // Avoids repeated function lookup on every execute() call.
   std::optional<iree_vm_function_t> vmFunction_;
 
-  // Required workspace buffer size in bytes. Cached by getWorkspaceSize().
+  // Maximum required workspace buffer size in bytes seen by getWorkspaceSize().
   // std::nullopt indicates the workspace size has not been queried for the
   // currently loaded runtime state.
   mutable std::optional<size_t> workspaceSize_;

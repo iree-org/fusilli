@@ -319,13 +319,10 @@ Graph::getWorkspaceSize(const VariantPack &variantPack) const {
   if (vmContext_ == nullptr)
     return ok(std::optional<size_t>());
 
-  if (!workspaceSize_.has_value()) {
-    FUSILLI_LOG_LABEL_ENDL(
-        "INFO: Querying workspace size from compiled module");
-    FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize,
-                             queryTransientSize(variantPack));
+  FUSILLI_LOG_LABEL_ENDL("INFO: Querying workspace size from compiled module");
+  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize, queryTransientSize(variantPack));
+  if (!workspaceSize_.has_value() || workspaceSize > *workspaceSize_)
     workspaceSize_ = workspaceSize;
-  }
 
   return ok(workspaceSize_);
 }
