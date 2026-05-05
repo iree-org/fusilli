@@ -210,8 +210,10 @@ static void executeAndCheckGraph(Handle &handle, ExecutableGraph &ctx) {
           {ctx.y, yBuf},
       };
 
-  FUSILLI_REQUIRE_ASSIGN(
-      auto workspace, allocateWorkspace(handle, ctx.graph->getWorkspaceSize()));
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
+                         ctx.graph->getWorkspaceSize(variantPack));
+  FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                         allocateWorkspace(handle, workspaceSize));
 
   FUSILLI_REQUIRE_OK(ctx.graph->execute(handle, variantPack, workspace));
 
@@ -376,8 +378,10 @@ TEST_CASE("Graph `compileToArtifact` produces artifact without loading runtime",
   FUSILLI_REQUIRE_ASSIGN(auto artifactBytes,
                          g.compileToArtifact(kDefaultBackend, /*remove=*/true));
 
+  Graph::VariantPack variantPack;
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, g.getWorkspaceSize(variantPack));
   REQUIRE(!artifactBytes.empty());
-  REQUIRE(!g.getWorkspaceSize().has_value());
+  REQUIRE(!workspaceSize.has_value());
 }
 
 TEST_CASE("Graph `loadFromArtifact` after compileToArtifact enables execute",
@@ -390,7 +394,10 @@ TEST_CASE("Graph `loadFromArtifact` after compileToArtifact enables execute",
       ctx.graph->compileToArtifact(handle.getBackend(), /*remove=*/true));
   FUSILLI_REQUIRE_OK(ctx.graph->loadFromArtifact(handle, artifactBytes));
 
-  REQUIRE(ctx.graph->getWorkspaceSize().has_value());
+  Graph::VariantPack variantPack;
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
+                         ctx.graph->getWorkspaceSize(variantPack));
+  REQUIRE(workspaceSize.has_value());
   executeAndCheckGraph(handle, ctx);
 }
 
@@ -413,8 +420,11 @@ TEST_CASE("Graph `compileToArtifact` preserves loaded runtime state",
       auto compileOnlyArtifactBytes,
       ctx.graph->compileToArtifact(compileOnlyBackend, /*remove=*/true));
 
+  Graph::VariantPack variantPack;
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
+                         ctx.graph->getWorkspaceSize(variantPack));
   REQUIRE(!compileOnlyArtifactBytes.empty());
-  REQUIRE(ctx.graph->getWorkspaceSize().has_value());
+  REQUIRE(workspaceSize.has_value());
   executeAndCheckGraph(handle, ctx);
 }
 
@@ -431,7 +441,10 @@ TEST_CASE("Graph `loadFromArtifact` accepts another Graph instance's artifact",
     FUSILLI_REQUIRE_OK(consumer.graph->loadFromArtifact(handle, artifactBytes));
   }
 
-  REQUIRE(consumer.graph->getWorkspaceSize().has_value());
+  Graph::VariantPack variantPack;
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
+                         consumer.graph->getWorkspaceSize(variantPack));
+  REQUIRE(workspaceSize.has_value());
   executeAndCheckGraph(handle, consumer);
 }
 
@@ -444,12 +457,17 @@ TEST_CASE("Graph failed `loadFromArtifact` clears loaded runtime state",
       auto artifactBytes,
       ctx.graph->compileToArtifact(handle.getBackend(), /*remove=*/true));
   FUSILLI_REQUIRE_OK(ctx.graph->loadFromArtifact(handle, artifactBytes));
-  REQUIRE(ctx.graph->getWorkspaceSize().has_value());
+  Graph::VariantPack variantPack;
+  FUSILLI_REQUIRE_ASSIGN(auto loadedWorkspaceSize,
+                         ctx.graph->getWorkspaceSize(variantPack));
+  REQUIRE(loadedWorkspaceSize.has_value());
 
   const std::vector<uint8_t> invalidArtifactBytes = {0xde, 0xad, 0xbe, 0xef};
   auto status = ctx.graph->loadFromArtifact(handle, invalidArtifactBytes);
   REQUIRE(isError(status));
-  REQUIRE(!ctx.graph->getWorkspaceSize().has_value());
+  FUSILLI_REQUIRE_ASSIGN(auto clearedWorkspaceSize,
+                         ctx.graph->getWorkspaceSize(variantPack));
+  REQUIRE(!clearedWorkspaceSize.has_value());
 }
 
 #if defined(FUSILLI_ENABLE_AMDGPU)
@@ -585,8 +603,10 @@ TEST_CASE("Graph `execute`", "[graph]") {
       };
 
   // Query and allocate workspace buffer if needed.
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
+                         graph->getWorkspaceSize(variantPack));
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
-                         allocateWorkspace(handle, graph->getWorkspaceSize()));
+                         allocateWorkspace(handle, workspaceSize));
 
   // Execute graph.
   FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
@@ -653,9 +673,11 @@ TEST_CASE("collectModuleScopeAsm gathers declarations from nested sub-nodes",
 TEST_CASE("Graph `getWorkspaceSize` returns nullopt before compilation",
           "[graph]") {
   Graph g = testGraph(/*validate=*/true);
+  Graph::VariantPack variantPack;
 
   // Before compilation, workspace size should be nullopt.
-  REQUIRE(!g.getWorkspaceSize().has_value());
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, g.getWorkspaceSize(variantPack));
+  REQUIRE(!workspaceSize.has_value());
 }
 
 TEST_CASE("Graph `getWorkspaceSize` after compilation", "[graph]") {
@@ -669,7 +691,8 @@ TEST_CASE("Graph `getWorkspaceSize` after compilation", "[graph]") {
   // After compilation, getWorkspaceSize returns the queried transient size.
   // It should have a value (not nullopt). The actual size is
   // implementation-dependent.
-  auto workspaceSize = g.getWorkspaceSize();
+  Graph::VariantPack variantPack;
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, g.getWorkspaceSize(variantPack));
   REQUIRE(workspaceSize.has_value());
 }
 
@@ -681,9 +704,10 @@ TEST_CASE("Graph `getWorkspaceSize` consistency across multiple queries",
   FUSILLI_REQUIRE_OK(g.compile(handle, /*remove=*/true));
 
   // Multiple queries should return the same value.
-  auto size1 = g.getWorkspaceSize();
-  auto size2 = g.getWorkspaceSize();
-  auto size3 = g.getWorkspaceSize();
+  Graph::VariantPack variantPack;
+  FUSILLI_REQUIRE_ASSIGN(auto size1, g.getWorkspaceSize(variantPack));
+  FUSILLI_REQUIRE_ASSIGN(auto size2, g.getWorkspaceSize(variantPack));
+  FUSILLI_REQUIRE_ASSIGN(auto size3, g.getWorkspaceSize(variantPack));
 
   REQUIRE(size1.has_value());
   REQUIRE(size1 == size2);

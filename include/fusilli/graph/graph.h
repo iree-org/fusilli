@@ -74,6 +74,9 @@ inline bool checkCompileBackendEnv() {
 
 class Graph : public INode {
 public:
+  using VariantPack =
+      std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>;
+
   Graph() : INode(Context{}) {}
 
   // Validates the graph for correctness and infers missing properties.
@@ -166,19 +169,19 @@ public:
   }
 
   // Loads a compiled VMFB artifact onto the device owned by `handle`, creating
-  // per-graph runtime state and querying workspace size. This does not require
-  // the artifact to have been produced by this `Graph` instance.
+  // per-graph runtime state. This does not require the artifact to have been
+  // produced by this `Graph` instance.
   //
   // The artifact must be compatible with `handle.getBackend()`. A VMFB compiled
   // for one backend is not a portable artifact for another backend.
   //
   // A `Graph` owns one loaded runtime state at a time. Loading a new artifact
-  // replaces any previously loaded VM context, function, workspace size, and VM
-  // input list capacity. If loading fails, the `Graph` is left without loaded
-  // runtime state. To keep multiple backends loaded concurrently, use one
-  // `Graph` instance per backend artifact. To switch backends on one `Graph`,
-  // call `loadFromArtifact()` with the selected backend artifact before
-  // `execute()`.
+  // replaces any previously loaded VM context, function, workspace query cache,
+  // and VM input list capacity. If loading fails, the `Graph` is left without
+  // loaded runtime state. To keep multiple backends loaded concurrently, use
+  // one `Graph` instance per backend artifact. To switch backends on one
+  // `Graph`, call `loadFromArtifact()` with the selected backend artifact
+  // before `execute()`.
   ErrorObject loadFromArtifact(const Handle &handle,
                                std::span<const uint8_t> vmfbBytes) {
     FUSILLI_LOG_LABEL_ENDL("INFO: Loading compiled artifact into VM context");
@@ -286,7 +289,8 @@ public:
   //
   //   Example:
   //     graph.compile(handle);
-  //     auto wsSize = graph.getWorkspaceSize();
+  //     FUSILLI_ASSIGN_OR_RETURN(auto wsSize,
+  //                              graph.getWorkspaceSize(variantPack));
   //     std::shared_ptr<Buffer> workspace = nullptr;
   //     if (wsSize.value_or(0) > 0) {
   //       FUSILLI_ASSIGN_OR_RETURN(auto wsBuf,
@@ -294,11 +298,8 @@ public:
   //       workspace = std::make_shared<Buffer>(std::move(wsBuf));
   //     }
   //     graph.execute(handle, variantPack, workspace);
-  ErrorObject
-  execute(const Handle &handle,
-          const std::unordered_map<std::shared_ptr<TensorAttr>,
-                                   std::shared_ptr<Buffer>> &variantPack,
-          const std::shared_ptr<Buffer> &workspace) const;
+  ErrorObject execute(const Handle &handle, const VariantPack &variantPack,
+                      const std::shared_ptr<Buffer> &workspace) const;
 
   // Delete copy constructors and keep default move operations.
   Graph(const Graph &) = delete;
@@ -388,10 +389,12 @@ public:
   customOp(std::vector<std::shared_ptr<TensorAttr>> inputs,
            CustomOpAttr &customOpAttr);
 
-  // Query required workspace buffer size.
-  // Returns std::nullopt if not compiled, 0 if no workspace needed,
-  // or the required size in bytes.
-  std::optional<size_t> getWorkspaceSize() const { return workspaceSize_; }
+  // Query required workspace buffer size for the concrete runtime variant pack.
+  // Returns std::nullopt if no runtime artifact is loaded, 0 if no workspace is
+  // needed, or the required size in bytes. Dynamic workspace sizes are not
+  // supported yet and return an error.
+  ErrorOr<std::optional<size_t>>
+  getWorkspaceSize(const VariantPack &variantPack) const;
 
   // ASM emitter driver method.
   //
@@ -474,10 +477,11 @@ private:
   }
 
   // Queries the required transient/workspace buffer size from the compiled
-  // module. Returns the size in bytes, or 0 if no transients are needed.
-  // Returns an error if the module requires dynamic transient sizes.
+  // module for the concrete runtime variant pack. Returns the size in bytes, or
+  // 0 if no transients are needed. Returns an error if the module requires
+  // dynamic transient sizes.
   // Definition in `fusilli/backend/runtime.h`.
-  ErrorOr<size_t> queryTransientSize();
+  ErrorOr<size_t> queryTransientSize(const VariantPack &variantPack) const;
 
   // Create compiled artifacts from graph writing results to the cache. Set
   // `remove = true` to remove cache files when returned `CachedAssets` lifetime
@@ -708,10 +712,10 @@ private:
   // Avoids repeated function lookup on every execute() call.
   std::optional<iree_vm_function_t> vmFunction_;
 
-  // Required workspace buffer size in bytes. Set during createVmContext()
-  // by querying the iree.abi.transients.size.constant attribute.
-  // std::nullopt indicates the graph has not been compiled yet.
-  std::optional<size_t> workspaceSize_;
+  // Required workspace buffer size in bytes. Cached by getWorkspaceSize().
+  // std::nullopt indicates the workspace size has not been queried for the
+  // currently loaded runtime state.
+  mutable std::optional<size_t> workspaceSize_;
 
   // Pre-computed VM input list capacity for iree_vm_list_create().
   // Set during createVmContext() to avoid recomputing on every execute().

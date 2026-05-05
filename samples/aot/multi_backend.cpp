@@ -53,8 +53,11 @@ std::vector<uint8_t> compileArtifact(Backend backend) {
       auto compiledArtifactBytes,
       compileGraph.graph->compileToArtifact(backend, /*remove=*/true));
 
+  Graph::VariantPack variantPack;
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
+                         compileGraph.graph->getWorkspaceSize(variantPack));
   REQUIRE(!compiledArtifactBytes.empty());
-  REQUIRE(!compileGraph.graph->getWorkspaceSize().has_value());
+  REQUIRE(!workspaceSize.has_value());
   return compiledArtifactBytes;
 }
 
@@ -65,8 +68,6 @@ void loadAndExecuteArtifact(Backend backend,
 
   auto runtimeGraph = buildPointwiseAddGraph(graphName);
   FUSILLI_REQUIRE_OK(runtimeGraph.graph->loadFromArtifact(handle, vmfbBytes));
-
-  REQUIRE(runtimeGraph.graph->getWorkspaceSize().has_value());
 
   FUSILLI_REQUIRE_ASSIGN(
       auto x0Buf,
@@ -84,9 +85,12 @@ void loadAndExecuteArtifact(Backend backend,
           {runtimeGraph.y, yBuf},
       };
 
-  FUSILLI_REQUIRE_ASSIGN(
-      auto workspace,
-      allocateWorkspace(handle, runtimeGraph.graph->getWorkspaceSize()));
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
+                         runtimeGraph.graph->getWorkspaceSize(variantPack));
+  REQUIRE(workspaceSize.has_value());
+
+  FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                         allocateWorkspace(handle, workspaceSize));
 
   FUSILLI_REQUIRE_OK(
       runtimeGraph.graph->execute(handle, variantPack, workspace));

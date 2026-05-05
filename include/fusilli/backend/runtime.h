@@ -311,11 +311,23 @@ inline ErrorObject Graph::createVmContext(const Handle &handle) {
   if (executeAsync)
     vmInputListCapacity_ += 2;
 
-  // Query the required workspace size from the compiled module.
-  FUSILLI_LOG_LABEL_ENDL("INFO: Querying workspace size from compiled module");
-  FUSILLI_ASSIGN_OR_RETURN(workspaceSize_, queryTransientSize());
-
   return ok();
+}
+
+inline ErrorOr<std::optional<size_t>>
+Graph::getWorkspaceSize(const VariantPack &variantPack) const {
+  if (vmContext_ == nullptr)
+    return ok(std::optional<size_t>());
+
+  if (!workspaceSize_.has_value()) {
+    FUSILLI_LOG_LABEL_ENDL(
+        "INFO: Querying workspace size from compiled module");
+    FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize,
+                             queryTransientSize(variantPack));
+    workspaceSize_ = workspaceSize;
+  }
+
+  return ok(workspaceSize_);
 }
 
 // Queries the required transient/workspace buffer size from the compiled
@@ -324,7 +336,10 @@ inline ErrorObject Graph::createVmContext(const Handle &handle) {
 // for the constant workspace size case, or an "iree.abi.transients.size"
 // function for the data-dependent workspace size case. Only the former is
 // supported by Fusilli at the moment.
-inline ErrorOr<size_t> Graph::queryTransientSize() {
+inline ErrorOr<size_t>
+Graph::queryTransientSize(const VariantPack &variantPack) const {
+  (void)variantPack;
+
   // Always resolve the async function for attribute queries. The
   // iree.abi.transients.size.constant attribute is stored in the
   // iree.reflection dict on the @main$async entry point. The sync wrapper
@@ -369,9 +384,7 @@ inline ErrorOr<size_t> Graph::queryTransientSize() {
 // The `workspace` parameter provides transient storage for intermediate values
 // when required by the compiled module.
 inline ErrorObject
-Graph::execute(const Handle &handle,
-               const std::unordered_map<std::shared_ptr<TensorAttr>,
-                                        std::shared_ptr<Buffer>> &variantPack,
+Graph::execute(const Handle &handle, const VariantPack &variantPack,
                const std::shared_ptr<Buffer> &workspace) const {
   FUSILLI_LOG_LABEL_ENDL("INFO: Executing Graph");
   FUSILLI_RETURN_ERROR_IF(vmContext_ == nullptr, ErrorCode::NotCompiled,
@@ -394,6 +407,7 @@ Graph::execute(const Handle &handle,
                               ", but the loaded artifact uses backend " +
                               kBackendToStr.at(*loadedBackend_));
   bool executeAsync = kBackendExecuteAsync.at(handle.getBackend());
+  FUSILLI_ASSIGN_OR_RETURN(auto workspaceSize, getWorkspaceSize(variantPack));
 
   iree_allocator_t allocator = iree_allocator_system();
 
@@ -448,18 +462,18 @@ Graph::execute(const Handle &handle,
   // adds a !hal.buffer argument to the generated function signature, even when
   // no transient storage is needed (size = 0). We must always push a buffer
   // (or null ref when size = 0) to satisfy the function signature.
-  if (workspaceSize_.value_or(0) > 0) {
+  if (workspaceSize.value_or(0) > 0) {
     FUSILLI_RETURN_ERROR_IF(
         workspace == nullptr, ErrorCode::InvalidArgument,
         "Workspace buffer required but not provided (size=" +
-            std::to_string(*workspaceSize_) + " bytes)");
+            std::to_string(*workspaceSize) + " bytes)");
     iree_hal_buffer_t *halBuffer = iree_hal_buffer_view_buffer(*workspace);
     FUSILLI_RETURN_ERROR_IF(
-        iree_hal_buffer_byte_length(halBuffer) < *workspaceSize_,
+        iree_hal_buffer_byte_length(halBuffer) < *workspaceSize,
         ErrorCode::InvalidArgument,
         "Workspace buffer too small: provided " +
             std::to_string(iree_hal_buffer_byte_length(halBuffer)) +
-            " bytes, required " + std::to_string(*workspaceSize_) + " bytes");
+            " bytes, required " + std::to_string(*workspaceSize) + " bytes");
     iree_vm_ref_t bufferRef = iree_hal_buffer_retain_ref(halBuffer);
     FUSILLI_CHECK_ERROR(
         iree_vm_list_push_ref_move(inputList.get(), &bufferRef));
