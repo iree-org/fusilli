@@ -87,8 +87,9 @@ TEST_CASE("Custom op: compose built-in pointwise add with custom negate",
                              std::shared_ptr<Buffer>>
         variantPack = {{aT, aBuf}, {bT, bBuf}, {outs[0], outBuf}};
 
-    FUSILLI_REQUIRE_ASSIGN(
-        auto workspace, allocateWorkspace(handle, graph->getWorkspaceSize()));
+    FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
+    FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                           allocateWorkspace(handle, workspaceSize));
 
     FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
 

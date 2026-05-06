@@ -80,98 +80,99 @@ TEST_CASE("Pointwise binary compare ops", "[pointwise][graph]") {
     return std::make_tuple(graph, x0T, x1T, yT);
   };
 
-  auto testDtype = [&]<typename T>(
-                       Handle &handle, DataType dt,
-                       const std::vector<std::pair<T, T>> &valuePairs) {
-    auto [graph, x0T, x1T, yT] = buildNewGraph(handle, dt);
+  auto testDtype =
+      [&]<typename T>(Handle &handle, DataType dt,
+                      const std::vector<std::pair<T, T>> &valuePairs) {
+        auto [graph, x0T, x1T, yT] = buildNewGraph(handle, dt);
 
-    for (auto [x0, x1] : valuePairs) {
-      // Allocate input buffers.
-      FUSILLI_REQUIRE_ASSIGN(auto x0Buf,
-                             allocateBufferOfType(handle, x0T, dt, x0));
-      FUSILLI_REQUIRE_ASSIGN(auto x1Buf,
-                             allocateBufferOfType(handle, x1T, dt, x1));
+        for (auto [x0, x1] : valuePairs) {
+          // Allocate input buffers.
+          FUSILLI_REQUIRE_ASSIGN(auto x0Buf,
+                                 allocateBufferOfType(handle, x0T, dt, x0));
+          FUSILLI_REQUIRE_ASSIGN(auto x1Buf,
+                                 allocateBufferOfType(handle, x1T, dt, x1));
 
-      // Allocate output buffer.
-      DataType yDt = DataType::Boolean;
-      FUSILLI_REQUIRE_ASSIGN(auto yBuf,
-                             allocateBufferOfType(handle, yT, yDt, false));
+          // Allocate output buffer.
+          DataType yDt = DataType::Boolean;
+          FUSILLI_REQUIRE_ASSIGN(auto yBuf,
+                                 allocateBufferOfType(handle, yT, yDt, false));
 
-      // Create variant pack.
-      const std::unordered_map<std::shared_ptr<TensorAttr>,
-                               std::shared_ptr<Buffer>>
-          variantPack = {
-              {x0T, x0Buf},
-              {x1T, x1Buf},
-              {yT, yBuf},
-          };
+          // Create variant pack.
+          const std::unordered_map<std::shared_ptr<TensorAttr>,
+                                   std::shared_ptr<Buffer>>
+              variantPack = {
+                  {x0T, x0Buf},
+                  {x1T, x1Buf},
+                  {yT, yBuf},
+              };
 
-      // Allocate workspace buffer if needed.
-      FUSILLI_REQUIRE_ASSIGN(
-          auto workspace, allocateWorkspace(handle, graph->getWorkspaceSize()));
+          // Allocate workspace buffer if needed.
+          FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
+          FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                                 allocateWorkspace(handle, workspaceSize));
 
-      // Execute graph once.
-      FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
+          // Execute graph once.
+          FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
 
-      // Calculate reference value
-      bool y = 0;
-      switch (mode) {
-      case PointwiseAttr::Mode::CMP_EQ: {
-        y = (x0 == x1);
-        break;
-      }
-      case PointwiseAttr::Mode::CMP_LT: {
-        y = (x0 < x1);
-        break;
-      }
-      case PointwiseAttr::Mode::CMP_LE: {
-        y = (x0 <= x1);
-        break;
-      }
-      case PointwiseAttr::Mode::CMP_GT: {
-        y = (x0 > x1);
-        break;
-      }
-      case PointwiseAttr::Mode::CMP_GE: {
-        y = (x0 >= x1);
-        break;
-      }
-      case PointwiseAttr::Mode::CMP_NEQ: {
-        y = (x0 != x1);
-        break;
-      }
-      case PointwiseAttr::Mode::LOGICAL_AND: {
-        y = (x0 != T(0)) && (x1 != T(0));
-        break;
-      }
-      case PointwiseAttr::Mode::LOGICAL_OR: {
-        y = (x0 != T(0)) || (x1 != T(0));
-        break;
-      }
-      default:
-        FAIL("Unsupported pointwise mode: "
-             << PointwiseAttr::kModeToStr.at(mode));
-      }
+          // Calculate reference value
+          bool y = 0;
+          switch (mode) {
+          case PointwiseAttr::Mode::CMP_EQ: {
+            y = (x0 == x1);
+            break;
+          }
+          case PointwiseAttr::Mode::CMP_LT: {
+            y = (x0 < x1);
+            break;
+          }
+          case PointwiseAttr::Mode::CMP_LE: {
+            y = (x0 <= x1);
+            break;
+          }
+          case PointwiseAttr::Mode::CMP_GT: {
+            y = (x0 > x1);
+            break;
+          }
+          case PointwiseAttr::Mode::CMP_GE: {
+            y = (x0 >= x1);
+            break;
+          }
+          case PointwiseAttr::Mode::CMP_NEQ: {
+            y = (x0 != x1);
+            break;
+          }
+          case PointwiseAttr::Mode::LOGICAL_AND: {
+            y = (x0 != T(0)) && (x1 != T(0));
+            break;
+          }
+          case PointwiseAttr::Mode::LOGICAL_OR: {
+            y = (x0 != T(0)) || (x1 != T(0));
+            break;
+          }
+          default:
+            FAIL("Unsupported pointwise mode: "
+                 << PointwiseAttr::kModeToStr.at(mode));
+          }
 
-      // Read output buffers.
-      std::vector<uint8_t> result;
-      FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
-      for (auto val : result) {
-        REQUIRE(val == y);
-      }
+          // Read output buffers.
+          std::vector<uint8_t> result;
+          FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
+          for (auto val : result) {
+            REQUIRE(val == y);
+          }
 
-      // Execute graph a few times.
-      constexpr size_t numIters = 1;
-      for (size_t i = 0; i < numIters; ++i)
-        FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
+          // Execute graph a few times.
+          constexpr size_t numIters = 1;
+          for (size_t i = 0; i < numIters; ++i)
+            FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
 
-      // Repeat output buffer checks.
-      result.clear();
-      FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
-      for (auto val : result)
-        REQUIRE(val == y);
-    }
-  };
+          // Repeat output buffer checks.
+          result.clear();
+          FUSILLI_REQUIRE_OK(yBuf->read(handle, result));
+          for (auto val : result)
+            REQUIRE(val == y);
+        }
+      };
 
   // Create handle for the target backend.
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));

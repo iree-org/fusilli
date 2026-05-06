@@ -86,8 +86,9 @@ TEST_CASE("Batch normalization; inference mode; NCHW layout; no scale/bias",
           {yT, yBuf},
       };
 
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
-                         allocateWorkspace(handle, graph->getWorkspaceSize()));
+                         allocateWorkspace(handle, workspaceSize));
 
   FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
 
