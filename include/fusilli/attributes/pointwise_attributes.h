@@ -42,9 +42,9 @@ namespace fusilli {
   OP(ERF)                                                                      \
   OP(EXP)                                                                      \
   OP(FLOOR)                                                                    \
-  /* OP(GELU_APPROX_TANH_BWD)  */                                              \
+  OP(GELU_APPROX_TANH_BWD)                                                     \
   OP(GELU_APPROX_TANH_FWD)                                                     \
-  /* OP(GELU_BWD) */                                                           \
+  OP(GELU_BWD)                                                                 \
   OP(GELU_FWD)                                                                 \
   /* OP(GEN_INDEX) */                                                          \
   OP(IDENTITY)                                                                 \
@@ -172,7 +172,9 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::ERF, 1},
         {PointwiseAttr::Mode::EXP, 1},
         {PointwiseAttr::Mode::FLOOR, 1},
+        {PointwiseAttr::Mode::GELU_APPROX_TANH_BWD, 2},
         {PointwiseAttr::Mode::GELU_APPROX_TANH_FWD, 1},
+        {PointwiseAttr::Mode::GELU_BWD, 2},
         {PointwiseAttr::Mode::GELU_FWD, 1},
         {PointwiseAttr::Mode::LOG, 1},
         {PointwiseAttr::Mode::LOGICAL_AND, 2},

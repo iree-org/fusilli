@@ -128,6 +128,16 @@ add_fusilli_samples(
     Catch2::Catch2WithMain
 )
 
+add_fusilli_samples(
+  PREFIX fusilli_aot_samples
+  SRCS
+    aot/single_backend.cpp
+    aot/multi_backend.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)
 
 
 add_fusilli_samples(
