@@ -243,9 +243,6 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
   // Determine initial value based on reduction mode
   auto getInitValue = [&]<typename T>() -> T {
     switch (mode) {
-    case ReductionAttr::Mode::ADD:
-    case ReductionAttr::Mode::SUM:
-      return T(0);
     case ReductionAttr::Mode::MIN:
       return std::numeric_limits<T>::max();
     case ReductionAttr::Mode::MAX:
@@ -253,6 +250,8 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
     case ReductionAttr::Mode::MUL:
     case ReductionAttr::Mode::MUL_NO_ZEROS:
       return T(1);
+    case ReductionAttr::Mode::ADD:
+    case ReductionAttr::Mode::SUM:
     case ReductionAttr::Mode::AMAX:
     case ReductionAttr::Mode::AVG:
     case ReductionAttr::Mode::NORM1:
