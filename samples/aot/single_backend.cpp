@@ -64,7 +64,6 @@ TEST_CASE("AOT single-backend artifact compile/load/execute round trip",
         compileGraph.graph->compileToArtifact(kDefaultBackend,
                                               /*remove=*/true));
     REQUIRE(!callerOwnedArtifactBytes.empty());
-    REQUIRE(!compileGraph.graph->getWorkspaceSize().has_value());
   }
 
   // Caller code may serialize and de-serialize the compiled artifacts here.
@@ -77,8 +76,6 @@ TEST_CASE("AOT single-backend artifact compile/load/execute round trip",
       buildPointwiseAddGraph("aot_single_backend_runtime_graph");
   FUSILLI_REQUIRE_OK(
       runtimeGraph.graph->loadFromArtifact(handle, callerOwnedArtifactBytes));
-
-  REQUIRE(runtimeGraph.graph->getWorkspaceSize().has_value());
 
   FUSILLI_REQUIRE_ASSIGN(
       auto x0Buf,
@@ -96,9 +93,12 @@ TEST_CASE("AOT single-backend artifact compile/load/execute round trip",
           {runtimeGraph.y, yBuf},
       };
 
-  FUSILLI_REQUIRE_ASSIGN(
-      auto workspace,
-      allocateWorkspace(handle, runtimeGraph.graph->getWorkspaceSize()));
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
+                         runtimeGraph.graph->getWorkspaceSize());
+  REQUIRE(workspaceSize.has_value());
+
+  FUSILLI_REQUIRE_ASSIGN(auto workspace,
+                         allocateWorkspace(handle, workspaceSize));
 
   FUSILLI_REQUIRE_OK(
       runtimeGraph.graph->execute(handle, variantPack, workspace));

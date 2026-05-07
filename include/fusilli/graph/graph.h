@@ -166,19 +166,19 @@ public:
   }
 
   // Loads a compiled VMFB artifact onto the device owned by `handle`, creating
-  // per-graph runtime state and querying workspace size. This does not require
-  // the artifact to have been produced by this `Graph` instance.
+  // per-graph runtime state. This does not require the artifact to have been
+  // produced by this `Graph` instance.
   //
   // The artifact must be compatible with `handle.getBackend()`. A VMFB compiled
   // for one backend is not a portable artifact for another backend.
   //
   // A `Graph` owns one loaded runtime state at a time. Loading a new artifact
-  // replaces any previously loaded VM context, function, workspace size, and VM
-  // input list capacity. If loading fails, the `Graph` is left without loaded
-  // runtime state. To keep multiple backends loaded concurrently, use one
-  // `Graph` instance per backend artifact. To switch backends on one `Graph`,
-  // call `loadFromArtifact()` with the selected backend artifact before
-  // `execute()`.
+  // replaces any previously loaded VM context, function, workspace query cache,
+  // and VM input list capacity. If loading fails, the `Graph` is left without
+  // loaded runtime state. To keep multiple backends loaded concurrently, use
+  // one `Graph` instance per backend artifact. To switch backends on one
+  // `Graph`, call `loadFromArtifact()` with the selected backend artifact
+  // before `execute()`.
   ErrorObject loadFromArtifact(const Handle &handle,
                                std::span<const uint8_t> vmfbBytes) {
     FUSILLI_LOG_LABEL_ENDL("INFO: Loading compiled artifact into VM context");
@@ -279,14 +279,16 @@ public:
   //     doSomethingWith(hostData);
   //
   // Workspace Buffer Usage:
-  //   After calling compile(), query getWorkspaceSize() to determine if a
-  //   workspace buffer is needed. If size > 0, allocate using
-  //   Buffer::allocateRaw() and pass it to execute(). The same workspace
-  //   buffer can be reused across multiple execute() calls.
+  //   After calling compile(), query getWorkspaceSize() to determine
+  //   if a workspace buffer is needed. If size > 0, allocate using
+  //   Buffer::allocateRaw() and pass it to execute(). Calling
+  //   getWorkspaceSize() before execute() is required, and the same
+  //   workspace buffer can be reused across multiple execute() calls.
   //
   //   Example:
   //     graph.compile(handle);
-  //     auto wsSize = graph.getWorkspaceSize();
+  //     FUSILLI_ASSIGN_OR_RETURN(auto wsSize,
+  //                              graph.getWorkspaceSize());
   //     std::shared_ptr<Buffer> workspace = nullptr;
   //     if (wsSize.value_or(0) > 0) {
   //       FUSILLI_ASSIGN_OR_RETURN(auto wsBuf,
@@ -388,10 +390,11 @@ public:
   customOp(std::vector<std::shared_ptr<TensorAttr>> inputs,
            CustomOpAttr &customOpAttr);
 
-  // Query required workspace buffer size.
-  // Returns std::nullopt if not compiled, 0 if no workspace needed,
-  // or the required size in bytes.
-  std::optional<size_t> getWorkspaceSize() const { return workspaceSize_; }
+  // Query required workspace buffer size. Returns std::nullopt if no runtime
+  // artifact is loaded, 0 if no workspace is needed, or the maximum required
+  // size in bytes seen for the currently loaded runtime state. Dynamic
+  // workspace sizes are not supported yet and return an error.
+  ErrorOr<std::optional<size_t>> getWorkspaceSize();
 
   // ASM emitter driver method.
   //
@@ -477,7 +480,7 @@ private:
   // module. Returns the size in bytes, or 0 if no transients are needed.
   // Returns an error if the module requires dynamic transient sizes.
   // Definition in `fusilli/backend/runtime.h`.
-  ErrorOr<size_t> queryTransientSize();
+  ErrorOr<size_t> queryTransientSize() const;
 
   // Create compiled artifacts from graph writing results to the cache. Set
   // `remove = true` to remove cache files when returned `CachedAssets` lifetime
@@ -708,9 +711,9 @@ private:
   // Avoids repeated function lookup on every execute() call.
   std::optional<iree_vm_function_t> vmFunction_;
 
-  // Required workspace buffer size in bytes. Set during createVmContext()
-  // by querying the iree.abi.transients.size.constant attribute.
-  // std::nullopt indicates the graph has not been compiled yet.
+  // Maximum required workspace buffer size in bytes seen by getWorkspaceSize().
+  // std::nullopt indicates the workspace size has not been queried for the
+  // currently loaded runtime state.
   std::optional<size_t> workspaceSize_;
 
   // Pre-computed VM input list capacity for iree_vm_list_create().

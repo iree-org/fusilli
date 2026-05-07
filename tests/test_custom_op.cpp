@@ -137,8 +137,9 @@ TEST_CASE("CustomOp compile + execute round-trip", "[custom_op]") {
   const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
       variantPack = {{a, aBuf}, {b, bBuf}, {outs[0], outBuf}};
 
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, g.getWorkspaceSize());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
-                         allocateWorkspace(handle, g.getWorkspaceSize()));
+                         allocateWorkspace(handle, workspaceSize));
   FUSILLI_REQUIRE_OK(g.execute(handle, variantPack, workspace));
 
   std::vector<float> result;
@@ -205,8 +206,9 @@ TEST_CASE("CustomOp composition: built-in op -> custom op", "[custom_op]") {
   const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
       variantPack = {{a, aBuf}, {b, bBuf}, {outs[0], outBuf}};
 
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, g.getWorkspaceSize());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
-                         allocateWorkspace(handle, g.getWorkspaceSize()));
+                         allocateWorkspace(handle, workspaceSize));
   FUSILLI_REQUIRE_OK(g.execute(handle, variantPack, workspace));
 
   std::vector<float> result;

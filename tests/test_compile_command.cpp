@@ -20,9 +20,6 @@ using namespace fusilli;
 static std::string kGraphName = "test_compile_command";
 
 TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {
-  // Create test handle for CPU backend.
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-
   // Create temporary cache files.
   FUSILLI_REQUIRE_ASSIGN(
       CacheFile input,
@@ -43,7 +40,7 @@ TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {
 
   // Build the compile command.
   CompileCommand cmd =
-      CompileCommand::build(handle.getBackend(), input, output, statistics);
+      CompileCommand::build(Backend::CPU, input, output, statistics);
 
   // Verify the command arguments.
   const auto &args = cmd.getArgs();
@@ -101,9 +98,6 @@ TEST_CASE("CompileCommand::build with CPU backend", "[CompileCommand]") {
 
 #if defined(FUSILLI_ENABLE_AMDGPU)
 TEST_CASE("CompileCommand::build with AMDGPU backend", "[CompileCommand]") {
-  // Create test handle for AMDGPU backend.
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-
   // Create temporary cache files.
   FUSILLI_REQUIRE_ASSIGN(
       CacheFile input,
@@ -124,7 +118,7 @@ TEST_CASE("CompileCommand::build with AMDGPU backend", "[CompileCommand]") {
 
   // Build the compile command.
   CompileCommand cmd =
-      CompileCommand::build(handle.getBackend(), input, output, statistics);
+      CompileCommand::build(Backend::AMDGPU, input, output, statistics);
 
   // Verify the command arguments.
   const auto &args = cmd.getArgs();
@@ -160,9 +154,6 @@ TEST_CASE("CompileCommand::build with AMDGPU backend", "[CompileCommand]") {
 #endif
 
 TEST_CASE("CompileCommand::toString format", "[CompileCommand]") {
-  // Create test handle.
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-
   // Create temporary cache files.
   FUSILLI_REQUIRE_ASSIGN(
       CacheFile input,
@@ -180,7 +171,7 @@ TEST_CASE("CompileCommand::toString format", "[CompileCommand]") {
 
   // Build the compile command.
   CompileCommand cmd =
-      CompileCommand::build(handle.getBackend(), input, output, statistics);
+      CompileCommand::build(Backend::CPU, input, output, statistics);
 
   // Get string representation.
   std::string cmdStr = cmd.toString();
@@ -200,9 +191,6 @@ TEST_CASE("CompileCommand::toString format", "[CompileCommand]") {
 }
 
 TEST_CASE("CompileCommand::writeTo", "[CompileCommand]") {
-  // Create test handle.
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-
   // Create temporary cache files.
   FUSILLI_REQUIRE_ASSIGN(
       CacheFile input,
@@ -223,7 +211,7 @@ TEST_CASE("CompileCommand::writeTo", "[CompileCommand]") {
 
   // Build the compile command.
   CompileCommand cmd =
-      CompileCommand::build(handle.getBackend(), input, output, statistics);
+      CompileCommand::build(kDefaultBackend, input, output, statistics);
 
   // Write to cache file.
   FUSILLI_REQUIRE_OK(cmd.writeTo(commandFile));
@@ -236,9 +224,6 @@ TEST_CASE("CompileCommand::writeTo", "[CompileCommand]") {
 }
 
 TEST_CASE("CompileCommand::getArgs", "[CompileCommand]") {
-  // Create test handle.
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-
   // Create temporary cache files.
   FUSILLI_REQUIRE_ASSIGN(
       CacheFile input,
@@ -256,7 +241,7 @@ TEST_CASE("CompileCommand::getArgs", "[CompileCommand]") {
 
   // Build the compile command.
   CompileCommand cmd =
-      CompileCommand::build(handle.getBackend(), input, output, statistics);
+      CompileCommand::build(kDefaultBackend, input, output, statistics);
 
   // Get args and verify structure.
   const auto &args = cmd.getArgs();
@@ -276,9 +261,6 @@ TEST_CASE("CompileCommand::getArgs", "[CompileCommand]") {
 }
 
 TEST_CASE("CompileCommand round-trip serialization", "[CompileCommand]") {
-  // Create test handle.
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-
   // Create temporary cache files.
   FUSILLI_REQUIRE_ASSIGN(
       CacheFile input,
@@ -299,12 +281,12 @@ TEST_CASE("CompileCommand round-trip serialization", "[CompileCommand]") {
 
   // Build and write command.
   CompileCommand cmd1 =
-      CompileCommand::build(handle.getBackend(), input, output, statistics);
+      CompileCommand::build(kDefaultBackend, input, output, statistics);
   FUSILLI_REQUIRE_OK(cmd1.writeTo(commandFile));
 
   // Build another command with the same parameters.
   CompileCommand cmd2 =
-      CompileCommand::build(handle.getBackend(), input, output, statistics);
+      CompileCommand::build(kDefaultBackend, input, output, statistics);
 
   // Read the serialized command.
   FUSILLI_REQUIRE_ASSIGN(std::string serializedCmd, commandFile.read());

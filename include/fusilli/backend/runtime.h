@@ -311,11 +311,19 @@ inline ErrorObject Graph::createVmContext(const Handle &handle) {
   if (executeAsync)
     vmInputListCapacity_ += 2;
 
-  // Query the required workspace size from the compiled module.
-  FUSILLI_LOG_LABEL_ENDL("INFO: Querying workspace size from compiled module");
-  FUSILLI_ASSIGN_OR_RETURN(workspaceSize_, queryTransientSize());
-
   return ok();
+}
+
+inline ErrorOr<std::optional<size_t>> Graph::getWorkspaceSize() {
+  if (vmContext_ == nullptr)
+    return ok(std::optional<size_t>());
+
+  FUSILLI_LOG_LABEL_ENDL("INFO: Querying workspace size from compiled module");
+  FUSILLI_ASSIGN_OR_RETURN(size_t workspaceSize, queryTransientSize());
+  if (!workspaceSize_.has_value() || workspaceSize > *workspaceSize_)
+    workspaceSize_ = workspaceSize;
+
+  return ok(workspaceSize_);
 }
 
 // Queries the required transient/workspace buffer size from the compiled
@@ -324,7 +332,7 @@ inline ErrorObject Graph::createVmContext(const Handle &handle) {
 // for the constant workspace size case, or an "iree.abi.transients.size"
 // function for the data-dependent workspace size case. Only the former is
 // supported by Fusilli at the moment.
-inline ErrorOr<size_t> Graph::queryTransientSize() {
+inline ErrorOr<size_t> Graph::queryTransientSize() const {
   // Always resolve the async function for attribute queries. The
   // iree.abi.transients.size.constant attribute is stored in the
   // iree.reflection dict on the @main$async entry point. The sync wrapper
@@ -394,6 +402,10 @@ Graph::execute(const Handle &handle,
                               ", but the loaded artifact uses backend " +
                               kBackendToStr.at(*loadedBackend_));
   bool executeAsync = kBackendExecuteAsync.at(handle.getBackend());
+  FUSILLI_RETURN_ERROR_IF(
+      !workspaceSize_.has_value(), ErrorCode::InvalidArgument,
+      "Graph::execute requires getWorkspaceSize() to be called before "
+      "workspace allocation and execution");
 
   iree_allocator_t allocator = iree_allocator_system();
 
@@ -448,7 +460,7 @@ Graph::execute(const Handle &handle,
   // adds a !hal.buffer argument to the generated function signature, even when
   // no transient storage is needed (size = 0). We must always push a buffer
   // (or null ref when size = 0) to satisfy the function signature.
-  if (workspaceSize_.value_or(0) > 0) {
+  if (*workspaceSize_ > 0) {
     FUSILLI_RETURN_ERROR_IF(
         workspace == nullptr, ErrorCode::InvalidArgument,
         "Workspace buffer required but not provided (size=" +

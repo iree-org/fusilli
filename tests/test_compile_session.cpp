@@ -91,11 +91,8 @@ TEST_CASE("CompileContext::createSession with CPU backend",
   FUSILLI_REQUIRE_ASSIGN(auto *context, CompileContext::create());
   REQUIRE(context != nullptr);
 
-  // Create a handle for CPU backend.
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
-
   // Create a session.
-  auto maybeSession = context->createSession(handle.getBackend());
+  auto maybeSession = context->createSession(Backend::CPU);
   FUSILLI_REQUIRE_OK(maybeSession);
 
   FUSILLI_REQUIRE_ASSIGN(CompileSession session, std::move(maybeSession));
@@ -111,11 +108,8 @@ TEST_CASE("CompileContext::createSession with AMDGPU backend",
   FUSILLI_REQUIRE_ASSIGN(auto *context, CompileContext::create());
   REQUIRE(context != nullptr);
 
-  // Create a handle for AMDGPU backend.
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-
   // Create a session.
-  auto maybeSession = context->createSession(handle.getBackend());
+  auto maybeSession = context->createSession(Backend::AMDGPU);
   FUSILLI_REQUIRE_OK(maybeSession);
 
   FUSILLI_REQUIRE_ASSIGN(CompileSession session, std::move(maybeSession));
@@ -131,16 +125,13 @@ TEST_CASE("CompileContext supports multiple sessions",
   FUSILLI_REQUIRE_ASSIGN(auto *context, CompileContext::create());
   REQUIRE(context != nullptr);
 
-  // Create a handle.
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-
   // Create multiple sessions from the same context.
   FUSILLI_REQUIRE_ASSIGN(auto session1,
-                         context->createSession(handle.getBackend()));
+                         context->createSession(kDefaultBackend));
   FUSILLI_REQUIRE_ASSIGN(auto session2,
-                         context->createSession(handle.getBackend()));
+                         context->createSession(kDefaultBackend));
   FUSILLI_REQUIRE_ASSIGN(auto session3,
-                         context->createSession(handle.getBackend()));
+                         context->createSession(kDefaultBackend));
 
   // All sessions should be valid.
   SUCCEED("Multiple sessions created successfully");
@@ -150,9 +141,7 @@ TEST_CASE("CompileSession::addFlag", "[CompileSession]") {
   // Get the shared compiler context and create a session.
   FUSILLI_REQUIRE_ASSIGN(auto *context, CompileContext::create());
   REQUIRE(context != nullptr);
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-  FUSILLI_REQUIRE_ASSIGN(auto session,
-                         context->createSession(handle.getBackend()));
+  FUSILLI_REQUIRE_ASSIGN(auto session, context->createSession(kDefaultBackend));
 
   // Add a flag.
   FUSILLI_REQUIRE_OK(session.addFlag("--iree-opt-level=O3"));
@@ -165,9 +154,7 @@ TEST_CASE("CompileSession::addFlags", "[CompileSession]") {
   // Get the shared compiler context and create a session.
   FUSILLI_REQUIRE_ASSIGN(auto *context, CompileContext::create());
   REQUIRE(context != nullptr);
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-  FUSILLI_REQUIRE_ASSIGN(auto session,
-                         context->createSession(handle.getBackend()));
+  FUSILLI_REQUIRE_ASSIGN(auto session, context->createSession(kDefaultBackend));
 
   // Add multiple flags.
   std::vector<std::string> flags = {
@@ -185,9 +172,7 @@ TEST_CASE("CompileSession::compile with valid MLIR",
   // Get the shared compiler context and create a session.
   FUSILLI_REQUIRE_ASSIGN(auto *context, CompileContext::create());
   REQUIRE(context != nullptr);
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-  FUSILLI_REQUIRE_ASSIGN(auto session,
-                         context->createSession(handle.getBackend()));
+  FUSILLI_REQUIRE_ASSIGN(auto session, context->createSession(kDefaultBackend));
 
   // Create temporary cache files.
   FUSILLI_REQUIRE_ASSIGN(
@@ -220,9 +205,7 @@ TEST_CASE("CompileSession::compile with custom flags",
   // Get the shared compiler context and create a session.
   FUSILLI_REQUIRE_ASSIGN(auto *context, CompileContext::create());
   REQUIRE(context != nullptr);
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-  FUSILLI_REQUIRE_ASSIGN(auto session,
-                         context->createSession(handle.getBackend()));
+  FUSILLI_REQUIRE_ASSIGN(auto session, context->createSession(kDefaultBackend));
 
   // Add custom optimization flags.
   FUSILLI_REQUIRE_OK(session.addFlag("--iree-opt-level=O3"));
@@ -260,9 +243,7 @@ TEST_CASE("CompileSession::compile with invalid MLIR",
   // Get the shared compiler context and create a session.
   FUSILLI_REQUIRE_ASSIGN(auto *context, CompileContext::create());
   REQUIRE(context != nullptr);
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-  FUSILLI_REQUIRE_ASSIGN(auto session,
-                         context->createSession(handle.getBackend()));
+  FUSILLI_REQUIRE_ASSIGN(auto session, context->createSession(kDefaultBackend));
 
   // Create temporary cache files.
   FUSILLI_REQUIRE_ASSIGN(
@@ -292,9 +273,7 @@ TEST_CASE("CompileSession::compile with missing input file",
   // Get the shared compiler context and create a session.
   FUSILLI_REQUIRE_ASSIGN(auto *context, CompileContext::create());
   REQUIRE(context != nullptr);
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-  FUSILLI_REQUIRE_ASSIGN(auto session,
-                         context->createSession(handle.getBackend()));
+  FUSILLI_REQUIRE_ASSIGN(auto session, context->createSession(kDefaultBackend));
 
   // Create cache files but don't write to input.
   FUSILLI_REQUIRE_ASSIGN(
@@ -319,9 +298,8 @@ TEST_CASE("CompileSession move semantics", "[CompileSession]") {
   // Get the shared compiler context and create sessions.
   FUSILLI_REQUIRE_ASSIGN(auto *context, CompileContext::create());
   REQUIRE(context != nullptr);
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   FUSILLI_REQUIRE_ASSIGN(auto session1,
-                         context->createSession(handle.getBackend()));
+                         context->createSession(kDefaultBackend));
 
   // Add a flag to session1.
   FUSILLI_REQUIRE_OK(session1.addFlag("--iree-opt-level=O3"));
@@ -341,9 +319,7 @@ TEST_CASE("CompileSession::compile with AMDGPU backend",
   // Get the shared compiler context and create a session for AMDGPU.
   FUSILLI_REQUIRE_ASSIGN(auto *context, CompileContext::create());
   REQUIRE(context != nullptr);
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::AMDGPU));
-  FUSILLI_REQUIRE_ASSIGN(auto session,
-                         context->createSession(handle.getBackend()));
+  FUSILLI_REQUIRE_ASSIGN(auto session, context->createSession(Backend::AMDGPU));
 
   // Create temporary cache files.
   FUSILLI_REQUIRE_ASSIGN(
@@ -376,12 +352,11 @@ TEST_CASE("CompileSession cleanup on destruction", "[CompileSession]") {
   // Get the shared compiler context.
   FUSILLI_REQUIRE_ASSIGN(auto *context, CompileContext::create());
   REQUIRE(context != nullptr);
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   // Create a session in a nested scope.
   {
     FUSILLI_REQUIRE_ASSIGN(auto session,
-                           context->createSession(handle.getBackend()));
+                           context->createSession(kDefaultBackend));
 
     // Use the session.
     FUSILLI_REQUIRE_OK(session.addFlag("--iree-opt-level=O3"));
@@ -392,7 +367,7 @@ TEST_CASE("CompileSession cleanup on destruction", "[CompileSession]") {
   // Should be able to create a new session after the previous one was
   // destroyed.
   FUSILLI_REQUIRE_ASSIGN(auto session2,
-                         context->createSession(handle.getBackend()));
+                         context->createSession(kDefaultBackend));
   FUSILLI_REQUIRE_OK(session2.addFlag("--iree-opt-level=O2"));
 
   SUCCEED("Session cleanup and recreation works correctly");
@@ -402,9 +377,7 @@ TEST_CASE("CompileSession with invalid flag", "[CompileSession][error]") {
   // Get the shared compiler context and create a session.
   FUSILLI_REQUIRE_ASSIGN(auto *context, CompileContext::create());
   REQUIRE(context != nullptr);
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
-  FUSILLI_REQUIRE_ASSIGN(auto session,
-                         context->createSession(handle.getBackend()));
+  FUSILLI_REQUIRE_ASSIGN(auto session, context->createSession(kDefaultBackend));
 
   // Try to add an invalid flag.
   auto result = session.addFlag("--this-is-not-a-valid-iree-flag-xyz123");
@@ -442,7 +415,6 @@ TEST_CASE("Multiple CompileContexts can coexist", "[CompileContext]") {
 // ===========================================================================
 
 TEST_CASE("CompileSession::build with CPU backend", "[CompileSession]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(Backend::CPU));
   FUSILLI_REQUIRE_ASSIGN(CacheFile input,
                          CacheFile::create(kGraphName, "input.mlir", true));
   FUSILLI_REQUIRE_ASSIGN(CacheFile output,
@@ -457,7 +429,7 @@ TEST_CASE("CompileSession::build with CPU backend", "[CompileSession]") {
 
   FUSILLI_REQUIRE_ASSIGN(
       CompileSession session,
-      CompileSession::build(handle.getBackend(), input, output, statistics));
+      CompileSession::build(Backend::CPU, input, output, statistics));
 
   // Verify that flags were added (including statistics flags).
   const auto &args = session.getArgs();
@@ -481,7 +453,6 @@ TEST_CASE("CompileSession::build with CPU backend", "[CompileSession]") {
 }
 
 TEST_CASE("CompileSession::toString format", "[CompileSession]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   FUSILLI_REQUIRE_ASSIGN(CacheFile input,
                          CacheFile::create(kGraphName, "input.mlir", true));
   FUSILLI_REQUIRE_ASSIGN(CacheFile output,
@@ -496,7 +467,7 @@ TEST_CASE("CompileSession::toString format", "[CompileSession]") {
 
   FUSILLI_REQUIRE_ASSIGN(
       CompileSession session,
-      CompileSession::build(handle.getBackend(), input, output, statistics));
+      CompileSession::build(kDefaultBackend, input, output, statistics));
 
   std::string cmdStr = session.toString();
 
@@ -507,7 +478,6 @@ TEST_CASE("CompileSession::toString format", "[CompileSession]") {
 }
 
 TEST_CASE("CompileSession::writeTo", "[CompileSession]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   FUSILLI_REQUIRE_ASSIGN(CacheFile input,
                          CacheFile::create(kGraphName, "input.mlir", true));
   FUSILLI_REQUIRE_ASSIGN(CacheFile output,
@@ -524,7 +494,7 @@ TEST_CASE("CompileSession::writeTo", "[CompileSession]") {
 
   FUSILLI_REQUIRE_ASSIGN(
       CompileSession session,
-      CompileSession::build(handle.getBackend(), input, output, statistics));
+      CompileSession::build(kDefaultBackend, input, output, statistics));
 
   FUSILLI_REQUIRE_OK(session.writeTo(commandFile));
 
@@ -534,7 +504,6 @@ TEST_CASE("CompileSession::writeTo", "[CompileSession]") {
 }
 
 TEST_CASE("CompileSession::execute with valid MLIR", "[CompileSession]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   FUSILLI_REQUIRE_ASSIGN(CacheFile input,
                          CacheFile::create(kGraphName, "input.mlir", true));
   FUSILLI_REQUIRE_ASSIGN(CacheFile output,
@@ -552,7 +521,7 @@ TEST_CASE("CompileSession::execute with valid MLIR", "[CompileSession]") {
 
   FUSILLI_REQUIRE_ASSIGN(
       CompileSession session,
-      CompileSession::build(handle.getBackend(), input, output, statistics));
+      CompileSession::build(kDefaultBackend, input, output, statistics));
 
   // Execute compilation.
   FUSILLI_REQUIRE_OK(session.execute());
@@ -567,7 +536,6 @@ TEST_CASE("CompileSession::execute with valid MLIR", "[CompileSession]") {
 }
 
 TEST_CASE("CompileSession::getArgs", "[CompileSession]") {
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   FUSILLI_REQUIRE_ASSIGN(CacheFile input,
                          CacheFile::create(kGraphName, "input.mlir", true));
   FUSILLI_REQUIRE_ASSIGN(CacheFile output,
@@ -582,7 +550,7 @@ TEST_CASE("CompileSession::getArgs", "[CompileSession]") {
 
   FUSILLI_REQUIRE_ASSIGN(
       CompileSession session,
-      CompileSession::build(handle.getBackend(), input, output, statistics));
+      CompileSession::build(kDefaultBackend, input, output, statistics));
 
   const auto &args = session.getArgs();
 
@@ -600,9 +568,8 @@ TEST_CASE("CompileSession::addFlag with tuning spec path",
   // Verify tuning spec path flag is accepted by C API.
   FUSILLI_REQUIRE_ASSIGN(CompileContext * context, CompileContext::create());
   REQUIRE(context != nullptr);
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   FUSILLI_REQUIRE_ASSIGN(CompileSession session,
-                         context->createSession(handle.getBackend()));
+                         context->createSession(kDefaultBackend));
 
   ErrorObject result =
       session.addFlag("--iree-codegen-tuning-spec-path=" +
@@ -622,9 +589,8 @@ TEST_CASE("CompileSession::compile with tuning spec",
   // End-to-end compilation with tuning spec via C API.
   FUSILLI_REQUIRE_ASSIGN(CompileContext * context, CompileContext::create());
   REQUIRE(context != nullptr);
-  FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   FUSILLI_REQUIRE_ASSIGN(CompileSession session,
-                         context->createSession(handle.getBackend()));
+                         context->createSession(kDefaultBackend));
 
   FUSILLI_REQUIRE_OK(session.addFlag("--iree-codegen-tuning-spec-path=" +
                                      getTestTuningSpecPath().generic_string()));
