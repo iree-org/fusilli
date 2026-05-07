@@ -223,9 +223,15 @@ add_fusilli_lit_tests(
     lit/test_sdpa_asm_emitter_gqa_hk_ne_hv.cpp
     lit/test_sdpa_asm_emitter_custom_scale.cpp
     lit/test_sdpa_asm_emitter_cross_attn.cpp
-    lit/test_reduction_asm_emitter_sum.cpp
+    lit/test_reduction_asm_emitter_add.cpp
     lit/test_reduction_asm_emitter_min.cpp
+    lit/test_reduction_asm_emitter_amax.cpp
     lit/test_reduction_asm_emitter_max.cpp
+    lit/test_reduction_asm_emitter_mul.cpp
+    lit/test_reduction_asm_emitter_mul_no_zeros.cpp
+    lit/test_reduction_asm_emitter_norm1.cpp
+    lit/test_reduction_asm_emitter_avg.cpp
+    lit/test_reduction_asm_emitter_norm2.cpp
   DEPS
     libfusilli
     libutils

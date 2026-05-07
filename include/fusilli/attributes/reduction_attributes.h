@@ -26,16 +26,16 @@ namespace fusilli {
 
 #define FUSILLI_REDUCTION_MODES(OP)                                            \
   OP(NOT_SET)                                                                  \
-  OP(SUM)                                                                      \
-  /* OP(ADD) */                                                                \
-  /* OP(MUL) */                                                                \
+  OP(ADD)                                                                      \
+  OP(SUM) /* Remove once SUM is deprecated  */                                 \
+  OP(MUL)                                                                      \
   OP(MIN)                                                                      \
   OP(MAX)                                                                      \
-  /* OP(AMAX) */                                                               \
-  /* OP(AVG) */                                                                \
-  /* OP(NORM1) */                                                              \
-  /* OP(NORM2) */                                                              \
-  /* OP(MUL_NO_ZEROS) */
+  OP(AMAX)                                                                     \
+  OP(AVG)                                                                      \
+  OP(NORM1)                                                                    \
+  OP(NORM2)                                                                    \
+  OP(MUL_NO_ZEROS)
 
 class ReductionAttr : public AttributesCRTP<ReductionAttr> {
 public:

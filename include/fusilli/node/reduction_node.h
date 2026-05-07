@@ -119,6 +119,13 @@ public:
         ErrorCode::InvalidAttribute,
         "Reduction input and output must have the same rank");
 
+    FUSILLI_RETURN_ERROR_IF(
+        reductionAttr.getMode() == ReductionAttr::Mode::AVG &&
+            (isIntegralOrBoolType(xTensor->getDataType()) ||
+             isIntegralOrBoolType(yTensor->getDataType())),
+        ErrorCode::InvalidAttribute,
+        "Reduction AVG is not supported for integral or boolean tensors");
+
     // Validate reduction dimensions - if Y[i] differs from X[i], Y[i] must be 1
     const auto &xDim = xTensor->getDim();
     const auto &yDim = yTensor->getDim();
