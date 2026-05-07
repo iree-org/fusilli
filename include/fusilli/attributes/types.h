@@ -45,6 +45,24 @@ enum class DataType : uint8_t {
 #undef DEFINE_ENUM
 };
 
+inline bool isIntegerType(DataType type) {
+  switch (type) {
+  case DataType::Uint8:
+  case DataType::Int4:
+  case DataType::Int8:
+  case DataType::Int16:
+  case DataType::Int32:
+  case DataType::Int64:
+    return true;
+  default:
+    return false;
+  }
+}
+
+inline bool isIntegralOrBoolType(DataType type) {
+  return isIntegerType(type) || type == DataType::Boolean;
+}
+
 // Map from Fusilli types to MLIR types.
 static const std::unordered_map<DataType, std::string> kDataTypeToMlirTypeAsm =
     {

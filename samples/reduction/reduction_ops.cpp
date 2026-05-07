@@ -86,12 +86,13 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
 
   // clang-format off
   const auto mode = GENERATE(
+      ReductionAttr::Mode::ADD,
       ReductionAttr::Mode::SUM,
       ReductionAttr::Mode::MIN,
       ReductionAttr::Mode::MAX,
-      ReductionAttr::Mode::NORM1,
       ReductionAttr::Mode::AMAX,
       ReductionAttr::Mode::AVG,
+      ReductionAttr::Mode::NORM1,
       ReductionAttr::Mode::NORM2,
       ReductionAttr::Mode::MUL,
       ReductionAttr::Mode::MUL_NO_ZEROS);
@@ -166,6 +167,7 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
       for (int64_t d3 = 0; d3 < 8; ++d3) {
         int64_t inIdx = ((d0 * 16 + d1) * 8 + d2) * 8 + d3;
         switch (mode) {
+        case ReductionAttr::Mode::ADD:
         case ReductionAttr::Mode::SUM:
           expectedValue = expectedValue + xData[inIdx];
           break;
@@ -241,6 +243,7 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
   // Determine initial value based on reduction mode
   auto getInitValue = [&]<typename T>() -> T {
     switch (mode) {
+    case ReductionAttr::Mode::ADD:
     case ReductionAttr::Mode::SUM:
       return T(0);
     case ReductionAttr::Mode::MIN:
@@ -250,9 +253,9 @@ TEST_CASE("Reduction ops", "[reduction][graph]") {
     case ReductionAttr::Mode::MUL:
     case ReductionAttr::Mode::MUL_NO_ZEROS:
       return T(1);
-    case ReductionAttr::Mode::NORM1:
     case ReductionAttr::Mode::AMAX:
     case ReductionAttr::Mode::AVG:
+    case ReductionAttr::Mode::NORM1:
     case ReductionAttr::Mode::NORM2:
     default:
       return T(0);

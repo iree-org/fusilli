@@ -2165,15 +2165,6 @@ inline std::string ReductionNode::emitNodePreAsm() const {
     {7}
     )";
 
-  constexpr std::string_view kAbsAmaxSchema = R"(
-    {0}
-    {1}
-    %abs_{2} = torch.aten.abs {4} : {5} -> {5}
-    %keepdim_{2} = torch.constant.bool true
-    {3}_{2}_perm = torch.aten.amax %abs_{2}, %reduction_dims_{2}, %keepdim_{2} : {5}, !torch.list<int>, !torch.bool -> {6}
-    {7}
-    )";
-
   constexpr std::string_view kNorm2Schema = R"(
     {0}
     {1}
@@ -2182,6 +2173,15 @@ inline std::string ReductionNode::emitNodePreAsm() const {
     %dtype_{2} = torch.constant.none
     %sumsq_{2} = torch.aten.sum.dim_IntList %sq_{2}, %reduction_dims_{2}, %keepdim_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.bool, !torch.none -> {6}
     {3}_{2}_perm = torch.aten.sqrt %sumsq_{2} : {6} -> {6}
+    {7}
+    )";
+
+  constexpr std::string_view kAbsAmaxSchema = R"(
+    {0}
+    {1}
+    %abs_{2} = torch.aten.abs {4} : {5} -> {5}
+    %keepdim_{2} = torch.constant.bool true
+    {3}_{2}_perm = torch.aten.amax %abs_{2}, %reduction_dims_{2}, %keepdim_{2} : {5}, !torch.list<int>, !torch.bool -> {6}
     {7}
     )";
 
@@ -2239,7 +2239,8 @@ inline std::string ReductionNode::emitNodePreAsm() const {
   }
 
   switch (reductionAttr.getMode()) {
-  case ReductionAttr::Mode::ADD:
+    FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER(ADD,
+                                                    torch.aten.sum.dim_IntList)
     FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER(SUM,
                                                     torch.aten.sum.dim_IntList)
     FUSILLI_DECLARE_KEEPDIM_REDUCTION_EMITTER(MIN, torch.aten.amin)
