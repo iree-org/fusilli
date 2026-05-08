@@ -118,6 +118,18 @@ add_fusilli_samples(
 )
 
 add_fusilli_samples(
+  PREFIX fusilli_dynamic_shape_samples
+  SRCS
+    dynamic_shapes/conv_fprop_dynamic_batch.cpp
+    dynamic_shapes/custom_op_dynamic_batch.cpp
+    dynamic_shapes/reduction_min_max_dynamic_batch.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)
+
+add_fusilli_samples(
   PREFIX fusilli_custom_op_samples
   SRCS
     custom_op/custom_op_add.cpp
