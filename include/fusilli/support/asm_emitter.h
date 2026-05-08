@@ -1477,10 +1477,8 @@ inline std::string RmsNormNode::getOperandNamesAsm() const {
 
   oss << rmsnormAttr.getX()->getValueNameAsm() << "_" << suffix << "_perm, ";
   oss << "%normalized_shape_" << suffix << ", ";
-
-  auto sT = rmsnormAttr.getSCALE();
-  oss << (sT ? sT->getValueNameAsm() + "_" + suffix + "_perm, "
-             : "%none_scale_" + suffix + ", ");
+  oss << rmsnormAttr.getSCALE()->getValueNameAsm() << "_" << suffix
+      << "_perm, ";
   oss << "%eps_" << suffix;
 
   return oss.str();
@@ -1494,11 +1492,8 @@ inline std::string RmsNormNode::getOperandTypesAsm() const {
                                               /*useLogicalDims=*/true)
       << ", ";
   oss << "!torch.list<int>" << ", ";
-
-  auto sT = rmsnormAttr.getSCALE();
-  oss << (sT ? sT->getTensorTypeAsm(/*isValueTensor=*/true,
-                                    /*useLogicalDims=*/true)
-             : "!torch.none")
+  oss << rmsnormAttr.getSCALE()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                                  /*useLogicalDims=*/true)
       << ", ";
   oss << "!torch.float";
 
@@ -1558,10 +1553,8 @@ inline std::string RmsNormNode::emitNodePreAsm() const {
   std::string permuteY = getLayoutConversionOpsAsm(
       rmsnormAttr.getY(), "permute_y", uniqueSSASuffix, /*isInput=*/false);
   std::string permuteScale =
-      rmsnormAttr.getSCALE()
-          ? getLayoutConversionOpsAsm(rmsnormAttr.getSCALE(), "permute_scale",
-                                      uniqueSSASuffix, /*isInput=*/true)
-          : torchNoneAsm("none_scale", uniqueSSASuffix);
+      getLayoutConversionOpsAsm(rmsnormAttr.getSCALE(), "permute_scale",
+                                uniqueSSASuffix, /*isInput=*/true);
 
   constexpr std::string_view schema = R"(
     {0}
