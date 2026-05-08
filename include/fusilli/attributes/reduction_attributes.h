@@ -27,7 +27,7 @@ namespace fusilli {
 #define FUSILLI_REDUCTION_MODES(OP)                                            \
   OP(NOT_SET)                                                                  \
   OP(ADD)                                                                      \
-  OP(SUM) /* Remove once SUM is deprecated  */                                 \
+  OP(SUM) /* TODO(#406): Remove once SUM is deprecated. */                     \
   OP(MUL)                                                                      \
   OP(MIN)                                                                      \
   OP(MAX)                                                                      \
