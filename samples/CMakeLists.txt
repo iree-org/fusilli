@@ -123,11 +123,20 @@ add_fusilli_samples(
     dynamic_shapes/conv_fprop_dynamic_batch.cpp
     dynamic_shapes/custom_op_dynamic_batch.cpp
     dynamic_shapes/reduction_min_max_dynamic_batch.cpp
+    dynamic_shapes/sdpa_basic_dynamic_sequence.cpp
   DEPS
     libfusilli
     libutils
     Catch2::Catch2WithMain
 )
+
+if(FUSILLI_SYSTEMS_AMDGPU)
+  # TODO: Remove this xfail once dynamic sequence SDPA works for GPU
+  set_tests_properties(
+    fusilli_dynamic_shape_samples_sdpa_basic_dynamic_sequence PROPERTIES
+    WILL_FAIL TRUE
+  )
+endif()
 
 add_fusilli_samples(
   PREFIX fusilli_custom_op_samples
