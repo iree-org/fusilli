@@ -31,5 +31,5 @@ docker run --rm \
            -e AMD_ARCH=${AMD_ARCH:-} \
            ${DOCKER_RUN_DEVICE_OPTS} \
            --cap-drop=NET_RAW \
-           ghcr.io/sjain-stanford/compiler-dev-ubuntu-24.04:main@sha256:4a7aeff8694aaa54b2193a11aaee6a36649a11fe2a849606e31fb395ce98ee5d \
+           ghcr.io/sjain-stanford/compiler-dev-ubuntu-24.04:main@sha256:79a68563e17986d08afe9bb0d2b1c5961558a2c88d4aa1de23ad7d32e0ac83d6 \
            "$@"
