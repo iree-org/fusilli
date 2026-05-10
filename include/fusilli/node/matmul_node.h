@@ -37,32 +37,52 @@ namespace fusilli {
 // Infer the output shape of a matrix multiplication operation from the input
 // shapes. For matrices A [..., M, K] and B [..., K, N], the output is [..., M,
 // N].
-inline std::vector<int64_t>
-getMatmulInferredOutputShape(const std::vector<int64_t> &aDim,
-                             const std::vector<int64_t> &bDim) {
-  constexpr int64_t kNonBatchRank = 2;
-  size_t rank = aDim.size();
-  assert(rank == bDim.size() && "Input tensors must have the same rank");
-  assert(rank >= kNonBatchRank && "Input tensors must have rank >= 2");
+inline ErrorOr<std::vector<int64_t>>
+tryGetMatmulInferredOutputShape(const std::vector<int64_t> &aDim,
+                                const std::vector<int64_t> &bDim) {
+  constexpr size_t kNonBatchRank = 2;
+  size_t aRank = aDim.size();
+  size_t bRank = bDim.size();
+  FUSILLI_RETURN_ERROR_IF(aRank < kNonBatchRank || bRank < kNonBatchRank,
+                          ErrorCode::InvalidAttribute,
+                          "Matmul input tensors must have rank >= 2");
 
-  std::vector<int64_t> cDim(rank);
+  std::vector<int64_t> aBatchDim(aDim.begin(), aDim.end() - kNonBatchRank);
+  std::vector<int64_t> bBatchDim(bDim.begin(), bDim.end() - kNonBatchRank);
+  size_t cBatchRank = std::max(aBatchDim.size(), bBatchDim.size());
+  std::vector<int64_t> cDim(cBatchRank + kNonBatchRank, 1);
 
-  // Handle batch dimensions (broadcast if necessary)
-  size_t batchDims = rank - kNonBatchRank;
-  for (size_t i = 0; i < batchDims; ++i) {
-    int64_t aDimVal = aDim[i];
-    int64_t bDimVal = bDim[i];
-    // Use the maximum of the two dimensions (broadcasting rule)
-    assert((aDimVal % bDimVal == 0 || bDimVal % aDimVal == 0) &&
-           "Incompatible dimensions for broadcasting");
-    cDim[i] = std::max<int64_t>(aDimVal, bDimVal);
+  // Broadcast batch dimensions using PyTorch/NumPy right-aligned semantics.
+  for (size_t offset = 0; offset < cBatchRank; ++offset) {
+    int64_t aDimVal = offset < aBatchDim.size()
+                          ? aBatchDim[aBatchDim.size() - 1 - offset]
+                          : 1;
+    int64_t bDimVal = offset < bBatchDim.size()
+                          ? bBatchDim[bBatchDim.size() - 1 - offset]
+                          : 1;
+    FUSILLI_RETURN_ERROR_IF(
+        aDimVal != bDimVal && aDimVal != 1 && bDimVal != 1,
+        ErrorCode::InvalidAttribute,
+        "Matmul input tensors A and B have incompatible batch dimensions for "
+        "broadcasting at right-aligned batch index " +
+            std::to_string(cBatchRank - 1 - offset) + ": A has dim=" +
+            std::to_string(aDimVal) + ", B has dim=" + std::to_string(bDimVal));
+    cDim[cBatchRank - 1 - offset] = std::max<int64_t>(aDimVal, bDimVal);
   }
 
   // Matrix dimensions: M from A, N from B
-  cDim[rank - 2] = aDim[rank - 2]; // M
-  cDim[rank - 1] = bDim[rank - 1]; // N
+  cDim[cBatchRank] = aDim[aRank - 2];     // M
+  cDim[cBatchRank + 1] = bDim[bRank - 1]; // N
 
-  return cDim;
+  return ok(std::move(cDim));
+}
+
+inline std::vector<int64_t>
+getMatmulInferredOutputShape(const std::vector<int64_t> &aDim,
+                             const std::vector<int64_t> &bDim) {
+  auto cDim = tryGetMatmulInferredOutputShape(aDim, bDim);
+  assert(isOk(cDim) && "Invalid matmul input dimensions");
+  return *cDim;
 }
 
 //===----------------------------------------------------------------------===//
@@ -108,19 +128,13 @@ public:
     size_t bRank = bT->getDim().size();
 
     // Rank checks on input tensors (must be at least rank 2).
-    constexpr int64_t kNonBatchRank = 2;
+    constexpr size_t kNonBatchRank = 2;
     FUSILLI_RETURN_ERROR_IF(
         aRank < kNonBatchRank, ErrorCode::InvalidAttribute,
         "Matmul input tensor A must have a rank of at least 2");
     FUSILLI_RETURN_ERROR_IF(
         bRank < kNonBatchRank, ErrorCode::InvalidAttribute,
         "Matmul input tensor B must have a rank of at least 2");
-
-    // Check that input tensors have the same rank.
-    FUSILLI_RETURN_ERROR_IF(
-        aRank != bRank, ErrorCode::InvalidAttribute,
-        "Matmul input tensors A and B must have the same rank: A has rank=" +
-            std::to_string(aRank) + ", B has rank=" + std::to_string(bRank));
 
     // Check that inner dimensions match (K dimension).
     const std::vector<int64_t> &aDim = aT->getDim();
@@ -135,19 +149,9 @@ public:
             std::to_string(aK) + ", B has K=" + std::to_string(bK));
 
     // Check that batch dimensions are broadcastable.
-    // Since both inputs have the same rank, we can directly compare batch dims.
-    size_t batchDims = aRank - kNonBatchRank;
-    for (size_t i = 0; i < batchDims; ++i) {
-      int64_t aDimVal = aDim[i];
-      int64_t bDimVal = bDim[i];
-      FUSILLI_RETURN_ERROR_IF(
-          !(aDimVal % bDimVal == 0 || bDimVal % aDimVal == 0),
-          ErrorCode::InvalidAttribute,
-          "Matmul input tensors A and B have incompatible batch dimensions for "
-          "broadcasting at index " +
-              std::to_string(i) + ": A has dim=" + std::to_string(aDimVal) +
-              ", B has dim=" + std::to_string(bDimVal));
-    }
+    FUSILLI_ASSIGN_OR_RETURN(auto inferredCDim,
+                             tryGetMatmulInferredOutputShape(aDim, bDim));
+    (void)inferredCDim;
 
     FUSILLI_CHECK_ERROR(checkBatchDims(aT, "A"));
     FUSILLI_CHECK_ERROR(checkBatchDims(bT, "B"));
@@ -164,10 +168,12 @@ public:
     if (aT->getDataType() != bT->getDataType()) {
       constexpr int64_t kMixedPrecisionRequiredRank = 3;
       FUSILLI_RETURN_ERROR_IF(
-          aRank != kMixedPrecisionRequiredRank, ErrorCode::InvalidAttribute,
+          aRank != kMixedPrecisionRequiredRank ||
+              bRank != kMixedPrecisionRequiredRank,
+          ErrorCode::InvalidAttribute,
           "Mixed precision matmul is only supported when input tensors A and B "
-          "are of rank 3 (single batch dim): A and B have rank=" +
-              std::to_string(aRank));
+          "are of rank 3 (single batch dim): A has rank=" +
+              std::to_string(aRank) + ", B has rank=" + std::to_string(bRank));
       FUSILLI_RETURN_ERROR_IF(
           aDim[0] != bDim[0], ErrorCode::InvalidAttribute,
           "Mixed precision matmul input tensors A and B must have exactly "
@@ -192,15 +198,18 @@ public:
     const std::vector<int64_t> &aDim = aT->getDim();
     const std::vector<int64_t> &bDim = bT->getDim();
 
-    const std::vector<int64_t> &cDim = cT->getDim();
     const std::vector<int64_t> &cStride = cT->getStride();
 
     // Infer shape of output tensor.
-    if (cDim.empty())
-      cT->setDim(getMatmulInferredOutputShape(aDim, bDim));
+    if (cT->getDim().empty()) {
+      FUSILLI_ASSIGN_OR_RETURN(auto inferredCDim,
+                               tryGetMatmulInferredOutputShape(aDim, bDim));
+      cT->setDim(inferredCDim);
+    }
 
     // Output stride is contiguous (row-major) when unspecified.
     if (cStride.empty()) {
+      const std::vector<int64_t> &cDim = cT->getDim();
       cT->setStride(
           generateStrideFromDim(cDim, getContiguousStrideOrder(cDim.size())));
     }
@@ -219,17 +228,19 @@ public:
     size_t cRank = cT->getDim().size();
 
     // Rank checks
-    constexpr int64_t kNonBatchRank = 2;
+    constexpr size_t kNonBatchRank = 2;
     FUSILLI_RETURN_ERROR_IF(
         cRank < kNonBatchRank, ErrorCode::InvalidAttribute,
         "Matmul output tensor C must have a rank of at least 2");
 
-    FUSILLI_RETURN_ERROR_IF(
-        cT->getDim() !=
-            getMatmulInferredOutputShape(aT->getDim(), bT->getDim()),
-        ErrorCode::InvalidAttribute,
-        "Matmul output tensor C dimensions do not match the expected shapes "
-        "inferred based on the input dimensions");
+    FUSILLI_ASSIGN_OR_RETURN(
+        auto inferredCDim,
+        tryGetMatmulInferredOutputShape(aT->getDim(), bT->getDim()));
+    FUSILLI_RETURN_ERROR_IF(cT->getDim() != inferredCDim,
+                            ErrorCode::InvalidAttribute,
+                            "Matmul output tensor C dimensions do not match "
+                            "the expected shapes inferred based on the input "
+                            "dimensions");
     FUSILLI_CHECK_ERROR(checkBatchDims(cT, "C"));
     return ok();
   }
@@ -239,7 +250,7 @@ private:
   // This is equivalent to checking that perm[i] == i for all batch dims.
   ErrorObject checkBatchDims(const std::shared_ptr<TensorAttr> &tensor,
                              const std::string &name) const {
-    constexpr int64_t kNonBatchRank = 2;
+    constexpr size_t kNonBatchRank = 2;
     size_t batchDims = tensor->getDim().size() - kNonBatchRank;
     std::vector<int64_t> perm = tensor->getLogicalToPhysicalPermuteOrder();
     for (size_t i = 0; i < batchDims; ++i) {
