@@ -85,7 +85,7 @@ TEST_CASE("Batch normalization; training mode; NCHW layout; no scale/bias",
           {sivT, sivBuf},
       };
 
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSizeOrError());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
                          allocateWorkspace(handle, workspaceSize));
 

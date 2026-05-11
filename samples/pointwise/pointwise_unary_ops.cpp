@@ -158,7 +158,8 @@ TEST_CASE("Pointwise unary ops", "[pointwise][graph]") {
         };
 
     // Allocate workspace buffer if needed.
-    FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
+    FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
+                           graph->getWorkspaceSizeOrError());
     FUSILLI_REQUIRE_ASSIGN(auto workspace,
                            allocateWorkspace(handle, workspaceSize));
 

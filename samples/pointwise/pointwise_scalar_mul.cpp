@@ -64,7 +64,7 @@ TEST_CASE("Pointwise MUL with scalar operand", "[pointwise][scalar][graph]") {
       };
 
   // Allocate workspace buffer if needed.
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSizeOrError());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
                          allocateWorkspace(handle, workspaceSize));
 

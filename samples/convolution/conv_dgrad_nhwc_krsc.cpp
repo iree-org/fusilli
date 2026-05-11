@@ -85,7 +85,7 @@ TEST_CASE("Convolution dgrad; DY/W (NHWC/KRSC), DX (NHWC); 1x1; no padding",
       };
 
   // Allocate workspace buffer if needed.
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSizeOrError());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
                          allocateWorkspace(handle, workspaceSize));
 
@@ -192,7 +192,7 @@ TEST_CASE("Convolution dgrad; DY/W (NHWC/KRSC), DX (NHWC); 1x1; no padding; "
       };
 
   // Allocate workspace buffer if needed.
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSizeOrError());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
                          allocateWorkspace(handle, workspaceSize));
 

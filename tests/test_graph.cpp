@@ -210,7 +210,8 @@ static void executeAndCheckGraph(Handle &handle, ExecutableGraph &ctx) {
           {ctx.y, yBuf},
       };
 
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, ctx.graph->getWorkspaceSize());
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
+                         ctx.graph->getWorkspaceSizeOrError());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
                          allocateWorkspace(handle, workspaceSize));
 
@@ -390,7 +391,8 @@ TEST_CASE("Graph `loadFromArtifact` after compileToArtifact enables execute",
       ctx.graph->compileToArtifact(handle.getBackend(), /*remove=*/true));
   FUSILLI_REQUIRE_OK(ctx.graph->loadFromArtifact(handle, artifactBytes));
 
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, ctx.graph->getWorkspaceSize());
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
+                         ctx.graph->getWorkspaceSizeOrError());
   REQUIRE(workspaceSize.has_value());
   executeAndCheckGraph(handle, ctx);
 }
@@ -417,9 +419,10 @@ TEST_CASE("Graph `execute` requires prior workspace size query", "[graph]") {
   auto status = ctx.graph->execute(handle, variantPack, /*workspace=*/nullptr);
   REQUIRE(isError(status));
   REQUIRE(status.getCode() == ErrorCode::InvalidArgument);
-  REQUIRE(status.getMessage() ==
-          "Graph::execute requires getWorkspaceSize() to be called before "
-          "workspace allocation and execution");
+  REQUIRE(
+      status.getMessage() ==
+      "Graph::execute requires getWorkspaceSizeOrError() to be called before "
+      "workspace allocation and execution");
 }
 
 TEST_CASE("Graph `compileToArtifact` preserves loaded runtime state",
@@ -441,7 +444,8 @@ TEST_CASE("Graph `compileToArtifact` preserves loaded runtime state",
       auto compileOnlyArtifactBytes,
       ctx.graph->compileToArtifact(compileOnlyBackend, /*remove=*/true));
 
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, ctx.graph->getWorkspaceSize());
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
+                         ctx.graph->getWorkspaceSizeOrError());
   REQUIRE(!compileOnlyArtifactBytes.empty());
   REQUIRE(workspaceSize.has_value());
   executeAndCheckGraph(handle, ctx);
@@ -461,7 +465,7 @@ TEST_CASE("Graph `loadFromArtifact` accepts another Graph instance's artifact",
   }
 
   FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
-                         consumer.graph->getWorkspaceSize());
+                         consumer.graph->getWorkspaceSizeOrError());
   REQUIRE(workspaceSize.has_value());
   executeAndCheckGraph(handle, consumer);
 }
@@ -476,14 +480,14 @@ TEST_CASE("Graph failed `loadFromArtifact` clears loaded runtime state",
       ctx.graph->compileToArtifact(handle.getBackend(), /*remove=*/true));
   FUSILLI_REQUIRE_OK(ctx.graph->loadFromArtifact(handle, artifactBytes));
   FUSILLI_REQUIRE_ASSIGN(auto loadedWorkspaceSize,
-                         ctx.graph->getWorkspaceSize());
+                         ctx.graph->getWorkspaceSizeOrError());
   REQUIRE(loadedWorkspaceSize.has_value());
 
   const std::vector<uint8_t> invalidArtifactBytes = {0xde, 0xad, 0xbe, 0xef};
   auto status = ctx.graph->loadFromArtifact(handle, invalidArtifactBytes);
   REQUIRE(isError(status));
   FUSILLI_REQUIRE_ASSIGN(auto clearedWorkspaceSize,
-                         ctx.graph->getWorkspaceSize());
+                         ctx.graph->getWorkspaceSizeOrError());
   REQUIRE(!clearedWorkspaceSize.has_value());
 }
 
@@ -620,7 +624,7 @@ TEST_CASE("Graph `execute`", "[graph]") {
       };
 
   // Query and allocate workspace buffer if needed.
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSizeOrError());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
                          allocateWorkspace(handle, workspaceSize));
 
@@ -686,16 +690,16 @@ TEST_CASE("collectModuleScopeAsm gathers declarations from nested sub-nodes",
   REQUIRE(result.find("DECL_GRANDCHILD") < result.find("DECL_B"));
 }
 
-TEST_CASE("Graph `getWorkspaceSize` returns nullopt before compilation",
+TEST_CASE("Graph `getWorkspaceSizeOrError` returns nullopt before compilation",
           "[graph]") {
   Graph g = testGraph(/*validate=*/true);
 
   // Before compilation, workspace size should be nullopt.
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, g.getWorkspaceSize());
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, g.getWorkspaceSizeOrError());
   REQUIRE(!workspaceSize.has_value());
 }
 
-TEST_CASE("Graph `getWorkspaceSize` after compilation", "[graph]") {
+TEST_CASE("Graph `getWorkspaceSizeOrError` after compilation", "[graph]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
   Graph g = testGraph(/*validate=*/true);
@@ -703,14 +707,14 @@ TEST_CASE("Graph `getWorkspaceSize` after compilation", "[graph]") {
   // Compile the graph.
   FUSILLI_REQUIRE_OK(g.compile(handle, /*remove=*/true));
 
-  // After compilation, getWorkspaceSize returns the queried transient size.
-  // It should have a value (not nullopt). The actual size is
+  // After compilation, getWorkspaceSizeOrError returns the queried transient
+  // size. It should have a value (not nullopt). The actual size is
   // implementation-dependent.
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, g.getWorkspaceSize());
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, g.getWorkspaceSizeOrError());
   REQUIRE(workspaceSize.has_value());
 }
 
-TEST_CASE("Graph `getWorkspaceSize` consistency across multiple queries",
+TEST_CASE("Graph `getWorkspaceSizeOrError` consistency across multiple queries",
           "[graph]") {
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
 
@@ -718,9 +722,9 @@ TEST_CASE("Graph `getWorkspaceSize` consistency across multiple queries",
   FUSILLI_REQUIRE_OK(g.compile(handle, /*remove=*/true));
 
   // Multiple queries should return the same value.
-  FUSILLI_REQUIRE_ASSIGN(auto size1, g.getWorkspaceSize());
-  FUSILLI_REQUIRE_ASSIGN(auto size2, g.getWorkspaceSize());
-  FUSILLI_REQUIRE_ASSIGN(auto size3, g.getWorkspaceSize());
+  FUSILLI_REQUIRE_ASSIGN(auto size1, g.getWorkspaceSizeOrError());
+  FUSILLI_REQUIRE_ASSIGN(auto size2, g.getWorkspaceSizeOrError());
+  FUSILLI_REQUIRE_ASSIGN(auto size3, g.getWorkspaceSizeOrError());
 
   REQUIRE(size1.has_value());
   REQUIRE(size1 == size2);
