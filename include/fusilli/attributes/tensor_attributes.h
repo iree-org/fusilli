@@ -837,22 +837,6 @@ inferSameShapeDynamicDims(const std::shared_ptr<TensorAttr> &output,
   setInferredDynamicDims(output, std::move(dynamicDims));
 }
 
-inline void inferSameShapeDynamicDimsFromInputs(
-    const std::shared_ptr<TensorAttr> &output,
-    const std::vector<std::shared_ptr<TensorAttr>> &inputs) {
-  if (!output || output->hasDynamicDims())
-    return;
-
-  std::vector<size_t> dynamicDims;
-  for (const auto &input : inputs) {
-    if (!input || input->getDim() != output->getDim())
-      continue;
-    dynamicDims.insert(dynamicDims.end(), input->getDynamicDims().begin(),
-                       input->getDynamicDims().end());
-  }
-  setInferredDynamicDims(output, std::move(dynamicDims));
-}
-
 inline std::vector<size_t> inferBroadcastDynamicDims(
     const std::vector<std::shared_ptr<TensorAttr>> &inputs,
     const std::vector<int64_t> &outputDim) {

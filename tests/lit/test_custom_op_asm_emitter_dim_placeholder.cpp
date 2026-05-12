@@ -78,6 +78,7 @@ int main() {
   auto outs = g.customOp({a, b}, addAttr);
   outs[0]
       ->setDim({4, 8})
+      .setDynamicDims({0})
       .setStride({8, 1})
       .setDataType(DataType::Float)
       .setOutput(true);
