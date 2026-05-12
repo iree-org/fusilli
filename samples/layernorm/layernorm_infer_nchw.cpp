@@ -79,7 +79,7 @@ TEST_CASE("Layer normalization; inference mode; NCHW layout; no bias/scale",
       };
 
   // Allocate workspace buffer if needed.
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSizeOrError());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
                          allocateWorkspace(handle, workspaceSize));
 

@@ -394,7 +394,13 @@ public:
   // artifact is loaded, 0 if no workspace is needed, or the maximum required
   // size in bytes seen for the currently loaded runtime state. Dynamic
   // workspace sizes are not supported yet and return an error.
-  ErrorOr<std::optional<size_t>> getWorkspaceSize();
+  std::optional<size_t> getWorkspaceSize();
+
+  // Same as above but returns an error if the query fails (e.g., dynamic
+  // workspace sizes not supported, or if the VM context isn't properly
+  // initialized). This is useful for internal calls where we want to propagate
+  // the error instead of treating it as "no workspace needed".
+  ErrorOr<std::optional<size_t>> getWorkspaceSizeOrError();
 
   // ASM emitter driver method.
   //

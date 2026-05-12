@@ -82,7 +82,7 @@ void loadAndExecuteArtifact(Backend backend,
       };
 
   FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
-                         runtimeGraph.graph->getWorkspaceSize());
+                         runtimeGraph.graph->getWorkspaceSizeOrError());
   REQUIRE(workspaceSize.has_value());
 
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
