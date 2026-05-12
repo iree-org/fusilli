@@ -159,6 +159,7 @@ add_fusilli_samples(
     sdpa/sdpa_fprop_gqa.cpp
     sdpa/sdpa_fprop_gqa_hk_ne_hv.cpp
     sdpa/sdpa_fprop_cross_attn.cpp
+    sdpa/sdpa_fprop_generate_stats.cpp
   DEPS
     libfusilli
     libutils

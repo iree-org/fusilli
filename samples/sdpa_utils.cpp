@@ -101,6 +101,39 @@ std::vector<float> referenceSdpa(float qVal, float kVal, float vVal,
   return out;
 }
 
+std::vector<float> referenceSdpaLogsumexp(float qVal, float kVal, float maskVal,
+                                          int64_t batch, int64_t headsQ,
+                                          int64_t seqQ, int64_t seqKV,
+                                          int64_t headDim, bool isCausal,
+                                          std::optional<float> scale,
+                                          bool hasAttnMask) {
+  float s = scale.value_or(1.0f / std::sqrt(static_cast<float>(headDim)));
+  std::vector<float> out(batch * headsQ * seqQ);
+
+  for (int64_t b = 0; b < batch; ++b) {
+    for (int64_t hq = 0; hq < headsQ; ++hq) {
+      for (int64_t sq = 0; sq < seqQ; ++sq) {
+        std::vector<float> scores(seqKV);
+        for (int64_t sk = 0; sk < seqKV; ++sk) {
+          float dot = static_cast<float>(headDim) * qVal * kVal;
+          scores[sk] = dot * s;
+          if (hasAttnMask)
+            scores[sk] += maskVal;
+          if (isCausal && sk > sq)
+            scores[sk] = -std::numeric_limits<float>::infinity();
+        }
+
+        float maxScore = *std::max_element(scores.begin(), scores.end());
+        float sumExp = 0.0f;
+        for (float score : scores)
+          sumExp += std::exp(score - maxScore);
+        out[(b * headsQ + hq) * seqQ + sq] = std::log(sumExp) + maxScore;
+      }
+    }
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Shared setup and verification helpers
 // ---------------------------------------------------------------------------
@@ -116,7 +149,7 @@ SdpaTestContext setupSdpaGraph(DataType dt, int64_t batch, int64_t headsQ,
                                int64_t headsK, int64_t headsV, int64_t seqQ,
                                int64_t seqKV, int64_t headDim, bool isCausal,
                                bool enableGqa, bool hasAttnMask, float dropoutP,
-                               std::optional<float> scale,
+                               bool generateStats, std::optional<float> scale,
                                std::string_view namePrefix) {
   REQUIRE(!(hasAttnMask && isCausal));
   if (enableGqa) {
@@ -137,13 +170,14 @@ SdpaTestContext setupSdpaGraph(DataType dt, int64_t batch, int64_t headsQ,
       scale.has_value() ? std::format("_scale{:g}", *scale) : "";
   std::string dropoutSuffix =
       dropoutP > 0.0f ? std::format("_dropout{:g}", dropoutP) : "";
+  std::string statsSuffix = generateStats ? "_stats" : "";
 
   auto graph = std::make_shared<Graph>();
   graph
-      ->setName(std::format("{}_b{}hq{}hk{}hv{}sq{}skv{}d{}{}{}{}{}{}",
+      ->setName(std::format("{}_b{}hq{}hk{}hv{}sq{}skv{}d{}{}{}{}{}{}{}",
                             namePrefix, batch, headsQ, headsK, headsV, seqQ,
                             seqKV, headDim, causalSuffix, maskSuffix, gqaSuffix,
-                            scaleSuffix, dropoutSuffix))
+                            scaleSuffix, dropoutSuffix, statsSuffix))
       .setIODataType(dt)
       .setIntermediateDataType(dt);
 
@@ -187,7 +221,8 @@ void executeAndVerify(Handle &handle, const SdpaTestContext &ctx,
                       int64_t headsV, int64_t seqQ, int64_t seqKV,
                       int64_t headDim, bool isCausal,
                       std::optional<float> scale, bool enableGqa,
-                      bool hasAttnMask, float dropoutP) {
+                      bool hasAttnMask, float dropoutP,
+                      const std::shared_ptr<TensorAttr> &statsT = nullptr) {
   FUSILLI_REQUIRE_OK(ctx.graph->validate());
   FUSILLI_REQUIRE_OK(ctx.graph->compile(handle, /*remove=*/true));
 
@@ -199,10 +234,17 @@ void executeAndVerify(Handle &handle, const SdpaTestContext &ctx,
                          allocateBufferOfType(handle, ctx.vT, dt, 0.01));
   FUSILLI_REQUIRE_ASSIGN(auto outBuf,
                          allocateBufferOfType(handle, oT, dt, 0.0));
+  std::shared_ptr<Buffer> statsBuf;
+  if (statsT) {
+    FUSILLI_REQUIRE_ASSIGN(
+        statsBuf, allocateBufferOfType(handle, statsT, DataType::Float, 0.0));
+  }
 
   std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
       variantPack = {
           {ctx.qT, qBuf}, {ctx.kT, kBuf}, {ctx.vT, vBuf}, {oT, outBuf}};
+  if (statsT)
+    variantPack[statsT] = statsBuf;
 
   if (hasAttnMask) {
     FUSILLI_REQUIRE_ASSIGN(auto maskBuf,
@@ -243,6 +285,22 @@ void executeAndVerify(Handle &handle, const SdpaTestContext &ctx,
     INFO("index " << i << ": actual=" << actual << " expected=" << expected[i]);
     REQUIRE(std::abs(actual - expected[i]) < kTolerance);
   }
+
+  if (!statsT)
+    return;
+
+  std::vector<float> statsResult;
+  FUSILLI_REQUIRE_OK(statsBuf->read(handle, statsResult));
+  REQUIRE(statsResult.size() == static_cast<size_t>(batch * headsQ * seqQ));
+
+  auto expectedStats =
+      referenceSdpaLogsumexp(kInitQ, kInitK, kInitMask, batch, headsQ, seqQ,
+                             seqKV, headDim, isCausal, scale, hasAttnMask);
+  for (size_t i = 0; i < statsResult.size(); ++i) {
+    INFO("stats index " << i << ": actual=" << statsResult[i]
+                        << " expected=" << expectedStats[i]);
+    REQUIRE(std::abs(statsResult[i] - expectedStats[i]) < kTolerance);
+  }
 }
 
 } // namespace
@@ -254,24 +312,29 @@ void executeAndVerify(Handle &handle, const SdpaTestContext &ctx,
 void executeSdpa(Handle &handle, DataType dt, int64_t batch, int64_t headsQ,
                  int64_t headsK, int64_t headsV, int64_t seqQ, int64_t seqKV,
                  int64_t headDim, bool isCausal, std::optional<float> scale,
-                 bool enableGqa, bool hasAttnMask, float dropoutP) {
-  auto ctx =
-      setupSdpaGraph(dt, batch, headsQ, headsK, headsV, seqQ, seqKV, headDim,
-                     isCausal, enableGqa, hasAttnMask, dropoutP, scale, "sdpa");
+                 bool enableGqa, bool hasAttnMask, float dropoutP,
+                 bool generateStats) {
+  auto ctx = setupSdpaGraph(dt, batch, headsQ, headsK, headsV, seqQ, seqKV,
+                            headDim, isCausal, enableGqa, hasAttnMask, dropoutP,
+                            generateStats, scale, "sdpa");
 
   SdpaAttr sdpaAttr;
   sdpaAttr.setName("sdpa")
       .setDropout(dropoutP)
       .setIsCausal(isCausal)
       .setScale(scale)
-      .setEnableGqa(enableGqa);
+      .setEnableGqa(enableGqa)
+      .setGenerateStats(generateStats);
 
   auto oT = ctx.graph->sdpa(ctx.qT, ctx.kT, ctx.vT, ctx.maskT, sdpaAttr);
+  std::shared_ptr<TensorAttr> statsT = sdpaAttr.getSTATS();
   oT->setOutput(true);
+  if (generateStats)
+    statsT->setOutput(true);
 
   executeAndVerify(handle, ctx, oT, dt, batch, headsQ, headsK, headsV, seqQ,
                    seqKV, headDim, isCausal, scale, enableGqa, hasAttnMask,
-                   dropoutP);
+                   dropoutP, generateStats ? statsT : nullptr);
 }
 
 void executeSdpaCustomOp(Handle &handle, DataType dt, int64_t batch,
@@ -281,7 +344,7 @@ void executeSdpaCustomOp(Handle &handle, DataType dt, int64_t batch,
                          bool enableGqa, bool hasAttnMask, float dropoutP) {
   auto ctx = setupSdpaGraph(dt, batch, headsQ, headsK, headsV, seqQ, seqKV,
                             headDim, isCausal, enableGqa, hasAttnMask, dropoutP,
-                            scale, "sdpa_custom_op");
+                            /*generateStats=*/false, scale, "sdpa_custom_op");
 
   std::string sdpaMlir =
       buildSdpaMlir(hasAttnMask, dropoutP, isCausal, scale, enableGqa);

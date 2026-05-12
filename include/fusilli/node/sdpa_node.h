@@ -41,15 +41,23 @@ public:
       : NodeCRTP(ctx), sdpaAttr(std::move(attr)) {}
 
   // ASM emitter methods.
+  std::string emitModuleScopeAsm() const override final;
   std::string emitNodePreAsm() const override final;
   std::string getOperandNamesAsm() const;
   std::string getOperandTypesAsm() const;
+  std::string getFlexAttnOperandNamesAsm() const;
+  std::string getFlexAttnOperandTypesAsm() const;
   std::string getResultNamesAsm() const;
   std::string getResultTypesAsm() const;
+  std::string getFlexAttnResultNamesAsm() const;
+  std::string getFlexAttnResultTypesAsm() const;
   std::string getDropoutOpsAsm() const;
   std::string getIsCausalOpsAsm() const;
   std::string getScaleOpsAsm() const;
   std::string getEnableGqaOpsAsm() const;
+  std::string getReturnLseOpsAsm() const;
+  std::string getReturnMaxScoresOpsAsm() const;
+  std::string getCausalMaskFnNameAsm() const;
 
   const std::string &getName() const override final {
     return sdpaAttr.getName();
@@ -64,6 +72,7 @@ public:
     std::shared_ptr<TensorAttr> kT = sdpaAttr.getK();
     std::shared_ptr<TensorAttr> vT = sdpaAttr.getV();
     std::shared_ptr<TensorAttr> oT = sdpaAttr.getO();
+    std::shared_ptr<TensorAttr> statsT = sdpaAttr.getSTATS();
     std::shared_ptr<TensorAttr> maskT = sdpaAttr.getMASK();
 
     // Ensure mandatory input and output tensors are set.
@@ -75,6 +84,16 @@ public:
                             "SDPA input tensor V not set");
     FUSILLI_RETURN_ERROR_IF(!oT, ErrorCode::AttributeNotSet,
                             "SDPA output tensor O not set");
+    if (sdpaAttr.getGenerateStats()) {
+      FUSILLI_RETURN_ERROR_IF(
+          !statsT, ErrorCode::AttributeNotSet,
+          "SDPA output tensor STATS not set when generate_stats is enabled");
+    } else {
+      FUSILLI_RETURN_ERROR_IF(
+          statsT, ErrorCode::InvalidAttribute,
+          "SDPA output tensor STATS should not be set when generate_stats is "
+          "disabled");
+    }
 
     // Rank checks: all tensors must be rank 4.
     constexpr size_t kRequiredRank = 4;
@@ -192,6 +211,7 @@ public:
     std::shared_ptr<TensorAttr> qT = sdpaAttr.getQ();
     std::shared_ptr<TensorAttr> vT = sdpaAttr.getV();
     std::shared_ptr<TensorAttr> oT = sdpaAttr.getO();
+    std::shared_ptr<TensorAttr> statsT = sdpaAttr.getSTATS();
 
     const std::vector<int64_t> &qDim = qT->getDim();
     const std::vector<int64_t> &vDim = vT->getDim();
@@ -209,6 +229,18 @@ public:
           generateStrideFromDim(oDim, getContiguousStrideOrder(oDim.size())));
     }
 
+    if (statsT) {
+      std::vector<int64_t> statsDim = {qDim[0], qDim[1], qDim[2]};
+      if (statsT->getDim().empty())
+        statsT->setDim(statsDim);
+      if (statsT->getStride().empty()) {
+        statsT->setStride(generateStrideFromDim(
+            statsDim, getContiguousStrideOrder(statsDim.size())));
+      }
+      if (statsT->getDataType() == DataType::NotSet)
+        statsT->setDataType(DataType::Float);
+    }
+
     return ok();
   }
 
@@ -219,6 +251,7 @@ public:
     std::shared_ptr<TensorAttr> qT = sdpaAttr.getQ();
     std::shared_ptr<TensorAttr> vT = sdpaAttr.getV();
     std::shared_ptr<TensorAttr> oT = sdpaAttr.getO();
+    std::shared_ptr<TensorAttr> statsT = sdpaAttr.getSTATS();
 
     const std::vector<int64_t> &qDim = qT->getDim();
     const std::vector<int64_t> &vDim = vT->getDim();
@@ -230,6 +263,17 @@ public:
         oT->getDim() != expectedDim, ErrorCode::InvalidAttribute,
         "SDPA output tensor O dimensions do not match expected shape "
         "[batch, headsQ, seqQ, headDim]");
+
+    if (sdpaAttr.getGenerateStats()) {
+      std::vector<int64_t> expectedStatsDim = {qDim[0], qDim[1], qDim[2]};
+      FUSILLI_RETURN_ERROR_IF(
+          statsT->getDim() != expectedStatsDim, ErrorCode::InvalidAttribute,
+          "SDPA output tensor STATS dimensions do not match expected shape "
+          "[batch, headsQ, seqQ]");
+      FUSILLI_RETURN_ERROR_IF(
+          statsT->getDataType() != DataType::Float, ErrorCode::InvalidAttribute,
+          "SDPA output tensor STATS must have Float data type");
+    }
 
     return ok();
   }

@@ -2104,6 +2104,30 @@ inline std::string SdpaNode::getOperandTypesAsm() const {
   return oss.str();
 }
 
+// Emits torch.hop_flex_attention operand names in MLIR assembly format.
+inline std::string SdpaNode::getFlexAttnOperandNamesAsm() const {
+  std::string suffix = sdpaAttr.getName();
+  std::ostringstream oss;
+  oss << sdpaAttr.getQ()->getValueNameAsm() << "_" << suffix << "_perm, "
+      << sdpaAttr.getK()->getValueNameAsm() << "_" << suffix << "_perm, "
+      << sdpaAttr.getV()->getValueNameAsm() << "_" << suffix << "_perm";
+  return oss.str();
+}
+
+// Emits torch.hop_flex_attention operand types in MLIR assembly format.
+inline std::string SdpaNode::getFlexAttnOperandTypesAsm() const {
+  std::ostringstream oss;
+  oss << sdpaAttr.getQ()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                           /*useLogicalDims=*/true)
+      << ", "
+      << sdpaAttr.getK()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                           /*useLogicalDims=*/true)
+      << ", "
+      << sdpaAttr.getV()->getTensorTypeAsm(/*isValueTensor=*/true,
+                                           /*useLogicalDims=*/true);
+  return oss.str();
+}
+
 // Emits SdpaNode's result names in MLIR assembly format.
 inline std::string SdpaNode::getResultNamesAsm() const {
   return sdpaAttr.getO()->getValueNameAsm() + "_" + sdpaAttr.getName() +
@@ -2114,6 +2138,24 @@ inline std::string SdpaNode::getResultNamesAsm() const {
 inline std::string SdpaNode::getResultTypesAsm() const {
   return sdpaAttr.getO()->getTensorTypeAsm(/*isValueTensor=*/true,
                                            /*useLogicalDims=*/true);
+}
+
+// Emits SdpaNode's result names for torch.hop_flex_attention.
+inline std::string SdpaNode::getFlexAttnResultNamesAsm() const {
+  std::string suffix = sdpaAttr.getName();
+  return std::format("{}, %sdpa_logsumexp_{}, %sdpa_max_scores_{}",
+                     getResultNamesAsm(), suffix, suffix);
+}
+
+// Emits SdpaNode's result types for torch.hop_flex_attention.
+inline std::string SdpaNode::getFlexAttnResultTypesAsm() const {
+  const std::vector<int64_t> &qDim = sdpaAttr.getQ()->getDim();
+  std::vector<int64_t> auxDims = {qDim[0], qDim[1], qDim[2]};
+  std::string logsumexpType = sdpaAttr.getGenerateStats()
+                                  ? buildTensorTypeStr(auxDims, DataType::Float)
+                                  : "!torch.none";
+  return std::format("{}, {}, {}", getResultTypesAsm(), logsumexpType,
+                     "!torch.none");
 }
 
 // Emits the dropout probability constant.
@@ -2140,8 +2182,51 @@ inline std::string SdpaNode::getEnableGqaOpsAsm() const {
                       sdpaAttr.getEnableGqa());
 }
 
+// Emits return_lse boolean constant for torch.hop_flex_attention.
+inline std::string SdpaNode::getReturnLseOpsAsm() const {
+  return torchBoolAsm("return_lse", sdpaAttr.getName(),
+                      sdpaAttr.getGenerateStats());
+}
+
+// Emits return_max_scores boolean constant for torch.hop_flex_attention.
+inline std::string SdpaNode::getReturnMaxScoresOpsAsm() const {
+  return torchBoolAsm("return_max_scores", sdpaAttr.getName(), /*value=*/false);
+}
+
+inline std::string SdpaNode::getCausalMaskFnNameAsm() const {
+  std::string suffix = sdpaAttr.getName();
+  if (suffix.empty())
+    suffix = "sdpa";
+  return "sdpa_mask_" + suffix;
+}
+
+inline std::string SdpaNode::emitModuleScopeAsm() const {
+  // Keep legacy lowering for tensor masks or dropout until those are
+  // representable through hop_flex_attention in this emitter.
+  if (!sdpaAttr.getIsCausal() || sdpaAttr.getMASK() ||
+      sdpaAttr.getDropout() != 0.0f)
+    return "";
+
+  // torch.hop_flex_attention has no is_causal operand, so causal SDPA is
+  // represented as the equivalent mask_mod callback.
+  constexpr std::string_view schema = R"(
+  func.func private @{0}(
+      %batch: !torch.vtensor<[],si32>,
+      %head: !torch.vtensor<[],si32>,
+      %token_q: !torch.vtensor<[],si32>,
+      %token_kv: !torch.vtensor<[],si32>)
+      -> !torch.vtensor<[],i1> {{
+    %mask = torch.aten.ge.Tensor %token_q, %token_kv : !torch.vtensor<[],si32>, !torch.vtensor<[],si32> -> !torch.vtensor<[],i1>
+    return %mask : !torch.vtensor<[],i1>
+  }}
+)";
+  return std::format(schema, getCausalMaskFnNameAsm());
+}
+
 inline std::string SdpaNode::emitNodePreAsm() const {
   std::string suffix = sdpaAttr.getName();
+  const bool useLegacySdpa =
+      sdpaAttr.getMASK() || sdpaAttr.getDropout() != 0.0f;
 
   // Permute inputs.
   std::string permuteQ = getLayoutConversionOpsAsm(sdpaAttr.getQ(), "permute_Q",
@@ -2151,26 +2236,27 @@ inline std::string SdpaNode::emitNodePreAsm() const {
   std::string permuteV = getLayoutConversionOpsAsm(sdpaAttr.getV(), "permute_V",
                                                    suffix, /*isInput=*/true);
 
-  std::string mask;
-  if (sdpaAttr.getMASK())
-    mask = getLayoutConversionOpsAsm(sdpaAttr.getMASK(), "permute_mask", suffix,
-                                     /*isInput=*/true);
-  else
-    mask = torchNoneAsm("none_mask", suffix);
-
   // Permute output.
   std::string permuteO = getLayoutConversionOpsAsm(sdpaAttr.getO(), "permute_O",
                                                    suffix, /*isInput=*/false);
-
-  std::string operandNames = getOperandNamesAsm() + ", %dropout_" + suffix +
-                             ", %is_causal_" + suffix + ", %scale_" + suffix +
-                             ", %enable_gqa_" + suffix;
 
   // Scale type for the MLIR signature.
   std::string scaleType =
       sdpaAttr.getScale().has_value() ? "!torch.float" : "!torch.none";
 
-  constexpr std::string_view schema = R"(
+  if (useLegacySdpa) {
+    std::string legacyMask;
+    if (sdpaAttr.getMASK())
+      legacyMask = getLayoutConversionOpsAsm(sdpaAttr.getMASK(), "permute_mask",
+                                             suffix, /*isInput=*/true);
+    else
+      legacyMask = torchNoneAsm("none_mask", suffix);
+
+    std::string legacyOperandNames =
+        getOperandNamesAsm() + ", %dropout_" + suffix + ", %is_causal_" +
+        suffix + ", %scale_" + suffix + ", %enable_gqa_" + suffix;
+
+    constexpr std::string_view legacySchema = R"(
     {0}
     {1}
     {2}
@@ -2183,21 +2269,81 @@ inline std::string SdpaNode::emitNodePreAsm() const {
     {13}
   )";
 
-  return std::format(schema,
-                     permuteQ,             // {0}
-                     permuteK,             // {1}
-                     permuteV,             // {2}
-                     mask,                 // {3}
-                     getDropoutOpsAsm(),   // {4}
-                     getIsCausalOpsAsm(),  // {5}
-                     getScaleOpsAsm(),     // {6}
-                     getEnableGqaOpsAsm(), // {7}
-                     getResultNamesAsm(),  // {8}
-                     operandNames,         // {9}
-                     getOperandTypesAsm(), // {10}
-                     scaleType,            // {11}
-                     getResultTypesAsm(),  // {12}
-                     permuteO              // {13}
+    return std::format(legacySchema,
+                       permuteQ,             // {0}
+                       permuteK,             // {1}
+                       permuteV,             // {2}
+                       legacyMask,           // {3}
+                       getDropoutOpsAsm(),   // {4}
+                       getIsCausalOpsAsm(),  // {5}
+                       getScaleOpsAsm(),     // {6}
+                       getEnableGqaOpsAsm(), // {7}
+                       getResultNamesAsm(),  // {8}
+                       legacyOperandNames,   // {9}
+                       getOperandTypesAsm(), // {10}
+                       scaleType,            // {11}
+                       getResultTypesAsm(),  // {12}
+                       permuteO              // {13}
+    );
+  }
+
+  std::vector<std::string> flexAttnAttrs;
+  if (sdpaAttr.getIsCausal())
+    flexAttnAttrs.push_back(
+        std::format("mask_mod_fn = @{}", getCausalMaskFnNameAsm()));
+  if (sdpaAttr.getEnableGqa())
+    flexAttnAttrs.push_back("enable_gqa = true");
+
+  std::string opAttrs;
+  if (!flexAttnAttrs.empty()) {
+    std::ostringstream attrs;
+    attrs << " {";
+    interleave(
+        flexAttnAttrs.begin(), flexAttnAttrs.end(),
+        [&](const std::string &attr) { attrs << attr; },
+        [&] { attrs << ", "; });
+    attrs << "}";
+    opAttrs = attrs.str();
+  }
+
+  std::string flexAttnOperandNames = getFlexAttnOperandNamesAsm() +
+                                     ", %scale_" + suffix + ", %return_lse_" +
+                                     suffix + ", %return_max_scores_" + suffix;
+  std::string permuteStats;
+  if (sdpaAttr.getGenerateStats()) {
+    std::string logsumexpName = "%sdpa_logsumexp_" + suffix;
+    permuteStats =
+        getLayoutConversionOpsAsm(sdpaAttr.getSTATS(), "permute_STATS", suffix,
+                                  /*isInput=*/false, logsumexpName);
+  }
+
+  constexpr std::string_view flexAttnSchema = R"(
+    {0}
+    {1}
+    {2}
+    {3}
+    {4}
+    {5}
+    {6} = torch.hop_flex_attention {7}{8} : {9}, {10}, !torch.bool, !torch.bool -> {11}
+    {12}
+    {13}
+  )";
+
+  return std::format(flexAttnSchema,
+                     permuteQ,                     // {0}
+                     permuteK,                     // {1}
+                     permuteV,                     // {2}
+                     getScaleOpsAsm(),             // {3}
+                     getReturnLseOpsAsm(),         // {4}
+                     getReturnMaxScoresOpsAsm(),   // {5}
+                     getFlexAttnResultNamesAsm(),  // {6}
+                     flexAttnOperandNames,         // {7}
+                     opAttrs,                      // {8}
+                     getFlexAttnOperandTypesAsm(), // {9}
+                     scaleType,                    // {10}
+                     getFlexAttnResultTypesAsm(),  // {11}
+                     permuteO,                     // {12}
+                     permuteStats                  // {13}
   );
 }
 

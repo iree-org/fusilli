@@ -96,6 +96,39 @@ TEST_CASE("SdpaNode preValidateNode detects missing attributes",
     REQUIRE(status.getCode() == ErrorCode::AttributeNotSet);
     REQUIRE(status.getMessage() == "SDPA output tensor O not set");
   }
+
+  SECTION("Output STATS missing when generate_stats is enabled") {
+    SdpaAttr attr;
+    attr.setQ(makeTensor4D("Q", 1, 8, 64, 64));
+    attr.setK(makeTensor4D("K", 1, 8, 64, 64));
+    attr.setV(makeTensor4D("V", 1, 8, 64, 64));
+    attr.setO(std::make_shared<TensorAttr>());
+    attr.setGenerateStats(true);
+    SdpaNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::AttributeNotSet);
+    REQUIRE(status.getMessage() ==
+            "SDPA output tensor STATS not set when generate_stats is enabled");
+  }
+
+  SECTION("Output STATS set when generate_stats is disabled") {
+    SdpaAttr attr;
+    attr.setQ(makeTensor4D("Q", 1, 8, 64, 64));
+    attr.setK(makeTensor4D("K", 1, 8, 64, 64));
+    attr.setV(makeTensor4D("V", 1, 8, 64, 64));
+    attr.setO(std::make_shared<TensorAttr>());
+    attr.setSTATS(std::make_shared<TensorAttr>());
+    SdpaNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "SDPA output tensor STATS should not be set when generate_stats is "
+            "disabled");
+  }
 }
 
 TEST_CASE("SdpaNode preValidateNode rank checks", "[sdpa_node]") {
@@ -474,6 +507,30 @@ TEST_CASE("SdpaNode output shape inference with cross-attention dimensions",
   FUSILLI_REQUIRE_OK(node.postValidateNode());
 }
 
+TEST_CASE("SdpaNode generate_stats output inference", "[sdpa_node]") {
+  Context ctx;
+  SdpaAttr attr;
+
+  attr.setQ(makeTensor4D("Q", 2, 8, 32, 64));
+  attr.setK(makeTensor4D("K", 2, 8, 128, 64));
+  attr.setV(makeTensor4D("V", 2, 8, 128, 64));
+  attr.setO(std::make_shared<TensorAttr>());
+  attr.setSTATS(std::make_shared<TensorAttr>());
+  attr.setGenerateStats(true);
+
+  SdpaNode node(std::move(attr), ctx);
+
+  FUSILLI_REQUIRE_OK(node.preValidateNode());
+  FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+  auto statsT = node.sdpaAttr.getSTATS();
+  REQUIRE(statsT->getDim() == std::vector<int64_t>{2, 8, 32});
+  REQUIRE(statsT->getStride() == std::vector<int64_t>{8L * 32, 32, 1});
+  REQUIRE(statsT->getDataType() == DataType::Float);
+
+  FUSILLI_REQUIRE_OK(node.postValidateNode());
+}
+
 TEST_CASE("SdpaNode postValidateNode dimension validation", "[sdpa_node]") {
   Context ctx;
   SdpaAttr attr;
@@ -512,4 +569,52 @@ TEST_CASE("SdpaNode causal flag passes validation", "[sdpa_node]") {
   FUSILLI_REQUIRE_OK(node.preValidateNode());
   FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
   FUSILLI_REQUIRE_OK(node.postValidateNode());
+}
+
+TEST_CASE("SdpaNode generate_stats postValidateNode checks stats tensor",
+          "[sdpa_node]") {
+  Context ctx;
+
+  SECTION("stats dim mismatch") {
+    SdpaAttr attr;
+    attr.setQ(makeTensor4D("Q", 1, 8, 64, 64));
+    attr.setK(makeTensor4D("K", 1, 8, 64, 64));
+    attr.setV(makeTensor4D("V", 1, 8, 64, 64));
+    attr.setO(std::make_shared<TensorAttr>());
+    attr.setSTATS(std::make_shared<TensorAttr>(
+        TensorAttr().setDim({1, 8, 32}).setStride({8 * 32, 32, 1})));
+    attr.setGenerateStats(true);
+    SdpaNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+    auto status = node.postValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "SDPA output tensor STATS dimensions do not match expected shape "
+            "[batch, headsQ, seqQ]");
+  }
+
+  SECTION("stats dtype must be float") {
+    SdpaAttr attr;
+    attr.setQ(makeTensor4D("Q", 1, 8, 64, 64));
+    attr.setK(makeTensor4D("K", 1, 8, 64, 64));
+    attr.setV(makeTensor4D("V", 1, 8, 64, 64));
+    attr.setO(std::make_shared<TensorAttr>());
+    attr.setSTATS(
+        std::make_shared<TensorAttr>(TensorAttr().setDataType(DataType::Half)));
+    attr.setGenerateStats(true);
+    SdpaNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+    auto status = node.postValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "SDPA output tensor STATS must have Float data type");
+  }
 }

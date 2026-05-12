@@ -30,12 +30,10 @@
 // TORCH-CHECK:       %permute_V_val_3_sdpa = torch.constant.int 3
 // TORCH-CHECK:       %permute_V_sdpa = torch.prim.ListConstruct %permute_V_val_0_sdpa, %permute_V_val_1_sdpa, %permute_V_val_2_sdpa, %permute_V_val_3_sdpa : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
 // TORCH-CHECK:       %v_sdpa_perm = torch.aten.permute %v, %permute_V_sdpa : !torch.vtensor<[1,8,64,64],f16>, !torch.list<int> -> !torch.vtensor<[1,8,64,64],f16>
-// TORCH-CHECK:       %none_mask_sdpa = torch.constant.none
-// TORCH-CHECK:       %dropout_sdpa = torch.constant.float 0.000000e+00
-// TORCH-CHECK:       %is_causal_sdpa = torch.constant.bool false
 // TORCH-CHECK:       %scale_sdpa = torch.constant.none
-// TORCH-CHECK:       %enable_gqa_sdpa = torch.constant.bool false
-// TORCH-CHECK:       %sdpa_O_sdpa_perm = torch.aten.scaled_dot_product_attention %q_sdpa_perm, %k_sdpa_perm, %v_sdpa_perm, %none_mask_sdpa, %dropout_sdpa, %is_causal_sdpa, %scale_sdpa, %enable_gqa_sdpa : !torch.vtensor<[1,8,64,64],f16>, !torch.vtensor<[1,8,64,64],f16>, !torch.vtensor<[1,8,64,64],f16>, !torch.none, !torch.float, !torch.bool, !torch.none, !torch.bool -> !torch.vtensor<[1,8,64,64],f16>
+// TORCH-CHECK:       %return_lse_sdpa = torch.constant.bool false
+// TORCH-CHECK:       %return_max_scores_sdpa = torch.constant.bool false
+// TORCH-CHECK:       %sdpa_O_sdpa_perm, %sdpa_logsumexp_sdpa, %sdpa_max_scores_sdpa = torch.hop_flex_attention %q_sdpa_perm, %k_sdpa_perm, %v_sdpa_perm, %scale_sdpa, %return_lse_sdpa, %return_max_scores_sdpa : !torch.vtensor<[1,8,64,64],f16>, !torch.vtensor<[1,8,64,64],f16>, !torch.vtensor<[1,8,64,64],f16>, !torch.none, !torch.bool, !torch.bool -> !torch.vtensor<[1,8,64,64],f16>, !torch.none, !torch.none
 // TORCH-CHECK:       %permute_O_val_0_sdpa = torch.constant.int 0
 // TORCH-CHECK:       %permute_O_val_1_sdpa = torch.constant.int 1
 // TORCH-CHECK:       %permute_O_val_2_sdpa = torch.constant.int 2

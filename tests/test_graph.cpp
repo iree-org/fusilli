@@ -86,6 +86,46 @@ TEST_CASE("Graph conv_fprop() adds ConvFPropNode and output tensor",
   REQUIRE(y->isVirtual() == false);
 }
 
+TEST_CASE("Graph sdpa() exposes generated stats tensor through attributes",
+          "[graph]") {
+  Graph g;
+  g.setName("sdpa_generate_stats_output_tensor")
+      .setIODataType(DataType::Half)
+      .setIntermediateDataType(DataType::Half);
+
+  std::vector<int64_t> dim = {1, 8, 64, 64};
+  auto stride =
+      generateStrideFromDim(dim, getContiguousStrideOrder(dim.size()));
+  auto q = g.tensor(
+      TensorAttr().setName("q").setDim(dim).setStride(stride).setDataType(
+          DataType::Half));
+  auto k = g.tensor(
+      TensorAttr().setName("k").setDim(dim).setStride(stride).setDataType(
+          DataType::Half));
+  auto v = g.tensor(
+      TensorAttr().setName("v").setDim(dim).setStride(stride).setDataType(
+          DataType::Half));
+
+  SdpaAttr attr;
+  attr.setName("sdpa").setGenerateStats(true);
+  auto o = g.sdpa(q, k, v, /*mask=*/nullptr, attr);
+  auto stats = attr.getSTATS();
+
+  REQUIRE(stats != nullptr);
+  REQUIRE(stats->getName() == "sdpa_STATS");
+  REQUIRE(stats->getDataType() == DataType::Float);
+
+  o->setOutput(true);
+  stats->setOutput(true);
+  FUSILLI_REQUIRE_OK(g.validate());
+
+  REQUIRE(stats->getDim() == std::vector<int64_t>{1, 8, 64});
+  REQUIRE(stats->getStride() == std::vector<int64_t>{8 * 64, 64, 1});
+
+  FUSILLI_REQUIRE_ASSIGN(auto generatedAsm, g.emitAsm());
+  REQUIRE(generatedAsm.find("%sdpa_STATS_") != std::string::npos);
+}
+
 TEST_CASE("Graph validate() fails if name is not set", "[graph]") {
   Graph g;
   auto status = g.validate();

@@ -99,6 +99,15 @@ std::vector<float> referenceSdpa(float qVal, float kVal, float vVal,
                                  std::optional<float> scale, bool enableGqa,
                                  bool hasAttnMask);
 
+/// CPU reference implementation for the logsumexp statistics returned by
+/// SDPA generate_stats.
+std::vector<float> referenceSdpaLogsumexp(float qVal, float kVal, float maskVal,
+                                          int64_t batch, int64_t headsQ,
+                                          int64_t seqQ, int64_t seqKV,
+                                          int64_t headDim, bool isCausal,
+                                          std::optional<float> scale,
+                                          bool hasAttnMask);
+
 /// Build and execute SDPA using the built-in graph API.
 /// Shape convention: [batch, heads, seq_len, head_dim].
 /// K and V may have different head counts (headsK vs headsV).
@@ -107,7 +116,7 @@ void executeSdpa(Handle &handle, DataType dt, int64_t batch, int64_t headsQ,
                  int64_t headDim, bool isCausal = false,
                  std::optional<float> scale = std::nullopt,
                  bool enableGqa = false, bool hasAttnMask = false,
-                 float dropoutP = 0.0f);
+                 float dropoutP = 0.0f, bool generateStats = false);
 
 /// Build and execute SDPA using the custom op graph API with MLIR templates.
 /// Shape convention: [batch, heads, seq_len, head_dim].
