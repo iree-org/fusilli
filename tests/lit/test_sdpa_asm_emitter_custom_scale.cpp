@@ -4,6 +4,9 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+// XFAIL: *
+// TODO(iree-org/fusilli#404): Remove XFAIL once IREE supports non-default SDPA
+// scale values.
 // RUN: %{TEST_EXE} | iree-opt --verify-roundtrip
 // RUN: %{TEST_EXE} | FileCheck %s --check-prefix=TORCH-CHECK
 // RUN: %{TEST_EXE} stats | FileCheck %s --check-prefix=%{BACKEND}-STATS-CHECK
@@ -33,7 +36,7 @@
 // TORCH-CHECK:       %none_mask_sdpa = torch.constant.none
 // TORCH-CHECK:       %dropout_sdpa = torch.constant.float 0.000000e+00
 // TORCH-CHECK:       %is_causal_sdpa = torch.constant.bool false
-// TORCH-CHECK:       %scale_sdpa = torch.constant.float 1.250000e-01
+// TORCH-CHECK:       %scale_sdpa = torch.constant.float 5.000000e-02
 // TORCH-CHECK:       %enable_gqa_sdpa = torch.constant.bool false
 // TORCH-CHECK:       %sdpa_O_sdpa_perm = torch.aten.scaled_dot_product_attention %q_sdpa_perm, %k_sdpa_perm, %v_sdpa_perm, %none_mask_sdpa, %dropout_sdpa, %is_causal_sdpa, %scale_sdpa, %enable_gqa_sdpa : !torch.vtensor<[1,8,64,64],f16>, !torch.vtensor<[1,8,64,64],f16>, !torch.vtensor<[1,8,64,64],f16>, !torch.none, !torch.float, !torch.bool, !torch.float, !torch.bool -> !torch.vtensor<[1,8,64,64],f16>
 // TORCH-CHECK:       %permute_O_val_0_sdpa = torch.constant.int 0
@@ -84,7 +87,7 @@ static ErrorObject testSdpaAsmEmitterCustomScale(const std::string &mode) {
       TensorAttr().setName("v").setDim(dim).setStride(stride).setDataType(
           DataType::Half));
 
-  auto sdpaAttr = SdpaAttr().setName("sdpa").setScale(0.125f);
+  auto sdpaAttr = SdpaAttr().setName("sdpa").setScale(0.05f);
   auto o = graph->sdpa(q, k, v, /*mask=*/nullptr, sdpaAttr);
   o->setDim(dim).setStride(stride).setDataType(DataType::Half).setOutput(true);
 
