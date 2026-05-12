@@ -70,7 +70,7 @@ void executeDynamicReduction(Handle &handle, ReductionAttr::Mode mode,
   // instead of iree.abi.transients.size.constant for dynamic batch. Fusilli
   // rejects that dynamic workspace query until runtime size functions are
   // supported.
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSizeOrError());
   REQUIRE(workspaceSize.value_or(0) > 0);
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
                          allocateWorkspace(handle, workspaceSize));

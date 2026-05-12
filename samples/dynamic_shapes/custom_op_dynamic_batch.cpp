@@ -105,7 +105,8 @@ TEST_CASE("Dynamic batch custom add with zero workspace",
                              std::shared_ptr<Buffer>>
         variantPack = {{aT, aBuf}, {bT, bBuf}, {outs[0], outBuf}};
 
-    FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
+    FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
+                           graph->getWorkspaceSizeOrError());
     REQUIRE(workspaceSize == 0);
     FUSILLI_REQUIRE_ASSIGN(auto workspace,
                            allocateWorkspace(handle, workspaceSize));

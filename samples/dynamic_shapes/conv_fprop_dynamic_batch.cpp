@@ -81,7 +81,8 @@ TEST_CASE("Dynamic batch convolution fprop with zero workspace",
                              std::shared_ptr<Buffer>>
         variantPack = {{xT, xBuf}, {wT, wBuf}, {yT, yBuf}};
 
-    FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
+    FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
+                           graph->getWorkspaceSizeOrError());
     REQUIRE(workspaceSize == 0);
     FUSILLI_REQUIRE_ASSIGN(auto workspace,
                            allocateWorkspace(handle, workspaceSize));
