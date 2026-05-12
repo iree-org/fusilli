@@ -1,10 +1,5 @@
 {
   "package-version": "0.0.1.dev",
-<<<<<<< bump-therock/2026-05-12
-  "iree-version": "3.12.0rc20260511",
-  "therock-version": "7.13.0a20260512"
-=======
   "iree-version": "3.12.0rc20260512",
-  "therock-version": "7.13.0a20260511"
->>>>>>> main
+  "therock-version": "7.13.0a20260512"
 }
