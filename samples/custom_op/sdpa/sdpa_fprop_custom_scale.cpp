@@ -16,5 +16,5 @@ TEST_CASE("SDPA forward: custom scale f16", "[sdpa][custom_op][graph]") {
   executeSdpaCustomOp(handle, DataType::Half,
                       /*batch=*/1, /*headsQ=*/8, /*headsK=*/8, /*headsV=*/8,
                       /*seqQ=*/64, /*seqKV=*/64, /*headDim=*/64,
-                      /*isCausal=*/false, /*scale=*/0.125f);
+                      /*isCausal=*/false, /*scale=*/0.05f);
 }
