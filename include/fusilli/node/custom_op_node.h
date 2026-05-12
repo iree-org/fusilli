@@ -102,6 +102,9 @@ public:
     for (auto &input : inputs)
       input->fillFromContext(context);
 
+    for (auto &output : outputs)
+      inferSameShapeDynamicDimsFromInputs(output, inputs);
+
     return ok();
   }
 };

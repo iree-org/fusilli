@@ -207,6 +207,17 @@ public:
       yT->setStride(yStride);
     }
 
+    std::vector<size_t> dynamicDims;
+    if (xT->isDynamicDim(0))
+      dynamicDims.push_back(0);
+    if (wT->isDynamicDim(0))
+      dynamicDims.push_back(1);
+    for (size_t i = 2; i < yDim.size(); ++i) {
+      if (xT->isDynamicDim(i) || wT->isDynamicDim(i))
+        dynamicDims.push_back(i);
+    }
+    setInferredDynamicDims(yT, std::move(dynamicDims));
+
     return ok();
   }
 
@@ -386,6 +397,13 @@ public:
       dwT->setStride(std::move(wStride));
     }
 
+    std::vector<size_t> dynamicDims;
+    if (dyT->isDynamicDim(1))
+      dynamicDims.push_back(0);
+    if (convWGradAttr.getX()->isDynamicDim(1))
+      dynamicDims.push_back(1);
+    setInferredDynamicDims(dwT, std::move(dynamicDims));
+
     return ok();
   }
 
@@ -557,6 +575,18 @@ public:
               : generateStrideFromDim(
                     dxDim, getChannelsLastStrideOrder(dxDim.size())));
     }
+
+    std::shared_ptr<TensorAttr> wT = convDGradAttr.getW();
+    std::vector<size_t> dynamicDims;
+    if (dyT->isDynamicDim(0))
+      dynamicDims.push_back(0);
+    if (wT->isDynamicDim(1))
+      dynamicDims.push_back(1);
+    for (size_t i = 2; i < dxDim.size(); ++i) {
+      if (dyT->isDynamicDim(i) || wT->isDynamicDim(i))
+        dynamicDims.push_back(i);
+    }
+    setInferredDynamicDims(dxT, std::move(dynamicDims));
 
     return ok();
   }

@@ -164,6 +164,12 @@ public:
                               "Pointwise output strides could not be computed");
     }
 
+    setInferredDynamicDims(outTensor,
+                           inferBroadcastDynamicDims({pointwiseAttr.getIN_0(),
+                                                      pointwiseAttr.getIN_1(),
+                                                      pointwiseAttr.getIN_2()},
+                                                     outTensor->getDim()));
+
     return ok();
   }
 };

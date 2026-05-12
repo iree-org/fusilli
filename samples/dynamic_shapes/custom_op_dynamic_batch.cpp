@@ -65,12 +65,12 @@ TEST_CASE("Dynamic batch custom add with zero workspace",
   auto outs = graph->customOp({aT, bT}, addAttr);
   outs[0]
       ->setDim({n, c})
-      .setDynamicDims({0})
       .setStride({c, 1})
       .setDataType(DataType::Float)
       .setOutput(true);
 
   FUSILLI_REQUIRE_OK(graph->validate());
+  REQUIRE(outs[0]->getDynamicDims() == std::vector<size_t>{0});
 
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));

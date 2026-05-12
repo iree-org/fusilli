@@ -9,6 +9,7 @@
 #include "utils.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -219,6 +220,7 @@ TEST_CASE("BatchNormNode inferPropertiesNode infers Y shape from X",
       TensorAttr()
           .setName("x")
           .setDim({n, c, h, w})
+          .setDynamicDims({0})
           .setDataType(DataType::Float)
           .setStride({c * h * w, h * w, w, 1})); // NCHW
   auto meanT = std::make_shared<TensorAttr>(TensorAttr()
@@ -253,6 +255,7 @@ TEST_CASE("BatchNormNode inferPropertiesNode infers Y shape from X",
 
   REQUIRE(yT->getDim() == std::vector<int64_t>({n, c, h, w}));
   REQUIRE(yT->getStride() == xT->getStride());
+  REQUIRE(yT->getDynamicDims() == std::vector<size_t>{0});
 }
 
 TEST_CASE("BatchNormNode inferPropertiesNode infers SAVED outputs and 1D "
@@ -266,6 +269,7 @@ TEST_CASE("BatchNormNode inferPropertiesNode infers SAVED outputs and 1D "
       TensorAttr()
           .setName("x")
           .setDim({n, c, h, w})
+          .setDynamicDims({0, 1})
           .setDataType(DataType::Float)
           .setStride({c * h * w, h * w, w, 1})); // NCHW
   auto scaleT = std::make_shared<TensorAttr>(
@@ -301,12 +305,15 @@ TEST_CASE("BatchNormNode inferPropertiesNode infers SAVED outputs and 1D "
   // Y shape matches X.
   REQUIRE(yT->getDim() == std::vector<int64_t>({n, c, h, w}));
   REQUIRE(yT->getStride() == xT->getStride());
+  REQUIRE(yT->getDynamicDims() == std::vector<size_t>{0, 1});
 
   // SAVED outputs are inferred as 1D [c] with unit stride.
   REQUIRE(smT->getDim() == std::vector<int64_t>({c}));
   REQUIRE(smT->getStride() == std::vector<int64_t>({1}));
+  REQUIRE(smT->getDynamicDims() == std::vector<size_t>{0});
   REQUIRE(sivT->getDim() == std::vector<int64_t>({c}));
   REQUIRE(sivT->getStride() == std::vector<int64_t>({1}));
+  REQUIRE(sivT->getDynamicDims() == std::vector<size_t>{0});
 
   // Optional 1D tensors (scale, bias) are inferred as [c] with unit stride.
   REQUIRE(scaleT->getDim() == std::vector<int64_t>({c}));

@@ -79,7 +79,6 @@ int main() {
   outs[0]
       ->setDim({4, 8})
       .setStride({8, 1})
-      .setDynamicDims({0})
       .setDataType(DataType::Float)
       .setOutput(true);
 

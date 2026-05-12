@@ -192,18 +192,36 @@ public:
     const std::vector<int64_t> &aDim = aT->getDim();
     const std::vector<int64_t> &bDim = bT->getDim();
 
-    const std::vector<int64_t> &cDim = cT->getDim();
+    std::vector<int64_t> cDim = cT->getDim();
     const std::vector<int64_t> &cStride = cT->getStride();
 
     // Infer shape of output tensor.
-    if (cDim.empty())
-      cT->setDim(getMatmulInferredOutputShape(aDim, bDim));
+    if (cDim.empty()) {
+      cDim = getMatmulInferredOutputShape(aDim, bDim);
+      cT->setDim(cDim);
+    }
 
     // Output stride is contiguous (row-major) when unspecified.
     if (cStride.empty()) {
       cT->setStride(
           generateStrideFromDim(cDim, getContiguousStrideOrder(cDim.size())));
     }
+
+    std::vector<size_t> dynamicDims;
+    constexpr int64_t kNonBatchRank = 2;
+    size_t rank = aDim.size();
+    size_t batchDims = rank - kNonBatchRank;
+    for (size_t i = 0; i < batchDims; ++i) {
+      if (aT->isDynamicDim(i) && aDim[i] == cDim[i])
+        dynamicDims.push_back(i);
+      if (bT->isDynamicDim(i) && bDim[i] == cDim[i])
+        dynamicDims.push_back(i);
+    }
+    if (aT->isDynamicDim(rank - 2))
+      dynamicDims.push_back(rank - 2);
+    if (bT->isDynamicDim(rank - 1))
+      dynamicDims.push_back(rank - 1);
+    setInferredDynamicDims(cT, std::move(dynamicDims));
 
     return ok();
   }
