@@ -68,6 +68,21 @@
 // tensors; output tensors with broadcast strides are rejected during node
 // validation.
 //
+// Dynamic dimensions are recorded separately from `dim_`. The `dim_` entries
+// remain representative extents used by shape inference, stride inference, and
+// validation; MLIR emission overlays the dynamic annotations as `?`, and
+// runtime tensors may provide different concrete extents for those positions.
+//
+// For tensors with dynamic dimensions, `stride_` is also a representative
+// dense-layout pattern rather than a complete runtime stride vector. It is used
+// to derive the logical <-> physical permutation that Fusilli emits as tensor
+// transposes around torch dialect ops. Runtime strides whose running products
+// depend on dynamic extents are therefore dynamic too. This is currently
+// supported only for dense layout permutations. Broadcast strides and
+// representative unit dimensions are rejected on dynamic tensors because both
+// are layout-insensitive in the representative stride pattern but may become
+// layout-significant at runtime.
+//
 // Invalid stride configurations (e.g., strides that don't correspond to any
 // valid permutation) or strides unsupported by a specific operation will result
 // in an error during validation.
@@ -386,6 +401,11 @@ public:
               std::to_string(dynamicDim) +
               " with stride 0 (broadcast stride), which "
               "is not supported");
+      FUSILLI_RETURN_ERROR_IF(
+          dim_[dynamicDim] == 1, ErrorCode::InvalidAttribute,
+          "Tensor '" + name_ + "' has dynamic dim at index " +
+              std::to_string(dynamicDim) +
+              " with representative size 1, which is not supported");
     }
 
     FUSILLI_RETURN_ERROR_IF(

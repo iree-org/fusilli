@@ -144,6 +144,22 @@ TEST_CASE("TensorAttr dynamic dimension metadata", "[TensorAttr]") {
             "Tensor 'bad_dynamic' has dynamic dim index 2 out of range for "
             "rank 2");
   }
+
+  SECTION("Representative unit dynamic dimension fails validation") {
+    TensorAttr t;
+    t.setName("unit_dynamic")
+        .setDataType(DataType::Float)
+        .setDim({1, 8})
+        .setStride({8, 1})
+        .setDynamicDim(0);
+
+    auto status = t.validate();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "Tensor 'unit_dynamic' has dynamic dim at index 0 with "
+            "representative size 1, which is not supported");
+  }
 }
 
 TEST_CASE("TensorAttr validation edge cases", "[TensorAttr]") {

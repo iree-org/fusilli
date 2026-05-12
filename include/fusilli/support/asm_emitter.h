@@ -2495,7 +2495,7 @@ inline std::string CustomOpNode::resolveMlirPlaceholders() const {
     const auto &dims = inputs[i]->getDim();
     for (size_t d = 0; d < dims.size(); ++d)
       replaceAll(mlir, "{IN" + iStr + "_DIM" + std::to_string(d) + "}",
-                 std::to_string(dims[d]));
+                 inputs[i]->isDynamicDim(d) ? "?" : std::to_string(dims[d]));
   }
   for (size_t i = 0; i < outputs.size(); ++i) {
     std::string iStr = std::to_string(i);
@@ -2507,7 +2507,7 @@ inline std::string CustomOpNode::resolveMlirPlaceholders() const {
     const auto &dims = outputs[i]->getDim();
     for (size_t d = 0; d < dims.size(); ++d)
       replaceAll(mlir, "{OUT" + iStr + "_DIM" + std::to_string(d) + "}",
-                 std::to_string(dims[d]));
+                 outputs[i]->isDynamicDim(d) ? "?" : std::to_string(dims[d]));
   }
   return mlir;
 }

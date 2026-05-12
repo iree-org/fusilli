@@ -11,14 +11,14 @@
 //
 // CHECK:       module @module {
 // CHECK:         func.func private @my_add(
-// CHECK-NEXT:      %arg0: !torch.vtensor<[4,8],f32>,
-// CHECK-NEXT:      %arg1: !torch.vtensor<[4,8],f32>)
-// CHECK-NEXT:      -> !torch.vtensor<[4,8],f32> {
+// CHECK-NEXT:      %arg0: !torch.vtensor<[?,8],f32>,
+// CHECK-NEXT:      %arg1: !torch.vtensor<[?,8],f32>)
+// CHECK-NEXT:      -> !torch.vtensor<[?,8],f32> {
 // CHECK:           %int1 = torch.constant.int 1
 // CHECK:           %0 = torch.aten.add.Tensor %arg0, %arg1, %int1
-// CHECK:               !torch.vtensor<[4,8],f32>
-// CHECK:               -> !torch.vtensor<[4,8],f32>
-// CHECK:           return %0 : !torch.vtensor<[4,8],f32>
+// CHECK:               !torch.vtensor<[?,8],f32>
+// CHECK:               -> !torch.vtensor<[?,8],f32>
+// CHECK:           return %0 : !torch.vtensor<[?,8],f32>
 // CHECK:         }
 // CHECK:         func.func @main(
 // CHECK:           func.call @my_add
@@ -42,16 +42,22 @@ int main() {
   g.setName("custom_op_asm_emitter_dim_placeholder")
       .setIODataType(DataType::Float);
 
-  auto a = g.tensor(
-      TensorAttr().setName("a").setDim({4, 8}).setStride({8, 1}).setDataType(
-          DataType::Float));
-  auto b = g.tensor(
-      TensorAttr().setName("b").setDim({4, 8}).setStride({8, 1}).setDataType(
-          DataType::Float));
+  auto a = g.tensor(TensorAttr()
+                        .setName("a")
+                        .setDim({4, 8})
+                        .setStride({8, 1})
+                        .setDynamicDims({0})
+                        .setDataType(DataType::Float));
+  auto b = g.tensor(TensorAttr()
+                        .setName("b")
+                        .setDim({4, 8})
+                        .setStride({8, 1})
+                        .setDynamicDims({0})
+                        .setDataType(DataType::Float));
 
   // Composes tensor types from individual {IN0_DIM0}/{IN0_DIM1} placeholders
-  // instead of using {IN0_TYPE}.  Shows that users can build type strings
-  // from dimension values when they need custom type compositions.
+  // instead of using {IN0_TYPE}. Shows that dimension placeholders are
+  // dynamic-aware when users need custom type compositions.
   std::string addMlir = R"(
   func.func private @{FUNC_NAME}(
       %arg0: !torch.vtensor<[{IN0_DIM0},{IN0_DIM1}],{IN0_DTYPE}>,
@@ -73,6 +79,7 @@ int main() {
   outs[0]
       ->setDim({4, 8})
       .setStride({8, 1})
+      .setDynamicDims({0})
       .setDataType(DataType::Float)
       .setOutput(true);
 

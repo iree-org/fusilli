@@ -89,7 +89,7 @@ public:
   //   {FUNC_NAME}                    — node name
   //   {IN<i>_DTYPE}/{OUT<i>_DTYPE}   — element type (e.g., "f32")
   //   {IN<i>_TYPE}/{OUT<i>_TYPE}     — full value tensor type
-  //   {IN<i>_DIM<j>}/{OUT<i>_DIM<j>} — representative logical dimension
+  //   {IN<i>_DIM<j>}/{OUT<i>_DIM<j>} — logical dimension, or `?` when dynamic
   //
   // Definition in asm_emitter.h (needs getTensorTypeAsm()).
   std::string resolveMlirPlaceholders() const;
