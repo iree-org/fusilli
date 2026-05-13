@@ -83,8 +83,9 @@ TEST_CASE(
       };
 
   // Allocate workspace buffer if needed.
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSizeOrError());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
-                         allocateWorkspace(handle, graph->getWorkspaceSize()));
+                         allocateWorkspace(handle, workspaceSize));
 
   // Execute graph once.
   FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
@@ -165,8 +166,9 @@ TEST_CASE("Batched matrix multiplication with broadcast; A (B, M, K), B (1, K, "
       };
 
   // Allocate workspace buffer if needed.
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSizeOrError());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
-                         allocateWorkspace(handle, graph->getWorkspaceSize()));
+                         allocateWorkspace(handle, workspaceSize));
 
   // Execute graph once.
   FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));

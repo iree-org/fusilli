@@ -28,7 +28,7 @@ namespace fusilli {
   OP(ABS)                                                                      \
   OP(ADD)                                                                      \
   OP(ADD_SQUARE)                                                               \
-  /* OP(BINARY_SELECT)  */                                                     \
+  OP(BINARY_SELECT)                                                            \
   OP(CEIL)                                                                     \
   OP(CMP_EQ)                                                                   \
   OP(CMP_GE)                                                                   \
@@ -42,9 +42,9 @@ namespace fusilli {
   OP(ERF)                                                                      \
   OP(EXP)                                                                      \
   OP(FLOOR)                                                                    \
-  /* OP(GELU_APPROX_TANH_BWD)  */                                              \
+  OP(GELU_APPROX_TANH_BWD)                                                     \
   OP(GELU_APPROX_TANH_FWD)                                                     \
-  /* OP(GELU_BWD) */                                                           \
+  OP(GELU_BWD)                                                                 \
   OP(GELU_FWD)                                                                 \
   /* OP(GEN_INDEX) */                                                          \
   OP(IDENTITY)                                                                 \
@@ -57,7 +57,7 @@ namespace fusilli {
   OP(MUL)                                                                      \
   OP(NEG)                                                                      \
   OP(RECIPROCAL)                                                               \
-  /* OP(RELU_BWD) */                                                           \
+  OP(RELU_BWD)                                                                 \
   OP(RELU_FWD)                                                                 \
   OP(RSQRT)                                                                    \
   /* OP(SIGMOID_BWD) */                                                        \
@@ -67,10 +67,10 @@ namespace fusilli {
   OP(SOFTPLUS_FWD)                                                             \
   OP(SQRT)                                                                     \
   OP(SUB)                                                                      \
-  /* OP(SWISH_BWD) */                                                          \
+  OP(SWISH_BWD)                                                                \
   OP(SWISH_FWD)                                                                \
   OP(TAN)                                                                      \
-  /* OP(TANH_BWD) */                                                           \
+  OP(TANH_BWD)                                                                 \
   OP(TANH_FWD)
 
 class PointwiseAttr : public AttributesCRTP<PointwiseAttr> {
@@ -159,6 +159,7 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::ABS, 1},
         {PointwiseAttr::Mode::ADD, 2},
         {PointwiseAttr::Mode::ADD_SQUARE, 2},
+        {PointwiseAttr::Mode::BINARY_SELECT, 3},
         {PointwiseAttr::Mode::CEIL, 1},
         {PointwiseAttr::Mode::CMP_EQ, 2},
         {PointwiseAttr::Mode::CMP_LT, 2},
@@ -171,7 +172,9 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::ERF, 1},
         {PointwiseAttr::Mode::EXP, 1},
         {PointwiseAttr::Mode::FLOOR, 1},
+        {PointwiseAttr::Mode::GELU_APPROX_TANH_BWD, 2},
         {PointwiseAttr::Mode::GELU_APPROX_TANH_FWD, 1},
+        {PointwiseAttr::Mode::GELU_BWD, 2},
         {PointwiseAttr::Mode::GELU_FWD, 1},
         {PointwiseAttr::Mode::LOG, 1},
         {PointwiseAttr::Mode::LOGICAL_AND, 2},
@@ -183,6 +186,7 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::NEG, 1},
         {PointwiseAttr::Mode::IDENTITY, 1},
         {PointwiseAttr::Mode::RECIPROCAL, 1},
+        {PointwiseAttr::Mode::RELU_BWD, 2},
         {PointwiseAttr::Mode::RELU_FWD, 1},
         {PointwiseAttr::Mode::RSQRT, 1},
         {PointwiseAttr::Mode::SIGMOID_FWD, 1},
@@ -190,8 +194,10 @@ inline const std::unordered_map<PointwiseAttr::Mode, int>
         {PointwiseAttr::Mode::SOFTPLUS_FWD, 1},
         {PointwiseAttr::Mode::SQRT, 1},
         {PointwiseAttr::Mode::SUB, 2},
+        {PointwiseAttr::Mode::SWISH_BWD, 2},
         {PointwiseAttr::Mode::SWISH_FWD, 1},
         {PointwiseAttr::Mode::TAN, 1},
+        {PointwiseAttr::Mode::TANH_BWD, 2},
         {PointwiseAttr::Mode::TANH_FWD, 1}};
 
 } // namespace fusilli

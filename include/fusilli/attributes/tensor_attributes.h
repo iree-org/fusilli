@@ -68,6 +68,21 @@
 // tensors; output tensors with broadcast strides are rejected during node
 // validation.
 //
+// Dynamic dimensions are recorded separately from `dim_`. The `dim_` entries
+// remain representative extents used by shape inference, stride inference, and
+// validation; MLIR emission overlays the dynamic annotations as `?`, and
+// runtime tensors may provide different concrete extents for those positions.
+//
+// For tensors with dynamic dimensions, `stride_` is also a representative
+// dense-layout pattern rather than a complete runtime stride vector. It is used
+// to derive the logical <-> physical permutation that Fusilli emits as tensor
+// transposes around torch dialect ops. Runtime strides whose running products
+// depend on dynamic extents are therefore dynamic too. This is currently
+// supported only for dense layout permutations. Broadcast strides and
+// representative unit dimensions are rejected on dynamic tensors because both
+// are layout-insensitive in the representative stride pattern but may become
+// layout-significant at runtime.
+//
 // Invalid stride configurations (e.g., strides that don't correspond to any
 // valid permutation) or strides unsupported by a specific operation will result
 // in an error during validation.
@@ -117,10 +132,12 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 #include <memory>
 #include <numeric>
 #include <optional>
 #include <ranges>
+#include <span>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -371,6 +388,32 @@ public:
         dim_.size() != stride_.size(), ErrorCode::InvalidAttribute,
         "Tensor '" + name_ +
             "' uses dim and stride of different dimensionality");
+
+    for (size_t dynamicDim : dynamicDims_) {
+      FUSILLI_RETURN_ERROR_IF(
+          dynamicDim >= dim_.size(), ErrorCode::InvalidAttribute,
+          "Tensor '" + name_ + "' has dynamic dim index " +
+              std::to_string(dynamicDim) + " out of range for rank " +
+              std::to_string(dim_.size()));
+      FUSILLI_RETURN_ERROR_IF(
+          stride_[dynamicDim] == 0, ErrorCode::InvalidAttribute,
+          "Tensor '" + name_ + "' has dynamic dim at index " +
+              std::to_string(dynamicDim) +
+              " with stride 0 (broadcast stride), which "
+              "is not supported");
+      FUSILLI_RETURN_ERROR_IF(
+          dim_[dynamicDim] == 1, ErrorCode::InvalidAttribute,
+          "Tensor '" + name_ + "' has dynamic dim at index " +
+              std::to_string(dynamicDim) +
+              " with representative size 1, which is not supported");
+    }
+
+    FUSILLI_RETURN_ERROR_IF(
+        hasBroadcastDims() && hasDynamicDims(), ErrorCode::InvalidAttribute,
+        "Tensor '" + name_ +
+            "' has dynamic dimensions on a tensor with broadcast strides, "
+            "which is not supported");
+
     FUSILLI_RETURN_ERROR_IF(
         !hasValidPhysicalRepresentation(), ErrorCode::InvalidAttribute,
         "Tensor '" + name_ +
@@ -466,6 +509,28 @@ public:
     return *this;
   }
 
+  TensorAttr &setDynamicDim(size_t index) {
+    dynamicDims_.push_back(index);
+    canonicalizeDynamicDims();
+    return *this;
+  }
+
+  TensorAttr &setDynamicDims(std::span<const size_t> indices) {
+    dynamicDims_.assign(indices.begin(), indices.end());
+    canonicalizeDynamicDims();
+    return *this;
+  }
+
+  TensorAttr &setDynamicDims(std::initializer_list<size_t> indices) {
+    return setDynamicDims(
+        std::span<const size_t>(indices.begin(), indices.size()));
+  }
+
+  TensorAttr &clearDynamicDims() {
+    dynamicDims_.clear();
+    return *this;
+  }
+
   TensorAttr &setStride(const std::vector<int64_t> &stride) {
     stride_ = stride;
     return *this;
@@ -495,6 +560,14 @@ public:
   const std::vector<int64_t> &getDim() const { return dim_; }
 
   const std::vector<int64_t> &getStride() const { return stride_; }
+
+  bool isDynamicDim(size_t index) const {
+    return std::binary_search(dynamicDims_.begin(), dynamicDims_.end(), index);
+  }
+
+  bool hasDynamicDims() const { return !dynamicDims_.empty(); }
+
+  const std::vector<size_t> &getDynamicDims() const { return dynamicDims_; }
 
   int64_t getVolume() const {
     int64_t volume = 1;
@@ -714,6 +787,7 @@ private:
   DataType dataType_ = DataType::NotSet;
   std::vector<int64_t> dim_ = {};
   std::vector<int64_t> stride_ = {};
+  std::vector<size_t> dynamicDims_ = {};
 
   // Intermediate tensors that are not inputs/outputs are virtual
   // and not stored/read as they appear internal to the kernel.
@@ -726,6 +800,12 @@ private:
   // so they should not be in the variant pack.
   bool isScalar_ = false;
   std::optional<scalar_t> scalarValue_;
+
+  void canonicalizeDynamicDims() {
+    std::sort(dynamicDims_.begin(), dynamicDims_.end());
+    dynamicDims_.erase(std::unique(dynamicDims_.begin(), dynamicDims_.end()),
+                       dynamicDims_.end());
+  }
 };
 
 // Sorting function for deterministic lookups on TensorAttr containers

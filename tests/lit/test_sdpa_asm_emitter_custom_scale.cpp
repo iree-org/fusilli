@@ -4,6 +4,9 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+// XFAIL: *
+// TODO(iree-org/fusilli#404): Remove XFAIL once IREE supports non-default SDPA
+// scale values.
 // RUN: %{TEST_EXE} | iree-opt --verify-roundtrip
 // RUN: %{TEST_EXE} | FileCheck %s --check-prefix=TORCH-CHECK
 // RUN: %{TEST_EXE} stats | FileCheck %s --check-prefix=%{BACKEND}-STATS-CHECK
@@ -82,7 +85,7 @@ static ErrorObject testSdpaAsmEmitterCustomScale(const std::string &mode) {
       TensorAttr().setName("v").setDim(dim).setStride(stride).setDataType(
           DataType::Half));
 
-  auto sdpaAttr = SdpaAttr().setName("sdpa").setScale(0.125f);
+  auto sdpaAttr = SdpaAttr().setName("sdpa").setScale(0.05f);
   auto o = graph->sdpa(q, k, v, /*mask=*/nullptr, sdpaAttr);
   o->setDim(dim).setStride(stride).setDataType(DataType::Half).setOutput(true);
 

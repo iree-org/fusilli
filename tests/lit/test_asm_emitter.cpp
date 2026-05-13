@@ -91,6 +91,35 @@ static void testGetTensorTypeAsm() {
   std::cout << scalar.getTensorTypeAsm(/*isValueTensor=*/true,
                                        /*useLogicalDims=*/true)
             << std::endl;
+
+  TensorAttr dynamic;
+  dynamic.setName("dynamic")
+      .setDataType(DataType::Float)
+      .setDim({2, 3, 4})
+      .setStride({12, 1, 3})
+      .setDynamicDims({1});
+
+  // Physical dims follow the stride-derived layout while dynamic annotations
+  // follow the original logical dimension through that permutation.
+  // CHECK:  !torch.vtensor<[2,4,?],f32>
+  std::cout << dynamic.getTensorTypeAsm(/*isValueTensor=*/true,
+                                        /*useLogicalDims=*/false)
+            << std::endl;
+
+  // CHECK:  !torch.tensor<[2,4,?],f32>
+  std::cout << dynamic.getTensorTypeAsm(/*isValueTensor=*/false,
+                                        /*useLogicalDims=*/false)
+            << std::endl;
+
+  // CHECK:  !torch.vtensor<[2,?,4],f32>
+  std::cout << dynamic.getTensorTypeAsm(/*isValueTensor=*/true,
+                                        /*useLogicalDims=*/true)
+            << std::endl;
+
+  // CHECK:  !torch.tensor<[2,?,4],f32>
+  std::cout << dynamic.getTensorTypeAsm(/*isValueTensor=*/false,
+                                        /*useLogicalDims=*/true)
+            << std::endl;
 }
 
 static void testGetValueNameAsm() {

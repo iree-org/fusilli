@@ -163,6 +163,35 @@ TEST_CASE("ReductionNode with SUM mode", "[reduction_node]") {
   FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
 }
 
+TEST_CASE("ReductionNode rejects AVG on integral or boolean tensors",
+          "[reduction_node]") {
+  Context ctx;
+  ReductionAttr attr;
+  attr.setMode(ReductionAttr::Mode::AVG);
+
+  auto x = std::make_shared<TensorAttr>();
+  x->setDim({2, 3}).setStride({3, 1}).setDataType(DataType::Float);
+
+  auto y = std::make_shared<TensorAttr>();
+  y->setDim({2, 1}).setStride({1, 1}).setDataType(DataType::Float);
+
+  SECTION("integer input") { x->setDataType(DataType::Int32); }
+  SECTION("boolean input") { x->setDataType(DataType::Boolean); }
+  SECTION("integer output") { y->setDataType(DataType::Int32); }
+
+  attr.setX(x).setY(y);
+
+  ReductionNode node(std::move(attr), ctx);
+  FUSILLI_REQUIRE_OK(node.preValidateNode());
+  FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+  auto status = node.postValidateNode();
+  REQUIRE(isError(status));
+  REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+  REQUIRE(status.getMessage() ==
+          "Reduction AVG is not supported for integral or boolean tensors");
+}
+
 TEST_CASE("ReductionNode with MAX mode full tensor reduction",
           "[reduction_node]") {
   Context ctx;

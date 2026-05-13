@@ -60,6 +60,8 @@ public:
                          "Handle::create got an unknown backend");
     }
 
+    FUSILLI_CHECK_ERROR(handle.createDeviceGroup());
+
     return ok(std::move(handle));
   }
 
@@ -104,6 +106,7 @@ public:
     // Lazy create handle-specific IREE HAL device and populate the handle.
     FUSILLI_CHECK_ERROR(
         handle.createAMDGPUDevice(/*deviceId=*/deviceId, /*stream=*/stream));
+    FUSILLI_CHECK_ERROR(handle.createDeviceGroup());
 
     return ok(std::move(handle));
   }
@@ -121,8 +124,7 @@ public:
 
   Backend getBackend() const { return backend_; }
 
-  // Allow Graph and Buffer to access private Handle methods `getDevice()`
-  // and `getInstance()`.
+  // Allow Graph and Buffer to access private Handle methods.
   friend class Graph;
   friend class Buffer;
 
@@ -139,6 +141,10 @@ private:
   // Definition in `fusilli/backend/runtime.h`.
   ErrorObject createAMDGPUDevice(int deviceId, uintptr_t stream);
 
+  // Creates IREE HAL device group for this handle's device. Definition in
+  // `fusilli/backend/runtime.h`.
+  ErrorObject createDeviceGroup();
+
   // Private constructor (use factory `create` method for handle creation).
   Handle(Backend backend, IreeVmInstanceSharedPtrType instance)
       : backend_(backend), instance_(std::move(instance)) {}
@@ -148,6 +154,12 @@ private:
   // its lifetime is tied to the `Handle` object and only
   // valid as long as this handle exists.
   iree_hal_device_t *getDevice() const { return device_.get(); }
+
+  // Returns a raw pointer to the underlying IREE HAL device group.
+  // WARNING: The returned raw pointer is not safe to store since
+  // its lifetime is tied to the `Handle` object and only
+  // valid as long as this handle exists.
+  iree_hal_device_group_t *getDeviceGroup() const { return deviceGroup_.get(); }
 
   // Returns a raw pointer to the underlying IREE VM instance.
   // WARNING: The returned raw pointer is not safe to store since
@@ -160,6 +172,7 @@ private:
   Backend backend_;
   IreeVmInstanceSharedPtrType instance_;
   IreeHalDeviceUniquePtrType device_;
+  IreeHalDeviceGroupUniquePtrType deviceGroup_;
 };
 
 } // namespace fusilli

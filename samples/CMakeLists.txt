@@ -39,11 +39,13 @@ add_fusilli_samples(
 add_fusilli_samples(
   PREFIX fusilli_pointwise_samples
   SRCS
+    pointwise/pointwise_add_transposed.cpp
     pointwise/pointwise_binary_ops.cpp
     pointwise/pointwise_binary_cmp_ops.cpp
-    pointwise/pointwise_unary_ops.cpp
-    pointwise/pointwise_add_transposed.cpp
+    pointwise/pointwise_bwd.cpp
     pointwise/pointwise_scalar_mul.cpp
+    pointwise/pointwise_ternary_ops.cpp
+    pointwise/pointwise_unary_ops.cpp
   DEPS
     libfusilli
     libutils
@@ -85,9 +87,8 @@ add_fusilli_samples(
     batchnorm/batchnorm_infer_nchw.cpp
     batchnorm/batchnorm_infer_nchw_scale_bias.cpp
     batchnorm/batchnorm_infer_nhwc_scale_bias.cpp
-    # TODO(iree-org/iree#24008): batchnorm training fails to distribute.
-    # batchnorm/batchnorm_train_nchw.cpp
-    # batchnorm/batchnorm_train_nchw_scale_bias.cpp
+    batchnorm/batchnorm_train_nchw.cpp
+    batchnorm/batchnorm_train_nchw_scale_bias.cpp
   DEPS
     libfusilli
     libutils
@@ -117,6 +118,27 @@ add_fusilli_samples(
 )
 
 add_fusilli_samples(
+  PREFIX fusilli_dynamic_shape_samples
+  SRCS
+    dynamic_shapes/conv_fprop_dynamic_batch.cpp
+    dynamic_shapes/custom_op_dynamic_batch.cpp
+    dynamic_shapes/reduction_min_max_dynamic_batch.cpp
+    dynamic_shapes/sdpa_basic_dynamic_sequence.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)
+
+if(FUSILLI_SYSTEMS_AMDGPU)
+  # TODO: Remove this xfail once dynamic sequence SDPA works for GPU
+  set_tests_properties(
+    fusilli_dynamic_shape_samples_sdpa_basic_dynamic_sequence PROPERTIES
+    WILL_FAIL TRUE
+  )
+endif()
+
+add_fusilli_samples(
   PREFIX fusilli_custom_op_samples
   SRCS
     custom_op/custom_op_add.cpp
@@ -126,6 +148,16 @@ add_fusilli_samples(
     Catch2::Catch2WithMain
 )
 
+add_fusilli_samples(
+  PREFIX fusilli_aot_samples
+  SRCS
+    aot/single_backend.cpp
+    aot/multi_backend.cpp
+  DEPS
+    libfusilli
+    libutils
+    Catch2::Catch2WithMain
+)
 
 
 add_fusilli_samples(
@@ -166,3 +198,9 @@ add_fusilli_samples(
     libsdpautils
     Catch2::Catch2WithMain
 )
+
+# XFAIL: TODO(#404): Remove once the compiler supports non-default SDPA scales.
+set_tests_properties(
+  fusilli_sdpa_custom_op_samples_sdpa_fprop_custom_scale
+  fusilli_sdpa_samples_sdpa_fprop_custom_scale
+  PROPERTIES WILL_FAIL TRUE)

@@ -149,6 +149,7 @@ add_fusilli_lit_tests(
     lit/test_pointwise_asm_emitter_add.cpp
     lit/test_pointwise_asm_emitter_add_square.cpp
     lit/test_pointwise_asm_emitter_add_transposed.cpp
+    lit/test_pointwise_asm_emitter_binary_select.cpp
     lit/test_pointwise_asm_emitter_ceil.cpp
     lit/test_pointwise_asm_emitter_cmp_eq.cpp
     lit/test_pointwise_asm_emitter_cmp_neq.cpp
@@ -161,7 +162,9 @@ add_fusilli_lit_tests(
     lit/test_pointwise_asm_emitter_erf.cpp
     lit/test_pointwise_asm_emitter_exp.cpp
     lit/test_pointwise_asm_emitter_floor.cpp
+    lit/test_pointwise_asm_emitter_gelu_approx_tanh_bwd.cpp
     lit/test_pointwise_asm_emitter_gelu_approx_tanh_fwd.cpp
+    lit/test_pointwise_asm_emitter_gelu_bwd.cpp
     lit/test_pointwise_asm_emitter_gelu_fwd.cpp
     lit/test_pointwise_asm_emitter_identity.cpp
     lit/test_pointwise_asm_emitter_log.cpp
@@ -174,14 +177,17 @@ add_fusilli_lit_tests(
     lit/test_pointwise_asm_emitter_mul_scalar.cpp
     lit/test_pointwise_asm_emitter_neg.cpp
     lit/test_pointwise_asm_emitter_reciprocal.cpp
+    lit/test_pointwise_asm_emitter_relu_bwd.cpp
     lit/test_pointwise_asm_emitter_rsqrt.cpp
     lit/test_pointwise_asm_emitter_sigmoid.cpp
     lit/test_pointwise_asm_emitter_sin.cpp
     lit/test_pointwise_asm_emitter_softplus_fwd.cpp
     lit/test_pointwise_asm_emitter_sqrt.cpp
+    lit/test_pointwise_asm_emitter_swish_bwd.cpp
     lit/test_pointwise_asm_emitter_swish_fwd.cpp
     lit/test_pointwise_asm_emitter_tan.cpp
     lit/test_pointwise_asm_emitter_tanh.cpp
+    lit/test_pointwise_asm_emitter_tanh_bwd.cpp
     lit/test_pointwise_asm_emitter_sub.cpp
     lit/test_conv_wgrad_asm_emitter_nhwc_krsc.cpp
     lit/test_conv_wgrad_asm_emitter_nhwc_krsc_grouped.cpp
@@ -189,8 +195,7 @@ add_fusilli_lit_tests(
     lit/test_conv_dgrad_asm_emitter_nhwc_kcrs.cpp
     lit/test_conv_dgrad_asm_emitter_nhwc_kcrs_grouped.cpp
     lit/test_batchnorm_infer_asm_emitter_nchw.cpp
-    # TODO(iree-org/iree#24008): batchnorm training fails to distribute.
-    # lit/test_batchnorm_train_asm_emitter_nchw.cpp
+    lit/test_batchnorm_train_asm_emitter_nchw.cpp
     lit/test_layernorm_infer_asm_emitter_nchw.cpp
     lit/test_layernorm_infer_asm_emitter_scale_bias_nhwc.cpp
     lit/test_layernorm_infer_asm_emitter_scale_bias_nhwc_small_batch.cpp
@@ -210,6 +215,7 @@ add_fusilli_lit_tests(
     lit/test_custom_op_asm_emitter_sdpa.cpp
     lit/test_custom_op_asm_emitter_static.cpp
     lit/test_custom_op_asm_emitter_dim_placeholder.cpp
+    lit/test_custom_op_asm_emitter_dynamic_type.cpp
     lit/test_sdpa_asm_emitter_basic_mha.cpp
     lit/test_sdpa_asm_emitter_causal.cpp
     lit/test_sdpa_asm_emitter_with_mask.cpp
@@ -218,9 +224,15 @@ add_fusilli_lit_tests(
     lit/test_sdpa_asm_emitter_custom_scale.cpp
     lit/test_sdpa_asm_emitter_cross_attn.cpp
     lit/test_sdpa_asm_emitter_generate_stats.cpp
-    lit/test_reduction_asm_emitter_sum.cpp
+    lit/test_reduction_asm_emitter_add.cpp
     lit/test_reduction_asm_emitter_min.cpp
+    lit/test_reduction_asm_emitter_amax.cpp
     lit/test_reduction_asm_emitter_max.cpp
+    lit/test_reduction_asm_emitter_mul.cpp
+    lit/test_reduction_asm_emitter_mul_no_zeros.cpp
+    lit/test_reduction_asm_emitter_norm1.cpp
+    lit/test_reduction_asm_emitter_avg.cpp
+    lit/test_reduction_asm_emitter_norm2.cpp
   DEPS
     libfusilli
     libutils

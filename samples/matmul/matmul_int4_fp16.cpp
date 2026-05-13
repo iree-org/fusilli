@@ -67,8 +67,9 @@ TEST_CASE("Int4 x fp16 matmul", "[matmul][int4]") {
   const std::unordered_map<std::shared_ptr<TensorAttr>, std::shared_ptr<Buffer>>
       variantPack = {{aT, aBuf}, {bT, bBuf}, {cT, cBuf}};
 
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSizeOrError());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
-                         allocateWorkspace(handle, graph->getWorkspaceSize()));
+                         allocateWorkspace(handle, workspaceSize));
 
   FUSILLI_REQUIRE_OK(graph->execute(handle, variantPack, workspace));
 

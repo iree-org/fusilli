@@ -43,9 +43,9 @@ public:
   // `func.call` the emitter generates:
   //
   //   Name:    @<setName()>
-  //   Inputs:  static logical value tensor types
+  //   Inputs:  logical value tensor types
   //              (e.g., !torch.vtensor<[4,8],f32>)
-  //   Outputs: static logical value tensor types
+  //   Outputs: logical value tensor types
   //
   // The following placeholders are resolved at emission time by
   // `CustomOpNode::resolveMlirPlaceholders()` and can be used to build a
@@ -57,8 +57,9 @@ public:
   //   {IN0_TYPE}   — input 0's full tensor type
   //                   (e.g., "!torch.vtensor<[4,8],f32>")
   //   {OUT0_TYPE}  — output 0's full tensor type
-  //   {IN0_DIM0}   — input 0's logical dimension 0 (e.g., "4")
-  //   {OUT0_DIM0}  — output 0's logical dimension 0
+  //   {IN0_DIM0}   — input 0's logical dimension 0 (e.g., "4", or "?" when
+  //                   that dimension is dynamic)
+  //   {OUT0_DIM0}  — output 0's logical dimension 0 (same dynamic behavior)
   //
   // All indices are 0-based and generalize to any input/output/dimension
   // count (e.g., {IN2_TYPE}, {OUT1_DIM3}).

@@ -44,7 +44,6 @@
 #include <iree/hal/api.h>
 #include <iree/hal/drivers/hip/api.h>
 #include <iree/hal/drivers/init.h>
-#include <iree/io/file_contents.h>
 #include <iree/modules/hal/module.h>
 #include <iree/vm/api.h>
 #include <iree/vm/bytecode/module.h>
@@ -159,6 +158,24 @@ inline ErrorObject Handle::createCPUDevice() {
   return ok();
 }
 
+inline ErrorObject Handle::createDeviceGroup() {
+  FUSILLI_LOG_LABEL_ENDL("INFO: Creating per-handle IREE HAL device group");
+  iree_allocator_t allocator = iree_allocator_system();
+
+  iree_async_frontier_tracker_t *rawFrontierTracker = nullptr;
+  FUSILLI_CHECK_ERROR(iree_async_frontier_tracker_create(
+      iree_async_frontier_tracker_options_default(), allocator,
+      &rawFrontierTracker));
+  IreeAsyncFrontierTrackerUniquePtrType frontierTracker(rawFrontierTracker);
+
+  iree_hal_device_group_t *rawDeviceGroup = nullptr;
+  FUSILLI_CHECK_ERROR(iree_hal_device_group_create_from_device(
+      getDevice(), frontierTracker.get(), allocator, &rawDeviceGroup));
+  deviceGroup_ = IreeHalDeviceGroupUniquePtrType(rawDeviceGroup);
+
+  return ok();
+}
+
 // Copied from the IREE runtime code.
 #define HIP_DEVICE_ID_TO_IREE_DEVICE_ID(device)                                \
   (iree_hal_device_id_t)((device) + 1)
@@ -222,8 +239,7 @@ inline ErrorObject Handle::createAMDGPUDevice(int deviceId, uintptr_t stream) {
 //===----------------------------------------------------------------------===//
 
 // Create IREE VM context for this graph and load the compiled artifact.
-inline ErrorObject Graph::createVmContext(const Handle &handle,
-                                          const std::string &vmfbPath) {
+inline ErrorObject Graph::createVmContext(const Handle &handle) {
   // Create a context even if one was created earlier, since the handle
   // (hence device) might have changed and we might be re-compiling the graph
   // for the new device.
@@ -239,40 +255,27 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
 
   // Create HAL module and register it with the context.
   {
-    iree_hal_device_group_t *deviceGroup = nullptr;
-    FUSILLI_CHECK_ERROR(iree_hal_device_group_create_from_device(
-        handle.getDevice(), allocator, &deviceGroup));
     iree_vm_module_t *halModule = nullptr;
     FUSILLI_CHECK_ERROR(iree_hal_module_create(
         handle.getInstance(), iree_hal_module_device_policy_default(),
-        deviceGroup, IREE_HAL_MODULE_FLAG_NONE,
+        handle.getDeviceGroup(), IREE_HAL_MODULE_FLAG_NONE,
         iree_hal_module_debug_sink_null(), allocator, &halModule));
-    iree_hal_device_group_release(deviceGroup);
     iree_status_t status = iree_vm_context_register_modules(
         vmContext_.get(), /*module_count=*/1, &halModule);
     iree_vm_module_release(halModule);
     FUSILLI_CHECK_ERROR(status);
   }
 
-  // Read the VMFB file and create a bytecode module from it.
+  // Create a bytecode module from the graph-owned VMFB bytes.
   FUSILLI_LOG_LABEL_ENDL("INFO: Loading bytecode module into IREE VM context");
   {
-    iree_io_file_contents_t *fileContents = nullptr;
-    FUSILLI_CHECK_ERROR(iree_io_file_contents_read(
-        iree_make_cstring_view(vmfbPath.c_str()), allocator, &fileContents));
-
     iree_vm_module_t *bytecodeModule = nullptr;
     iree_status_t status = iree_vm_bytecode_module_create(
         handle.getInstance(), IREE_VM_BYTECODE_MODULE_FLAG_NONE,
-        fileContents->const_buffer,
-        iree_io_file_contents_deallocator(fileContents), allocator,
-        &bytecodeModule);
-    if (!iree_status_is_ok(status)) {
-      iree_io_file_contents_free(fileContents);
-      FUSILLI_CHECK_ERROR(status);
-    }
-    // File contents ownership transferred to bytecode module on success
-    // so there's no `iree_io_file_contents_free` on the success path.
+        iree_make_const_byte_span(loadedArtifactBytes_.data(),
+                                  loadedArtifactBytes_.size()),
+        iree_allocator_null(), allocator, &bytecodeModule);
+    FUSILLI_CHECK_ERROR(status);
 
     status =
         iree_vm_context_register_modules(vmContext_.get(),
@@ -308,11 +311,27 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
   if (executeAsync)
     vmInputListCapacity_ += 2;
 
-  // Query the required workspace size from the compiled module.
-  FUSILLI_LOG_LABEL_ENDL("INFO: Querying workspace size from compiled module");
-  FUSILLI_ASSIGN_OR_RETURN(workspaceSize_, queryTransientSize());
-
   return ok();
+}
+
+inline ErrorOr<std::optional<size_t>> Graph::getWorkspaceSizeOrError() {
+  if (vmContext_ == nullptr)
+    return ok(std::optional<size_t>());
+
+  FUSILLI_LOG_LABEL_ENDL("INFO: Querying workspace size from compiled module");
+  FUSILLI_ASSIGN_OR_RETURN(size_t workspaceSize, queryTransientSize());
+  if (!workspaceSize_.has_value() || workspaceSize > *workspaceSize_)
+    workspaceSize_ = workspaceSize;
+
+  return ok(workspaceSize_);
+}
+
+inline std::optional<size_t> Graph::getWorkspaceSize() {
+  auto sizeOrError = getWorkspaceSizeOrError();
+  ErrorObject err = sizeOrError;
+  if (!err.isOk())
+    return std::nullopt;
+  return *sizeOrError;
 }
 
 // Queries the required transient/workspace buffer size from the compiled
@@ -321,7 +340,7 @@ inline ErrorObject Graph::createVmContext(const Handle &handle,
 // for the constant workspace size case, or an "iree.abi.transients.size"
 // function for the data-dependent workspace size case. Only the former is
 // supported by Fusilli at the moment.
-inline ErrorOr<size_t> Graph::queryTransientSize() {
+inline ErrorOr<size_t> Graph::queryTransientSize() const {
   // Always resolve the async function for attribute queries. The
   // iree.abi.transients.size.constant attribute is stored in the
   // iree.reflection dict on the @main$async entry point. The sync wrapper
@@ -381,7 +400,20 @@ Graph::execute(const Handle &handle,
   if (!kBackendExecuteAsync.contains(handle.getBackend())) // C++20
     return ErrorObject(ErrorCode::InternalError,
                        "Graph::execute got an unknown backend");
+  FUSILLI_RETURN_ERROR_IF(!loadedBackend_.has_value(), ErrorCode::NotCompiled,
+                          "Graph::execute requires a successful compile() first"
+                          " (loaded backend not set)");
+  FUSILLI_RETURN_ERROR_IF(handle.getBackend() != *loadedBackend_,
+                          ErrorCode::InvalidArgument,
+                          "Graph::execute got a handle for backend " +
+                              kBackendToStr.at(handle.getBackend()) +
+                              ", but the loaded artifact uses backend " +
+                              kBackendToStr.at(*loadedBackend_));
   bool executeAsync = kBackendExecuteAsync.at(handle.getBackend());
+  FUSILLI_RETURN_ERROR_IF(
+      !workspaceSize_.has_value(), ErrorCode::InvalidArgument,
+      "Graph::execute requires getWorkspaceSizeOrError() to be called before "
+      "workspace allocation and execution");
 
   iree_allocator_t allocator = iree_allocator_system();
 
@@ -436,7 +468,7 @@ Graph::execute(const Handle &handle,
   // adds a !hal.buffer argument to the generated function signature, even when
   // no transient storage is needed (size = 0). We must always push a buffer
   // (or null ref when size = 0) to satisfy the function signature.
-  if (workspaceSize_.value_or(0) > 0) {
+  if (*workspaceSize_ > 0) {
     FUSILLI_RETURN_ERROR_IF(
         workspace == nullptr, ErrorCode::InvalidArgument,
         "Workspace buffer required but not provided (size=" +

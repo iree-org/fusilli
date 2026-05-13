@@ -48,6 +48,7 @@
 #include <cstdint>
 #include <format> // C++20
 #include <memory>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -336,6 +337,32 @@ inline std::string getScalarItemOpsAsm(const std::string &prefix,
 //                       /*useLogicalDims=*/false)
 //        --> "!torch.tensor<[2,4,3],f32>"
 //
+// Dynamic dims are tracked by logical dimension index. For example, marking
+// logical dim 2 (sequence length) dynamic:
+//
+//    TensorAttr dynT;
+//    dynT.setName("tensor")
+//      .setDataType(DataType::Float)
+//      .setDim({2, 3, 4}) // batch, channels, sequence length
+//      .setStride({12, 1, 3})
+//      .setDynamicDims({2})
+//
+//    dynT.getTensorTypeAsm(/*isValueTensor=*/true,
+//                            /*useLogicalDims=*/true)
+//        --> "!torch.vtensor<[2,3,?],f32>"
+//
+//    dynT.getTensorTypeAsm(/*isValueTensor=*/false,
+//                            /*useLogicalDims=*/true)
+//        --> "!torch.tensor<[2,3,?],f32>"
+//
+//    dynT.getTensorTypeAsm(/*isValueTensor=*/true,
+//                            /*useLogicalDims=*/false)
+//        --> "!torch.vtensor<[2,?,3],f32>"
+//
+//    dynT.getTensorTypeAsm(/*isValueTensor=*/false,
+//                            /*useLogicalDims=*/false)
+//        --> "!torch.tensor<[2,?,3],f32>"
+//
 // Scalars (dim={1}, stride={1}) also work through this path:
 //
 //    TensorAttr s(2.0f);
@@ -355,10 +382,24 @@ inline std::string TensorAttr::getTensorTypeAsm(bool isValueTensor,
   oss << (isValueTensor ? "!torch.vtensor<[" : "!torch.tensor<[");
 
   std::vector<int64_t> dims = useLogicalDims ? getDim() : getPhysicalDim();
+  std::vector<int64_t> logicalDimIndices(dims.size());
+  if (useLogicalDims)
+    std::iota(logicalDimIndices.begin(), logicalDimIndices.end(), 0);
+  else
+    logicalDimIndices = getLogicalToPhysicalPermuteOrder();
+  std::vector<size_t> dimPositions(dims.size());
+  std::iota(dimPositions.begin(), dimPositions.end(), 0);
 
   interleave(
-      dims.begin(), dims.end(),
-      [&](int64_t dim) { oss << std::to_string(dim); },
+      dimPositions.begin(), dimPositions.end(),
+      [&](size_t dimPosition) {
+        int64_t logicalDimIndex = logicalDimIndices[dimPosition];
+        if (isDynamicDim(static_cast<size_t>(logicalDimIndex))) {
+          oss << "?";
+          return;
+        }
+        oss << std::to_string(dims[dimPosition]);
+      },
       // between_fn:
       [&] { oss << ","; });
   oss << "],";
@@ -1747,6 +1788,21 @@ inline std::string PointwiseNode::getResultNamesAndTypesAsm() const {
     );                                                                         \
   }
 
+#define FUSILLI_DECLARE_TERNARY_POINTWISE_EMITTER(PWOP, SCHEMA, OPIR)          \
+  case PointwiseAttr::Mode::PWOP: {                                            \
+    return std::format(SCHEMA, permuteIN0,   /* {0} */                         \
+                       permuteIN1,           /* {1} */                         \
+                       permuteIN2,           /* {2} */                         \
+                       getResultNamesAsm(),  /* {3} */                         \
+                       getOperandNamesAsm(), /* {4} */                         \
+                       getOperandTypesAsm(), /* {5} */                         \
+                       getResultTypesAsm(),  /* {6} */                         \
+                       permuteOUT0,          /* {7} */                         \
+                       #OPIR,                /* {8} */                         \
+                       getName()             /* {9} */                         \
+    );                                                                         \
+  }
+
 inline std::string PointwiseNode::emitNodePreAsm() const {
   std::string uniqueSSASuffix = pointwiseAttr.getName();
 
@@ -1759,6 +1815,11 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
   std::string permuteIN1 =
       pointwiseAttr.getIN_1()
           ? getLayoutConversionOpsAsm(pointwiseAttr.getIN_1(), "permute_IN_1",
+                                      uniqueSSASuffix, /*isInput=*/true)
+          : "";
+  std::string permuteIN2 =
+      pointwiseAttr.getIN_2()
+          ? getLayoutConversionOpsAsm(pointwiseAttr.getIN_2(), "permute_IN_2",
                                       uniqueSSASuffix, /*isInput=*/true)
           : "";
   std::string permuteOUT0 =
@@ -1778,6 +1839,14 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {6}
 )";
 
+  constexpr std::string_view kTernaryTorchSchema = R"(
+    {0}
+    {1}
+    {2}
+    {3} = {8} {4} : {5} -> {6}
+    {7}
+)";
+
   constexpr std::string_view kSubAddSchema = R"(
     {0}
     {1}
@@ -1793,6 +1862,14 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     %alpha_{8} = torch.constant.int 1
     {5} = torch.aten.add.Tensor {2}, %add_square_sq_{8}, %alpha_{8} : {9}, !torch.int -> {6}
     {7}
+)";
+
+  constexpr std::string_view kTanhBwdSchema = R"(
+    {0}
+    {1}
+    %tanh_bwd_y_{6} = torch.aten.tanh {2} : {3} -> {3}
+    {4} = torch.aten.tanh_backward {7}, %tanh_bwd_y_{6} : {8}, {3} -> {5}
+    {9}
 )";
 
   constexpr std::string_view kIdentitySchema = R"(
@@ -1811,6 +1888,14 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {5}
 )";
 
+  constexpr std::string_view kReluBwdSchema = R"(
+    {0}
+    {1}
+    %relu_bwd_threshold_{7} = torch.constant.int 0
+    {2} = torch.aten.threshold_backward {3}, %relu_bwd_threshold_{7} : {4}, !torch.int -> {5}
+    {6}
+)";
+
   constexpr std::string_view kGeluSchema = R"(
     {0}
     %gelu_approximate_{7} = torch.constant.str "{8}"
@@ -1818,8 +1903,14 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     {5}
 )";
 
-  // Swish: y = x * sigmoid(beta * x). When beta=1 this matches torch.aten.silu,
-  // but we expand it to the composite form so the beta knob is honored.
+  constexpr std::string_view kGeluBwdSchema = R"(
+    {0}
+    {1}
+    %gelu_approximate_{7} = torch.constant.str "{8}"
+    {2} = torch.aten.gelu_backward {3}, %gelu_approximate_{7} : {4}, !torch.str -> {5}
+    {6}
+)";
+
   constexpr std::string_view kSwishSchema = R"(
     {0}
     %swish_beta_{6} = torch.constant.float {7:e}
@@ -1827,6 +1918,25 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     %swish_sig_{6} = torch.aten.sigmoid %swish_scaled_{6} : {4} -> {4}
     {1} = torch.aten.mul.Tensor {2}, %swish_sig_{6} : {3}, {4} -> {4}
     {5}
+)";
+
+  // Swish backward: for y = x * sigmoid(beta*x), dy/dx = sig +
+  // beta*x*sig*(1-sig) where sig = sigmoid(beta*x). IN_0 is grad_output (dy),
+  // IN_1 is self (x). Emitted as a composite expansion (mirrors kSwishSchema).
+  constexpr std::string_view kSwishBwdSchema = R"(
+    {0}
+    {1}
+    %swish_bwd_beta_{7} = torch.constant.float {8:e}
+    %swish_bwd_scaled_{7} = torch.aten.mul.Scalar {9}, %swish_bwd_beta_{7} : {10}, !torch.float -> {10}
+    %swish_bwd_sig_{7} = torch.aten.sigmoid %swish_bwd_scaled_{7} : {10} -> {10}
+    %swish_bwd_one_{7} = torch.constant.float 1.000000e+00
+    %swish_bwd_one_minus_sig_{7} = torch.aten.rsub.Scalar %swish_bwd_sig_{7}, %swish_bwd_one_{7}, %swish_bwd_one_{7} : {10}, !torch.float, !torch.float -> {10}
+    %swish_bwd_sig_ds_{7} = torch.aten.mul.Tensor %swish_bwd_sig_{7}, %swish_bwd_one_minus_sig_{7} : {10}, {10} -> {10}
+    %swish_bwd_betax_sig_ds_{7} = torch.aten.mul.Tensor %swish_bwd_scaled_{7}, %swish_bwd_sig_ds_{7} : {10}, {10} -> {10}
+    %swish_bwd_alpha_{7} = torch.constant.int 1
+    %swish_bwd_dinner_{7} = torch.aten.add.Tensor %swish_bwd_sig_{7}, %swish_bwd_betax_sig_ds_{7}, %swish_bwd_alpha_{7} : {10}, {10}, !torch.int -> {10}
+    {2} = torch.aten.mul.Tensor {3}, %swish_bwd_dinner_{7} : {4}, {10} -> {5}
+    {6}
 )";
 
   constexpr std::string_view kSoftplusSchema = R"(
@@ -1841,6 +1951,8 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
   FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(PWOP, kUnaryTorchSchema, OPIR)
 #define FUSILLI_DECLARE_BINARY_TORCH_EMITTER(PWOP, OPIR)                       \
   FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kBinaryTorchSchema, OPIR)
+#define FUSILLI_DECLARE_TERNARY_TORCH_EMITTER(PWOP, OPIR)                      \
+  FUSILLI_DECLARE_TERNARY_POINTWISE_EMITTER(PWOP, kTernaryTorchSchema, OPIR)
 #define FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(PWOP, OPIR)                      \
   FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER(PWOP, kSubAddSchema, OPIR)
 
@@ -1875,6 +1987,22 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
                        approx                   /* {8} */
     );
   }
+  case PointwiseAttr::Mode::GELU_BWD:
+  case PointwiseAttr::Mode::GELU_APPROX_TANH_BWD: {
+    const char *approx =
+        pointwiseAttr.getMode() == PointwiseAttr::Mode::GELU_BWD ? "none"
+                                                                 : "tanh";
+    return std::format(kGeluBwdSchema, permuteIN0, /* {0} */
+                       permuteIN1,                 /* {1} */
+                       getResultNamesAsm(),        /* {2} */
+                       getOperandNamesAsm(),       /* {3} */
+                       getOperandTypesAsm(),       /* {4} */
+                       getResultTypesAsm(),        /* {5} */
+                       permuteOUT0,                /* {6} */
+                       getName(),                  /* {7} */
+                       approx                      /* {8} */
+    );
+  }
   case PointwiseAttr::Mode::SOFTPLUS_FWD: {
     return std::format(kSoftplusSchema, permuteIN0,         /* {0} */
                        getResultNamesAsm(),                 /* {1} */
@@ -1899,6 +2027,20 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
                        pointwiseAttr.getSwishBeta() /* {7} */
     );
   }
+  case PointwiseAttr::Mode::SWISH_BWD: {
+    return std::format(kSwishBwdSchema, permuteIN0,  /* {0} */
+                       permuteIN1,                   /* {1} */
+                       getResultNamesAsm(),          /* {2} */
+                       getInputNameAsm(0),           /* {3} dy */
+                       getInputTypeAsm(0),           /* {4} dy type */
+                       getResultTypesAsm(),          /* {5} */
+                       permuteOUT0,                  /* {6} */
+                       getName(),                    /* {7} */
+                       pointwiseAttr.getSwishBeta(), /* {8} */
+                       getInputNameAsm(1),           /* {9} x */
+                       getInputTypeAsm(1)            /* {10} x type */
+    );
+  }
     FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER(IDENTITY, kIdentitySchema,
                                             torch.aten.clone)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(ERF, torch.aten.erf)
@@ -1908,6 +2050,17 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(LOGICAL_NOT, torch.aten.logical_not)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(NEG, torch.aten.neg)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RECIPROCAL, torch.aten.reciprocal)
+  case PointwiseAttr::Mode::RELU_BWD: {
+    return std::format(kReluBwdSchema, permuteIN0, /* {0} */
+                       permuteIN1,                 /* {1} */
+                       getResultNamesAsm(),        /* {2} */
+                       getOperandNamesAsm(),       /* {3} */
+                       getOperandTypesAsm(),       /* {4} */
+                       getResultTypesAsm(),        /* {5} */
+                       permuteOUT0,                /* {6} */
+                       getName()                   /* {7} */
+    );
+  }
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RELU_FWD, torch.aten.relu)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(RSQRT, torch.aten.rsqrt)
     FUSILLI_DECLARE_UNARY_TORCH_EMITTER(SIGMOID_FWD, torch.aten.sigmoid)
@@ -1932,6 +2085,8 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(ADD, torch.aten.add.Tensor)
     FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER(SUB, torch.aten.sub.Tensor)
 
+    FUSILLI_DECLARE_TERNARY_TORCH_EMITTER(BINARY_SELECT, torch.aten.where.self)
+
   case PointwiseAttr::Mode::ADD_SQUARE: {
     return std::format(kAddSquareSchema, permuteIN0, /* {0} */
                        permuteIN1,                   /* {1} */
@@ -1946,6 +2101,20 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
     );
   }
 
+  case PointwiseAttr::Mode::TANH_BWD: {
+    return std::format(kTanhBwdSchema, permuteIN0, /* {0} */
+                       permuteIN1,                 /* {1} */
+                       getInputNameAsm(1),         /* {2} */
+                       getInputTypeAsm(1),         /* {3} */
+                       getResultNamesAsm(),        /* {4} */
+                       getResultTypesAsm(),        /* {5} */
+                       getName(),                  /* {6} */
+                       getInputNameAsm(0),         /* {7} */
+                       getInputTypeAsm(0),         /* {8} */
+                       permuteOUT0                 /* {9} */
+    );
+  }
+
   default:
     assert(false && "Unsupported pointwise mode");
     return "";
@@ -1954,8 +2123,10 @@ inline std::string PointwiseNode::emitNodePreAsm() const {
 
 #undef FUSILLI_DECLARE_UNARY_POINTWISE_EMITTER
 #undef FUSILLI_DECLARE_BINARY_POINTWISE_EMITTER
+#undef FUSILLI_DECLARE_TERNARY_POINTWISE_EMITTER
 #undef FUSILLI_DECLARE_UNARY_TORCH_EMITTER
 #undef FUSILLI_DECLARE_BINARY_TORCH_EMITTER
+#undef FUSILLI_DECLARE_TERNARY_TORCH_EMITTER
 #undef FUSILLI_DECLARE_SUB_ADD_TORCH_EMITTER
 
 //===----------------------------------------------------------------------===//
@@ -2025,6 +2196,56 @@ inline std::string ReductionNode::emitNodePreAsm() const {
     {7}
     )";
 
+  constexpr std::string_view kNorm1Schema = R"(
+    {0}
+    {1}
+    %abs_{2} = torch.aten.abs {4} : {5} -> {5}
+    %keepdim_{2} = torch.constant.bool true
+    %dtype_{2} = torch.constant.none
+    {3}_{2}_perm = torch.aten.sum.dim_IntList %abs_{2}, %reduction_dims_{2}, %keepdim_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.bool, !torch.none -> {6}
+    {7}
+    )";
+
+  constexpr std::string_view kNorm2Schema = R"(
+    {0}
+    {1}
+    %sq_{2} = torch.aten.mul.Tensor {4}, {4} : {5}, {5} -> {5}
+    %keepdim_{2} = torch.constant.bool true
+    %dtype_{2} = torch.constant.none
+    %sumsq_{2} = torch.aten.sum.dim_IntList %sq_{2}, %reduction_dims_{2}, %keepdim_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.bool, !torch.none -> {6}
+    {3}_{2}_perm = torch.aten.sqrt %sumsq_{2} : {6} -> {6}
+    {7}
+    )";
+
+  constexpr std::string_view kAbsAmaxSchema = R"(
+    {0}
+    {1}
+    %abs_{2} = torch.aten.abs {4} : {5} -> {5}
+    %keepdim_{2} = torch.constant.bool true
+    {3}_{2}_perm = torch.aten.amax %abs_{2}, %reduction_dims_{2}, %keepdim_{2} : {5}, !torch.list<int>, !torch.bool -> {6}
+    {7}
+    )";
+
+  constexpr std::string_view kMulSchema = R"(
+    {0}
+    {1}
+    %dtype_{2} = torch.constant.none
+    {3}_{2}_perm = torch.prims.prod {4}, %reduction_dims_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.none -> {6}
+    {7}
+    )";
+
+  constexpr std::string_view kMulNoZerosSchema = R"(
+    {0}
+    {1}
+    %zero_{2} = torch.constant.int 0
+    %mask_{2} = torch.aten.ne.Scalar {4}, %zero_{2} : {5}, !torch.int -> {8}
+    %one_{2} = torch.constant.int 1
+    %fixed_{2} = torch.aten.where.ScalarOther %mask_{2}, {4}, %one_{2} : {8}, {5}, !torch.int -> {5}
+    %dtype_{2} = torch.constant.none
+    {3}_{2}_perm = torch.prims.prod %fixed_{2}, %reduction_dims_{2}, %dtype_{2} : {5}, !torch.list<int>, !torch.none -> {6}
+    {7}
+    )";
+
 #define FUSILLI_DECLARE_REDUCTION_EMITTER(MODE, SCHEMA, OPIR)                  \
   case ReductionAttr::Mode::MODE: {                                            \
     return std::format(SCHEMA, permuteX,     /* {0} */                         \
@@ -2045,11 +2266,55 @@ inline std::string ReductionNode::emitNodePreAsm() const {
 #define FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER(MODE, OPIR)            \
   FUSILLI_DECLARE_REDUCTION_EMITTER(MODE, kKeepdimDtypeReductionSchema, OPIR)
 
+#define FUSILLI_DECLARE_CUSTOM_REDUCTION_EMITTER(MODE, SCHEMA)                 \
+  case ReductionAttr::Mode::MODE: {                                            \
+    return std::format(SCHEMA, permuteX,     /* {0} */                         \
+                       dimListOss.str(),     /* {1} */                         \
+                       suffix,               /* {2} */                         \
+                       getResultNamesAsm(),  /* {3} */                         \
+                       getOperandNamesAsm(), /* {4} */                         \
+                       getOperandTypesAsm(), /* {5} */                         \
+                       getResultTypesAsm(),  /* {6} */                         \
+                       permuteY              /* {7} */                         \
+    );                                                                         \
+  }
+
   switch (reductionAttr.getMode()) {
+  case ReductionAttr::Mode::ADD:
     FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER(SUM,
                                                     torch.aten.sum.dim_IntList)
     FUSILLI_DECLARE_KEEPDIM_REDUCTION_EMITTER(MIN, torch.aten.amin)
     FUSILLI_DECLARE_KEEPDIM_REDUCTION_EMITTER(MAX, torch.aten.amax)
+    FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER(AVG, torch.aten.mean.dim)
+    FUSILLI_DECLARE_CUSTOM_REDUCTION_EMITTER(NORM1, kNorm1Schema)
+    FUSILLI_DECLARE_CUSTOM_REDUCTION_EMITTER(NORM2, kNorm2Schema)
+    FUSILLI_DECLARE_CUSTOM_REDUCTION_EMITTER(AMAX, kAbsAmaxSchema)
+    FUSILLI_DECLARE_CUSTOM_REDUCTION_EMITTER(MUL, kMulSchema)
+
+  case ReductionAttr::Mode::MUL_NO_ZEROS: {
+    // Build a bool tensor type matching the (logical) shape of X. This is
+    // used for the mask produced by `torch.aten.ne.Scalar`.
+    std::ostringstream boolTypeOss;
+    boolTypeOss << "!torch.vtensor<[";
+    const auto &xDims = xT->getDim();
+    interleave(
+        xDims.begin(), xDims.end(),
+        [&](int64_t d) { boolTypeOss << std::to_string(d); },
+        [&] { boolTypeOss << ","; });
+    boolTypeOss << "],i1>";
+    std::string boolType = boolTypeOss.str();
+
+    return std::format(kMulNoZerosSchema, permuteX, /* {0} */
+                       dimListOss.str(),            /* {1} */
+                       suffix,                      /* {2} */
+                       getResultNamesAsm(),         /* {3} */
+                       getOperandNamesAsm(),        /* {4} */
+                       getOperandTypesAsm(),        /* {5} */
+                       getResultTypesAsm(),         /* {6} */
+                       permuteY,                    /* {7} */
+                       boolType                     /* {8} */
+    );
+  }
   default:
     assert(false && "Unsupported reduction mode");
     return "";
@@ -2059,6 +2324,7 @@ inline std::string ReductionNode::emitNodePreAsm() const {
 #undef FUSILLI_DECLARE_REDUCTION_EMITTER
 #undef FUSILLI_DECLARE_KEEPDIM_REDUCTION_EMITTER
 #undef FUSILLI_DECLARE_KEEPDIM_DTYPE_REDUCTION_EMITTER
+#undef FUSILLI_DECLARE_CUSTOM_REDUCTION_EMITTER
 
 //===----------------------------------------------------------------------===//
 //
@@ -2375,7 +2641,7 @@ inline std::string CustomOpNode::resolveMlirPlaceholders() const {
     const auto &dims = inputs[i]->getDim();
     for (size_t d = 0; d < dims.size(); ++d)
       replaceAll(mlir, "{IN" + iStr + "_DIM" + std::to_string(d) + "}",
-                 std::to_string(dims[d]));
+                 inputs[i]->isDynamicDim(d) ? "?" : std::to_string(dims[d]));
   }
   for (size_t i = 0; i < outputs.size(); ++i) {
     std::string iStr = std::to_string(i);
@@ -2387,7 +2653,7 @@ inline std::string CustomOpNode::resolveMlirPlaceholders() const {
     const auto &dims = outputs[i]->getDim();
     for (size_t d = 0; d < dims.size(); ++d)
       replaceAll(mlir, "{OUT" + iStr + "_DIM" + std::to_string(d) + "}",
-                 std::to_string(dims[d]));
+                 outputs[i]->isDynamicDim(d) ? "?" : std::to_string(dims[d]));
   }
   return mlir;
 }
