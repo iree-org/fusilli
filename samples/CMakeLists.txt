@@ -198,8 +198,3 @@ add_fusilli_samples(
     libsdpautils
     Catch2::Catch2WithMain
 )
-
-# XFAIL: TODO(#404): Remove once regular SDPA supports non-default scales.
-set_tests_properties(
-  fusilli_sdpa_samples_sdpa_fprop_custom_scale
-  PROPERTIES WILL_FAIL TRUE)

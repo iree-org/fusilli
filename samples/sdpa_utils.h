@@ -94,7 +94,7 @@ inline constexpr std::string_view kSdpaWithMask = R"mlir(
 )mlir";
 // clang-format on
 
-/// Builds the MLIR template for torch.aten.scaled_dot_product_attention.
+/// Builds the MLIR template for SDPA custom-op samples.
 ///
 /// Selects the appropriate R-string template (with/without attn_mask) and
 /// resolves scalar placeholders. Standard CustomOp dtype/name placeholders

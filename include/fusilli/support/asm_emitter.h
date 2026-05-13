@@ -2478,12 +2478,7 @@ inline bool SdpaNode::useLegacySdpaAsm() const {
   if (sdpaAttr.getMASK() || sdpaAttr.getDropout() != 0.0f)
     return true;
 
-  // The legacy SDPA op does not produce logsumexp, so keep generate_stats on
-  // flex_attention even when extra attributes are present.
-  if (sdpaAttr.getGenerateStats())
-    return false;
-
-  return sdpaAttr.getScale().has_value();
+  return false;
 }
 
 inline std::string SdpaNode::emitModuleScopeAsm() const {
