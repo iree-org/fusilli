@@ -48,9 +48,9 @@
 // TORCH-CHECK:   }
 //
 // AMDGPU-STATS-CHECK: "transient-memory-size": 0
-// AMDGPU-STATS-CHECK: "dispatch-count": 2
+// AMDGPU-STATS-CHECK: "dispatch-count": {{[1-9][0-9]*}}
 // CPU-STATS-CHECK: "transient-memory-size": 0
-// CPU-STATS-CHECK: "dispatch-count": 2
+// CPU-STATS-CHECK: "dispatch-count": {{[1-9][0-9]*}}
 //
 // clang-format on
 

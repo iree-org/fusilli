@@ -58,6 +58,7 @@ public:
   std::string getReturnLseOpsAsm() const;
   std::string getReturnMaxScoresOpsAsm() const;
   std::string getCausalMaskFnNameAsm() const;
+  bool useLegacySdpaAsm() const;
 
   const std::string &getName() const override final {
     return sdpaAttr.getName();

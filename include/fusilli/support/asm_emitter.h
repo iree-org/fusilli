@@ -2466,11 +2466,30 @@ inline std::string SdpaNode::getCausalMaskFnNameAsm() const {
   return "sdpa_mask_" + suffix;
 }
 
+inline bool SdpaNode::useLegacySdpaAsm() const {
+  auto hasDynamicDims = [](const std::shared_ptr<TensorAttr> &tensor) {
+    return tensor && tensor->hasDynamicDims();
+  };
+  bool hasDynamicTensor =
+      hasDynamicDims(sdpaAttr.getQ()) || hasDynamicDims(sdpaAttr.getK()) ||
+      hasDynamicDims(sdpaAttr.getV()) || hasDynamicDims(sdpaAttr.getO());
+
+  if (hasDynamicTensor || sdpaAttr.getMASK() || sdpaAttr.getDropout() != 0.0f)
+    return true;
+
+  // The legacy SDPA op does not produce logsumexp, so keep generate_stats on
+  // flex_attention even when extra attributes are present.
+  if (sdpaAttr.getGenerateStats())
+    return false;
+
+  return (sdpaAttr.getIsCausal() && !sdpaAttr.getEnableGqa()) ||
+         sdpaAttr.getScale().has_value();
+}
+
 inline std::string SdpaNode::emitModuleScopeAsm() const {
-  // Keep legacy lowering for tensor masks or dropout until those are
-  // representable through hop_flex_attention in this emitter.
-  if (!sdpaAttr.getIsCausal() || sdpaAttr.getMASK() ||
-      sdpaAttr.getDropout() != 0.0f)
+  // Causal SDPA needs a mask callback only when this node is emitted through
+  // torch.hop_flex_attention.
+  if (!sdpaAttr.getIsCausal() || useLegacySdpaAsm())
     return "";
 
   // torch.hop_flex_attention has no is_causal operand, so causal SDPA is
@@ -2491,8 +2510,7 @@ inline std::string SdpaNode::emitModuleScopeAsm() const {
 
 inline std::string SdpaNode::emitNodePreAsm() const {
   std::string suffix = sdpaAttr.getName();
-  const bool useLegacySdpa =
-      sdpaAttr.getMASK() || sdpaAttr.getDropout() != 0.0f;
+  const bool useLegacySdpa = useLegacySdpaAsm();
 
   // Permute inputs.
   std::string permuteQ = getLayoutConversionOpsAsm(sdpaAttr.getQ(), "permute_Q",

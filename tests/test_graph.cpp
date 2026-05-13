@@ -121,7 +121,7 @@ TEST_CASE("Graph sdpa() exposes generated stats tensor through attributes",
   FUSILLI_REQUIRE_OK(g.validate());
 
   REQUIRE(stats->getDim() == std::vector<int64_t>{1, 8, 64});
-  REQUIRE(stats->getStride() == std::vector<int64_t>{8 * 64, 64, 1});
+  REQUIRE(stats->getStride() == std::vector<int64_t>{int64_t{8} * 64, 64, 1});
 
   FUSILLI_REQUIRE_ASSIGN(auto generatedAsm, g.emitAsm());
   REQUIRE(generatedAsm.find("%sdpa_STATS_") != std::string::npos);

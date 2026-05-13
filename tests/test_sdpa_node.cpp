@@ -582,7 +582,7 @@ TEST_CASE("SdpaNode generate_stats postValidateNode checks stats tensor",
     attr.setV(makeTensor4D("V", 1, 8, 64, 64));
     attr.setO(std::make_shared<TensorAttr>());
     attr.setSTATS(std::make_shared<TensorAttr>(
-        TensorAttr().setDim({1, 8, 32}).setStride({8 * 32, 32, 1})));
+        TensorAttr().setDim({1, 8, 32}).setStride({int64_t{8} * 32, 32, 1})));
     attr.setGenerateStats(true);
     SdpaNode node(std::move(attr), ctx);
 
