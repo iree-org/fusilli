@@ -18,7 +18,7 @@
 
 using namespace fusilli;
 
-// SDPA MLIR templates for torch.aten.scaled_dot_product_attention.
+// SDPA MLIR templates.
 //
 // Templates are stored as R-string literals so the MLIR structure is
 // directly readable in source. Standard CustomOp placeholders
@@ -27,10 +27,29 @@ using namespace fusilli;
 // ({DROPOUT_P}, {IS_CAUSAL}, {SCALE_CONST}, {SCALE_TYPE}, {ENABLE_GQA})
 // are resolved by buildSdpaMlir().
 
+// clang-format off
+// Flex attention template: 3 tensor inputs (Q, K, V), attention mask is none.
+// Positional args: {0}=SCALE_CONST, {1}=SCALE_TYPE, {2}=ENABLE_GQA_ATTR
+inline constexpr std::string_view kFlexSdpaNoMask = R"mlir(
+  func.func private @{{FUNC_NAME}}(
+      %arg0: {{IN0_TYPE}},
+      %arg1: {{IN1_TYPE}},
+      %arg2: {{IN2_TYPE}})
+      -> {{OUT0_TYPE}} {{
+    %scale = {0}
+    %return_lse = torch.constant.bool false
+    %return_max_scores = torch.constant.bool false
+    %0, %logsumexp, %max_scores = torch.hop_flex_attention %arg0, %arg1, %arg2,
+        %scale, %return_lse, %return_max_scores{2} :
+        {{IN0_TYPE}}, {{IN1_TYPE}}, {{IN2_TYPE}},
+        {1}, !torch.bool, !torch.bool -> {{OUT0_TYPE}}, !torch.none, !torch.none
+    return %0 : {{OUT0_TYPE}}
+  }}
+)mlir";
+
 // SDPA template: 3 tensor inputs (Q, K, V), attention mask is none.
 // Positional args: {0}=DROPOUT_P, {1}=IS_CAUSAL, {2}=SCALE_CONST,
 //                  {3}=SCALE_TYPE, {4}=ENABLE_GQA
-// clang-format off
 inline constexpr std::string_view kSdpaNoMask = R"mlir(
   func.func private @{{FUNC_NAME}}(
       %arg0: {{IN0_TYPE}},

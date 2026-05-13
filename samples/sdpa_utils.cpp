@@ -36,6 +36,13 @@ std::string buildSdpaMlir(bool hasAttnMask, float dropoutP, bool isCausal,
                         : "torch.constant.none";
   std::string scaleTypeStr = scale.has_value() ? "!torch.float" : "!torch.none";
   std::string enableGqaStr = enableGqa ? "true" : "false";
+  if (!hasAttnMask && dropoutP == 0.0f && !isCausal && scale.has_value()) {
+    std::string enableGqaAttr = enableGqa ? " {enable_gqa = true}" : "";
+    return std::vformat(kFlexSdpaNoMask,
+                        std::make_format_args(scaleConstStr,   // {0}
+                                              scaleTypeStr,    // {1}
+                                              enableGqaAttr)); // {2}
+  }
 
   return std::vformat(hasAttnMask ? kSdpaWithMask : kSdpaNoMask,
                       std::make_format_args(dropoutStr,    // {0} DROPOUT_P
