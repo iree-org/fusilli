@@ -48,6 +48,7 @@
 #include <cstdint>
 #include <format> // C++20
 #include <memory>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -336,6 +337,32 @@ inline std::string getScalarItemOpsAsm(const std::string &prefix,
 //                       /*useLogicalDims=*/false)
 //        --> "!torch.tensor<[2,4,3],f32>"
 //
+// Dynamic dims are tracked by logical dimension index. For example, marking
+// logical dim 2 (sequence length) dynamic:
+//
+//    TensorAttr dynT;
+//    dynT.setName("tensor")
+//      .setDataType(DataType::Float)
+//      .setDim({2, 3, 4}) // batch, channels, sequence length
+//      .setStride({12, 1, 3})
+//      .setDynamicDims({2})
+//
+//    dynT.getTensorTypeAsm(/*isValueTensor=*/true,
+//                            /*useLogicalDims=*/true)
+//        --> "!torch.vtensor<[2,3,?],f32>"
+//
+//    dynT.getTensorTypeAsm(/*isValueTensor=*/false,
+//                            /*useLogicalDims=*/true)
+//        --> "!torch.tensor<[2,3,?],f32>"
+//
+//    dynT.getTensorTypeAsm(/*isValueTensor=*/true,
+//                            /*useLogicalDims=*/false)
+//        --> "!torch.vtensor<[2,?,3],f32>"
+//
+//    dynT.getTensorTypeAsm(/*isValueTensor=*/false,
+//                            /*useLogicalDims=*/false)
+//        --> "!torch.tensor<[2,?,3],f32>"
+//
 // Scalars (dim={1}, stride={1}) also work through this path:
 //
 //    TensorAttr s(2.0f);
@@ -355,10 +382,24 @@ inline std::string TensorAttr::getTensorTypeAsm(bool isValueTensor,
   oss << (isValueTensor ? "!torch.vtensor<[" : "!torch.tensor<[");
 
   std::vector<int64_t> dims = useLogicalDims ? getDim() : getPhysicalDim();
+  std::vector<int64_t> logicalDimIndices(dims.size());
+  if (useLogicalDims)
+    std::iota(logicalDimIndices.begin(), logicalDimIndices.end(), 0);
+  else
+    logicalDimIndices = getLogicalToPhysicalPermuteOrder();
+  std::vector<size_t> dimPositions(dims.size());
+  std::iota(dimPositions.begin(), dimPositions.end(), 0);
 
   interleave(
-      dims.begin(), dims.end(),
-      [&](int64_t dim) { oss << std::to_string(dim); },
+      dimPositions.begin(), dimPositions.end(),
+      [&](size_t dimPosition) {
+        int64_t logicalDimIndex = logicalDimIndices[dimPosition];
+        if (isDynamicDim(static_cast<size_t>(logicalDimIndex))) {
+          oss << "?";
+          return;
+        }
+        oss << std::to_string(dims[dimPosition]);
+      },
       // between_fn:
       [&] { oss << ","; });
   oss << "],";
@@ -2454,7 +2495,7 @@ inline std::string CustomOpNode::resolveMlirPlaceholders() const {
     const auto &dims = inputs[i]->getDim();
     for (size_t d = 0; d < dims.size(); ++d)
       replaceAll(mlir, "{IN" + iStr + "_DIM" + std::to_string(d) + "}",
-                 std::to_string(dims[d]));
+                 inputs[i]->isDynamicDim(d) ? "?" : std::to_string(dims[d]));
   }
   for (size_t i = 0; i < outputs.size(); ++i) {
     std::string iStr = std::to_string(i);
@@ -2466,7 +2507,7 @@ inline std::string CustomOpNode::resolveMlirPlaceholders() const {
     const auto &dims = outputs[i]->getDim();
     for (size_t d = 0; d < dims.size(); ++d)
       replaceAll(mlir, "{OUT" + iStr + "_DIM" + std::to_string(d) + "}",
-                 std::to_string(dims[d]));
+                 outputs[i]->isDynamicDim(d) ? "?" : std::to_string(dims[d]));
   }
   return mlir;
 }

@@ -76,6 +76,92 @@ TEST_CASE("TensorAttr setter templated overrides", "[TensorAttr]") {
   REQUIRE(t.getStride() == strideVec);
 }
 
+TEST_CASE("TensorAttr dynamic dimension metadata", "[TensorAttr]") {
+  SECTION("Dynamic dimension indices are canonicalized") {
+    TensorAttr t;
+    auto &result = t.setName("dynamic")
+                       .setDataType(DataType::Float)
+                       .setDim({2, 3, 4})
+                       .setStride({12, 4, 1})
+                       .setDynamicDims({2, 0, 2})
+                       .setDynamicDim(1);
+
+    REQUIRE(&result == &t);
+    REQUIRE(t.hasDynamicDims());
+    REQUIRE(t.getDynamicDims() == std::vector<size_t>{0, 1, 2});
+    REQUIRE(t.isDynamicDim(0));
+    REQUIRE(t.isDynamicDim(1));
+    REQUIRE(t.isDynamicDim(2));
+    REQUIRE_FALSE(t.isDynamicDim(3));
+    FUSILLI_REQUIRE_OK(t.validate());
+  }
+
+  SECTION("Dynamic dimensions can be set from an initializer list") {
+    TensorAttr t;
+    auto &result = t.setDynamicDims({2, 0, 2});
+
+    REQUIRE(&result == &t);
+    REQUIRE(t.hasDynamicDims());
+    REQUIRE(t.getDynamicDims() == std::vector<size_t>{0, 2});
+    REQUIRE(t.isDynamicDim(0));
+    REQUIRE_FALSE(t.isDynamicDim(1));
+    REQUIRE(t.isDynamicDim(2));
+  }
+
+  SECTION("Dynamic dimensions can be set from a span") {
+    TensorAttr t;
+    std::vector<size_t> dynamicDims = {3, 1, 3};
+    std::span<const size_t> dynamicSpan(dynamicDims.data(), dynamicDims.size());
+
+    t.setDynamicDims(dynamicSpan);
+
+    REQUIRE(t.hasDynamicDims());
+    REQUIRE(t.getDynamicDims() == std::vector<size_t>{1, 3});
+  }
+
+  SECTION("Dynamic dimensions can be cleared") {
+    TensorAttr t;
+    auto &result = t.setDynamicDims({0, 1}).clearDynamicDims();
+
+    REQUIRE(&result == &t);
+    REQUIRE_FALSE(t.hasDynamicDims());
+    REQUIRE(t.getDynamicDims().empty());
+    REQUIRE_FALSE(t.isDynamicDim(0));
+  }
+
+  SECTION("Out-of-range dynamic dimension fails validation") {
+    TensorAttr t;
+    t.setName("bad_dynamic")
+        .setDataType(DataType::Float)
+        .setDim({2, 3})
+        .setStride({3, 1})
+        .setDynamicDim(2);
+
+    auto status = t.validate();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "Tensor 'bad_dynamic' has dynamic dim index 2 out of range for "
+            "rank 2");
+  }
+
+  SECTION("Representative unit dynamic dimension fails validation") {
+    TensorAttr t;
+    t.setName("unit_dynamic")
+        .setDataType(DataType::Float)
+        .setDim({1, 8})
+        .setStride({8, 1})
+        .setDynamicDim(0);
+
+    auto status = t.validate();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "Tensor 'unit_dynamic' has dynamic dim at index 0 with "
+            "representative size 1, which is not supported");
+  }
+}
+
 TEST_CASE("TensorAttr validation edge cases", "[TensorAttr]") {
   SECTION("Unspecified dim fails validation") {
     TensorAttr t;
@@ -694,6 +780,51 @@ TEST_CASE("TensorAttr validate with broadcast strides", "[TensorAttr]") {
       .setDim({8, 2, 16, 128})
       .setStride({0, 0, 1, 16});
   FUSILLI_REQUIRE_OK(t.validate());
+
+  // Invalid: broadcast expansion is currently emitted with a static expand
+  // size list, so dynamic dims on broadcast-stride tensors are unsupported.
+  t.setName("dynamic_broadcast")
+      .setDataType(DataType::Float)
+      .setDim({4, 8})
+      .setStride({0, 1})
+      .setDynamicDims({0});
+
+  auto status = t.validate();
+  REQUIRE(isError(status));
+  REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+  REQUIRE(status.getMessage() ==
+          "Tensor 'dynamic_broadcast' has dynamic dim at index 0 with stride "
+          "0 (broadcast stride), which is not supported");
+
+  // Invalid: a representative unit dimension with stride 0 can become a
+  // runtime broadcast if that dimension is dynamic.
+  t.setName("dynamic_unit_zero_stride")
+      .setDataType(DataType::Float)
+      .setDim({1, 8})
+      .setStride({0, 1})
+      .setDynamicDims({0});
+
+  status = t.validate();
+  REQUIRE(isError(status));
+  REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+  REQUIRE(status.getMessage() ==
+          "Tensor 'dynamic_unit_zero_stride' has dynamic dim at index 0 with "
+          "stride 0 (broadcast stride), which is not supported");
+
+  // Invalid: even when the dynamic dimension is not the zero-stride axis,
+  // broadcast expansion still needs runtime expand sizes.
+  t.setName("dynamic_on_broadcast_stride_tensor")
+      .setDataType(DataType::Float)
+      .setDim({4, 8})
+      .setStride({0, 1})
+      .setDynamicDims({1});
+
+  status = t.validate();
+  REQUIRE(isError(status));
+  REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+  REQUIRE(status.getMessage() ==
+          "Tensor 'dynamic_on_broadcast_stride_tensor' has dynamic dimensions "
+          "on a tensor with broadcast strides, which is not supported");
 }
 
 TEST_CASE("Stride order utils", "[TensorAttr utils]") {

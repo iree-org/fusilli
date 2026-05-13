@@ -10,18 +10,21 @@
 // clang-format off
 //
 // CHECK:       module @module {
-// CHECK:         func.func private @my_add(
-// CHECK-NEXT:      %arg0: !torch.vtensor<[?,8],f32>,
-// CHECK-NEXT:      %arg1: !torch.vtensor<[?,8],f32>)
-// CHECK-NEXT:      -> !torch.vtensor<[?,8],f32> {
+// CHECK:         func.func private @my_dynamic_add(%arg0: !torch.vtensor<[?,8],f32>,
+// CHECK:                                            %arg1: !torch.vtensor<[?,8],f32>)
+// CHECK:                                            -> !torch.vtensor<[?,8],f32> {
 // CHECK:           %int1 = torch.constant.int 1
 // CHECK:           %0 = torch.aten.add.Tensor %arg0, %arg1, %int1
-// CHECK:               !torch.vtensor<[?,8],f32>
+// CHECK:               : !torch.vtensor<[?,8],f32>, !torch.vtensor<[?,8],f32>, !torch.int
 // CHECK:               -> !torch.vtensor<[?,8],f32>
 // CHECK:           return %0 : !torch.vtensor<[?,8],f32>
 // CHECK:         }
 // CHECK:         func.func @main(
-// CHECK:           func.call @my_add
+// CHECK-SAME:      %my_dynamic_add_OUT_0_: !torch.tensor<[?,8],f32>
+// CHECK-SAME:      %a: !torch.vtensor<[?,8],f32>
+// CHECK-SAME:      %b: !torch.vtensor<[?,8],f32>
+// CHECK:           %my_dynamic_add_OUT_0_my_dynamic_add_perm = func.call @my_dynamic_add(%a_my_dynamic_add_i0_perm, %b_my_dynamic_add_i1_perm) : (!torch.vtensor<[?,8],f32>, !torch.vtensor<[?,8],f32>) -> !torch.vtensor<[?,8],f32>
+// CHECK:           torch.overwrite.tensor.contents %my_dynamic_add_OUT_0 overwrites %my_dynamic_add_OUT_0_ : !torch.vtensor<[?,8],f32>, !torch.tensor<[?,8],f32>
 // CHECK:           return
 // CHECK:         }
 // CHECK:       }
@@ -39,7 +42,7 @@ using namespace fusilli;
 
 int main() {
   Graph g;
-  g.setName("custom_op_asm_emitter_dim_placeholder")
+  g.setName("custom_op_asm_emitter_dynamic_type")
       .setIODataType(DataType::Float);
 
   auto a = g.tensor(TensorAttr()
@@ -55,25 +58,20 @@ int main() {
                         .setDynamicDims({0})
                         .setDataType(DataType::Float));
 
-  // Composes tensor types from individual {IN0_DIM0}/{IN0_DIM1} placeholders
-  // instead of using {IN0_TYPE}. Shows that dimension placeholders are
-  // dynamic-aware when users need custom type compositions.
   std::string addMlir = R"(
-  func.func private @{FUNC_NAME}(
-      %arg0: !torch.vtensor<[{IN0_DIM0},{IN0_DIM1}],{IN0_DTYPE}>,
-      %arg1: !torch.vtensor<[{IN1_DIM0},{IN1_DIM1}],{IN1_DTYPE}>)
-      -> !torch.vtensor<[{OUT0_DIM0},{OUT0_DIM1}],{OUT0_DTYPE}> {
+  func.func private @{FUNC_NAME}(%arg0: {IN0_TYPE},
+                                   %arg1: {IN1_TYPE})
+                                   -> {OUT0_TYPE} {
     %int1 = torch.constant.int 1
     %0 = torch.aten.add.Tensor %arg0, %arg1, %int1
-        : !torch.vtensor<[{IN0_DIM0},{IN0_DIM1}],{IN0_DTYPE}>,
-          !torch.vtensor<[{IN1_DIM0},{IN1_DIM1}],{IN1_DTYPE}>, !torch.int
-        -> !torch.vtensor<[{OUT0_DIM0},{OUT0_DIM1}],{OUT0_DTYPE}>
-    return %0 : !torch.vtensor<[{OUT0_DIM0},{OUT0_DIM1}],{OUT0_DTYPE}>
+        : {IN0_TYPE}, {IN1_TYPE}, !torch.int
+        -> {OUT0_TYPE}
+    return %0 : {OUT0_TYPE}
   }
 )";
 
   CustomOpAttr addAttr;
-  addAttr.setName("my_add").setMlir(addMlir).setNumOutputs(1);
+  addAttr.setName("my_dynamic_add").setMlir(addMlir).setNumOutputs(1);
 
   auto outs = g.customOp({a, b}, addAttr);
   outs[0]
