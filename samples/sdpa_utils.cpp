@@ -210,8 +210,7 @@ void executeAndVerify(Handle &handle, const SdpaTestContext &ctx,
     variantPack[ctx.maskT] = maskBuf;
   }
 
-  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
-                         ctx.graph->getWorkspaceSizeOrError());
+  FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, ctx.graph->getWorkspaceSize());
   FUSILLI_REQUIRE_ASSIGN(auto workspace,
                          allocateWorkspace(handle, workspaceSize));
 

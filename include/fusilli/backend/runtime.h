@@ -314,7 +314,7 @@ inline ErrorObject Graph::createVmContext(const Handle &handle) {
   return ok();
 }
 
-inline ErrorOr<std::optional<size_t>> Graph::getWorkspaceSizeOrError() {
+inline ErrorOr<std::optional<size_t>> Graph::getWorkspaceSize() {
   if (vmContext_ == nullptr)
     return ok(std::optional<size_t>());
 
@@ -326,12 +326,8 @@ inline ErrorOr<std::optional<size_t>> Graph::getWorkspaceSizeOrError() {
   return ok(workspaceSize_);
 }
 
-inline std::optional<size_t> Graph::getWorkspaceSize() {
-  auto sizeOrError = getWorkspaceSizeOrError();
-  ErrorObject err = sizeOrError;
-  if (!err.isOk())
-    return std::nullopt;
-  return *sizeOrError;
+inline ErrorOr<std::optional<size_t>> Graph::getWorkspaceSizeOrError() {
+  return getWorkspaceSize();
 }
 
 // Queries the required transient/workspace buffer size from the compiled
@@ -412,7 +408,7 @@ Graph::execute(const Handle &handle,
   bool executeAsync = kBackendExecuteAsync.at(handle.getBackend());
   FUSILLI_RETURN_ERROR_IF(
       !workspaceSize_.has_value(), ErrorCode::InvalidArgument,
-      "Graph::execute requires getWorkspaceSizeOrError() to be called before "
+      "Graph::execute requires getWorkspaceSize() to be called before "
       "workspace allocation and execution");
 
   iree_allocator_t allocator = iree_allocator_system();

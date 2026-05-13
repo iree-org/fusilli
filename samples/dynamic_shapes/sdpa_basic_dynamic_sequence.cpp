@@ -96,8 +96,7 @@ TEST_CASE("Dynamic sequence basic SDPA f16", "[dynamic][sdpa][graph]") {
                              std::shared_ptr<Buffer>>
         variantPack = {{qT, qBuf}, {kT, kBuf}, {vT, vBuf}, {oT, oBuf}};
 
-    FUSILLI_REQUIRE_ASSIGN(auto workspaceSize,
-                           graph->getWorkspaceSizeOrError());
+    FUSILLI_REQUIRE_ASSIGN(auto workspaceSize, graph->getWorkspaceSize());
     FUSILLI_REQUIRE_ASSIGN(auto workspace,
                            allocateWorkspace(handle, workspaceSize));
 
