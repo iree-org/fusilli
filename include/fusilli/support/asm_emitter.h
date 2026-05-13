@@ -2474,7 +2474,8 @@ inline bool SdpaNode::useLegacySdpaAsm() const {
       hasDynamicDims(sdpaAttr.getQ()) || hasDynamicDims(sdpaAttr.getK()) ||
       hasDynamicDims(sdpaAttr.getV()) || hasDynamicDims(sdpaAttr.getO());
 
-  if (hasDynamicTensor || sdpaAttr.getMASK() || sdpaAttr.getDropout() != 0.0f)
+  (void)hasDynamicTensor;
+  if (sdpaAttr.getMASK() || sdpaAttr.getDropout() != 0.0f)
     return true;
 
   // The legacy SDPA op does not produce logsumexp, so keep generate_stats on
@@ -2482,8 +2483,7 @@ inline bool SdpaNode::useLegacySdpaAsm() const {
   if (sdpaAttr.getGenerateStats())
     return false;
 
-  return (sdpaAttr.getIsCausal() && !sdpaAttr.getEnableGqa()) ||
-         sdpaAttr.getScale().has_value();
+  return sdpaAttr.getScale().has_value();
 }
 
 inline std::string SdpaNode::emitModuleScopeAsm() const {
