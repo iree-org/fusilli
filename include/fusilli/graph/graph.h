@@ -1184,10 +1184,17 @@ Graph::sdpa(const std::shared_ptr<TensorAttr> &q,
   // Set outputs.
   auto o = outputTensor(sdpaAttr.getName() + "_O");
   sdpaAttr.setO(o);
+  if (sdpaAttr.getGenerateStats() && !sdpaAttr.getSTATS()) {
+    auto stats = outputTensor(sdpaAttr.getName() + "_STATS");
+    stats->setDataType(DataType::Float);
+    sdpaAttr.setSTATS(stats);
+  }
 
-  // Create node and add to Graph's subNodes_.
+  // Keep sdpaAttr populated for callers: Graph::sdpa returns O, and the
+  // generate_stats STATS tensor is exposed through sdpaAttr.
+  SdpaAttr nodeAttr = sdpaAttr;
   subNodes_.emplace_back(
-      std::make_unique<SdpaNode>(std::move(sdpaAttr), context));
+      std::make_unique<SdpaNode>(std::move(nodeAttr), context));
 
   return o;
 }

@@ -18,7 +18,7 @@
 
 using namespace fusilli;
 
-// SDPA MLIR templates for torch.aten.scaled_dot_product_attention.
+// SDPA MLIR templates.
 //
 // Templates are stored as R-string literals so the MLIR structure is
 // directly readable in source. Standard CustomOp placeholders
@@ -27,10 +27,29 @@ using namespace fusilli;
 // ({DROPOUT_P}, {IS_CAUSAL}, {SCALE_CONST}, {SCALE_TYPE}, {ENABLE_GQA})
 // are resolved by buildSdpaMlir().
 
+// clang-format off
+// Flex attention template: 3 tensor inputs (Q, K, V), attention mask is none.
+// Positional args: {0}=SCALE_CONST, {1}=SCALE_TYPE, {2}=ENABLE_GQA_ATTR
+inline constexpr std::string_view kFlexSdpaNoMask = R"mlir(
+  func.func private @{{FUNC_NAME}}(
+      %arg0: {{IN0_TYPE}},
+      %arg1: {{IN1_TYPE}},
+      %arg2: {{IN2_TYPE}})
+      -> {{OUT0_TYPE}} {{
+    %scale = {0}
+    %return_lse = torch.constant.bool false
+    %return_max_scores = torch.constant.bool false
+    %0, %logsumexp, %max_scores = torch.hop_flex_attention %arg0, %arg1, %arg2,
+        %scale, %return_lse, %return_max_scores{2} :
+        {{IN0_TYPE}}, {{IN1_TYPE}}, {{IN2_TYPE}},
+        {1}, !torch.bool, !torch.bool -> {{OUT0_TYPE}}, !torch.none, !torch.none
+    return %0 : {{OUT0_TYPE}}
+  }}
+)mlir";
+
 // SDPA template: 3 tensor inputs (Q, K, V), attention mask is none.
 // Positional args: {0}=DROPOUT_P, {1}=IS_CAUSAL, {2}=SCALE_CONST,
 //                  {3}=SCALE_TYPE, {4}=ENABLE_GQA
-// clang-format off
 inline constexpr std::string_view kSdpaNoMask = R"mlir(
   func.func private @{{FUNC_NAME}}(
       %arg0: {{IN0_TYPE}},
@@ -75,7 +94,7 @@ inline constexpr std::string_view kSdpaWithMask = R"mlir(
 )mlir";
 // clang-format on
 
-/// Builds the MLIR template for torch.aten.scaled_dot_product_attention.
+/// Builds the MLIR template for SDPA custom-op samples.
 ///
 /// Selects the appropriate R-string template (with/without attn_mask) and
 /// resolves scalar placeholders. Standard CustomOp dtype/name placeholders
@@ -99,6 +118,15 @@ std::vector<float> referenceSdpa(float qVal, float kVal, float vVal,
                                  std::optional<float> scale, bool enableGqa,
                                  bool hasAttnMask);
 
+/// CPU reference implementation for the logsumexp statistics returned by
+/// SDPA generate_stats.
+std::vector<float> referenceSdpaLogsumexp(float qVal, float kVal, float maskVal,
+                                          int64_t batch, int64_t headsQ,
+                                          int64_t seqQ, int64_t seqKV,
+                                          int64_t headDim, bool isCausal,
+                                          std::optional<float> scale,
+                                          bool hasAttnMask);
+
 /// Build and execute SDPA using the built-in graph API.
 /// Shape convention: [batch, heads, seq_len, head_dim].
 /// K and V may have different head counts (headsK vs headsV).
@@ -107,7 +135,7 @@ void executeSdpa(Handle &handle, DataType dt, int64_t batch, int64_t headsQ,
                  int64_t headDim, bool isCausal = false,
                  std::optional<float> scale = std::nullopt,
                  bool enableGqa = false, bool hasAttnMask = false,
-                 float dropoutP = 0.0f);
+                 float dropoutP = 0.0f, bool generateStats = false);
 
 /// Build and execute SDPA using the custom op graph API with MLIR templates.
 /// Shape convention: [batch, heads, seq_len, head_dim].

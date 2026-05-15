@@ -11,7 +11,7 @@
 // clang-format off
 //
 // TORCH-CHECK:   module @module {
-// TORCH-CHECK:     func.func @main(%sdpa_O_: !torch.tensor<[1,8,64,64],f16>, %k: !torch.vtensor<[1,8,64,64],f16>, %q: !torch.vtensor<[1,8,64,64],f16>, %v: !torch.vtensor<[1,8,64,64],f16>) attributes {torch.assume_strict_symbolic_shapes} {
+// TORCH-CHECK:     func.func @main(%sdpa_O_: !torch.tensor<[1,8,64,64],f16>, %sdpa_STATS_: !torch.tensor<[1,8,64],f32>, %k: !torch.vtensor<[1,8,64,64],f16>, %q: !torch.vtensor<[1,8,64,64],f16>, %v: !torch.vtensor<[1,8,64,64],f16>) attributes {torch.assume_strict_symbolic_shapes} {
 // TORCH-CHECK:       %permute_Q_val_0_sdpa = torch.constant.int 0
 // TORCH-CHECK:       %permute_Q_val_1_sdpa = torch.constant.int 1
 // TORCH-CHECK:       %permute_Q_val_2_sdpa = torch.constant.int 2
@@ -31,16 +31,22 @@
 // TORCH-CHECK:       %permute_V_sdpa = torch.prim.ListConstruct %permute_V_val_0_sdpa, %permute_V_val_1_sdpa, %permute_V_val_2_sdpa, %permute_V_val_3_sdpa : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
 // TORCH-CHECK:       %v_sdpa_perm = torch.aten.permute %v, %permute_V_sdpa : !torch.vtensor<[1,8,64,64],f16>, !torch.list<int> -> !torch.vtensor<[1,8,64,64],f16>
 // TORCH-CHECK:       %scale_sdpa = torch.constant.none
-// TORCH-CHECK:       %return_lse_sdpa = torch.constant.bool false
+// TORCH-CHECK:       %return_lse_sdpa = torch.constant.bool true
 // TORCH-CHECK:       %return_max_scores_sdpa = torch.constant.bool false
-// TORCH-CHECK:       %sdpa_O_sdpa_perm, %sdpa_logsumexp_sdpa, %sdpa_max_scores_sdpa = torch.hop_flex_attention %q_sdpa_perm, %k_sdpa_perm, %v_sdpa_perm, %scale_sdpa, %return_lse_sdpa, %return_max_scores_sdpa : !torch.vtensor<[1,8,64,64],f16>, !torch.vtensor<[1,8,64,64],f16>, !torch.vtensor<[1,8,64,64],f16>, !torch.none, !torch.bool, !torch.bool -> !torch.vtensor<[1,8,64,64],f16>, !torch.none, !torch.none
+// TORCH-CHECK:       %sdpa_O_sdpa_perm, %sdpa_logsumexp_sdpa, %sdpa_max_scores_sdpa = torch.hop_flex_attention %q_sdpa_perm, %k_sdpa_perm, %v_sdpa_perm, %scale_sdpa, %return_lse_sdpa, %return_max_scores_sdpa : !torch.vtensor<[1,8,64,64],f16>, !torch.vtensor<[1,8,64,64],f16>, !torch.vtensor<[1,8,64,64],f16>, !torch.none, !torch.bool, !torch.bool -> !torch.vtensor<[1,8,64,64],f16>, !torch.vtensor<[1,8,64],f32>, !torch.none
 // TORCH-CHECK:       %permute_O_val_0_sdpa = torch.constant.int 0
 // TORCH-CHECK:       %permute_O_val_1_sdpa = torch.constant.int 1
 // TORCH-CHECK:       %permute_O_val_2_sdpa = torch.constant.int 2
 // TORCH-CHECK:       %permute_O_val_3_sdpa = torch.constant.int 3
 // TORCH-CHECK:       %permute_O_sdpa = torch.prim.ListConstruct %permute_O_val_0_sdpa, %permute_O_val_1_sdpa, %permute_O_val_2_sdpa, %permute_O_val_3_sdpa : (!torch.int, !torch.int, !torch.int, !torch.int) -> !torch.list<int>
 // TORCH-CHECK:       %sdpa_O = torch.aten.permute %sdpa_O_sdpa_perm, %permute_O_sdpa : !torch.vtensor<[1,8,64,64],f16>, !torch.list<int> -> !torch.vtensor<[1,8,64,64],f16>
+// TORCH-CHECK:       %permute_STATS_val_0_sdpa = torch.constant.int 0
+// TORCH-CHECK:       %permute_STATS_val_1_sdpa = torch.constant.int 1
+// TORCH-CHECK:       %permute_STATS_val_2_sdpa = torch.constant.int 2
+// TORCH-CHECK:       %permute_STATS_sdpa = torch.prim.ListConstruct %permute_STATS_val_0_sdpa, %permute_STATS_val_1_sdpa, %permute_STATS_val_2_sdpa : (!torch.int, !torch.int, !torch.int) -> !torch.list<int>
+// TORCH-CHECK:       %sdpa_STATS = torch.aten.permute %sdpa_logsumexp_sdpa, %permute_STATS_sdpa : !torch.vtensor<[1,8,64],f32>, !torch.list<int> -> !torch.vtensor<[1,8,64],f32>
 // TORCH-CHECK:       torch.overwrite.tensor.contents %sdpa_O overwrites %sdpa_O_ : !torch.vtensor<[1,8,64,64],f16>, !torch.tensor<[1,8,64,64],f16>
+// TORCH-CHECK:       torch.overwrite.tensor.contents %sdpa_STATS overwrites %sdpa_STATS_ : !torch.vtensor<[1,8,64],f32>, !torch.tensor<[1,8,64],f32>
 // TORCH-CHECK:       return
 // TORCH-CHECK:     }
 // TORCH-CHECK:   }
@@ -64,9 +70,10 @@
 
 using namespace fusilli;
 
-static ErrorObject testSdpaAsmEmitterBasicMha(const std::string &mode) {
+static ErrorObject testSdpaAsmEmitterGenerateStats(const std::string &mode) {
   auto graph = std::make_shared<Graph>();
-  graph->setName("sdpa_asm_emitter_basic_mha").setIODataType(DataType::Half);
+  graph->setName("sdpa_asm_emitter_generate_stats")
+      .setIODataType(DataType::Half);
 
   std::vector<int64_t> dim = {1, 8, 64, 64};
   auto stride =
@@ -82,9 +89,19 @@ static ErrorObject testSdpaAsmEmitterBasicMha(const std::string &mode) {
       TensorAttr().setName("v").setDim(dim).setStride(stride).setDataType(
           DataType::Half));
 
-  auto sdpaAttr = SdpaAttr().setName("sdpa");
+  auto sdpaAttr = SdpaAttr().setName("sdpa").setGenerateStats(true);
   auto o = graph->sdpa(q, k, v, /*mask=*/nullptr, sdpaAttr);
+  auto stats = sdpaAttr.getSTATS();
+
   o->setDim(dim).setStride(stride).setDataType(DataType::Half).setOutput(true);
+
+  std::vector<int64_t> statsDim = {dim[0], dim[1], dim[2]};
+  auto statsStride = generateStrideFromDim(
+      statsDim, getContiguousStrideOrder(statsDim.size()));
+  stats->setDim(statsDim)
+      .setStride(statsStride)
+      .setDataType(DataType::Float)
+      .setOutput(true);
 
   FUSILLI_CHECK_ERROR(graph->validate());
 
@@ -97,9 +114,9 @@ static ErrorObject testSdpaAsmEmitterBasicMha(const std::string &mode) {
   if (mode == "stats") {
     FUSILLI_ASSIGN_OR_RETURN(Handle handle, Handle::create(kDefaultBackend));
     FUSILLI_CHECK_ERROR(graph->compile(handle, /*remove=*/true));
-    FUSILLI_ASSIGN_OR_RETURN(auto stats, graph->readCompilationCacheFile(
-                                             CachedAssetsType::Statistics));
-    std::cout << stats << std::endl;
+    FUSILLI_ASSIGN_OR_RETURN(auto statsJson, graph->readCompilationCacheFile(
+                                                 CachedAssetsType::Statistics));
+    std::cout << statsJson << std::endl;
   }
 
   return ok();
@@ -108,7 +125,7 @@ static ErrorObject testSdpaAsmEmitterBasicMha(const std::string &mode) {
 int main(int argc, char **argv) {
   std::string mode = (argc > 1) ? argv[1] : "default";
 
-  auto status = testSdpaAsmEmitterBasicMha(mode);
+  auto status = testSdpaAsmEmitterGenerateStats(mode);
   if (isError(status)) {
     std::cerr << "Test failed: " << status << std::endl;
     return 1;

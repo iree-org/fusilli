@@ -22,6 +22,7 @@ TEST_CASE("SdpaAttr default constructor", "[sdpa_attr]") {
   REQUIRE(attr.getIsCausal() == false);
   REQUIRE(attr.getScale() == std::nullopt);
   REQUIRE(attr.getEnableGqa() == false);
+  REQUIRE(attr.getGenerateStats() == false);
 }
 
 TEST_CASE("SdpaAttr scalar setters and getters", "[sdpa_attr]") {
@@ -58,6 +59,7 @@ TEST_CASE("SdpaAttr tensor setters and getters", "[sdpa_attr]") {
   REQUIRE(attr.getV() == v);
   REQUIRE(attr.getO() == o);
   REQUIRE(attr.getMASK() == nullptr);
+  REQUIRE(attr.getSTATS() == nullptr);
 }
 
 TEST_CASE("SdpaAttr with attention mask", "[sdpa_attr]") {
@@ -88,4 +90,16 @@ TEST_CASE("SdpaAttr scale can be reset to nullopt", "[sdpa_attr]") {
 
   attr.setScale(std::nullopt);
   REQUIRE(!attr.getScale().has_value());
+}
+
+TEST_CASE("SdpaAttr stats output and generate_stats flag", "[sdpa_attr]") {
+  SdpaAttr attr;
+
+  auto stats = std::make_shared<TensorAttr>(
+      TensorAttr().setDim({1, 8, 64}).setName("STATS"));
+  attr.setGenerateStats(true).setSTATS(stats);
+
+  REQUIRE(attr.getGenerateStats() == true);
+  REQUIRE(attr.outputs.size() == 1);
+  REQUIRE(attr.getSTATS() == stats);
 }
