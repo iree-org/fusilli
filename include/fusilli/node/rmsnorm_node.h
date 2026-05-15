@@ -22,8 +22,10 @@
 #include "fusilli/node/norm_utils.h"
 #include "fusilli/support/logging.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <utility>
@@ -72,6 +74,8 @@ public:
     // Ensure mandatory input and output tensors are set.
     FUSILLI_RETURN_ERROR_IF(!xT, ErrorCode::AttributeNotSet,
                             "RmsNorm input tensor X not set");
+    FUSILLI_RETURN_ERROR_IF(!sT, ErrorCode::AttributeNotSet,
+                            "RmsNorm input tensor SCALE not set");
     FUSILLI_RETURN_ERROR_IF(!yT, ErrorCode::AttributeNotSet,
                             "RmsNorm output tensor Y not set");
 
@@ -89,23 +93,53 @@ public:
     // Shape and layout checks on scale tensor.
     // If scale tensor's dims/strides are not set, they will be inferred in
     // inferPropertiesNode().
-    if (sT) {
-      if (!sT->getDim().empty()) {
-        FUSILLI_RETURN_ERROR_IF(sT->getDim() !=
-                                    norm_utils::getScaleBiasDim(xT->getDim()),
-                                ErrorCode::InvalidAttribute,
-                                "RmsNorm input tensor SCALE must have shape as "
-                                "tensor X with single batch");
-      }
+    //
+    // Scale encodes the normalized_shape as a trailing suffix of x:
+    //   reduction = maximal trailing suffix where scale[i] == x[i],
+    //   leading region (excluding batch) must be all-1,
+    //   batch dim (scale[0]) must be 1 (broadcast across batch).
+    if (!sT->getDim().empty()) {
+      const auto &xDim = xT->getDim();
+      const auto &sDim = sT->getDim();
+      constexpr size_t batchDim = 0;
 
-      if (!sT->getStride().empty()) {
+      FUSILLI_RETURN_ERROR_IF(
+          sDim.size() != xDim.size(), ErrorCode::InvalidAttribute,
+          "RmsNorm SCALE tensor must have the same rank as X");
+
+      FUSILLI_RETURN_ERROR_IF(
+          sDim[batchDim] != 1, ErrorCode::InvalidAttribute,
+          "RmsNorm SCALE tensor must have batch dim equal to 1 "
+          "(broadcast across batch)");
+
+      // matchCount = number of trailing dims where scale[i] == x[i].
+      const auto [sMismatch, _] =
+          std::mismatch(sDim.rbegin(), sDim.rend(), xDim.rbegin(), xDim.rend());
+      const size_t matchCount =
+          static_cast<size_t>(std::distance(sDim.rbegin(), sMismatch));
+
+      FUSILLI_RETURN_ERROR_IF(
+          matchCount == 0, ErrorCode::InvalidAttribute,
+          "RmsNorm SCALE has no trailing dims matching X — at least "
+          "one normalized dim is required");
+
+      // Leading region (between batch and the matching trailing
+      // suffix) must be all-1.
+      for (size_t i = batchDim + 1; i < sDim.size() - matchCount; ++i) {
         FUSILLI_RETURN_ERROR_IF(
-            !sT->isContiguous() && !sT->isChannelsLast(),
-            ErrorCode::NotImplemented,
-            "Tensor '" + sT->getName() +
-                "' is neither contiguous nor channels-last as "
-                "defined by its stride");
+            sDim[i] != 1, ErrorCode::InvalidAttribute,
+            "RmsNorm SCALE leading region (before normalized shape) "
+            "must be 1");
       }
+    }
+
+    if (!sT->getStride().empty()) {
+      FUSILLI_RETURN_ERROR_IF(
+          !sT->isContiguous() && !sT->isChannelsLast(),
+          ErrorCode::NotImplemented,
+          "Tensor '" + sT->getName() +
+              "' is neither contiguous nor channels-last as "
+              "defined by its stride");
     }
 
     // Output tensor checks for training and inference forward phases.
@@ -141,17 +175,15 @@ public:
 
     // Infer shape and stride of input SCALE tensor if they're not set.
     std::shared_ptr<TensorAttr> sT = rmsnormAttr.getSCALE();
-    if (sT) {
-      norm_utils::inferScaleBiasDimAndStride(sT, xDim, xT->getStride());
-    }
+    norm_utils::inferScaleBiasDimAndStride(sT, xDim, xT->getStride());
 
     // Infer shape and stride of output Y tensor.
     // When stride is unspecified, preserve the stride order of xT.
     norm_utils::inferDimAndStride(yT, xDim, xT->getStride());
 
     if (isTrainingForwardPhase()) {
-      const auto &[dim, stride] =
-          norm_utils::getTrainingForwardOutputDimAndStride(xDim);
+      const auto &[dim, stride] = norm_utils::getRMSNormInvRmsDimAndStride(
+          xDim, rmsnormAttr.getSCALE()->getDim(), xT->getStride());
 
       // Infer shape and stride of output INV_RMS tensor.
       std::shared_ptr<TensorAttr> rT = rmsnormAttr.getINV_RMS();
@@ -183,21 +215,22 @@ public:
                                 "defined by its stride");
 
     if (isTrainingForwardPhase()) {
-      const auto &[dim, stride] =
-          norm_utils::getTrainingForwardOutputDimAndStride(xDim);
+      const auto &[dim, stride] = norm_utils::getRMSNormInvRmsDimAndStride(
+          xDim, rmsnormAttr.getSCALE()->getDim(), xT->getStride());
 
       std::shared_ptr<TensorAttr> rT = rmsnormAttr.getINV_RMS();
 
       // Shape check for output INV_RMS tensor
       FUSILLI_RETURN_ERROR_IF(
           dim != rT->getDim(), ErrorCode::InvalidAttribute,
-          "RmsNorm output INV_RMS tensor must have shape [B, 1, ..., 1] with "
-          "rank equal to input X tensor's rank, and batch dimension equal "
-          "to input X tensor's batch dimension");
+          "RmsNorm output INV_RMS tensor must have x's leading (broadcast) "
+          "dims preserved and the normalized (trailing) region collapsed to "
+          "1, with rank equal to input X tensor's rank");
       // Stride check for output INV_RMS tensor
       FUSILLI_RETURN_ERROR_IF(
           stride != rT->getStride(), ErrorCode::InvalidAttribute,
-          "RmsNorm output INV_RMS tensor must have unit strides");
+          "RmsNorm output INV_RMS tensor must have strides preserving "
+          "input X tensor's stride order");
     }
 
     FUSILLI_RETURN_ERROR_IF(
@@ -214,7 +247,8 @@ private:
   }
 
   std::vector<int64_t> getNormalizedShape() const {
-    return norm_utils::getNormalizedShape(rmsnormAttr.getX()->getDim());
+    return norm_utils::getRMSNormNormalizedShape(
+        rmsnormAttr.getX()->getDim(), rmsnormAttr.getSCALE()->getDim());
   }
 };
 
