@@ -148,6 +148,7 @@ public:
     // Infer shape and stride of output Y tensor.
     // When stride is unspecified, preserve the stride order of xT.
     norm_utils::inferDimAndStride(yT, xDim, xT->getStride());
+    inferSameShapeDynamicDims(yT, xT);
 
     if (isTrainingForwardPhase()) {
       const auto &[dim, stride] =
@@ -156,6 +157,7 @@ public:
       // Infer shape and stride of output INV_RMS tensor.
       std::shared_ptr<TensorAttr> rT = rmsnormAttr.getINV_RMS();
       norm_utils::inferDimAndStride(rT, dim, stride);
+      inferSameShapeDynamicDims(rT, xT);
     }
 
     return ok();

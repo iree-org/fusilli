@@ -209,6 +209,17 @@ public:
           generateStrideFromDim(oDim, getContiguousStrideOrder(oDim.size())));
     }
 
+    std::vector<size_t> dynamicDims;
+    if (qT->isDynamicDim(0))
+      dynamicDims.push_back(0);
+    if (qT->isDynamicDim(1))
+      dynamicDims.push_back(1);
+    if (qT->isDynamicDim(2))
+      dynamicDims.push_back(2);
+    if (vT->isDynamicDim(3))
+      dynamicDims.push_back(3);
+    setInferredDynamicDims(oT, std::move(dynamicDims));
+
     return ok();
   }
 

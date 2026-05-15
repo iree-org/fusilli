@@ -9,6 +9,7 @@
 #include "utils.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -111,9 +112,9 @@ TEST_CASE("MatmulNode inferPropertiesNode when C is fully specified",
   int64_t m = 16, k = 32, n = 64;
 
   attr.setA(std::make_shared<TensorAttr>(
-      TensorAttr().setDim({m, k}).setStride({k, 1})));
+      TensorAttr().setDim({m, k}).setDynamicDims({0}).setStride({k, 1})));
   attr.setB(std::make_shared<TensorAttr>(
-      TensorAttr().setDim({k, n}).setStride({n, 1})));
+      TensorAttr().setDim({k, n}).setDynamicDims({1}).setStride({n, 1})));
   attr.setC(std::make_shared<TensorAttr>(
       TensorAttr().setDim({m, n}).setStride({n, 1})));
 
@@ -123,6 +124,7 @@ TEST_CASE("MatmulNode inferPropertiesNode when C is fully specified",
   auto cT = node.matmulAttr.getC();
   REQUIRE(cT->getDim() == std::vector<int64_t>{m, n});
   REQUIRE(cT->getStride() == std::vector<int64_t>{n, 1});
+  REQUIRE(cT->getDynamicDims() == std::vector<size_t>{0, 1});
 }
 
 TEST_CASE("MatmulNode inferPropertiesNode when C is under-specified",

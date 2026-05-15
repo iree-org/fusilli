@@ -104,6 +104,7 @@ public:
           yTensor->getDim(),
           getContiguousStrideOrder(yTensor->getDim().size())));
     }
+    inferSameShapeDynamicDims(yTensor, xTensor);
     return ok();
   }
 

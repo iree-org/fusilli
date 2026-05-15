@@ -9,6 +9,7 @@
 #include "utils.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -119,8 +120,11 @@ TEST_CASE("ConvFPropNode inferPropertiesNode (4D) when Y is under specified",
 
   attr.setPadding({0, 0}).setStride({1, 1}).setDilation({1, 1});
 
-  auto xT = std::make_shared<TensorAttr>(
-      TensorAttr().setDim({n, c, h, w}).setStride({c * h * w, h * w, w, 1}));
+  auto xT =
+      std::make_shared<TensorAttr>(TensorAttr()
+                                       .setDim({n, c, h, w})
+                                       .setDynamicDims({0, 2})
+                                       .setStride({c * h * w, h * w, w, 1}));
 
   auto wT = std::make_shared<TensorAttr>(
       TensorAttr().setDim({k, c, r, s}).setStride({c * r * s, r * s, s, 1}));
@@ -136,6 +140,69 @@ TEST_CASE("ConvFPropNode inferPropertiesNode (4D) when Y is under specified",
   auto yT = node.convFPropAttr.getY();
   REQUIRE(yT->getDim() == std::vector<int64_t>({n, k, h, w}));
   REQUIRE(yT->getStride() == std::vector<int64_t>({k * h * w, h * w, w, 1}));
+  REQUIRE(yT->getDynamicDims() == std::vector<size_t>{0, 2});
+}
+
+TEST_CASE("ConvWGradNode infers dynamic dims for DW", "[conv_wgrad_node]") {
+  Context ctx;
+  ConvWGradAttr attr;
+
+  int64_t n = 16, c = 128, h = 64, w = 64, k = 256, r = 1, s = 1;
+
+  attr.setPadding({0, 0}).setStride({1, 1}).setDilation({1, 1});
+
+  auto dyT =
+      std::make_shared<TensorAttr>(TensorAttr()
+                                       .setDim({n, k, h, w})
+                                       .setDynamicDims({1})
+                                       .setStride({k * h * w, h * w, w, 1}));
+
+  auto xT =
+      std::make_shared<TensorAttr>(TensorAttr()
+                                       .setDim({n, c, h, w})
+                                       .setDynamicDims({1})
+                                       .setStride({c * h * w, h * w, w, 1}));
+
+  auto dwT = std::make_shared<TensorAttr>(
+      TensorAttr().setDim({k, c, r, s}).setStride({c * r * s, r * s, s, 1}));
+
+  attr.setDY(dyT).setX(xT).setDW(dwT);
+
+  ConvWGradNode node(std::move(attr), ctx);
+  FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+  REQUIRE(dwT->getDynamicDims() == std::vector<size_t>{0, 1});
+}
+
+TEST_CASE("ConvDGradNode infers dynamic dims for DX", "[conv_dgrad_node]") {
+  Context ctx;
+  ConvDGradAttr attr;
+
+  int64_t n = 16, c = 128, h = 64, w = 64, k = 256, r = 1, s = 1;
+
+  attr.setPadding({0, 0}).setStride({1, 1}).setDilation({1, 1});
+
+  auto dyT =
+      std::make_shared<TensorAttr>(TensorAttr()
+                                       .setDim({n, k, h, w})
+                                       .setDynamicDims({0, 2})
+                                       .setStride({k * h * w, h * w, w, 1}));
+
+  auto wT =
+      std::make_shared<TensorAttr>(TensorAttr()
+                                       .setDim({k, c, r, s})
+                                       .setDynamicDims({1})
+                                       .setStride({c * r * s, r * s, s, 1}));
+
+  auto dxT = std::make_shared<TensorAttr>(
+      TensorAttr().setDim({n, c, h, w}).setStride({c * h * w, h * w, w, 1}));
+
+  attr.setDY(dyT).setW(wT).setDX(dxT);
+
+  ConvDGradNode node(std::move(attr), ctx);
+  FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+  REQUIRE(dxT->getDynamicDims() == std::vector<size_t>{0, 1, 2});
 }
 
 TEST_CASE("ConvFPropNode preValidate checks on input stride validity",

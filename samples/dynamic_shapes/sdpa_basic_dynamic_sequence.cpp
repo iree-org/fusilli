@@ -55,10 +55,11 @@ TEST_CASE("Dynamic sequence basic SDPA f16", "[dynamic][sdpa][graph]") {
       .setEnableGqa(false);
 
   auto oT = graph->sdpa(qT, kT, vT, /*mask=*/nullptr, sdpaAttr);
-  oT->setDynamicDims({2}).setOutput(true);
+  oT->setOutput(true);
 
   FUSILLI_REQUIRE_ASSIGN(Handle handle, Handle::create(kDefaultBackend));
   FUSILLI_REQUIRE_OK(graph->validate());
+  REQUIRE(oT->getDynamicDims() == std::vector<size_t>{2});
   FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
 
   for (int64_t runtimeSeqLen : runtimeSeqLens) {

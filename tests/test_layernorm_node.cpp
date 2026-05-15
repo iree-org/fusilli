@@ -9,6 +9,7 @@
 #include "utils.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -231,7 +232,7 @@ TEST_CASE(
   int64_t n = 2, c = 5;
 
   attr.setX(std::make_shared<TensorAttr>(
-      TensorAttr().setDim({n, c}).setStride({c, 1})));
+      TensorAttr().setDim({n, c}).setDynamicDims({0}).setStride({c, 1})));
   attr.setY(std::make_shared<TensorAttr>(
       TensorAttr().setDim({n, c}).setStride({c, 1})));
   attr.setMEAN(std::make_shared<TensorAttr>(
@@ -247,10 +248,13 @@ TEST_CASE(
   auto vT = node.layernormAttr.getINV_VARIANCE();
   REQUIRE(yT->getDim() == std::vector<int64_t>{n, c});
   REQUIRE(yT->getStride() == std::vector<int64_t>{c, 1});
+  REQUIRE(yT->getDynamicDims() == std::vector<size_t>{0});
   REQUIRE(mT->getDim() == std::vector<int64_t>{n, 1});
   REQUIRE(mT->getStride() == std::vector<int64_t>{1, 1});
+  REQUIRE(mT->getDynamicDims() == std::vector<size_t>{0});
   REQUIRE(vT->getDim() == std::vector<int64_t>{n, 1});
   REQUIRE(vT->getStride() == std::vector<int64_t>{1, 1});
+  REQUIRE(vT->getDynamicDims() == std::vector<size_t>{0});
 }
 
 TEST_CASE(

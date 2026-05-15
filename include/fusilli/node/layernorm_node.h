@@ -182,6 +182,7 @@ public:
     // Infer shape and stride of output Y tensor.
     // When stride is unspecified, preserve the stride order of xT.
     norm_utils::inferDimAndStride(yT, xDim, xT->getStride());
+    inferSameShapeDynamicDims(yT, xT);
 
     if (isTrainingForwardPhase()) {
       const auto &[dim, stride] =
@@ -190,10 +191,12 @@ public:
       // Infer shape and stride of output MEAN tensor.
       std::shared_ptr<TensorAttr> mT = layernormAttr.getMEAN();
       norm_utils::inferDimAndStride(mT, dim, stride);
+      inferSameShapeDynamicDims(mT, xT);
 
       // Infer shape and stride of output INV_VARIANCE tensor.
       std::shared_ptr<TensorAttr> vT = layernormAttr.getINV_VARIANCE();
       norm_utils::inferDimAndStride(vT, dim, stride);
+      inferSameShapeDynamicDims(vT, xT);
     }
 
     return ok();
