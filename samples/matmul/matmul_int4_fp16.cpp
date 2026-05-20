@@ -20,8 +20,7 @@
 using namespace fusilli;
 
 TEST_CASE("Int4 x fp16 matmul", "[matmul][int4]") {
-  // Mixed precision matmul requires rank-3 tensors (batch + M + K) due to
-  // torch-mlir constraints (torch.bmm is used for mixed element types).
+  // Use a simple batch=1 setup to exercise mixed-dtype matmul end-to-end.
   int64_t batch = 1, m = 4, k = 8, n = 4;
 
   auto buildNewGraph = [=](const Handle &handle) {

@@ -680,89 +680,112 @@ TEST_CASE("MatmulNode postValidateNode checks batch dimensions in output C",
   }
 }
 
-TEST_CASE("MatmulNode mixed precision constraints", "[matmul_node]") {
+TEST_CASE("MatmulNode mixed dtype inputs use regular matmul validation",
+          "[matmul_node]") {
   Context ctx;
-  MatmulAttr attr;
-
   int64_t m = 16, k = 32, n = 64;
 
-  SECTION("Mixed precision 2D matmul (no batch dim) - fail") {
+  SECTION("Mixed dtype 2D matmul with int4 and f16 - ok") {
     auto aT = std::make_shared<TensorAttr>(TensorAttr()
                                                .setDim({m, k})
                                                .setStride({k, 1})
-                                               .setDataType(DataType::Float)
-                                               .setName("A_float"));
+                                               .setDataType(DataType::Int4)
+                                               .setName("A_int4"));
     auto bT = std::make_shared<TensorAttr>(TensorAttr()
                                                .setDim({k, n})
                                                .setStride({n, 1})
-                                               .setDataType(DataType::Int32)
-                                               .setName("B_int32"));
+                                               .setDataType(DataType::Half)
+                                               .setName("B_half"));
     auto cT = std::make_shared<TensorAttr>();
 
+    MatmulAttr attr;
     attr.setA(aT).setB(bT).setC(cT);
 
     MatmulNode node(std::move(attr), ctx);
 
-    auto status = node.preValidateNode();
-    REQUIRE(isError(status));
-    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
-    REQUIRE(status.getMessage() ==
-            "Mixed precision matmul is only supported when input tensors A and "
-            "B are of rank 3 (single batch dim): A and B have rank=2");
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+    FUSILLI_REQUIRE_OK(node.postValidateNode());
+    REQUIRE(cT->getDim() == std::vector<int64_t>{m, n});
   }
 
-  SECTION("Mixed precision 4D matmul (2 batch dims) - fail") {
+  SECTION("Mixed dtype 4D matmul with f16 and f32 - ok") {
     int64_t b1 = 2, b2 = 4;
     auto aT =
         std::make_shared<TensorAttr>(TensorAttr()
                                          .setDim({b1, b2, m, k})
                                          .setStride({b2 * m * k, m * k, k, 1})
-                                         .setDataType(DataType::Float)
-                                         .setName("A_float"));
+                                         .setDataType(DataType::Half)
+                                         .setName("A_half"));
     auto bT =
         std::make_shared<TensorAttr>(TensorAttr()
                                          .setDim({b1, b2, k, n})
                                          .setStride({b2 * k * n, k * n, n, 1})
-                                         .setDataType(DataType::Int32)
-                                         .setName("B_int32"));
+                                         .setDataType(DataType::Float)
+                                         .setName("B_float"));
     auto cT = std::make_shared<TensorAttr>();
 
+    MatmulAttr attr;
     attr.setA(aT).setB(bT).setC(cT);
 
     MatmulNode node(std::move(attr), ctx);
 
-    auto status = node.preValidateNode();
-    REQUIRE(isError(status));
-    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
-    REQUIRE(status.getMessage() ==
-            "Mixed precision matmul is only supported when input tensors A and "
-            "B are of rank 3 (single batch dim): A and B have rank=4");
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+    FUSILLI_REQUIRE_OK(node.postValidateNode());
+    REQUIRE(cT->getDim() == std::vector<int64_t>{b1, b2, m, n});
   }
 
-  SECTION("Mixed precision with broadcast batch dim - fail") {
+  SECTION("Mixed dtype with broadcast batch dim and bf16/f32 - ok") {
     int64_t batchA = 1, batchB = 8;
     auto aT = std::make_shared<TensorAttr>(TensorAttr()
                                                .setDim({batchA, m, k})
                                                .setStride({m * k, k, 1})
-                                               .setDataType(DataType::Float)
-                                               .setName("A_float"));
+                                               .setDataType(DataType::BFloat16)
+                                               .setName("A_bfloat16"));
     auto bT = std::make_shared<TensorAttr>(TensorAttr()
                                                .setDim({batchB, k, n})
                                                .setStride({k * n, n, 1})
-                                               .setDataType(DataType::Int32)
-                                               .setName("B_int32"));
+                                               .setDataType(DataType::Float)
+                                               .setName("B_float"));
     auto cT = std::make_shared<TensorAttr>();
 
+    MatmulAttr attr;
     attr.setA(aT).setB(bT).setC(cT);
 
     MatmulNode node(std::move(attr), ctx);
 
-    auto status = node.preValidateNode();
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+    FUSILLI_REQUIRE_OK(node.postValidateNode());
+    REQUIRE(cT->getDim() == std::vector<int64_t>{batchB, m, n});
+  }
+
+  SECTION("Mixed dtype with equal bitwidth has no unique cast target - fail") {
+    auto aT = std::make_shared<TensorAttr>(TensorAttr()
+                                               .setDim({m, k})
+                                               .setStride({k, 1})
+                                               .setDataType(DataType::Half)
+                                               .setName("A_half"));
+    auto bT = std::make_shared<TensorAttr>(TensorAttr()
+                                               .setDim({k, n})
+                                               .setStride({n, 1})
+                                               .setDataType(DataType::BFloat16)
+                                               .setName("B_bfloat16"));
+    auto cT = std::make_shared<TensorAttr>();
+
+    MatmulAttr attr;
+    attr.setA(aT).setB(bT).setC(cT);
+
+    MatmulNode node(std::move(attr), ctx);
+
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    auto status = node.inferPropertiesNode();
     REQUIRE(isError(status));
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
-            "Mixed precision matmul input tensors A and B must have exactly "
-            "equal batch dimensions (no broadcast): A has batch dim=1, B has "
-            "batch dim=8");
+            "Mixed matmul input tensors A and B must have a unique "
+            "higher-bitwidth input dtype to cast to: A has dtype=f16, B has "
+            "dtype=bf16");
   }
 }

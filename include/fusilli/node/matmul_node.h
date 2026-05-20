@@ -152,30 +152,6 @@ public:
     FUSILLI_CHECK_ERROR(checkBatchDims(aT, "A"));
     FUSILLI_CHECK_ERROR(checkBatchDims(bT, "B"));
 
-    // Check for mixed precision matmuls (inputs with differing element types).
-    // Due to torch-mlir MLIR constraints, when element types differ:
-    // - Both LHS and RHS must have rank 3 (single batch dim)
-    // - The batch dim must be exactly equal (no broadcast)
-    //
-    // PyTorch does not allow differing input element types for any of the
-    // matmul variants. However, torch-mlir breaks conformity with pytorch in
-    // the case of `torch.bmm`. So, we need to be sure that `torch.matmul` will
-    // lower to `torch.bmm` in the cases of mixed precision.
-    if (aT->getDataType() != bT->getDataType()) {
-      constexpr int64_t kMixedPrecisionRequiredRank = 3;
-      FUSILLI_RETURN_ERROR_IF(
-          aRank != kMixedPrecisionRequiredRank, ErrorCode::InvalidAttribute,
-          "Mixed precision matmul is only supported when input tensors A and B "
-          "are of rank 3 (single batch dim): A and B have rank=" +
-              std::to_string(aRank));
-      FUSILLI_RETURN_ERROR_IF(
-          aDim[0] != bDim[0], ErrorCode::InvalidAttribute,
-          "Mixed precision matmul input tensors A and B must have exactly "
-          "equal batch dimensions (no broadcast): A has batch dim=" +
-              std::to_string(aDim[0]) +
-              ", B has batch dim=" + std::to_string(bDim[0]));
-    }
-
     return ok();
   }
 
@@ -184,6 +160,8 @@ public:
                            << matmulAttr.getName() << "'");
 
     matmulAttr.fillFromContext(context);
+    FUSILLI_ASSIGN_OR_RETURN(auto castTargetType, getMatmulCastTargetType());
+    (void)castTargetType;
 
     std::shared_ptr<TensorAttr> aT = matmulAttr.getA();
     std::shared_ptr<TensorAttr> bT = matmulAttr.getB();
@@ -235,6 +213,42 @@ public:
   }
 
 private:
+  ErrorOr<DataType> getMatmulCastTargetType() const {
+    std::shared_ptr<TensorAttr> aT = matmulAttr.getA();
+    std::shared_ptr<TensorAttr> bT = matmulAttr.getB();
+    FUSILLI_RETURN_ERROR_IF(!aT, ErrorCode::AttributeNotSet,
+                            "Matmul input tensor A not set");
+    FUSILLI_RETURN_ERROR_IF(!bT, ErrorCode::AttributeNotSet,
+                            "Matmul input tensor B not set");
+
+    DataType aType = aT->getDataType();
+    DataType bType = bT->getDataType();
+    if (aType == bType)
+      return ok(aType);
+
+    FUSILLI_RETURN_ERROR_IF(
+        aType == DataType::NotSet || bType == DataType::NotSet,
+        ErrorCode::AttributeNotSet,
+        "Mixed matmul input tensors A and B must both have a dtype set");
+
+    uint8_t aBitWidth = getDataTypeBitWidth(aType);
+    uint8_t bBitWidth = getDataTypeBitWidth(bType);
+    FUSILLI_RETURN_ERROR_IF(
+        aBitWidth == bBitWidth, ErrorCode::InvalidAttribute,
+        "Mixed matmul input tensors A and B must have a unique higher-bitwidth "
+        "input dtype to cast to: A has dtype=" +
+            kDataTypeToMlirTypeAsm.at(aType) +
+            ", B has dtype=" + kDataTypeToMlirTypeAsm.at(bType));
+
+    DataType targetType = aBitWidth > bBitWidth ? aType : bType;
+    FUSILLI_RETURN_ERROR_IF(
+        !hasTorchScalarType(targetType), ErrorCode::InvalidAttribute,
+        "Mixed matmul cast target dtype must be representable by "
+        "torch.aten.to.dtype: target dtype=" +
+            kDataTypeToMlirTypeAsm.at(targetType));
+    return ok(targetType);
+  }
+
   // Check that batch dimensions are outermost and non-transposed.
   // This is equivalent to checking that perm[i] == i for all batch dims.
   ErrorObject checkBatchDims(const std::shared_ptr<TensorAttr> &tensor,
