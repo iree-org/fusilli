@@ -10,6 +10,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -171,6 +172,7 @@ TEST_CASE("PointwiseNode with ADD mode broadcast", "[pointwise_node]") {
 
   auto in0 = std::make_shared<TensorAttr>();
   in0->setDim({dim0, dim1, dim2, dim3})
+      .setDynamicDims({0})
       .setStride({dim1 * dim2 * dim3, dim2 * dim3, dim3, 1});
   auto in1 = std::make_shared<TensorAttr>();
   in1->setDim({1, dim1, 1, 1}).setStride({dim1, 1, 1, 1});
@@ -187,6 +189,7 @@ TEST_CASE("PointwiseNode with ADD mode broadcast", "[pointwise_node]") {
   REQUIRE(out->getDim() == in0->getDim());
   REQUIRE(out->getDataType() == DataType::Float);
   REQUIRE(out->getStride() == in0->getStride());
+  REQUIRE(out->getDynamicDims() == std::vector<size_t>{0});
 }
 
 TEST_CASE("PointwiseNode with ADD mode invalid broadcast", "[pointwise_node]") {

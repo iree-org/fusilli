@@ -9,6 +9,7 @@
 #include "utils.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -433,9 +434,14 @@ TEST_CASE("SdpaNode valid basic MHA configuration", "[sdpa_node]") {
   Context ctx;
   SdpaAttr attr;
 
-  attr.setQ(makeTensor4D("Q", 1, 8, 64, 64));
+  auto qT = makeTensor4D("Q", 1, 8, 64, 64);
+  qT->setDynamicDims({2});
+  auto vT = makeTensor4D("V", 1, 8, 64, 64);
+  vT->setDynamicDims({3});
+
+  attr.setQ(qT);
   attr.setK(makeTensor4D("K", 1, 8, 64, 64));
-  attr.setV(makeTensor4D("V", 1, 8, 64, 64));
+  attr.setV(vT);
   attr.setO(std::make_shared<TensorAttr>());
 
   SdpaNode node(std::move(attr), ctx);
@@ -447,6 +453,7 @@ TEST_CASE("SdpaNode valid basic MHA configuration", "[sdpa_node]") {
   REQUIRE(oT->getDim() == std::vector<int64_t>{1, 8, 64, 64});
   REQUIRE(oT->getStride() ==
           std::vector<int64_t>{8L * 64 * 64, 64L * 64, 64, 1});
+  REQUIRE(oT->getDynamicDims() == std::vector<size_t>{2, 3});
 
   FUSILLI_REQUIRE_OK(node.postValidateNode());
 }

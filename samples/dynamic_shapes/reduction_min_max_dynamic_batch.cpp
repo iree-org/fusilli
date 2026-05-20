@@ -43,12 +43,12 @@ void executeDynamicReduction(Handle &handle, ReductionAttr::Mode mode,
   auto yT = graph->reduction(xT, reductionAttr);
   yT->setName("result")
       .setDim(yDims)
-      .setDynamicDims({0})
       .setStride(
           generateStrideFromDim(yDims, getContiguousStrideOrder(yDims.size())))
       .setOutput(true);
 
   FUSILLI_REQUIRE_OK(graph->validate());
+  REQUIRE(yT->getDynamicDims() == std::vector<size_t>{0});
   FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
 
   int64_t xSize = 1;

@@ -154,6 +154,9 @@ public:
       if (t->getStride().empty())
         t->setStride(channel1DStride);
     };
+    std::vector<size_t> channelDynamicDims;
+    if (xT->isDynamicDim(1))
+      channelDynamicDims.push_back(0);
 
     // Infer 1D channel tensors.
     if (auto sT = batchnormAttr.getSCALE())
@@ -170,11 +173,15 @@ public:
       yT->setDim(xDim);
     if (yT->getStride().empty())
       yT->setStride(xT->getStride());
+    inferSameShapeDynamicDims(yT, xT);
 
     // Infer saved statistics shapes for training.
     if (isTrainingForwardPhase()) {
       infer1DTensor(batchnormAttr.getSAVED_MEAN());
+      setInferredDynamicDims(batchnormAttr.getSAVED_MEAN(), channelDynamicDims);
       infer1DTensor(batchnormAttr.getSAVED_INV_VARIANCE());
+      setInferredDynamicDims(batchnormAttr.getSAVED_INV_VARIANCE(),
+                             channelDynamicDims);
     }
 
     return ok();

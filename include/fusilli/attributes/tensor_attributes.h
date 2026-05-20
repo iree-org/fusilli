@@ -371,6 +371,12 @@ computeBroadcastShape(const std::vector<std::vector<int64_t>> &shapes) {
   return ok(std::move(commonShape));
 }
 
+inline void canonicalizeDynamicDimIndices(std::vector<size_t> &dynamicDims) {
+  std::sort(dynamicDims.begin(), dynamicDims.end());
+  dynamicDims.erase(std::unique(dynamicDims.begin(), dynamicDims.end()),
+                    dynamicDims.end());
+}
+
 class TensorAttr {
 public:
   using scalar_t = std::variant<int64_t, int32_t, float, double>;
@@ -511,13 +517,13 @@ public:
 
   TensorAttr &setDynamicDim(size_t index) {
     dynamicDims_.push_back(index);
-    canonicalizeDynamicDims();
+    canonicalizeDynamicDimIndices(dynamicDims_);
     return *this;
   }
 
   TensorAttr &setDynamicDims(std::span<const size_t> indices) {
     dynamicDims_.assign(indices.begin(), indices.end());
-    canonicalizeDynamicDims();
+    canonicalizeDynamicDimIndices(dynamicDims_);
     return *this;
   }
 
@@ -800,13 +806,58 @@ private:
   // so they should not be in the variant pack.
   bool isScalar_ = false;
   std::optional<scalar_t> scalarValue_;
-
-  void canonicalizeDynamicDims() {
-    std::sort(dynamicDims_.begin(), dynamicDims_.end());
-    dynamicDims_.erase(std::unique(dynamicDims_.begin(), dynamicDims_.end()),
-                       dynamicDims_.end());
-  }
 };
+
+inline void setInferredDynamicDims(const std::shared_ptr<TensorAttr> &tensor,
+                                   std::vector<size_t> dynamicDims) {
+  if (!tensor || tensor->hasDynamicDims())
+    return;
+
+  std::erase_if(dynamicDims, [&](size_t dynamicDim) {
+    return dynamicDim >= tensor->getDim().size() ||
+           tensor->getDim()[dynamicDim] == 1;
+  });
+  canonicalizeDynamicDimIndices(dynamicDims);
+  if (!dynamicDims.empty())
+    tensor->setDynamicDims(dynamicDims);
+}
+
+inline void
+inferSameShapeDynamicDims(const std::shared_ptr<TensorAttr> &output,
+                          const std::shared_ptr<TensorAttr> &input) {
+  if (!output || !input || output->getDim().size() != input->getDim().size())
+    return;
+
+  std::vector<size_t> dynamicDims;
+  for (size_t dynamicDim : input->getDynamicDims()) {
+    if (dynamicDim < input->getDim().size() &&
+        input->getDim()[dynamicDim] == output->getDim()[dynamicDim])
+      dynamicDims.push_back(dynamicDim);
+  }
+  setInferredDynamicDims(output, std::move(dynamicDims));
+}
+
+inline std::vector<size_t> inferBroadcastDynamicDims(
+    const std::vector<std::shared_ptr<TensorAttr>> &inputs,
+    const std::vector<int64_t> &outputDim) {
+  std::vector<size_t> dynamicDims;
+  for (const auto &input : inputs) {
+    if (!input || input->getDim().empty() ||
+        input->getDim().size() > outputDim.size())
+      continue;
+
+    const auto &inputDim = input->getDim();
+    for (size_t offset = 0; offset < inputDim.size(); ++offset) {
+      size_t inputIdx = inputDim.size() - 1 - offset;
+      size_t outputIdx = outputDim.size() - 1 - offset;
+      if (input->isDynamicDim(inputIdx) &&
+          inputDim[inputIdx] == outputDim[outputIdx])
+        dynamicDims.push_back(outputIdx);
+    }
+  }
+  canonicalizeDynamicDimIndices(dynamicDims);
+  return dynamicDims;
+}
 
 // Sorting function for deterministic lookups on TensorAttr containers
 // (`std::set`) ensuring iteration orders are deterministic. It sorts

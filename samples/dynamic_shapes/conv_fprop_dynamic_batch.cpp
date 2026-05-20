@@ -48,9 +48,10 @@ TEST_CASE("Dynamic batch convolution fprop with zero workspace",
                         .setName("conv_fprop");
 
     auto yT = graph->convFProp(xT, wT, convAttr);
-    yT->setDynamicDims({0}).setOutput(true);
+    yT->setOutput(true);
 
     FUSILLI_REQUIRE_OK(graph->validate());
+    REQUIRE(yT->getDynamicDims() == std::vector<size_t>{0});
     FUSILLI_REQUIRE_OK(graph->compile(handle, /*remove=*/true));
 
     return std::make_tuple(graph, xT, wT, yT);

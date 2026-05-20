@@ -10,6 +10,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -151,7 +152,9 @@ TEST_CASE("ReductionNode with SUM mode", "[reduction_node]") {
   int64_t d0 = 16, d1 = 256, d2 = 64, d3 = 32;
 
   auto x = std::make_shared<TensorAttr>();
-  x->setDim({d0, d1, d2, d3}).setStride({d1 * d2 * d3, d2 * d3, d3, 1});
+  x->setDim({d0, d1, d2, d3})
+      .setDynamicDims({0, 2})
+      .setStride({d1 * d2 * d3, d2 * d3, d3, 1});
 
   auto y = std::make_shared<TensorAttr>();
   y->setDim({d0, d1, 1, 1}).setStride({d1, 1, 1, 1});
@@ -161,6 +164,7 @@ TEST_CASE("ReductionNode with SUM mode", "[reduction_node]") {
   ReductionNode node(std::move(attr), ctx);
   FUSILLI_REQUIRE_OK(node.preValidateNode());
   FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+  REQUIRE(y->getDynamicDims() == std::vector<size_t>{0});
 }
 
 TEST_CASE("ReductionNode rejects AVG on integral or boolean tensors",
