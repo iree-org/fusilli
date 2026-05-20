@@ -27,10 +27,12 @@ TEST_CASE("getMatmulInferredOutputShape", "[matmul_node]") {
           std::vector<int64_t>{8, 16, 64});
   REQUIRE(getMatmulInferredOutputShape({8, 16, 32}, {1, 32, 64}) ==
           std::vector<int64_t>{8, 16, 64});
-  REQUIRE(getMatmulInferredOutputShape({4, 16, 32}, {8, 32, 64}) ==
-          std::vector<int64_t>{8, 16, 64});
   REQUIRE(getMatmulInferredOutputShape({1, 8, 16, 32}, {4, 1, 32, 64}) ==
           std::vector<int64_t>{4, 8, 16, 64});
+  REQUIRE(getMatmulInferredOutputShape({16, 32}, {8, 32, 64}) ==
+          std::vector<int64_t>{8, 16, 64});
+  REQUIRE(getMatmulInferredOutputShape({5, 1, 8, 16, 32}, {4, 1, 32, 64}) ==
+          std::vector<int64_t>{5, 4, 8, 16, 64});
 }
 
 TEST_CASE("MatmulNode getName correctly propagates the attribute name",
@@ -145,6 +147,27 @@ TEST_CASE("MatmulNode inferPropertiesNode when C is under-specified",
   auto cT = node.matmulAttr.getC();
   REQUIRE(cT->getDim() == std::vector<int64_t>{m, n});
   REQUIRE(cT->getStride() == std::vector<int64_t>{n, 1});
+}
+
+TEST_CASE("MatmulNode inferPropertiesNode when only C stride is unspecified",
+          "[matmul_node]") {
+  Context ctx;
+  MatmulAttr attr;
+
+  int64_t batch = 8, m = 16, k = 32, n = 64;
+
+  attr.setA(std::make_shared<TensorAttr>(
+      TensorAttr().setDim({batch, m, k}).setStride({m * k, k, 1})));
+  attr.setB(std::make_shared<TensorAttr>(
+      TensorAttr().setDim({1, k, n}).setStride({k * n, n, 1})));
+  attr.setC(std::make_shared<TensorAttr>(TensorAttr().setDim({batch, m, n})));
+
+  MatmulNode node(std::move(attr), ctx);
+  FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+
+  auto cT = node.matmulAttr.getC();
+  REQUIRE(cT->getDim() == std::vector<int64_t>{batch, m, n});
+  REQUIRE(cT->getStride() == std::vector<int64_t>{m * n, n, 1});
 }
 
 TEST_CASE("MatmulNode inferPropertiesNode with batched matrices",
@@ -364,7 +387,9 @@ TEST_CASE("MatmulNode rank checks", "[matmul_node]") {
             "Matmul input tensor B must have a rank of at least 2");
   }
 
-  SECTION("Input tensors must have the same rank") {
+  SECTION("Input tensors may have different batch ranks") {
+    int64_t m = 16, n = 64;
+
     auto aT = std::make_shared<TensorAttr>(
         TensorAttr().setDim({16, 32}).setStride({32, 1}).setName("A_rank2"));
 
@@ -373,19 +398,19 @@ TEST_CASE("MatmulNode rank checks", "[matmul_node]") {
                                                .setStride({32 * 64ll, 64, 1})
                                                .setName("B_rank3"));
 
-    auto cT = std::make_shared<TensorAttr>(
-        TensorAttr().setDim({16, 64}).setStride({64, 1}).setName("C"));
+    auto cT = std::make_shared<TensorAttr>();
 
     attr.setA(aT).setB(bT).setC(cT);
 
     MatmulNode node(std::move(attr), ctx);
 
-    auto status = node.preValidateNode();
-    REQUIRE(isError(status));
-    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
-    REQUIRE(status.getMessage() ==
-            "Matmul input tensors A and B must have the same rank: A has "
-            "rank=2, B has rank=3");
+    FUSILLI_REQUIRE_OK(node.preValidateNode());
+    FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
+    FUSILLI_REQUIRE_OK(node.postValidateNode());
+
+    auto inferredCT = node.matmulAttr.getC();
+    REQUIRE(inferredCT->getDim() == std::vector<int64_t>{8, m, n});
+    REQUIRE(inferredCT->getStride() == std::vector<int64_t>{m * n, n, 1});
   }
 
   SECTION("Output C must be at least rank 2") {
@@ -485,10 +510,11 @@ TEST_CASE("MatmulNode broadcasting dimension compatibility checks",
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
             "Matmul input tensors A and B have incompatible batch dimensions "
-            "for broadcasting at index 0: A has dim=3, B has dim=5");
+            "for broadcasting at right-aligned batch index 0: A has dim=3, "
+            "B has dim=5");
   }
 
-  SECTION("Compatible batch dimensions - one divides the other") {
+  SECTION("Incompatible batch dimensions - one divides the other") {
     int64_t batchA = 8, batchB = 4, m = 16, k = 32, n = 64;
 
     auto aT = std::make_shared<TensorAttr>(
@@ -499,9 +525,38 @@ TEST_CASE("MatmulNode broadcasting dimension compatibility checks",
     auto cT = std::make_shared<TensorAttr>();
     attr.setA(aT).setB(bT).setC(cT);
     MatmulNode node(std::move(attr), ctx);
+
+    auto status = node.preValidateNode();
+    REQUIRE(isError(status));
+    REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
+    REQUIRE(status.getMessage() ==
+            "Matmul input tensors A and B have incompatible batch dimensions "
+            "for broadcasting at right-aligned batch index 0: A has dim=8, "
+            "B has dim=4");
+  }
+
+  SECTION("Compatible unequal-rank batch dimensions") {
+    int64_t b1 = 5, b2 = 8, m = 16, k = 32, n = 64;
+
+    auto aT = std::make_shared<TensorAttr>(
+        TensorAttr()
+            .setDim({b1, 1, b2, m, k})
+            .setStride({b2 * m * k, b2 * m * k, m * k, k, 1}));
+    auto bT = std::make_shared<TensorAttr>(
+        TensorAttr().setDim({4, 1, k, n}).setStride({k * n, k * n, n, 1}));
+
+    auto cT = std::make_shared<TensorAttr>();
+    attr.setA(aT).setB(bT).setC(cT);
+    MatmulNode node(std::move(attr), ctx);
+
     FUSILLI_REQUIRE_OK(node.preValidateNode());
     FUSILLI_REQUIRE_OK(node.inferPropertiesNode());
     FUSILLI_REQUIRE_OK(node.postValidateNode());
+
+    auto inferredCT = node.matmulAttr.getC();
+    REQUIRE(inferredCT->getDim() == std::vector<int64_t>{b1, 4, b2, m, n});
+    REQUIRE(inferredCT->getStride() ==
+            std::vector<int64_t>{4 * b2 * m * n, b2 * m * n, m * n, n, 1});
   }
 
   SECTION("Incompatible multi-dimensional batch") {
@@ -525,7 +580,8 @@ TEST_CASE("MatmulNode broadcasting dimension compatibility checks",
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
             "Matmul input tensors A and B have incompatible batch dimensions "
-            "for broadcasting at index 1: A has dim=3, B has dim=5");
+            "for broadcasting at right-aligned batch index 1: A has dim=3, "
+            "B has dim=5");
   }
 }
 
@@ -708,7 +764,7 @@ TEST_CASE("MatmulNode mixed precision constraints", "[matmul_node]") {
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
             "Mixed precision matmul is only supported when input tensors A and "
-            "B are of rank 3 (single batch dim): A and B have rank=2");
+            "B are of rank 3 (single batch dim): A has rank=2, B has rank=2");
   }
 
   SECTION("Mixed precision 4D matmul (2 batch dims) - fail") {
@@ -736,7 +792,7 @@ TEST_CASE("MatmulNode mixed precision constraints", "[matmul_node]") {
     REQUIRE(status.getCode() == ErrorCode::InvalidAttribute);
     REQUIRE(status.getMessage() ==
             "Mixed precision matmul is only supported when input tensors A and "
-            "B are of rank 3 (single batch dim): A and B have rank=4");
+            "B are of rank 3 (single batch dim): A has rank=4, B has rank=4");
   }
 
   SECTION("Mixed precision with broadcast batch dim - fail") {
