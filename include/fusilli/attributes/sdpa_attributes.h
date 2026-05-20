@@ -28,7 +28,7 @@ class SdpaAttr : public AttributesCRTP<SdpaAttr> {
 public:
   // Names for Tensor Inputs and Outputs.
   enum class InputNames : uint8_t { Q, K, V, MASK };
-  enum class OutputNames : uint8_t { O };
+  enum class OutputNames : uint8_t { O, STATS };
 
   std::unordered_map<InputNames, std::shared_ptr<TensorAttr>> inputs;
   std::unordered_map<OutputNames, std::shared_ptr<TensorAttr>> outputs;
@@ -39,6 +39,7 @@ public:
   FUSILLI_GENERIC_INPUT_TENSOR_SETTER(SdpaAttr, InputNames, V)
   FUSILLI_GENERIC_INPUT_TENSOR_SETTER(SdpaAttr, InputNames, MASK)
   FUSILLI_GENERIC_OUTPUT_TENSOR_SETTER(SdpaAttr, OutputNames, O)
+  FUSILLI_GENERIC_OUTPUT_TENSOR_SETTER(SdpaAttr, OutputNames, STATS)
 
   // Tensor getters:
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, Q)
@@ -46,6 +47,7 @@ public:
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, V)
   FUSILLI_GENERIC_INPUT_TENSOR_GETTER(InputNames, MASK)
   FUSILLI_GENERIC_OUTPUT_TENSOR_GETTER(OutputNames, O)
+  FUSILLI_GENERIC_OUTPUT_TENSOR_GETTER(OutputNames, STATS)
 
   // Scalar attribute setters:
   SdpaAttr &setDropout(float p) {
@@ -68,17 +70,24 @@ public:
     return *this;
   }
 
+  SdpaAttr &setGenerateStats(bool v) {
+    generateStats_ = v;
+    return *this;
+  }
+
   // Scalar attribute getters:
   float getDropout() const { return dropout_; }
   bool getIsCausal() const { return isCausal_; }
   std::optional<float> getScale() const { return scale_; }
   bool getEnableGqa() const { return enableGqa_; }
+  bool getGenerateStats() const { return generateStats_; }
 
 private:
   float dropout_ = 0.0f;
   bool isCausal_ = false;
   std::optional<float> scale_ = std::nullopt;
   bool enableGqa_ = false;
+  bool generateStats_ = false;
 };
 
 } // namespace fusilli

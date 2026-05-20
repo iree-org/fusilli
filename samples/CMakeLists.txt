@@ -191,15 +191,10 @@ add_fusilli_samples(
     sdpa/sdpa_fprop_gqa.cpp
     sdpa/sdpa_fprop_gqa_hk_ne_hv.cpp
     sdpa/sdpa_fprop_cross_attn.cpp
+    sdpa/sdpa_fprop_generate_stats.cpp
   DEPS
     libfusilli
     libutils
     libsdpautils
     Catch2::Catch2WithMain
 )
-
-# XFAIL: TODO(#404): Remove once the compiler supports non-default SDPA scales.
-set_tests_properties(
-  fusilli_sdpa_custom_op_samples_sdpa_fprop_custom_scale
-  fusilli_sdpa_samples_sdpa_fprop_custom_scale
-  PROPERTIES WILL_FAIL TRUE)
