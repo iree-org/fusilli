@@ -84,6 +84,16 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Install amdsharktuner for the AMDGPU-only tuner tests. PyPI lags the IREE
+# RC pinned in version.json, so install from GitHub. Tracks @main deliberately
+# (no manual pin-bump); pin a SHA here, in README.md, and in run_tuner.py if
+# upstream breaks CI.
+if grep -q "^FUSILLI_SYSTEMS_AMDGPU:BOOL=ON$" "${BUILD_DIR}/CMakeCache.txt" 2>/dev/null; then
+  pip install --pre \
+    "amdsharktuner @ git+https://github.com/nod-ai/amd-shark-ai.git@main#subdirectory=amdsharktuner" \
+    --find-links https://iree.dev/pip-release-links.html
+fi
+
 if [[ "${BACKEND}" == "cli" ]]; then
   export FUSILLI_COMPILE_BACKEND_USE_CLI=1
   echo "=== Fusilli test: backend=cli ==="

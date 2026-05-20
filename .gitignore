@@ -7,3 +7,6 @@ build-*/
 benchmark_results.csv
 __pycache__/
 *.pyc
+
+# Tuner artifacts (run_tuner.py)
+fusilli_tuning_*/

@@ -278,6 +278,53 @@ python benchmarks/run_benchmark.py \
   -f commands.txt -o results.csv
 ```
 
+### Tuner
+
+The Fusilli tuner (`benchmarks/run_tuner.py`) generates optimized IREE tuning
+specs for Fusilli operations. It wraps the
+[IREE tuner](https://github.com/nod-ai/amd-shark-ai/tree/main/amdsharktuner) to automatically generate,
+compile, and benchmark tuning candidates.
+
+**AMDGPU only.** The tuner targets ROCm dispatches and requires a build
+configured with `-DFUSILLI_SYSTEMS_AMDGPU=ON`, an AMD GPU at runtime, and
+amdsharktuner installed from source. The PyPI release lags and isn't compatible
+with the IREE RC pinned in `version.json`, so install from GitHub directly:
+
+```shell
+pip install --pre \
+  "amdsharktuner @ git+https://github.com/nod-ai/amd-shark-ai.git@main#subdirectory=amdsharktuner" \
+  --find-links https://iree.dev/pip-release-links.html
+```
+
+**Single operation:**
+```shell
+python benchmarks/run_tuner.py \
+  --devices hip://0 \
+  --num-candidates 30 \
+  --output-td-spec tuning_spec.mlir \
+  --fusilli-args "matmul -M 1024 -N 1024 -K 1024 --a_type bf16 --b_type bf16 --out_type bf16"
+```
+
+**Multiple operations from file:**
+```shell
+python benchmarks/run_tuner.py \
+  --devices hip://0 \
+  --num-candidates 30 \
+  --output-td-spec tuning_spec.mlir \
+  --commands-file commands.txt
+```
+
+When tuning multiple commands, the best spec from each command is automatically
+chained as the starting spec for the next command. To start from an existing
+spec, use `--starter-td-spec <path>`.
+
+The generated tuning spec can then be used with the benchmark driver:
+```shell
+FUSILLI_EXTRA_COMPILER_FLAGS="--iree-codegen-tuning-spec-path=tuning_spec.mlir" \
+  build/bin/benchmarks/fusilli_benchmark_driver --iter 100 \
+  matmul -M 1024 -N 1024 -K 1024 --a_type bf16 --b_type bf16 --out_type bf16
+```
+
 ### Sanitizers
 
 Fusilli supports building with the following sanitizers:
